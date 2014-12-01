@@ -70,7 +70,7 @@
 
 
 /* global variables */
-int debug;				// 0:no debug; 1:minimum debug; 2:maximum debug 
+int debug;						// 0:no debug; 1:minimum debug; 2:maximum debug 
 char *progname;
 
 /**************************************************************************
@@ -721,7 +721,7 @@ int main(int argc, char *argv[]) {
 
 			// write the log file
 			if ( log_file != NULL ) {
-				fprintf (log_file, "rec\tmuxed\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);
+				fprintf (log_file, "rec\tfr_tun\tmuxed\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);
 				fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
 			}
 
@@ -792,7 +792,7 @@ int main(int argc, char *argv[]) {
 
 							// write the log file
 							if ( log_file != NULL ) {
-								fprintf (log_file, "err\tdemux\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);	// the packet is bad so I add a line
+								fprintf (log_file, "err\tfr_tun\tdemux\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);	// the packet is bad so I add a line
 								fflush(log_file);
 							}
 							
@@ -890,7 +890,7 @@ int main(int argc, char *argv[]) {
 
 										// write the log file
 										if ( log_file != NULL ) {
-											fprintf (log_file, "err\tno-decomp\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);	// the packet is bad so I add a line
+											fprintf (log_file, "err\tfr_tun\tno-decomp\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);	// the packet is bad so I add a line
 											fflush(log_file);
 										}
 									}
@@ -903,7 +903,7 @@ int main(int argc, char *argv[]) {
 
 									// write the log file
 									if ( log_file != NULL ) {
-										fprintf (log_file, "err\tdecomp\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);	// the packet is bad so I add a line
+										fprintf (log_file, "err\tfr_tun\tdecomp\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);	// the packet is bad so I add a line
 										fflush(log_file);
 									}
 								}
@@ -918,7 +918,7 @@ int main(int argc, char *argv[]) {
 
 								// write the log file
 								if ( log_file != NULL ) {
-									fprintf (log_file, "sent\tnative\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);	// the packet is bad so I add a line
+									fprintf (log_file, "sent\tto_net\tnative\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(local.sin_addr), ntohs(local.sin_port), packet_length, net2tap);	// the packet is bad so I add a line
 									fflush(log_file);
 								}
 							}
@@ -933,7 +933,7 @@ int main(int argc, char *argv[]) {
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "rec\tno-muxed\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);	// the packet is bad so I add a line
+					fprintf (log_file, "rec\tfr_net\tno-muxed\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net, net2tap);	// the packet is bad so I add a line
 					fflush(log_file);
 				}
 			}
@@ -954,7 +954,7 @@ int main(int argc, char *argv[]) {
 
 			// write the log file
 			if ( log_file != NULL ) {
-				fprintf (log_file, "rec\tnative\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(local.sin_addr), ntohs(local.sin_port), size_packet_read_from_tap, tap2net);
+				fprintf (log_file, "rec\tfr_net\tnative\t%"PRIu64"\t%s\t%d\t%i\t%lu\n", GetTimeStamp(), inet_ntoa(local.sin_addr), ntohs(local.sin_port), size_packet_read_from_tap, tap2net);
 				fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 			}
 
@@ -1037,7 +1037,7 @@ int main(int argc, char *argv[]) {
 					/* compressor failed to compress the IP packet */
 					fprintf(stderr, "compression of IP packet failed\n");
 					if ( log_file != NULL ) {
-						fprintf (log_file, "err\tcompr\t%"PRIu64"\t%s\t%d\t%lu\t%i\n", GetTimeStamp(), inet_ntoa(local.sin_addr), ntohs(local.sin_port), tap2net, size_packet_read_from_tap);
+						fprintf (log_file, "err\tto_tun\tcompr\t%"PRIu64"\t%s\t%d\t%lu\t%i\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), tap2net, size_packet_read_from_tap);
 						fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 					}
 					//goto release_compressor;
@@ -1065,7 +1065,7 @@ int main(int argc, char *argv[]) {
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "sent\tmuxed\t%"PRIu64"\t%s\t%d\t%i\t%lu\t%i\tMTU\n", GetTimeStamp(), inet_ntoa(local.sin_addr), ntohs(local.sin_port), size_muxed_packet, tap2net, num_pkts_stored_from_tap);
+					fprintf (log_file, "sent\tto_tun\tmuxed\t%"PRIu64"\t%s\t%d\t%i\t%lu\t%i\tMTU\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), size_muxed_packet, tap2net, num_pkts_stored_from_tap);
 					fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 				}
 
@@ -1147,7 +1147,7 @@ int main(int argc, char *argv[]) {
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "sent\tmuxed\t%"PRIu64"\t%s\t%d\t%i\t%lu\t%i", GetTimeStamp(), inet_ntoa(local.sin_addr), ntohs(local.sin_port), size_muxed_packet, tap2net, num_pkts_stored_from_tap);
+					fprintf (log_file, "sent\tto_tun\tmuxed\t%"PRIu64"\t%s\t%d\t%i\t%lu\t%i", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), size_muxed_packet, tap2net, num_pkts_stored_from_tap);
 					if (num_pkts_stored_from_tap == limit_numpackets_tap)
 						fprintf(log_file, "\tnumpacket_limit");
 					if (size_muxed_packet > size_threshold)
@@ -1183,7 +1183,7 @@ int main(int argc, char *argv[]) {
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "sent\tmuxed\t%"PRIu64"\t%s\t%d\t%i\t%lu\t%i\tperiod\n", GetTimeStamp(), inet_ntoa(local.sin_addr), ntohs(local.sin_port), size_muxed_packet, tap2net, num_pkts_stored_from_tap);	
+					fprintf (log_file, "sent\tto_tun\tmuxed\t%"PRIu64"\t%s\t%d\t%i\t%lu\t%i\tperiod\n", GetTimeStamp(), inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), size_muxed_packet, tap2net, num_pkts_stored_from_tap);	
 				}
 
 				size_muxed_packet = 0 ;
