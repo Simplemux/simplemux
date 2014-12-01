@@ -1,11 +1,11 @@
 /**************************************************************************
- * simplemux.c            version 1.4.5                                   *
+ * simplemux.c            version 1.4.6                                   *
  *                                                                        *
  * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
  * these header-compressed packets between a pair of machines (called     *
  * optimizers). The multiplexed bundle is sent in an IP/UDP packet.       *
  *                                                                        *
- * Simplemux can be seen as a naïve implementation of TCM , a protocol    *
+ * Simplemux can be seen as a naive implementation of TCM , a protocol    *
  * combining Tunneling, Compressing and Multiplexing for the optimization *
  * of small-packet flows. TCM may use of a number of different standard   *
  * algorithms for header compression, multiplexing and tunneling,         *
