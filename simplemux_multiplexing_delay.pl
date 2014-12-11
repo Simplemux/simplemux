@@ -1,17 +1,34 @@
-# simplemux_multiplexing_delay.pl version 1.1
+# simplemux_multiplexing_delay.pl version 1.2
 
 # it is able to calculate the multiplexing delay of each packet, from a Simplemux output trace
 
 # the result is in two columns:
 # native_packet_id	multiplexing_delay(us)
 
+# it also generates some statistics about:
+#	- number of packets
+#	- average multiplexing delay
+#	- stdev of the multiplexing delay
+
 # usage:
 
 # $ perl simplemux_multiplexing_delay.pl <trace file> <output file>
 
-$infile 	= $ARGV[0];			# name of the log file
-$outfile	= $ARGV[1];			# name of the output file (by default it is STDOUT)
+# check the number of arguments
 
+# the first argument is the name of the Simplemux log file
+if ( @ARGV > 0 ) {
+	$infile = $ARGV[0];
+
+	# the second argument is the name of the output file
+	if ( @ARGV > 1 ) {
+		open (OUTPUT_FILE, '>', $ARGV[1]);
+	}
+# no log file specified
+} else {
+	print STDOUT "Log file not specified\n\nusage:\nperl simplemux_multiplexing_delay.pl <trace file> <output file>\n";
+	exit;
+}
 
 # call Linux "grep" to create two temporal files from the log file
 # tmp_rec_native.txt	includes the native packets received by the ingress optimizer
@@ -19,21 +36,21 @@ $outfile	= $ARGV[1];			# name of the output file (by default it is STDOUT)
 system ("grep 'rec'.'native' $infile > tmp_rec_native.txt");
 system ("grep 'sent'.'muxed' $infile > tmp_sent_muxed.txt");
 
-# open the two files
+# open the two input files
 open (DATA_MUXED,"<tmp_sent_muxed.txt")
 	|| die "Can't open tmp_sent_muxed.txt $!";
 
 open (DATA_NATIVE,"<tmp_rec_native.txt")
 	|| die "Can't open tmp_rec_native.txt $!";
 
-# by default the output goes to STDOUT
-if ($outfile eq undef) {
-	$outfile = STDOUT;
-} 
-open (OUTPUT_FILE, ">>$outfile");
-
-# print a line with the meaning of each column
-printf $outfile "packet_id\tmultiplexing_delay(us)\n";
+# print a line with the meaning of each column in the output file
+# if the name of the output file has been given
+if ( @ARGV > 1 ) {
+	printf OUTPUT_FILE "packet_id\tmultiplexing_delay(us)\n";
+# if it goes to stdout
+} else {
+	printf "packet_id\tmultiplexing_delay(us)\n";
+}
 
 # variables for statistics
 $num_muxed_packets = 0;			# the number of packets multiplexed into each bundle
@@ -64,7 +81,13 @@ while (my $muxed_string = <DATA_MUXED>) {
 		if($y[4] <= $last_packet_id) {
 			$mux_delay = $x[0]-$y[0];
 			# for each native packet
-			printf $outfile "$y[4]\t$mux_delay\n";
+			# if the name of the output file has been given
+			if ( @ARGV > 1 ) {
+				printf OUTPUT_FILE "$y[4]\t$mux_delay\n";
+			# if it goes to stdout
+			} else {
+				printf "$y[4]\t$mux_delay\n";
+			}
 			$total_native_packets++;
 			$cumulative_delay = $cumulative_delay + $mux_delay;
 			$cumulative_delay_squares = $cumulative_delay_squares + ($mux_delay * $mux_delay);
@@ -73,20 +96,21 @@ while (my $muxed_string = <DATA_MUXED>) {
 	}
 }
 
-
-# delete the two temporal files
-system("rm", "tmp_sent_muxed.txt");
-system("rm", "tmp_rec_native.txt");
-
-close DATA_MUXED;
-close DATA_NATIVE;
-close OUTPUT_FILE;
-
 # calculate statistics and display them
 $average_multiplexing_delay = $cumulative_delay / $total_native_packets;
 $stdev_multiplexing_delay = sqrt (($cumulative_delay_squares - ($cumulative_delay * $cumulative_delay)/$total_native_packets)/($total_native_packets - 1));
 printf STDOUT "total native packets:\t$total_native_packets\n";
 printf STDOUT "Average multiplexing delay:\t$average_multiplexing_delay us\n";
 printf STDOUT "stdev of the multiplexing delay:\t$stdev_multiplexing_delay us\n";
+
+close DATA_MUXED;
+close DATA_NATIVE;
+
+if ( @ARGV > 1 ) {
+	close OUTPUT_FILE;
+}
+# delete the two temporal files
+system("rm", "tmp_sent_muxed.txt");
+system("rm", "tmp_rec_native.txt");
 
 exit(0);
