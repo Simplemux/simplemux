@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.4.7                                   *
+ * simplemux.c            version 1.4.8                                   *
  *                                                                        *
  * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
  * these header-compressed packets between a pair of machines (called     *
@@ -126,7 +126,7 @@ int cread(int fd, char *buf, int n){
  * cwrite: write routine that checks for errors and exits if an error is  *
  *         returned.                                                      *
  **************************************************************************/
-int cwrite(int fd, char *buf, int n){
+int cwrite(int fd, unsigned char *buf, int n){
   
   int nwritten;
 
@@ -340,10 +340,10 @@ int main(int argc, char *argv[]) {
 	int maxfd;
 	uint16_t nread_from_net;
 	uint16_t size_packet_read_from_tap;
-	 char packet_read_from_tap[BUFSIZE];			// stores a packet received from tap, before storing it or sending it to the network
-	 char buffer_from_net[BUFSIZE];					// stores the packet received from the network, before sending it to tap
-	 char muxed_packet[MTU];						// stores the multiplexed packet
-	 char demuxed_packet[MTU];						// stores each demultiplexed packet
+	char packet_read_from_tap[BUFSIZE];				// stores a packet received from tap, before storing it or sending it to the network
+	unsigned char buffer_from_net[BUFSIZE];			// stores the packet received from the network, before sending it to tap
+	unsigned char muxed_packet[MTU];							// stores the multiplexed packet
+	unsigned char demuxed_packet[MTU];						// stores each demultiplexed packet
 	struct sockaddr_in local, remote;				// these are structs for storing sockets
 	socklen_t slen = sizeof(remote);				// size of the socket. The type is like an int, but adequate for the size of the socket
 	char remote_ip[16] = "";            			// dotted quad IP string with the IP of the remote machine
@@ -369,7 +369,12 @@ int main(int argc, char *argv[]) {
 	int packet_length;								// the length of each packet inside the multiplexed bundle
 	int network_mtu;								// the maximum transfer unit of the interface
 	int num_demuxed_packets;						// a counter of the number of packets inside a muxed one
-
+	int single_protocol;							// it is 1 when the Single-Protocol-Bit of the first header is 1
+	int first_header_read;							// it is 0 when the first header has not been read
+	int LXT_position;								// the position of the LXT bit. It may be 6 (non-first header) or 7 (first header)
+	int maximum_packet_length;						// the maximum lentgh of a packet. It may be 64 (first header) or 128 (non-first header)
+	int first_header_written = 0;					// it indicates if the first header has been written or not
+	int different_protocols = 0;					// it indicates if the packets belong to different protocols or not
     int ret;										// value returned by the "select" function
   	fd_set rd_set;									// rd_set is a set of file descriptors used to know which interface has received a packet
 
@@ -733,198 +738,225 @@ int main(int argc, char *argv[]) {
 				position = 0; //this is the index for reading the packet/frame
 				num_demuxed_packets = 0;
 
+
+				first_header_read = 0;
+
 				while (position < nread_from_net) {
-					// the first thing I expect is a Mux separator. Check if the first bit is 0. Otherwise, the separator is bad
+					// the first thing I expect is a Mux separator, so I check the first byte
 					FromByte(buffer_from_net[position], bits);
-					if (bits[7]) {
-						//bad packet. The first bit of the separator is 0
-						do_debug(1, " NET2TAP: bad multiplexed packet received. Begins with: %02x. Packet dropped\n", buffer_from_net[position]);
-						position = nread_from_net;
+
+					// check if this is the first separator or not
+					if (first_header_read == 0) {		// this is the first separator
+
+						// check the Single Protocol Bit (SPB, one bit), which only appears in the first
+   						// Simplemux header.  It would is set to 0 if all the multiplexed
+						// packets belong to the same protocol (in this case, the "protocol"
+						// field will only appear in the first Simplemux header).  It is set to
+						// 1 when each packet MAY belong to a different protocol.
+						if (bits[7]) {
+							single_protocol = 1;
+						} else {
+							single_protocol = 0;
+						}
+
+						// if this is a first header, the length extension bit is the second one, and the maximum
+						// length of a packet is 64 bytes
+						LXT_position = 6;
+						maximum_packet_length = 64;			
+
+						// if I am here, it means that I have read the first separator
+						first_header_read = 1;
+									
+					} else {
+						// if this is a non-first header, the length extension bit is the second one, and the maximum
+						// length of a packet is 64 bytes
+						LXT_position = 7;
+						maximum_packet_length = 128;
+					}
+
+
+					num_demuxed_packets ++;
+					//do_debug(2, "\n");
+					do_debug(1, " NET2TAP: packet #%i demuxed", num_demuxed_packets);
+					if ((debug == 1) && (compress_headers == 0) ) do_debug (1,"\n");
+					do_debug(2, ": ");
+
+					// Check the LXT (length extension) bit.
+					// if this is a first header, the length extension bit is the second one, and the maximum
+					// length of a packet is 64 bytes
+
+
+					if (bits[LXT_position]== false) {
+						// if the LXT bit is 0, it means that the separator is one-byte
+						// I have to convert the six less significant bits to an integer, which means the length of the packet
+						// since the two most significant bits are 0, the length is the value of the char
+						packet_length = buffer_from_net[position] % maximum_packet_length;
+						do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
+						PrintByte(2, bits);
+
+						position = position + 1;
+					} else {
+						// if the second bit is 1, it means that the separator is two bytes
+						// I get the six less significant bits by using modulo maximum_packet_length
+						// I do de product by 256 and add the resulting number to the second byte
+						packet_length = ((buffer_from_net[position] % maximum_packet_length) * 256 ) + buffer_from_net[position+1];
+
+						if (debug ) {
+							do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
+							PrintByte(2, bits);
+							FromByte(buffer_from_net[position+1], bits);
+							do_debug(2, " (%02x) ",buffer_from_net[position+1]);
+							PrintByte(2, bits);	
+						}					
+						position = position + 2;
+					}
+					do_debug(2, " (%i bytes)\n", packet_length);
+
+					// copy the packet to a new string
+					for (l = 0; l < packet_length ; l++) {
+						demuxed_packet[l] = buffer_from_net[position];
+						position ++;
+					}
+
+					// Check if the position has gone beyond the size of the packet
+					if (position > nread_from_net) {
+						// The last length read from the separator goes beyond the end of the packet
+						do_debug (1, "  The length of the packet does not fit. Packet discarded\n");
 
 						// write the log file
 						if ( log_file != NULL ) {
-							fprintf (log_file, "%"PRIu64"\terror\tbad_separator\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap );	// the packet is not good
+							fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap );	// the packet is bad so I add a line
 							fflush(log_file);
 						}
 						
 					} else {
-						num_demuxed_packets ++;
-						//do_debug(2, "\n");
-						do_debug(1, " NET2TAP: packet #%i demuxed", num_demuxed_packets);
-						if ((debug == 1) && (compress_headers == 0) ) do_debug (1,"\n");
-						do_debug(2, ": ");
+						/************ decompress the packet ***************/
+						if ( compress_headers == 1 ) {
 
-						// Check the second bit. 
-						if (bits[6]== false) {
-							// if the second bit is 0, it means that the separator is one-byte
-							// I have to convert the six less significant bits to an integer, which means the length of the packet
-							// since the two most significant bits are 0, the length is the value of the char
-							packet_length = buffer_from_net[position] % 128;
-							do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
-							PrintByte(2, bits);
+						// reset the buffer where the rohc and ip packets are to be stored
+						rohc_buf_reset (&ip_packet_d);
+						rohc_buf_reset (&rohc_packet_d);
 
-							position = position + 1;
-						} else {
-							// if the second bit is 1, it means that the separator is two bytes
-							// I get the six less significant bits by using modulo 64
-							// I do de product by 256 and add the resulting number to the second byte
-							packet_length = ((buffer_from_net[position] % 64) * 256 ) + buffer_from_net[position+1];
-							if (debug ) {
-								do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
-								PrintByte(2, bits);
-								FromByte(buffer_from_net[position+1], bits);
-								do_debug(2, " (%02x) ",buffer_from_net[position+1]);
-								PrintByte(2, bits);	
-							}					
-							position = position + 2;
-						}
-						do_debug(2, " (%i bytes)\n", packet_length);
-
-						// copy the packet to a new string
+						// Copy the compressed length and the compressed packet
+						rohc_packet_d.len = packet_length;
+						
 						for (l = 0; l < packet_length ; l++) {
-							demuxed_packet[l] = buffer_from_net[position];
-							position ++;
+							rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
 						}
 
-						// Check if the position has gone beyond the size of the packet
-						if (position > nread_from_net) {
-							// The last length read from the separator goes beyond the end of the packet
-							do_debug (1, "  The length of the packet does not fit. Packet discarded\n");
-
-							// write the log file
-							if ( log_file != NULL ) {
-								fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap );	// the packet is bad so I add a line
-								fflush(log_file);
-							}
-							
-						} else {
-							/************ decompress the packet ***************/
-							if ( compress_headers == 1 ) {
-
-							// reset the buffer where the rohc and ip packets are to be stored
-							rohc_buf_reset (&ip_packet_d);
-							rohc_buf_reset (&rohc_packet_d);
-
-							// Copy the compressed length and the compressed packet
-							rohc_packet_d.len = packet_length;
-							
-							for (l = 0; l < packet_length ; l++) {
-								rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
-							}
-
-							// dump the ROHC packet on terminal
-							if (debug) {
-								do_debug(2, " ");
-								do_debug(1, " ROHC ");
-								do_debug(2, "packet\n   ");
-								for(j = 0; j < rohc_packet_d.len; j++)
-								{
-									do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet_d, j));
-									if(j != 0 && ((j + 1) % 16) == 0)
-									{
-										do_debug(2, "\n");
-										if ( j != (ip_packet_d.len -1 )) do_debug(2,"   ");
-									}
-									// separate in groups of 8 bytes
-									else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-									{
-										do_debug(2, "  ");
-									}
-								}
-								if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+						// dump the ROHC packet on terminal
+						if (debug) {
+							do_debug(2, " ");
+							do_debug(1, " ROHC ");
+							do_debug(2, "packet\n   ");
+							for(j = 0; j < rohc_packet_d.len; j++)
+							{
+								do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet_d, j));
+								if(j != 0 && ((j + 1) % 16) == 0)
 								{
 									do_debug(2, "\n");
+									if ( j != (ip_packet_d.len -1 )) do_debug(2,"   ");
+								}
+								// separate in groups of 8 bytes
+								else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
+								{
+									do_debug(2, "  ");
 								}
 							}
+							if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+							{
+								do_debug(2, "\n");
+							}
+						}
 
-							// decompress the packet
-							status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, rcvd_feedback, feedback_send);
-							if(status == ROHC_STATUS_OK) {
-								/* decompression is successful */
+						// decompress the packet
+						status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, rcvd_feedback, feedback_send);
+						if(status == ROHC_STATUS_OK) {
+							/* decompression is successful */
 
-									if(!rohc_buf_is_empty(ip_packet_d))	// packet is not empty
-									{
-										// ip_packet.len bytes of decompressed IP data available in ip_packet
-										packet_length = ip_packet_d.len;
+								if(!rohc_buf_is_empty(ip_packet_d))	// packet is not empty
+								{
+									// ip_packet.len bytes of decompressed IP data available in ip_packet
+									packet_length = ip_packet_d.len;
 
-										/* copy the packet */
-										memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
+									/* copy the packet */
+									memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
 
-										//dump the IP packet on the standard output
-										do_debug(2, "  ");
-										do_debug(1, "IP packet resulting from the ROHC decompression (%i bytes) written to TAP\n", packet_length);
-										do_debug(2, "   ");
+									//dump the IP packet on the standard output
+									do_debug(2, "  ");
+									do_debug(1, "IP packet resulting from the ROHC decompression (%i bytes) written to TAP\n", packet_length);
+									do_debug(2, "   ");
 
-										if (debug) {
+									if (debug) {
 
-											/* dump the decompressed IP packet on terminal */
-											for(j = 0; j < ip_packet_d.len; j++)
-											{
-												do_debug(2, "%02x ", rohc_buf_byte_at(ip_packet_d, j));
-												if(j != 0 && ((j + 1) % 16) == 0)
-												{
-													do_debug(2, "\n");
-													if ( j != (ip_packet_d.len -1 )) do_debug(2,"   ");
-												}
-												// separate in groups of 8 bytes
-												else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-												{
-													do_debug(2, "  ");
-												}
-											}
-											if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+										/* dump the decompressed IP packet on terminal */
+										for(j = 0; j < ip_packet_d.len; j++)
+										{
+											do_debug(2, "%02x ", rohc_buf_byte_at(ip_packet_d, j));
+											if(j != 0 && ((j + 1) % 16) == 0)
 											{
 												do_debug(2, "\n");
+												if ( j != (ip_packet_d.len -1 )) do_debug(2,"   ");
+											}
+											// separate in groups of 8 bytes
+											else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
+											{
+												do_debug(2, "  ");
 											}
 										}
-									}
-									else
-									{
-										/* no IP packet was decompressed because of ROHC segmentation or
-										 * feedback-only packet:
-										 *  - the ROHC packet was a non-final segment, so at least another
-										 *    ROHC segment is required to be able to decompress the full
-										 *    ROHC packet
-										 *  - the ROHC packet was a feedback-only packet, it contained only
-										 *    feedback information, so there was nothing to decompress */
-										do_debug(1, "  no IP packet decompressed\n");
-
-										// write the log file
-										if ( log_file != NULL ) {
-											fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tap, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));	// the packet is bad so I add a line
-											fflush(log_file);
+										if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+										{
+											do_debug(2, "\n");
 										}
 									}
 								}
 								else
 								{
-									/* failure: decompressor failed to decompress the ROHC packet */
-									do_debug(2, "  decompression of ROHC packet failed\n");
-									fprintf(stderr, "  decompression of ROHC packet failed\n");
+									/* no IP packet was decompressed because of ROHC segmentation or
+									 * feedback-only packet:
+									 *  - the ROHC packet was a non-final segment, so at least another
+									 *    ROHC segment is required to be able to decompress the full
+									 *    ROHC packet
+									 *  - the ROHC packet was a feedback-only packet, it contained only
+									 *    feedback information, so there was nothing to decompress */
+									do_debug(1, "  no IP packet decompressed\n");
 
 									// write the log file
 									if ( log_file != NULL ) {
-										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap);	// the packet is bad
+										fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tap, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));	// the packet is bad so I add a line
 										fflush(log_file);
 									}
 								}
-
-
-							} /*********** end decompression **************/
-
-							// write the demuxed (and perhaps decompressed) packet to the tun/tap interface
-							// if compression is used, check that ROHC has decompressed correctly
-							if ( ( compress_headers == 0 ) || ((compress_headers == 1) && ( status == ROHC_STATUS_OK))) {
-								cwrite ( tap_fd, demuxed_packet, packet_length );
+							}
+							else
+							{
+								/* failure: decompressor failed to decompress the ROHC packet */
+								do_debug(2, "  decompression of ROHC packet failed\n");
+								fprintf(stderr, "  decompression of ROHC packet failed\n");
 
 								// write the log file
 								if ( log_file != NULL ) {
-									fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tap);	// the packet is good
+									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap);	// the packet is bad
 									fflush(log_file);
 								}
 							}
+
+
+						} /*********** end decompression **************/
+
+						// write the demuxed (and perhaps decompressed) packet to the tun/tap interface
+						// if compression is used, check that ROHC has decompressed correctly
+						if ( ( compress_headers == 0 ) || ((compress_headers == 1) && ( status == ROHC_STATUS_OK))) {
+							cwrite ( tap_fd, demuxed_packet, packet_length );
+
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tap);	// the packet is good
+								fflush(log_file);
+							}
 						}
 					}
+
 				}
 
 			} else {
@@ -1052,16 +1084,29 @@ int main(int argc, char *argv[]) {
 
 			} /*************** end compression ***************/
 
-			if (size_packet_read_from_tap < 64 ) {
-				predicted_size_muxed_packet = size_muxed_packet + 1 + size_packet_read_from_tap;
+
+			// check if this packet will override the MTU
+			if (first_header_written == 0) {
+				// this is not the first header, so the maximum length is 128
+				if (size_packet_read_from_tap < 64 ) {
+					predicted_size_muxed_packet = size_muxed_packet + 1 + size_packet_read_from_tap;
+				} else {
+					predicted_size_muxed_packet = size_muxed_packet + 2 + size_packet_read_from_tap;
+				}
 			} else {
-				predicted_size_muxed_packet = size_muxed_packet + 2 + size_packet_read_from_tap;
+				// this is the first header, so the maximum length is 64
+				if (size_packet_read_from_tap < 128 ) {
+					predicted_size_muxed_packet = size_muxed_packet + 1 + size_packet_read_from_tap;
+				} else {
+					predicted_size_muxed_packet = size_muxed_packet + 2 + size_packet_read_from_tap;
+				}
 			}
 
 			// if this packet was muxed, the MTU would be overriden. So I first empty the buffer
 			if (predicted_size_muxed_packet > MTU ) {
 	      		do_debug(1, " MTU reached. Sending muxed packet without this one (%i bytes).", size_muxed_packet);
 
+				// send the multiplexed packet
 				if (sendto(net_fd, muxed_packet, size_muxed_packet, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 
 				// write the log file
@@ -1070,6 +1115,10 @@ int main(int argc, char *argv[]) {
 					fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 				}
 
+				// I have sent a packet, so I set to 0 the "first_header_written" bit
+				first_header_written = 0;
+
+				// reset the length and the number of packets
 				size_muxed_packet = 0;
 				num_pkts_stored_from_tap = 0;
 			}
@@ -1078,13 +1127,30 @@ int main(int argc, char *argv[]) {
 			// I accumulate this packet in the buffer
 			num_pkts_stored_from_tap ++;
 
-			// I have to add the packet length separator. It is 1 byte if the length is smaller than 64. 
-			// it is 2 bytes if the lengh is 64 or more
-			if (size_packet_read_from_tap  < 64 ) {
+			// I have to add the multiplexing separator. It is 1 byte if the length is smaller than 64 (or 128). 
+			// it is 2 bytes if the lengh is 64 (or 128) or more
+			if (first_header_written == 0) {
+				// this is the first header
+				maximum_packet_length = 64;
+			} else {
+				// this is a non-first header
+				maximum_packet_length = 128;
+			}
 
-				// add the length to the string. the MSB is always 0 (PFF field of Mux)
-				// since the value is <64, the two most significant bits will always be 0
+			// a single-byte separator
+			if (size_packet_read_from_tap < maximum_packet_length ) {
+
+				// add the length to the string.
+				// since the value is <maximum_packet_length, the most significant bit will always be 0
 				muxed_packet[size_muxed_packet] = size_packet_read_from_tap;
+
+				// Add the Single Protocol Bit if this is the first header (the most significant bit)
+				// It is 0 if all the multiplexed packets belong to the same protocol
+				if (first_header_written == 0) {
+					if (different_protocols == 1) {
+						muxed_packet[size_muxed_packet] = muxed_packet[size_muxed_packet] + 128;	// this puts a 1 in the most significant bit position
+					}
+				}
 
 				// print the first byte of the Mux separator
 				if(debug) {
@@ -1095,11 +1161,18 @@ int main(int argc, char *argv[]) {
 				}
 				size_muxed_packet ++;
 
+			// a two-byte separator
 			} else {
-				// first byte of the Mux separator (MSB=0, PFF=1 and 6 bits with the most significant bytes of the length)
+				// the first byte of the Mux separator can be
+				// - first-header: SPB bit, LXT=1 and 6 bits with the most significant bytes of the length
+				// - non-first-header: LXT=1 and 7 bits with the most significant bytes of the length
 				// get the most significant byte by dividing by 256
-				// add 64 in order to put a '1' in the second bit
-				muxed_packet[size_muxed_packet] = (size_packet_read_from_tap / 256 ) + 64;
+				// add 64 (or 128) in order to put a '1' in the second (or first) bit
+				if (first_header_written == 0) {
+					muxed_packet[size_muxed_packet] = (size_packet_read_from_tap / 256 ) + 64;	// first header
+				} else {
+					muxed_packet[size_muxed_packet] = (size_packet_read_from_tap / 256 ) + 128;	// non-first header
+				}
 
 				// second byte: the 8 less significant bytes of the length. Use modulo
 				muxed_packet[size_muxed_packet + 1] = size_packet_read_from_tap % 256;
@@ -1115,6 +1188,11 @@ int main(int argc, char *argv[]) {
 					do_debug(2, "\n");
 				}	
 				size_muxed_packet = size_muxed_packet + 2;
+			}
+
+			// I have written a header, so I have to set to 1 the "first header written bit"
+			if (first_header_written == 0) {
+				first_header_written = 1;
 			}
 
 			// I add the packet itself to the muxed packet
@@ -1133,7 +1211,7 @@ int main(int argc, char *argv[]) {
 			// if the packet limit or the size threshold or the MTU are reached, send all the stored packets to the network
 			// do not worry about the MTU. if it is reached, a number of packets will be sent
 			if ((num_pkts_stored_from_tap == limit_numpackets_tap) || (size_muxed_packet > size_threshold) || (time_difference > timeout )){
-				// send all the packets
+				// write the debug information
 				if (debug) {
 					do_debug(1, " TAP2NET**Sending triggered**. ");
 					if (num_pkts_stored_from_tap == limit_numpackets_tap)
@@ -1144,6 +1222,8 @@ int main(int argc, char *argv[]) {
 						do_debug(1, "timeout reached. ");		
 					do_debug(1, "Writing %i packets (%i bytes) to network\n", num_pkts_stored_from_tap, size_muxed_packet);						
 				}
+
+				// send the multiplexed packet
 				if (sendto(net_fd, muxed_packet, size_muxed_packet, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 
 				// write the log file
@@ -1159,8 +1239,13 @@ int main(int argc, char *argv[]) {
 					fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 				}
 
+				// I have sent a packet, so I set to 0 the "first_header_written" bit
+				first_header_written = 0;
+
+				// reset the length and the number of packets
 				size_muxed_packet = 0 ;
 				num_pkts_stored_from_tap = 0;
+
 				time_last_sent_in_microsec = time_in_microsec;
 			}
     	} 
@@ -1180,6 +1265,8 @@ int main(int argc, char *argv[]) {
 					do_debug(1, "Writing %i packets (%i bytes) to network\n", num_pkts_stored_from_tap, size_muxed_packet);						
 
 				}
+
+				// send the multiplexed packet
 				if (sendto(net_fd, muxed_packet, size_muxed_packet, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 
 				// write the log file
@@ -1187,6 +1274,10 @@ int main(int argc, char *argv[]) {
 					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet, tap2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tap);	
 				}
 
+				// I have sent a packet, so I set to 0 the "first_header_written" bit
+				first_header_written = 0;
+
+				// reset the length and the number of packets
 				size_muxed_packet = 0 ;
 				num_pkts_stored_from_tap = 0;
 
