@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.4.8                                   *
+ * simplemux.c            version 1.5.0                                   *
  *                                                                        *
  * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
  * these header-compressed packets between a pair of machines (called     *
@@ -111,7 +111,7 @@ int tun_alloc(char *dev, int flags) {
  * cread: read routine that checks for errors and exits if an error is    *
  *        returned.                                                       *
  **************************************************************************/
-int cread(int fd, char *buf, int n){
+int cread(int fd, unsigned char *buf, int n){
   
   int nread;
 
@@ -141,7 +141,7 @@ int cwrite(int fd, unsigned char *buf, int n){
  * read_n: ensures we read exactly n bytes, and puts them into "buf".     *
  *         (unless EOF, of course)                                        *
  **************************************************************************/
-int read_n(int fd, char *buf, int n) {
+int read_n(int fd, unsigned char *buf, int n) {
 
   int nread, left = n;
 
@@ -216,7 +216,6 @@ uint64_t GetTimeStamp() {
     return tv.tv_sec*(uint64_t)1000000+tv.tv_usec;
 }
 
-
 /**************************************************************************
  * ToByte: convert an array of booleans to a char                         *
  **************************************************************************/
@@ -236,7 +235,6 @@ unsigned char ToByte(bool b[8])
             c |= 1 << i;
     return c;
 }
-
 
 /**************************************************************************
  * FromByte: return an array of booleans from a char                      *
@@ -263,10 +261,16 @@ void FromByte(unsigned char c, bool b[8])
 /**************************************************************************
  * PrintByte: prints the bits of a byte                                   *
  **************************************************************************/
-void PrintByte(int debug_level, bool b[8])
+void PrintByte(int debug_level, int num_bits, bool b[8])
 {
+	// num_bits is the number of bits to print
+	// if 'num_bits' is smaller than 7, the function prints an 'x' instead of the value
+
 	int i;
-	for (i=7; i>=0; i--) {
+	for (i= 7 ; i>= num_bits ; i--) {
+			do_debug(debug_level, "x");
+	}
+	for (i= num_bits -1 ; i>=0; i--) {
 		if (b[i]) {
 			do_debug(debug_level, "1");
 		} else {
@@ -275,14 +279,105 @@ void PrintByte(int debug_level, bool b[8])
 	}
 }
 
+/**************************************************************************
+ * return an string with the date and the time in format %Y-%m-%d_%H.%M.%S*
+ **************************************************************************/
+int date_and_time(char buffer[25])
+{
+	time_t timer;
+    struct tm* tm_info;
+
+    time(&timer);
+    tm_info = localtime(&timer);
+	strftime(buffer, 25, "%Y-%m-%d_%H.%M.%S", tm_info);
+    return EXIT_SUCCESS;
+}
+
+/**************************************************************************
+ *                   build the multiplexed packet                         *
+ **************************************************************************/
+// it takes all the variables where packets are stored, and builds a multiplexed packet
+// the variables are:
+//	- prot[MAXPKTS]						the protocol byte of each packet
+//	- size_separators_to_mux[MAXPKTS]	the size of each separator (1 or 2 bytes). Protocol byte not included
+//	- separators_to_mux[MAXPKTS][2]		the separators
+//	- size_packets_to_mux[MAXPKTS]		the size of each packet to be multiplexed
+//	- packets_to_mux[MAXPKTS][BUFSIZE]	the packet to be multiplexed
+
+// the multiplexed packet is stored in mux_packet[BUFSIZE]
+// the length of the multiplexed packet is returned by this function
+uint16_t build_multiplexed_packet ( int num_packets, int single_prot, unsigned char prot[MAXPKTS], uint16_t size_separators_to_mux[MAXPKTS], unsigned char separators_to_mux[MAXPKTS][2], uint16_t size_packets_to_mux[MAXPKTS], unsigned char packets_to_mux[MAXPKTS][BUFSIZE], unsigned char mux_packet[BUFSIZE])
+{
+	int k, l;
+	int length = 0;
+
+	// for each packet, write the protocol field (if required), the separator and the packet itself
+	for (k = 0; k < num_packets ; k++) {
+
+		// add the 'Protocol' field if necessary
+		if ( (k==0) || (single_prot == 0 ) ) {		// the protocol field is always present in the first separator (k=0), and maybe in the rest
+			mux_packet[length] = prot[k];
+			length ++;
+		}
+	
+		// add the separator
+		for (l = 0; l < size_separators_to_mux[k] ; l++) {
+			mux_packet[length] = separators_to_mux[k][l];
+			length ++;
+		}
+
+		// add the bytes of the packet itself
+		for (l = 0; l < size_packets_to_mux[k] ; l++) {
+			mux_packet[length] = packets_to_mux[k][l];
+			length ++;
+		}
+	}
+	return length;
+}
+
+
+/**************************************************************************
+ *       predict the size of the multiplexed packet                       *
+ **************************************************************************/
+// it takes all the variables where packets are stored, and predicts the size of a multiplexed packet including all of them
+// the variables are:
+//	- prot[MAXPKTS]						the protocol byte of each packet
+//	- size_separators_to_mux[MAXPKTS]	the size of each separator (1 or 2 bytes). Protocol byte not included
+//	- separators_to_mux[MAXPKTS][2]		the separators
+//	- size_packets_to_mux[MAXPKTS]		the size of each packet to be multiplexed
+//	- packets_to_mux[MAXPKTS][BUFSIZE]	the packet to be multiplexed
+
+// the length of the multiplexed packet is returned by this function
+uint16_t predict_size_multiplexed_packet ( int num_packets, int single_prot, unsigned char prot[MAXPKTS], uint16_t size_separators_to_mux[MAXPKTS], unsigned char separators_to_mux[MAXPKTS][2], uint16_t size_packets_to_mux[MAXPKTS], unsigned char packets_to_mux[MAXPKTS][BUFSIZE])
+{
+	int k, l;
+	int length = 0;
+
+	// for each packet, read the protocol field (if present), the separator and the packet itself
+	for (k = 0; k < num_packets ; k++) {
+
+		// add the 'Protocol' field if necessary
+		if ( (k==0) || (single_prot == 0 ) ) {		// the protocol field is always present in the first separator (k=0), and maybe in the rest
+			length ++;
+		}
+	
+		// add the separator
+		for (l = 0; l < size_separators_to_mux[k] ; l++) {
+			length ++;
+		}
+
+		// add the bytes of the packet itself
+		for (l = 0; l < size_packets_to_mux[k] ; l++) {
+			length ++;
+		}
+	}
+	return length;
+}
+
+
 /************ Prototypes of functions used in the program ****************/
 
 static int gen_random_num(const struct rohc_comp *const comp, void *const user_context);
-
-//time_t time(time_t* timer);
-
-//struct tm *localtime(const time_t *);
-
 
 
 /**
@@ -314,44 +409,43 @@ static void print_rohc_traces(void *const priv_ctxt,
 }
 
 
-/* return an string with the date and the time in format %Y-%m-%d_%H.%M.%S*/
-int date_and_time(char buffer[25])
-{
-	time_t timer;
-    struct tm* tm_info;
-
-    time(&timer);
-    tm_info = localtime(&timer);
-	strftime(buffer, 25, "%Y-%m-%d_%H.%M.%S", tm_info);
-    return EXIT_SUCCESS;
-}
-
-
 /**************************************************************************
  ************************ main program ************************************
  **************************************************************************/
 int main(int argc, char *argv[]) {
 
-	/******************* declare variables ******************/
-	int tap_fd, option;
-	int flags = IFF_TUN;			// to express if a tun or a tap is to be used
-	char if_name[IFNAMSIZ] = "";
-	char interface[IFNAMSIZ]= "";
-	int maxfd;
-	uint16_t nread_from_net;
-	uint16_t size_packet_read_from_tap;
-	char packet_read_from_tap[BUFSIZE];				// stores a packet received from tap, before storing it or sending it to the network
-	unsigned char buffer_from_net[BUFSIZE];			// stores the packet received from the network, before sending it to tap
-	unsigned char muxed_packet[MTU];							// stores the multiplexed packet
+	// variables for managing the network interfaces
+	int tap_fd;								// file descriptor of the tun/tap interface
+	int net_fd = 1;							// the file descriptor of the socket of the network interface
+	int maxfd;								// maximum number of file descriptors
+  	fd_set rd_set;							// rd_set is a set of file descriptors used to know which interface has received a packet
+	int flags = IFF_TUN;					// to express if a tun or a tap is to be used
+	char if_name[IFNAMSIZ] = "";			// name of the tun/tap interface (e.g. "tun1")
+	char interface[IFNAMSIZ]= "";			// name of the network interface (e.g. "eth0")
+	struct sockaddr_in local, remote;		// these are structs for storing sockets
+	socklen_t slen = sizeof(remote);		// size of the socket. The type is like an int, but adequate for the size of the socket
+	char remote_ip[16] = "";            	// dotted quad IP string with the IP of the remote machine
+	char local_ip[16] = "";                 // dotted quad IP string with the IP of the local machine     
+	unsigned short int port = PORT;			// UDP port to be used for sending the multiplexed packets
+	struct ifreq iface;						// network interface
+
+	// variables for storing the packets to multiplex
+	uint16_t total_length;									// total length of the built multiplexed packet
+	unsigned char protocol_rec;								// protocol field of the received muxed packet
+	unsigned char protocol[MAXPKTS];						// protocol field of each packet
+	uint16_t size_separators_to_multiplex[MAXPKTS];			// stores the size of the Simplemux separator. It does not include the "Protocol" field
+	unsigned char separators_to_multiplex[MAXPKTS][2];		// stores the header ('protocol' not included) received from tap, before sending it to the network
+	uint16_t size_packets_to_multiplex[MAXPKTS];			// stores the size of the received packet
+	unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];	// stores the packets received from tap, before storing it or sending it to the network
+	unsigned char muxed_packet[MTU];						// stores the multiplexed packet
+
+	// variables for storing the packets to demultiplex
+	uint16_t nread_from_net;								// number of bytes read from network which will be demultiplexed
+	unsigned char buffer_from_net[BUFSIZE];					// stores the packet received from the network, before sending it to tap
 	unsigned char demuxed_packet[MTU];						// stores each demultiplexed packet
-	struct sockaddr_in local, remote;				// these are structs for storing sockets
-	socklen_t slen = sizeof(remote);				// size of the socket. The type is like an int, but adequate for the size of the socket
-	char remote_ip[16] = "";            			// dotted quad IP string with the IP of the remote machine
-	char local_ip[16] = "";                  		// dotted quad IP string with the IP of the local machine     
-	unsigned short int port = PORT;					// UDP port to be used for sending the multiplexed packets
-	int net_fd = 1;									// the file descriptor of the socket
+
+	// variables for controlling the arrival and departure of packets
 	unsigned long int tap2net = 0, net2tap = 0;		// number of packets read from tap and from net
-	struct ifreq iface;								// network interface
 	int limit_numpackets_tap = 0;					// limit of the number of tap packets that can be stored. it has to be smaller than MAXPKTS
 	int size_threshold = MAXTHRESHOLD;				// if the number of bytes stored is higher than this, they are sent
 	uint64_t timeout = MAXTIMEOUT;					// (microseconds) if a packet arrives and the timeout has expired (time from the  
@@ -359,32 +453,34 @@ int main(int argc, char *argv[]) {
 	uint64_t period= MAXTIMEOUT;					// period. If it expires, a packet is sent
 	uint64_t microseconds_left = period;			// the time until the period expires	
 
-	uint64_t time_last_sent_in_microsec, time_in_microsec, time_difference;		// very long unsigned integers for storing the system clock in microseconds
+	// very long unsigned integers for storing the system clock in microseconds
+	uint64_t time_last_sent_in_microsec;			// moment when the last multiplexed packet was sent
+	uint64_t time_in_microsec;						// current time
+	uint64_t time_difference;						// difference between two timestamps
 
+	int option;										// command line options
+	int l,j,k;
 	int num_pkts_stored_from_tap = 0;				// number of packets received and not sent from tun/tap (stored)
 	int size_muxed_packet = 0;						// acumulated size of the multiplexed packet
 	int predicted_size_muxed_packet;				// size of the muxed packet if the arrived packet was added to it
-	int l,j;
 	int position;									// for reading the arrived multiplexed packet
 	int packet_length;								// the length of each packet inside the multiplexed bundle
 	int network_mtu;								// the maximum transfer unit of the interface
 	int num_demuxed_packets;						// a counter of the number of packets inside a muxed one
 	int single_protocol;							// it is 1 when the Single-Protocol-Bit of the first header is 1
+	int single_protocol_rec;						// it is the bit Single-Protocol-Bit received in a muxed packet
 	int first_header_read;							// it is 0 when the first header has not been read
 	int LXT_position;								// the position of the LXT bit. It may be 6 (non-first header) or 7 (first header)
 	int maximum_packet_length;						// the maximum lentgh of a packet. It may be 64 (first header) or 128 (non-first header)
 	int first_header_written = 0;					// it indicates if the first header has been written or not
-	int different_protocols = 0;					// it indicates if the packets belong to different protocols or not
     int ret;										// value returned by the "select" function
-  	fd_set rd_set;									// rd_set is a set of file descriptors used to know which interface has received a packet
 
 	struct timeval period_expires;					// it is used for the maximum time waiting for a new packet
 
 	bool bits[8];									// it is used for printing the bits of a byte in debug mode
 
-
 	// ROHC header compression variables
-	int compress_headers = 0;						// it is 1 if the headers are to be compressed
+	int compress_headers = 0;						// it is 1 if the headers are to be compressed/decompressed
 
 	struct rohc_comp *compressor;           		// the ROHC compressor
 	unsigned char ip_buffer[BUFSIZE];				// the buffer that will contain the IPv4 packet to compress
@@ -409,6 +505,7 @@ int main(int argc, char *argv[]) {
 	FILE *log_file = NULL;							// file descriptor of the log file
 
 
+
 	/************** Check command line options *********************/
 	progname = argv[0];		// argument used when calling the program
 
@@ -418,9 +515,9 @@ int main(int argc, char *argv[]) {
 				debug = atoi(optarg);	/* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
 				break;
 			case 'r':
-				compress_headers = 1;
+				compress_headers = 1;	/* ROHC activated */
 				break;
-			case 'h':					/*help*/
+			case 'h':					/* help */
 				usage();
 				break;
 			case 'i':					/* put the name of the tun/tap interface (e.g. "tun2") in "if_name" */
@@ -515,7 +612,7 @@ int main(int argc, char *argv[]) {
 	if (( (size_threshold == MAXTHRESHOLD) && (timeout == MAXTIMEOUT) && (timeout == MAXTIMEOUT)) && (limit_numpackets_tap == 0)) limit_numpackets_tap = 1;
 	
 
-	// I calculate now as the moment of the last sending
+	// I calculate 'now' as the moment of the last sending
 	time_last_sent_in_microsec = GetTimeStamp() ; 
 
 	do_debug(1, "threshold: %i. numpackets: %i.timeout: %.2lf\n", size_threshold, limit_numpackets_tap, timeout);
@@ -677,7 +774,7 @@ int main(int argc, char *argv[]) {
 	}
 
 
-	// Main loop
+	/************** Main loop ****************/
   	while(1) {
 
    		FD_ZERO(&rd_set);			/* FD_ZERO() clears a set */
@@ -711,12 +808,13 @@ int main(int argc, char *argv[]) {
       		exit(1);
     	}
 
+
 		/***************** NET to TAP. demux and decompress **************************/
 
-    	/*** data arrived from the network: read it, and write it to the tun/tap interface. ***/
+    	/*** data arrived at the network interface: read it, and write it to the tun/tap interface. ***/
     	if(FD_ISSET(net_fd, &rd_set)) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
 
-	  		// received a packet from the network. slen is the length of the IP address
+	  		// a packet has been received from the network. 'slen' is the length of the IP address
 			nread_from_net = recvfrom ( net_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&remote, &slen );
 			if (nread_from_net==-1) perror ("recvfrom()");
 
@@ -726,7 +824,7 @@ int main(int argc, char *argv[]) {
 
 
 			// now buffer_from_net contains a full packet or frame.
-			// check if the packet comes from the multiplexing port
+			// check if the packet comes from the multiplexing port (default 55555)
 			if (port == ntohs(remote.sin_port)) {
 				// write the log file
 				if ( log_file != NULL ) {
@@ -738,15 +836,25 @@ int main(int argc, char *argv[]) {
 				position = 0; //this is the index for reading the packet/frame
 				num_demuxed_packets = 0;
 
-
 				first_header_read = 0;
 
 				while (position < nread_from_net) {
-					// the first thing I expect is a Mux separator, so I check the first byte
-					FromByte(buffer_from_net[position], bits);
+
+					/* read the separator */
+					// - read 'protocol', the SPB and LXT bits
 
 					// check if this is the first separator or not
 					if (first_header_read == 0) {		// this is the first separator
+
+						// the first thing I expect is a 'protocol' field
+						protocol_rec = buffer_from_net[position];
+						position ++;
+
+						// after the first byte I will find a Mux separator, so I check the next byte
+						// Since this is a first header:
+						//	- SPB will be stored in 'bits[7]'
+						//	- LXT will be stored in 'bits[6]'
+						FromByte(buffer_from_net[position], bits);
 
 						// check the Single Protocol Bit (SPB, one bit), which only appears in the first
    						// Simplemux header.  It would is set to 0 if all the multiplexed
@@ -754,9 +862,9 @@ int main(int argc, char *argv[]) {
 						// field will only appear in the first Simplemux header).  It is set to
 						// 1 when each packet MAY belong to a different protocol.
 						if (bits[7]) {
-							single_protocol = 1;
+							single_protocol_rec = 1;
 						} else {
-							single_protocol = 0;
+							single_protocol_rec = 0;
 						}
 
 						// if this is a first header, the length extension bit is the second one, and the maximum
@@ -768,23 +876,41 @@ int main(int argc, char *argv[]) {
 						first_header_read = 1;
 									
 					} else {
+						// Non-first header
+
+						if (single_protocol_rec == 1) {
+							// all the packets belong to the same protocol, so the first byte belongs to the Mux separator, so I check it
+							FromByte(buffer_from_net[position], bits);
+						} else {
+							// each packet belongs to a different protocol, so the first byte is the 'Protocol' field
+							// and the second one belongs to the Mux separator, so I check it
+							protocol_rec = buffer_from_net[position];
+							position ++;
+
+							// get the value of the bits of the first byte
+							// as this is a non-first header:
+							//	- LXT will be stored in 'bits[7]'
+							FromByte(buffer_from_net[position], bits);
+						}
+
 						// if this is a non-first header, the length extension bit is the second one, and the maximum
 						// length of a packet is 64 bytes
 						LXT_position = 7;
 						maximum_packet_length = 128;
 					}
 
-
+					// I have demuxed another packet
 					num_demuxed_packets ++;
 					//do_debug(2, "\n");
+
 					do_debug(1, " NET2TAP: packet #%i demuxed", num_demuxed_packets);
 					if ((debug == 1) && (compress_headers == 0) ) do_debug (1,"\n");
 					do_debug(2, ": ");
 
+					// read the length
 					// Check the LXT (length extension) bit.
 					// if this is a first header, the length extension bit is the second one, and the maximum
 					// length of a packet is 64 bytes
-
 
 					if (bits[LXT_position]== false) {
 						// if the LXT bit is 0, it means that the separator is one-byte
@@ -792,9 +918,10 @@ int main(int argc, char *argv[]) {
 						// since the two most significant bits are 0, the length is the value of the char
 						packet_length = buffer_from_net[position] % maximum_packet_length;
 						do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
-						PrintByte(2, bits);
+						PrintByte(2, 8, bits);
 
-						position = position + 1;
+						position ++;
+
 					} else {
 						// if the second bit is 1, it means that the separator is two bytes
 						// I get the six less significant bits by using modulo maximum_packet_length
@@ -803,22 +930,23 @@ int main(int argc, char *argv[]) {
 
 						if (debug ) {
 							do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
-							PrintByte(2, bits);
+							PrintByte(2, 8, bits);
 							FromByte(buffer_from_net[position+1], bits);
 							do_debug(2, " (%02x) ",buffer_from_net[position+1]);
-							PrintByte(2, bits);	
+							PrintByte(2, 8, bits);	
 						}					
 						position = position + 2;
 					}
 					do_debug(2, " (%i bytes)\n", packet_length);
 
+
 					// copy the packet to a new string
 					for (l = 0; l < packet_length ; l++) {
-						demuxed_packet[l] = buffer_from_net[position];
-						position ++;
+						demuxed_packet[l] = buffer_from_net[l + position ];
 					}
+					position = position + packet_length;
 
-					// Check if the position has gone beyond the size of the packet
+					// Check if the position has gone beyond the size of the packet (wrong packet)
 					if (position > nread_from_net) {
 						// The last length read from the separator goes beyond the end of the packet
 						do_debug (1, "  The length of the packet does not fit. Packet discarded\n");
@@ -831,55 +959,88 @@ int main(int argc, char *argv[]) {
 						
 					} else {
 						/************ decompress the packet ***************/
-						if ( compress_headers == 1 ) {
 
-						// reset the buffer where the rohc and ip packets are to be stored
-						rohc_buf_reset (&ip_packet_d);
-						rohc_buf_reset (&rohc_packet_d);
-
-						// Copy the compressed length and the compressed packet
-						rohc_packet_d.len = packet_length;
-						
-						for (l = 0; l < packet_length ; l++) {
-							rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
-						}
-
-						// dump the ROHC packet on terminal
-						if (debug) {
-							do_debug(2, " ");
-							do_debug(1, " ROHC ");
-							do_debug(2, "packet\n   ");
-							for(j = 0; j < rohc_packet_d.len; j++)
-							{
-								do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet_d, j));
-								if(j != 0 && ((j + 1) % 16) == 0)
+						// if the number of the protocol is NOT 142 (which means ROHC) I do not decompress the packet
+						if ( protocol_rec != 142 ) {
+							// non-compressed packet
+							// dump the received packet on terminal
+							if (debug) {
+								do_debug(2, " ");
+								do_debug(1, " Received ");
+								do_debug(2, "packet\n   ");
+								for(j = 0; j < packet_length; j++)
+								{
+									do_debug(2, "%02x ", demuxed_packet[j]);
+									if(j != 0 && ((j + 1) % 16) == 0)
+									{
+										do_debug(2, "\n");
+										if ( j != (packet_length -1 )) do_debug(2,"   ");
+									}
+									// separate in groups of 8 bytes
+									else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
+									{
+										do_debug(2, "  ");
+									}
+								}
+								if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
 								{
 									do_debug(2, "\n");
-									if ( j != (ip_packet_d.len -1 )) do_debug(2,"   ");
-								}
-								// separate in groups of 8 bytes
-								else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-								{
-									do_debug(2, "  ");
 								}
 							}
-							if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
-							{
-								do_debug(2, "\n");
+
+						} else {
+							// ROHC-compressed packet
+
+							// reset the buffers where the rohc and ip packets are to be stored
+							rohc_buf_reset (&ip_packet_d);
+							rohc_buf_reset (&rohc_packet_d);
+
+							// Copy the compressed length and the compressed packet
+							rohc_packet_d.len = packet_length;
+						
+							// Copy the packet itself
+							for (l = 0; l < packet_length ; l++) {
+								rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
 							}
-						}
 
-						// decompress the packet
-						status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, rcvd_feedback, feedback_send);
-						if(status == ROHC_STATUS_OK) {
-							/* decompression is successful */
-
-								if(!rohc_buf_is_empty(ip_packet_d))	// packet is not empty
+							// dump the ROHC packet on terminal
+							if (debug) {
+								do_debug(2, " ");
+								do_debug(1, " ROHC ");
+								do_debug(2, "packet\n   ");
+								for(j = 0; j < rohc_packet_d.len; j++)
 								{
+									do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet_d, j));
+									if(j != 0 && ((j + 1) % 16) == 0)
+									{
+										do_debug(2, "\n");
+										if ( j != (ip_packet_d.len -1 )) do_debug(2,"   ");
+									}
+									// separate in groups of 8 bytes
+									else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
+									{
+										do_debug(2, "  ");
+									}
+								}
+								if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+								{
+									do_debug(2, "\n");
+								}
+							}
+
+							// decompress the packet
+							status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, rcvd_feedback, feedback_send);
+
+							// check the result of the decompression
+							if(status == ROHC_STATUS_OK) {
+								/* decompression is successful */
+
+								if(!rohc_buf_is_empty(ip_packet_d))	{	// packet is not empty
+								
 									// ip_packet.len bytes of decompressed IP data available in ip_packet
 									packet_length = ip_packet_d.len;
 
-									/* copy the packet */
+									// copy the packet
 									memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
 
 									//dump the IP packet on the standard output
@@ -909,9 +1070,7 @@ int main(int argc, char *argv[]) {
 											do_debug(2, "\n");
 										}
 									}
-								}
-								else
-								{
+								} else {
 									/* no IP packet was decompressed because of ROHC segmentation or
 									 * feedback-only packet:
 									 *  - the ROHC packet was a non-final segment, so at least another
@@ -927,26 +1086,39 @@ int main(int argc, char *argv[]) {
 										fflush(log_file);
 									}
 								}
-							}
-							else
-							{
+							} else {
 								/* failure: decompressor failed to decompress the ROHC packet */
 								do_debug(2, "  decompression of ROHC packet failed\n");
 								fprintf(stderr, "  decompression of ROHC packet failed\n");
 
 								// write the log file
 								if ( log_file != NULL ) {
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap);	// the packet is bad
+									// the packet is bad
+									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap);	
 									fflush(log_file);
 								}
 							}
-
-
 						} /*********** end decompression **************/
 
 						// write the demuxed (and perhaps decompressed) packet to the tun/tap interface
 						// if compression is used, check that ROHC has decompressed correctly
-						if ( ( compress_headers == 0 ) || ((compress_headers == 1) && ( status == ROHC_STATUS_OK))) {
+						if ( ( protocol_rec != 142 ) || ((protocol_rec == 142) && ( status == ROHC_STATUS_OK))) {
+
+							// print the debug information
+							do_debug(2, "  Protocol: %i ",protocol_rec);
+
+							switch(protocol_rec) {
+								case 4:
+									do_debug (2, "(IP)");
+									break;
+								case 142:
+									do_debug (2, "(ROHC)");
+									break;
+							}
+							do_debug(2, "\n\n");
+							//do_debug(2, "packet length (without separator): %i\n", packet_length);
+
+							// write the demuxed packet to the network
 							cwrite ( tap_fd, demuxed_packet, packet_length );
 
 							// write the log file
@@ -956,9 +1128,7 @@ int main(int argc, char *argv[]) {
 							}
 						}
 					}
-
 				}
-
 			} else {
 				// if the packet does not come from the multiplexing port, write it directly into the tun/tap interface
 				cwrite ( tap_fd, buffer_from_net, nread_from_net);
@@ -966,85 +1136,101 @@ int main(int argc, char *argv[]) {
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tap, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));	// the packet is good
+					// the packet is good
+					fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tap, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
 					fflush(log_file);
 				}
 			}
   		}
 
+
 		/***************** TAP to NET: compress and multiplex **************************/
 
-    	/*** data arrived from tun/tap: read it, and check if the stored packets should be written to the network ***/	
-    	else if(FD_ISSET(tap_fd, &rd_set)) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
+    	/*** data arrived at tun/tap: read it, and check if the stored packets should be written to the network ***/	
+    	else if(FD_ISSET(tap_fd, &rd_set)) {		/* FD_ISSET tests if a file descriptor is part of the set */
 
-	  		/* read the packet from tun/tap, store it in the array 'packet_read_from_tap', and store its size */
-      		size_packet_read_from_tap = cread (tap_fd, packet_read_from_tap, BUFSIZE);
+	  		/* read the packet from tun/tap, store it in the array, and store its size */
+      		size_packets_to_multiplex[num_pkts_stored_from_tap] = cread (tap_fd, packets_to_multiplex[num_pkts_stored_from_tap], BUFSIZE);
 		
 	  		/* increase the counter of the number of packets read from tun/tap*/
       		tap2net++;
+
 			if (debug > 1 ) do_debug (2,"\n");
-      		do_debug(1, "TAP2NET %lu: Read packet (%i bytes) from tap. ", tap2net, size_packet_read_from_tap);
+      		do_debug(1, "TAP2NET %lu: Read packet from tap (%i bytes). ", tap2net, size_packets_to_multiplex[num_pkts_stored_from_tap]);
 
 			// write the log file
 			if ( log_file != NULL ) {
-				fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%lu\n", GetTimeStamp(), size_packet_read_from_tap, tap2net);
+				fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%lu\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tap], tap2net);
 				fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 			}
 
-			/******************** compress the headers if the option has been set ****************/
-			if ( compress_headers == 1 ) {
-
-				// copy the length read from tap to the buffer where the packet to be compressed is stored
-				ip_packet.len = size_packet_read_from_tap;
-
-				// copy the packet
-				memcpy(rohc_buf_data_at(ip_packet, 0), packet_read_from_tap, size_packet_read_from_tap);
-
-				if (debug) {
-					do_debug(2, "\n   ");
-					/* dump the newly-created IP packet on terminal */
-					for(j = 0; j < ip_packet.len; j++)
-					{
-						do_debug(2, "%02x ", rohc_buf_byte_at(ip_packet, j));
-						if(j != 0 && ((j + 1) % 16) == 0)
-						{
-							do_debug(2, "\n");
-							if ( j != (ip_packet_d.len -1 )) do_debug(2,"   ");
-						}
-						// separate in groups of 8 bytes
-						else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-						{
-							do_debug(2, "  ");
-						}
-					}
-					if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+			// print the native packet received
+			if (debug) {
+				do_debug(2, "\n   ");
+				/* dump the newly-created IP packet on terminal */
+				for(j = 0; j < size_packets_to_multiplex[num_pkts_stored_from_tap]; j++)
+				{
+					do_debug (2, "%02x ", packets_to_multiplex[num_pkts_stored_from_tap][j]);
+					if(j != 0 && ((j + 1) % 16) == 0)
 					{
 						do_debug(2, "\n");
+						if ( j != (size_packets_to_multiplex[num_pkts_stored_from_tap] -1 )) do_debug(2,"   ");
+					}
+					// separate in groups of 8 bytes
+					else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
+					{
+						do_debug(2, "  ");
 					}
 				}
+				if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+				{
+					do_debug(2, "\n");
+				}
+			}
 
-				/* Now, compress this IP packet */
+
+			/******************** compress the headers if the option has been set ****************/
+			if ( compress_headers == 1 ) {
+				// header compression has been selected by the user
+
+				// copy the length read from tap to the buffer where the packet to be compressed is stored
+				ip_packet.len = size_packets_to_multiplex[num_pkts_stored_from_tap];
+
+				// copy the packet
+				memcpy(rohc_buf_data_at(ip_packet, 0), packets_to_multiplex[num_pkts_stored_from_tap], size_packets_to_multiplex[num_pkts_stored_from_tap]);
+
 				// reset the buffer where the rohc packet is to be stored
 				rohc_buf_reset (&rohc_packet);
 
-				// compress IP packet
+				// compress the IP packet
 				status = rohc_compress4(compressor, ip_packet, &rohc_packet);
 
+				// check the result of the compression
 				if(status == ROHC_STATUS_SEGMENT) {
 					/* success: compression succeeded, but resulting ROHC packet was too
 					 * large for the Maximum Reconstructed Reception Unit (MRRU) configured
 					 * with \ref rohc_comp_set_mrru, the rohc_packet buffer contains the
 					 * first ROHC segment and \ref rohc_comp_get_segment can be used to
 					 * retrieve the next ones. */
-				} else if(status == ROHC_STATUS_OK)	{
+				} else if (status == ROHC_STATUS_OK) {
 					/* success: compression succeeded, and resulting ROHC packet fits the
 					* Maximum Reconstructed Reception Unit (MRRU) configured with
 					* \ref rohc_comp_set_mrru, the rohc_packet buffer contains the
 					* rohc_packet_len bytes of the ROHC packet */
 
+					// since this packet has been compressed with ROHC, its protocol number must be 142
+					// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+					protocol[num_pkts_stored_from_tap] = 142;
+
+					// Copy the compressed length and the compressed packet over the packet read from tap
+					size_packets_to_multiplex[num_pkts_stored_from_tap] = rohc_packet.len;
+					for (l = 0; l < size_packets_to_multiplex[num_pkts_stored_from_tap] ; l++) {
+						packets_to_multiplex[num_pkts_stored_from_tap][l] = rohc_buf_byte_at(rohc_packet, l);
+					}
+
+					/* dump the ROHC packet on terminal */
 					if (debug) {
-						/* dump the ROHC packet on terminal */
-						do_debug(2, "  ROHC packet resulting from the ROHC compression:\n   ");
+						do_debug(2, "  ROHC packet resulting from the ROHC compression (%i bytes):\n   ", rohc_packet.len);
 						for(j = 0; j < rohc_packet.len; j++)
 						{
 							do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet, j));
@@ -1064,56 +1250,123 @@ int main(int argc, char *argv[]) {
 							do_debug(2, "\n");
 						}
 					}
-				}
-				else
-				{
+
+				} else {
 					/* compressor failed to compress the IP packet */
+					/* Send it in its native form */
+
+					// I don't have to copy the native length and the native packet, because they
+					// have already been stored in 'size_packets_to_multiplex[num_pkts_stored_from_tap]' and 'packets_to_multiplex[num_pkts_stored_from_tap]'
+
+					// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP'
+					// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+					protocol[num_pkts_stored_from_tap] = 4;
+
 					fprintf(stderr, "compression of IP packet failed\n");
+
+					// print in the log file
 					if ( log_file != NULL ) {
-						fprintf (log_file, "%"PRIu64"\terror\tcompr_failed\t%i\t%lu\\n", GetTimeStamp(), size_packet_read_from_tap, tap2net);
+						fprintf (log_file, "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%lu\\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tap], tap2net);
 						fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 					}
+
+					do_debug(2, "  ROHC did not work. Native packet sent (%i bytes):\n   ", size_packets_to_multiplex[num_pkts_stored_from_tap]);
 					//goto release_compressor;
 				}
 
-				// Copy the compressed length and the compressed packet
-				size_packet_read_from_tap = rohc_packet.len;
-				for (l = 0; l < size_packet_read_from_tap ; l++) {
-					packet_read_from_tap[l] = rohc_buf_byte_at(rohc_packet, l);
-				}
+			} else {
+				// header compression has not been selected by the user
 
-			} /*************** end compression ***************/
+				// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
+				// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+				protocol[num_pkts_stored_from_tap] = 4;
+			}
 
 
-			// check if this packet will override the MTU
+
+			/*** Calculate if the MTU will be reached when multiplexing the present packet ***/
+			// if the addition of the present packet will imply a multiplexed packet bigger than MTU:
+			// - I send the previously stored packets
+			// - I store the present one
+
+			// calculate the size without the present packet
+			predicted_size_muxed_packet = predict_size_multiplexed_packet (num_pkts_stored_from_tap, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex);
+
+			// I add the length of the present packet:
+
+			// separator and length of the present packet
 			if (first_header_written == 0) {
-				// this is not the first header, so the maximum length is 128
-				if (size_packet_read_from_tap < 64 ) {
-					predicted_size_muxed_packet = size_muxed_packet + 1 + size_packet_read_from_tap;
+				// this is the first header, so the maximum length is 64
+				if (size_packets_to_multiplex[num_pkts_stored_from_tap] < 64 ) {
+					predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tap];
 				} else {
-					predicted_size_muxed_packet = size_muxed_packet + 2 + size_packet_read_from_tap;
+					predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tap];
 				}
 			} else {
-				// this is the first header, so the maximum length is 64
-				if (size_packet_read_from_tap < 128 ) {
-					predicted_size_muxed_packet = size_muxed_packet + 1 + size_packet_read_from_tap;
+				// this is not the first header, so the maximum length is 128
+				if (size_packets_to_multiplex[num_pkts_stored_from_tap] < 128 ) {
+					predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tap];
 				} else {
-					predicted_size_muxed_packet = size_muxed_packet + 2 + size_packet_read_from_tap;
+					predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tap];
 				}
 			}
 
-			// if this packet was muxed, the MTU would be overriden. So I first empty the buffer
-			if (predicted_size_muxed_packet > MTU ) {
-	      		do_debug(1, " MTU reached. Sending muxed packet without this one (%i bytes).", size_muxed_packet);
+			// calculate if all the packets belong to the same protocol
+			single_protocol = 1;
+			for (k = 1; k < num_pkts_stored_from_tap ; k++) {
+				if (protocol[k] != protocol[k-1]) single_protocol = 0;
+			}
 
-				// send the multiplexed packet
-				if (sendto(net_fd, muxed_packet, size_muxed_packet, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+			// add the length of the 'protocol' fields of the present packet
+			// if pkts belonging to different protocols are multiplexed, I have to add n-1 bytes, each one 
+			//corresponding to the "Protocol" field of a muliplexed packet
+			if (single_protocol == 0 ) predicted_size_muxed_packet = predicted_size_muxed_packet + num_pkts_stored_from_tap;	
+
+
+			if (predicted_size_muxed_packet > MTU ) {
+				// if the present packet is muxed, the MTU will be overriden. So I first empty the buffer
+				//i.e. I build and send a multiplexed packet not including the current one
+
+	      		do_debug(1, " MTU reached. Predicted size: %i bytes. Sending muxed packet without this one.", predicted_size_muxed_packet);
+
+				// add the Single Protocol Bit in the first header (the most significant bit)
+				// it is '1' if all the multiplexed packets belong to the same protocol
+				if (single_protocol == 1) {
+					separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
+					size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
+				} else {
+					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tap;		// one byte per packet, corresponding to the 'protocol' field
+				}
+
+				// build the multiplexed packet without the current one
+				total_length = build_multiplexed_packet ( num_pkts_stored_from_tap, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+
+				do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
+
+				// send the multiplexed packet without the current one
+				if (sendto(net_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), size_muxed_packet, tap2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tap);
+					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length, tap2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tap);
 					fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 				}
+
+				// I have emptied the buffer, so I have to
+				//move the current packet to the first position of the 'packets_to_multiplex' array
+				for (l = 0; l < BUFSIZE; l++ ) {
+					packets_to_multiplex[0][l]=packets_to_multiplex[num_pkts_stored_from_tap][l];
+				}
+
+				// move the current separator to the first position of the array
+				for (l = 0; l < 2; l++ ) {
+					separators_to_multiplex[0][l]=separators_to_multiplex[num_pkts_stored_from_tap][l];
+				}
+
+				// move the length to the first position of the array
+				size_packets_to_multiplex[0] = size_packets_to_multiplex[num_pkts_stored_from_tap];
+				size_separators_to_multiplex[0] = size_separators_to_multiplex[num_pkts_stored_from_tap];
+				for (j=1; j < MAXPKTS; j++) size_packets_to_multiplex [j] = 0;
 
 				// I have sent a packet, so I set to 0 the "first_header_written" bit
 				first_header_written = 0;
@@ -1121,11 +1374,11 @@ int main(int argc, char *argv[]) {
 				// reset the length and the number of packets
 				size_muxed_packet = 0;
 				num_pkts_stored_from_tap = 0;
-			}
+			}	/*** end check if MTU would be reached ***/
 
 
-			// I accumulate this packet in the buffer
-			num_pkts_stored_from_tap ++;
+			// update the size of the muxed packet, adding the size of the current one
+			size_muxed_packet = size_muxed_packet + size_packets_to_multiplex[num_pkts_stored_from_tap];
 
 			// I have to add the multiplexing separator. It is 1 byte if the length is smaller than 64 (or 128). 
 			// it is 2 bytes if the lengh is 64 (or 128) or more
@@ -1137,80 +1390,115 @@ int main(int argc, char *argv[]) {
 				maximum_packet_length = 128;
 			}
 
-			// a single-byte separator
-			if (size_packet_read_from_tap < maximum_packet_length ) {
+			// check if the length has to be one or two bytes
+			if (size_packets_to_multiplex[num_pkts_stored_from_tap] < maximum_packet_length ) {
+
+				// the length can be written in the first byte of the separator (expressed in 6 or 7 bits)
+				size_separators_to_multiplex[num_pkts_stored_from_tap] = 1;
 
 				// add the length to the string.
-				// since the value is <maximum_packet_length, the most significant bit will always be 0
-				muxed_packet[size_muxed_packet] = size_packet_read_from_tap;
+				// since the value is < maximum_packet_length, the most significant bits will always be 0
+				separators_to_multiplex[num_pkts_stored_from_tap][0] = size_packets_to_multiplex[num_pkts_stored_from_tap];
 
-				// Add the Single Protocol Bit if this is the first header (the most significant bit)
-				// It is 0 if all the multiplexed packets belong to the same protocol
-				if (first_header_written == 0) {
-					if (different_protocols == 1) {
-						muxed_packet[size_muxed_packet] = muxed_packet[size_muxed_packet] + 128;	// this puts a 1 in the most significant bit position
-					}
-				}
-
-				// print the first byte of the Mux separator
-				if(debug) {
-					FromByte(muxed_packet[size_muxed_packet], bits);
-					do_debug(2, " Mux separator:(%02x) ", muxed_packet[size_muxed_packet]);
-					PrintByte(2, bits);
-					do_debug(2, "\n");
-				}
+				// increase the size of the multiplexed packet
 				size_muxed_packet ++;
 
-			// a two-byte separator
+
+				// print the  Mux separator (only one byte)
+				if(debug) {
+					FromByte(separators_to_multiplex[num_pkts_stored_from_tap][0], bits);
+					do_debug(2, " Mux separator:(%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tap]);
+					if (first_header_written == 0) {
+						PrintByte(2, 7, bits);			// first header
+					} else {
+						PrintByte(2, 8, bits);			// non-first header
+					}
+					do_debug(2, "\n");
+				}
+
 			} else {
-				// the first byte of the Mux separator can be
+				// the length requires a two-byte separator (length expressed in 14 or 15 bits)
+				size_separators_to_multiplex[num_pkts_stored_from_tap] = 2;
+
+				// first byte of the Mux separator
+				// It can be:
 				// - first-header: SPB bit, LXT=1 and 6 bits with the most significant bytes of the length
 				// - non-first-header: LXT=1 and 7 bits with the most significant bytes of the length
 				// get the most significant byte by dividing by 256
 				// add 64 (or 128) in order to put a '1' in the second (or first) bit
 				if (first_header_written == 0) {
-					muxed_packet[size_muxed_packet] = (size_packet_read_from_tap / 256 ) + 64;	// first header
+					separators_to_multiplex[num_pkts_stored_from_tap][0] = (size_packets_to_multiplex[num_pkts_stored_from_tap] / 256 ) + 64;	// first header
 				} else {
-					muxed_packet[size_muxed_packet] = (size_packet_read_from_tap / 256 ) + 128;	// non-first header
+					separators_to_multiplex[num_pkts_stored_from_tap][0] = (size_packets_to_multiplex[num_pkts_stored_from_tap] / 256 ) + 128;	// non-first header
 				}
 
-				// second byte: the 8 less significant bytes of the length. Use modulo
-				muxed_packet[size_muxed_packet + 1] = size_packet_read_from_tap % 256;
+				// second byte of the Mux separator
+				// the 8 less significant bytes of the length. Use modulo
+				separators_to_multiplex[num_pkts_stored_from_tap][1] = size_packets_to_multiplex[num_pkts_stored_from_tap] % 256;
 
-				// print the two bytes
+				// increase the size of the multiplexed packet
+				size_muxed_packet = size_muxed_packet + 2;
+
+				// print the two bytes of the separator
 				if(debug) {
-					FromByte(muxed_packet[size_muxed_packet], bits);
-					do_debug(2, " Mux separator:(%02x) ",muxed_packet[size_muxed_packet]);
-					PrintByte(2, bits);
-					FromByte(muxed_packet[size_muxed_packet + 1], bits);
-					do_debug(2, " (%02x) ",muxed_packet[size_muxed_packet + 1]);
-					PrintByte(2, bits);
+					// first byte
+					FromByte(separators_to_multiplex[0][num_pkts_stored_from_tap], bits);
+					do_debug(2, " Mux separator:(%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tap]);
+					if (first_header_written == 0) {
+						PrintByte(2, 7, bits);			// first header
+					} else {
+						PrintByte(2, 8, bits);			// non-first header
+					}
+
+					// second byte
+					FromByte(separators_to_multiplex[num_pkts_stored_from_tap][1], bits);
+					do_debug(2, " (%02x) ", separators_to_multiplex[num_pkts_stored_from_tap][1]);
+					PrintByte(2, 8, bits);
 					do_debug(2, "\n");
 				}	
-				size_muxed_packet = size_muxed_packet + 2;
 			}
 
-			// I have written a header, so I have to set to 1 the "first header written bit"
-			if (first_header_written == 0) {
-				first_header_written = 1;
+			// I have finished storing the packet, so I increase the number of stored packets
+			num_pkts_stored_from_tap ++;
+
+			// I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
+			if (first_header_written == 0) first_header_written = 1;
+
+
+			if ( debug ) {
+				//do_debug (1,"\n");
+				do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts (%i bytes).", num_pkts_stored_from_tap , size_muxed_packet);
+				time_in_microsec = GetTimeStamp();
+				time_difference = time_in_microsec - time_last_sent_in_microsec;		
+				do_debug(1, " time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
 			}
 
-			// I add the packet itself to the muxed packet
-			for (l = 0; l < size_packet_read_from_tap ; l++) {
-				muxed_packet[size_muxed_packet] = packet_read_from_tap[l];
-				size_muxed_packet ++;
-				// if you want to see the packet, uncomment the next line
-				// do_debug("%02x ",muxed_packet[size_muxed_packet + l]);
-			}
-			if (debug == 1 ) do_debug (1,"\n");
-			do_debug(1, " TAP2NET: Packet stopped and multiplexed: accumulated %i pkts (%i bytes).", num_pkts_stored_from_tap, size_muxed_packet);
-			time_in_microsec = GetTimeStamp();
-			time_difference = time_in_microsec - time_last_sent_in_microsec;		
-			do_debug(1, " time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
+
+			// check if a multiplexed packet has to be sent
 
 			// if the packet limit or the size threshold or the MTU are reached, send all the stored packets to the network
 			// do not worry about the MTU. if it is reached, a number of packets will be sent
-			if ((num_pkts_stored_from_tap == limit_numpackets_tap) || (size_muxed_packet > size_threshold) || (time_difference > timeout )){
+			if ((num_pkts_stored_from_tap == limit_numpackets_tap) || (size_muxed_packet > size_threshold) || (time_difference > timeout )) {
+
+				// a multiplexed packet has to be sent
+
+				// calculate if all the packets belong to the same protocol
+				single_protocol = 1;
+				for (k = 1; k < num_pkts_stored_from_tap ; k++) {
+					if (protocol[k] != protocol[k-1]) single_protocol = 0;
+				}
+
+	      		do_debug(1, " Single Protocol Bit = %i\n", single_protocol);
+
+				// Add the Single Protocol Bit in the first header (the most significant bit)
+				// It is 1 if all the multiplexed packets belong to the same protocol
+				if (single_protocol == 1) {
+					separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
+					size_muxed_packet = size_muxed_packet + 1;						// one byte corresponding to the 'protocol' field of the first header
+				} else {
+					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tap;	// one byte per packet, corresponding to the 'protocol' field
+				}
+
 				// write the debug information
 				if (debug) {
 					do_debug(1, " TAP2NET**Sending triggered**. ");
@@ -1223,8 +1511,14 @@ int main(int argc, char *argv[]) {
 					do_debug(1, "Writing %i packets (%i bytes) to network\n", num_pkts_stored_from_tap, size_muxed_packet);						
 				}
 
+				// build the multiplexed packet including the current one
+				total_length = build_multiplexed_packet ( num_pkts_stored_from_tap, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+
+				//do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
+
+
 				// send the multiplexed packet
-				if (sendto(net_fd, muxed_packet, size_muxed_packet, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+				if (sendto(net_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 
 				// write the log file
 				if ( log_file != NULL ) {
@@ -1246,18 +1540,23 @@ int main(int argc, char *argv[]) {
 				size_muxed_packet = 0 ;
 				num_pkts_stored_from_tap = 0;
 
+				// update the time of the last packet sent
 				time_last_sent_in_microsec = time_in_microsec;
 			}
     	} 
 
 
 		/******************** Period expired: multiplex ****************************/
+		// The period has expired
 		// Check if there is something stored, and send it
 		// since there is no new packet, here it is not necessary to compress anything
 		else {
 			time_in_microsec = GetTimeStamp();
 			if ( num_pkts_stored_from_tap > 0 ) {
+
 				// There are some packets stored
+
+				// calculate the time difference
 				time_difference = time_in_microsec - time_last_sent_in_microsec;		
 
 				if (debug) {
@@ -1266,14 +1565,38 @@ int main(int argc, char *argv[]) {
 
 				}
 
+				// build the multiplexed packet
+
+				// calculate if all the packets belong to the same protocol
+				single_protocol = 1;
+				for (k = 1; k < num_pkts_stored_from_tap ; k++) {
+					if (protocol[k] != protocol[k-1]) single_protocol = 0;
+				}
+
+				// Add the Single Protocol Bit in the first header (the most significant bit)
+				// It is 1 if all the multiplexed packets belong to the same protocol
+				if (single_protocol == 1) {
+					separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
+					size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
+				} else {
+					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tap;		// one byte per packet, corresponding to the 'protocol' field
+				}
+
+	      		do_debug(1, " Single Protocol Bit = %i.", single_protocol);
+
+				// build the multiplexed packet
+				total_length = build_multiplexed_packet ( num_pkts_stored_from_tap, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+
+				do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
+
 				// send the multiplexed packet
-				if (sendto(net_fd, muxed_packet, size_muxed_packet, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+				if (sendto(net_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 
 				// write the log file
 				if ( log_file != NULL ) {
 					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet, tap2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tap);	
 				}
-
+			
 				// I have sent a packet, so I set to 0 the "first_header_written" bit
 				first_header_written = 0;
 
@@ -1285,6 +1608,8 @@ int main(int argc, char *argv[]) {
 				// No packet arrived
 				//do_debug(2, "Period expired. Nothing to be sent\n");
 			}
+
+			// restart the period
 			time_last_sent_in_microsec = time_in_microsec;
 		}
 
