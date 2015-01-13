@@ -21,4 +21,4 @@ simplemux
    
    This page includes an implementation of Simplemux written in C for Linux.
    It uses IP/UDP as the multiplexing protocol, and IP and ROHC as multiplexed 
-   protocols
+   protocols.
