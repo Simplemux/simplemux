@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.5.5                                   *
+ * simplemux.c            version 1.5.6                                   *
  *                                                                        *
  * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
  * these header-compressed packets between a pair of machines (called     *
@@ -524,7 +524,7 @@ int main(int argc, char *argv[]) {
 	while((option = getopt(argc, argv, "i:e:c:p:n:b:t:P:l:d:r:uahL")) > 0) {
 	    switch(option) {
 			case 'd':
-				debug = atoi(optarg);	/* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
+				debug = atoi(optarg);		/* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
 				break;
 			case 'r':
 				ROHC_mode = atoi(optarg);	/* 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)*/ 
@@ -532,43 +532,43 @@ int main(int argc, char *argv[]) {
 			case 'h':						/* help */
 				usage();
 				break;
-			case 'i':					/* put the name of the tun/tap interface (e.g. "tun2") in "if_name" */
+			case 'i':						/* put the name of the tun/tap interface (e.g. "tun2") in "if_name" */
 				strncpy(if_name, optarg, IFNAMSIZ-1);
 				break;
-			case 'e':					/* the name of the network interface (e.g. "eth0") in "interface" */
+			case 'e':						/* the name of the network interface (e.g. "eth0") in "interface" */
 				strncpy(interface, optarg, IFNAMSIZ-1);
 				break;
-			case 'c':					/* destination address of the machine where the tunnel ends */
+			case 'c':						/* destination address of the machine where the tunnel ends */
 				strncpy(remote_ip, optarg, 15);
 				break;
-			case 'l':					/* name of the log file */
+			case 'l':						/* name of the log file */
 				strncpy(log_file_name, optarg, 100);
 				file_logging = 1;
 				break;
-			case 'L':					/* name of the log file assigned automatically */
+			case 'L':						/* name of the log file assigned automatically */
 				date_and_time(log_file_name);
 				file_logging = 1;
 				break;
-			case 'p':					/* port number */
-				port = atoi(optarg);	/* atoi Parses a string interpreting its content as an int */
+			case 'p':						/* port number */
+				port = atoi(optarg);		/* atoi Parses a string interpreting its content as an int */
 				port_feedback = port + 1;
 				break;
-			case 'u':					/* use a TUN device */
+			case 'u':						/* use a TUN device */
 				flags = IFF_TUN;
 				break;
-			case 'a':					/* use a TAP device */
+			case 'a':						/* use a TAP device */
 				flags = IFF_TAP;
 				break;
-			case 'n':					/* limit of the number of packets for triggering a muxed packet */
+			case 'n':						/* limit of the number of packets for triggering a muxed packet */
 				limit_numpackets_tap = atoi(optarg);
 				break;
-			case 'b':					/* size threshold (in bytes) for triggering a muxed packet */
+			case 'b':						/* size threshold (in bytes) for triggering a muxed packet */
 				size_threshold = atoi(optarg);
 				break;
-			case 't':					/* timeout for triggering a muxed packet */
+			case 't':						/* timeout for triggering a muxed packet */
 				timeout = atof(optarg);
 				break;
-			case 'P':					/* Period for triggering a muxed packet */
+			case 'P':						/* Period for triggering a muxed packet */
 				period = atof(optarg);
 				break;
 			default:
@@ -642,7 +642,7 @@ int main(int argc, char *argv[]) {
 	if (( (size_threshold < MAXTHRESHOLD) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tap == 0)) limit_numpackets_tap = MAXPKTS;
 
 	// if no option is set by the user, it is assumed that every packet will be sent immediately
-	if (( (size_threshold == MAXTHRESHOLD) && (timeout == MAXTIMEOUT) && (timeout == MAXTIMEOUT)) && (limit_numpackets_tap == 0)) limit_numpackets_tap = 1;
+	if (( (size_threshold == MAXTHRESHOLD) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tap == 0)) limit_numpackets_tap = 1;
 	
 
 	// I calculate 'now' as the moment of the last sending
@@ -1841,13 +1841,13 @@ int main(int argc, char *argv[]) {
 			if (first_header_written == 0) first_header_written = 1;
 
 
-			if ( debug ) {
-				//do_debug (1,"\n");
-				do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts (%i bytes).", num_pkts_stored_from_tap , size_muxed_packet);
-				time_in_microsec = GetTimeStamp();
-				time_difference = time_in_microsec - time_last_sent_in_microsec;		
-				do_debug(1, " time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
-			}
+
+			//do_debug (1,"\n");
+			do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts (%i bytes).", num_pkts_stored_from_tap , size_muxed_packet);
+			time_in_microsec = GetTimeStamp();
+			time_difference = time_in_microsec - time_last_sent_in_microsec;		
+			do_debug(1, " time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
+
 
 
 			// check if a multiplexed packet has to be sent
