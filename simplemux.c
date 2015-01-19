@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.5.6                                   *
+ * simplemux.c            version 1.5.8                                   *
  *                                                                        *
  * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
  * these header-compressed packets between a pair of machines (called     *
@@ -276,6 +276,34 @@ void PrintByte(int debug_level, int num_bits, bool b[8])
 		} else {
 			do_debug(debug_level, "0");
 		}
+	}
+}
+
+
+/**************************************************************************
+************ dump a packet ************************************************
+**************************************************************************/
+void dump_packet (int packet_size, unsigned char packet[MTU])
+{
+	int j;
+
+	for(j = 0; j < packet_size; j++)
+	{
+		do_debug(2, "%02x ", packet[j]);
+		if(j != 0 && ((j + 1) % 16) == 0)
+		{
+			do_debug(2, "\n");
+			if ( j != (packet_size -1 )) do_debug(2,"   ");
+		}
+		// separate in groups of 8 bytes
+		else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
+		{
+			do_debug(2, "  ");
+		}
+	}
+	if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+	{
+		do_debug(2, "\n");
 	}
 }
 
@@ -1066,7 +1094,8 @@ int main(int argc, char *argv[]) {
 								do_debug(2, " ");
 								do_debug(1, " Received ");
 								do_debug(2, "packet\n   ");
-								for(j = 0; j < packet_length; j++)
+								dump_packet ( packet_length, demuxed_packet );
+/*								for(j = 0; j < packet_length; j++)
 								{
 									do_debug(2, "%02x ", demuxed_packet[j]);
 									if(j != 0 && ((j + 1) % 16) == 0)
@@ -1080,10 +1109,11 @@ int main(int argc, char *argv[]) {
 										do_debug(2, "  ");
 									}
 								}
-								if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+								if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
 								{
 									do_debug(2, "\n");
 								}
+*/
 							}
 
 						} else {
@@ -1108,7 +1138,8 @@ int main(int argc, char *argv[]) {
 								do_debug(2, " ");
 								do_debug(1, " ROHC ");
 								do_debug(2, "packet\n   ");
-								for(j = 0; j < rohc_packet_d.len; j++)
+								dump_packet (packet_length, demuxed_packet);
+/*								for(j = 0; j < rohc_packet_d.len; j++)
 								{
 									do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet_d, j));
 									if(j != 0 && ((j + 1) % 16) == 0)
@@ -1122,10 +1153,11 @@ int main(int argc, char *argv[]) {
 										do_debug(2, "  ");
 									}
 								}
-								if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+								if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
 								{
 									do_debug(2, "\n");
 								}
+*/
 							}
 
 
@@ -1140,8 +1172,10 @@ int main(int argc, char *argv[]) {
 									do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
 									// dump the feedback packet on terminal
 									if (debug) {
-										do_debug(2, " ROHC feedback packet received\n   ");
-										for(j = 0; j < feedback_send.len; j++)
+										do_debug(2, "  ROHC feedback packet received\n   ");
+
+										dump_packet (rcvd_feedback.len, rcvd_feedback.data );
+/*										for(j = 0; j < rcvd_feedback.len; j++)
 										{
 											do_debug(2, "%02x ", rohc_buf_byte_at(rcvd_feedback, j));
 											if(j != 0 && ((j + 1) % 16) == 0)
@@ -1159,6 +1193,7 @@ int main(int argc, char *argv[]) {
 										{
 											do_debug(2, "\n");
 										}
+*/
 									}
 
 
@@ -1179,8 +1214,9 @@ int main(int argc, char *argv[]) {
 
 									// dump the ROHC packet on terminal
 									if (debug) {
-										do_debug(2, " ROHC feedback packet generated\n   ");
-										for(j = 0; j < feedback_send.len; j++)
+										do_debug(2, "  ROHC feedback packet generated\n   ");
+										dump_packet (feedback_send.len, feedback_send.data );
+/*										for(j = 0; j < feedback_send.len; j++)
 										{
 											do_debug(2, "%02x ", rohc_buf_byte_at(feedback_send, j));
 											if(j != 0 && ((j + 1) % 16) == 0)
@@ -1198,6 +1234,7 @@ int main(int argc, char *argv[]) {
 										{
 											do_debug(2, "\n");
 										}
+*/
 									}
 
 
@@ -1232,9 +1269,10 @@ int main(int argc, char *argv[]) {
 									do_debug(2, "   ");
 
 									if (debug) {
+										// dump the decompressed IP packet on terminal
+										dump_packet (ip_packet_d.len, ip_packet_d.data );
 
-										/* dump the decompressed IP packet on terminal */
-										for(j = 0; j < ip_packet_d.len; j++)
+/*										for(j = 0; j < ip_packet_d.len; j++)
 										{
 											do_debug(2, "%02x ", rohc_buf_byte_at(ip_packet_d, j));
 											if(j != 0 && ((j + 1) % 16) == 0)
@@ -1248,10 +1286,11 @@ int main(int argc, char *argv[]) {
 												do_debug(2, "  ");
 											}
 										}
-										if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+										if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
 										{
 											do_debug(2, "\n");
 										}
+*/
 									}
 								} else {
 									/* no IP packet was decompressed because of ROHC segmentation or
@@ -1413,7 +1452,7 @@ int main(int argc, char *argv[]) {
 			if (port_feedback == ntohs(feedback_remote.sin_port)) {
 
 				// the packet comes from the feedback port (default 55556)
-	  			do_debug(1, "FEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", feedback_pkts, nread_from_net, inet_ntoa(feedback.sin_addr), ntohs(feedback.sin_port));
+	  			do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", feedback_pkts, nread_from_net, inet_ntoa(feedback.sin_addr), ntohs(feedback.sin_port));
 
 				feedback_pkts ++;
 
@@ -1440,8 +1479,10 @@ int main(int argc, char *argv[]) {
 
 				// dump the ROHC packet on terminal
 				if (debug) {
+
 					do_debug(2, " ROHC feedback packet received\n   ");
-					for(j = 0; j < rohc_packet_d.len; j++)
+					dump_packet ( rohc_packet_d.len, rohc_packet_d.data );
+/*					for(j = 0; j < rohc_packet_d.len; j++)
 					{
 						do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet_d, j));
 						if(j != 0 && ((j + 1) % 16) == 0)
@@ -1455,10 +1496,11 @@ int main(int argc, char *argv[]) {
 							do_debug(2, "  ");
 						}
 					}
-					if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+					if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
 					{
 						do_debug(2, "\n");
 					}
+*/
 				}
 
 
@@ -1517,10 +1559,12 @@ int main(int argc, char *argv[]) {
 
 
 
+		/**************************************************************************************/	
+		/***************** TAP to NET: compress and multiplex *********************************/
+		/**************************************************************************************/
+	
+    	/*** data arrived at tun/tap: read it, and check if the stored packets should be written to the network ***/
 
-		/***************** TAP to NET: compress and multiplex **************************/
-
-    	/*** data arrived at tun/tap: read it, and check if the stored packets should be written to the network ***/	
     	else if(FD_ISSET(tuntap_fd, &rd_set)) {		/* FD_ISSET tests if a file descriptor is part of the set */
 
 	  		/* read the packet from tun/tap, store it in the array, and store its size */
@@ -1530,7 +1574,7 @@ int main(int argc, char *argv[]) {
       		tap2net++;
 
 			if (debug > 1 ) do_debug (2,"\n");
-      		do_debug(1, "TAP2NET %lu: Read packet from tap (%i bytes). ", tap2net, size_packets_to_multiplex[num_pkts_stored_from_tap]);
+      		do_debug(1, "TAP2NET %lu: Read packet from tun/tap (%i bytes). ", tap2net, size_packets_to_multiplex[num_pkts_stored_from_tap]);
 
 			// write the log file
 			if ( log_file != NULL ) {
@@ -1541,8 +1585,9 @@ int main(int argc, char *argv[]) {
 			// print the native packet received
 			if (debug) {
 				do_debug(2, "\n   ");
-				/* dump the newly-created IP packet on terminal */
-				for(j = 0; j < size_packets_to_multiplex[num_pkts_stored_from_tap]; j++)
+				// dump the newly-created IP packet on terminal
+				dump_packet ( size_packets_to_multiplex[num_pkts_stored_from_tap], packets_to_multiplex[num_pkts_stored_from_tap] );
+/*				for(j = 0; j < size_packets_to_multiplex[num_pkts_stored_from_tap]; j++)
 				{
 					do_debug (2, "%02x ", packets_to_multiplex[num_pkts_stored_from_tap][j]);
 					if(j != 0 && ((j + 1) % 16) == 0)
@@ -1556,10 +1601,11 @@ int main(int argc, char *argv[]) {
 						do_debug(2, "  ");
 					}
 				}
-				if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
+				if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
 				{
 					do_debug(2, "\n");
 				}
+*/
 			}
 
 
@@ -1607,7 +1653,8 @@ int main(int argc, char *argv[]) {
 					/* dump the ROHC packet on terminal */
 					if (debug) {
 						do_debug(2, "  ROHC packet resulting from the ROHC compression (%i bytes):\n   ", rohc_packet.len);
-						for(j = 0; j < rohc_packet.len; j++)
+						dump_packet ( rohc_packet.len, rohc_packet.data );
+/*						for(j = 0; j < rohc_packet.len; j++)
 						{
 							do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet, j));
 							if(j != 0 && ((j + 1) % 16) == 0)
@@ -1621,10 +1668,11 @@ int main(int argc, char *argv[]) {
 								do_debug(2, "  ");
 							}
 						}
-						if(j != 0 && ((j ) % 16) != 0)  /* be sure to go to the line */
+						if(j != 0 && ((j ) % 16) != 0)  // be sure to go to the line
 						{
 							do_debug(2, "\n");
 						}
+*/
 					}
 
 				} else {
@@ -1922,10 +1970,14 @@ int main(int argc, char *argv[]) {
     	} 
 
 
-		/******************** Period expired: multiplex ****************************/
+		/*************************************************************************************/	
+		/******************** Period expired: multiplex **************************************/
+		/*************************************************************************************/	
+
 		// The period has expired
 		// Check if there is something stored, and send it
 		// since there is no new packet, here it is not necessary to compress anything
+
 		else {
 			time_in_microsec = GetTimeStamp();
 			if ( num_pkts_stored_from_tap > 0 ) {
