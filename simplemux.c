@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.5.8                                   *
+ * simplemux.c            version 1.5.10                                   *
  *                                                                        *
  * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
  * these header-compressed packets between a pair of machines (called     *
@@ -68,10 +68,19 @@
 #define MAXTHRESHOLD 1472		// default threshold of the maximum number of bytes to store. When it is reached, the sending is triggered. By default it is 1500 - 28 (IP/UDP tunneling header)
 #define MAXTIMEOUT 100000000.0	// maximum value of the timeout (microseconds). (default 100 seconds)
 
+#define SIZE_PROTOCOL_FIELD 1	// 1: protocol field of one byte
+								// 2: protocol field of two bytes
 
+#define PROTOCOL_FIRST 0		// 1: protocol field goes before the length byte(s) (as in draft-saldana-tsvwg-simplemux-01)
+								// 0: protocol field goes after the length byte(s)  (as in draft-saldana-tsvwg-simplemux-02)
 /* global variables */
 int debug;						// 0:no debug; 1:minimum debug; 2:maximum debug 
 char *progname;
+
+
+
+
+
 
 /**************************************************************************
  * tun_alloc: allocates or reconnects to a tun/tap device. The caller     *
@@ -307,6 +316,7 @@ void dump_packet (int packet_size, unsigned char packet[MTU])
 	}
 }
 
+
 /**************************************************************************
  * return an string with the date and the time in format %Y-%m-%d_%H.%M.%S*
  **************************************************************************/
@@ -326,15 +336,15 @@ int date_and_time(char buffer[25])
  **************************************************************************/
 // it takes all the variables where packets are stored, and builds a multiplexed packet
 // the variables are:
-//	- prot[MAXPKTS]						the protocol byte of each packet
-//	- size_separators_to_mux[MAXPKTS]	the size of each separator (1 or 2 bytes). Protocol byte not included
-//	- separators_to_mux[MAXPKTS][2]		the separators
-//	- size_packets_to_mux[MAXPKTS]		the size of each packet to be multiplexed
-//	- packets_to_mux[MAXPKTS][BUFSIZE]	the packet to be multiplexed
+//	- prot[MAXPKTS][SIZE_PROTOCOL_FIELD]	the protocol byte of each packet
+//	- size_separators_to_mux[MAXPKTS]		the size of each separator (1 or 2 bytes). Protocol byte not included
+//	- separators_to_mux[MAXPKTS][2]			the separators
+//	- size_packets_to_mux[MAXPKTS]			the size of each packet to be multiplexed
+//	- packets_to_mux[MAXPKTS][BUFSIZE]		the packet to be multiplexed
 
 // the multiplexed packet is stored in mux_packet[BUFSIZE]
 // the length of the multiplexed packet is returned by this function
-uint16_t build_multiplexed_packet ( int num_packets, int single_prot, unsigned char prot[MAXPKTS], uint16_t size_separators_to_mux[MAXPKTS], unsigned char separators_to_mux[MAXPKTS][2], uint16_t size_packets_to_mux[MAXPKTS], unsigned char packets_to_mux[MAXPKTS][BUFSIZE], unsigned char mux_packet[BUFSIZE])
+uint16_t build_multiplexed_packet ( int num_packets, int single_prot, unsigned char prot[MAXPKTS][SIZE_PROTOCOL_FIELD], uint16_t size_separators_to_mux[MAXPKTS], unsigned char separators_to_mux[MAXPKTS][2], uint16_t size_packets_to_mux[MAXPKTS], unsigned char packets_to_mux[MAXPKTS][BUFSIZE], unsigned char mux_packet[BUFSIZE])
 {
 	int k, l;
 	int length = 0;
@@ -342,16 +352,33 @@ uint16_t build_multiplexed_packet ( int num_packets, int single_prot, unsigned c
 	// for each packet, write the protocol field (if required), the separator and the packet itself
 	for (k = 0; k < num_packets ; k++) {
 
-		// add the 'Protocol' field if necessary
-		if ( (k==0) || (single_prot == 0 ) ) {		// the protocol field is always present in the first separator (k=0), and maybe in the rest
-			mux_packet[length] = prot[k];
-			length ++;
-		}
+		if ( PROTOCOL_FIRST ) {
+			// add the 'Protocol' field if necessary
+			if ( (k==0) || (single_prot == 0 ) ) {		// the protocol field is always present in the first separator (k=0), and maybe in the rest
+				for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
+					mux_packet[length] = prot[k][l];
+					length ++;
+				}
+			}
 	
-		// add the separator
-		for (l = 0; l < size_separators_to_mux[k] ; l++) {
-			mux_packet[length] = separators_to_mux[k][l];
-			length ++;
+			// add the separator
+			for (l = 0; l < size_separators_to_mux[k] ; l++) {
+				mux_packet[length] = separators_to_mux[k][l];
+				length ++;
+			}
+		} else {
+			// add the separator
+			for (l = 0; l < size_separators_to_mux[k] ; l++) {
+				mux_packet[length] = separators_to_mux[k][l];
+				length ++;
+			}
+			// add the 'Protocol' field if necessary
+			if ( (k==0) || (single_prot == 0 ) ) {		// the protocol field is always present in the first separator (k=0), and maybe in the rest
+				for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
+					mux_packet[length] = prot[k][l];
+					length ++;
+				}
+			}
 		}
 
 		// add the bytes of the packet itself
@@ -369,14 +396,14 @@ uint16_t build_multiplexed_packet ( int num_packets, int single_prot, unsigned c
  **************************************************************************/
 // it takes all the variables where packets are stored, and predicts the size of a multiplexed packet including all of them
 // the variables are:
-//	- prot[MAXPKTS]						the protocol byte of each packet
-//	- size_separators_to_mux[MAXPKTS]	the size of each separator (1 or 2 bytes). Protocol byte not included
-//	- separators_to_mux[MAXPKTS][2]		the separators
-//	- size_packets_to_mux[MAXPKTS]		the size of each packet to be multiplexed
-//	- packets_to_mux[MAXPKTS][BUFSIZE]	the packet to be multiplexed
+//	- prot[MAXPKTS][SIZE_PROTOCOL_FIELD]	the protocol byte of each packet
+//	- size_separators_to_mux[MAXPKTS]		the size of each separator (1 or 2 bytes). Protocol byte not included
+//	- separators_to_mux[MAXPKTS][2]			the separators
+//	- size_packets_to_mux[MAXPKTS]			the size of each packet to be multiplexed
+//	- packets_to_mux[MAXPKTS][BUFSIZE]		the packet to be multiplexed
 
 // the length of the multiplexed packet is returned by this function
-uint16_t predict_size_multiplexed_packet ( int num_packets, int single_prot, unsigned char prot[MAXPKTS], uint16_t size_separators_to_mux[MAXPKTS], unsigned char separators_to_mux[MAXPKTS][2], uint16_t size_packets_to_mux[MAXPKTS], unsigned char packets_to_mux[MAXPKTS][BUFSIZE])
+uint16_t predict_size_multiplexed_packet ( int num_packets, int single_prot, unsigned char prot[MAXPKTS][SIZE_PROTOCOL_FIELD], uint16_t size_separators_to_mux[MAXPKTS], unsigned char separators_to_mux[MAXPKTS][2], uint16_t size_packets_to_mux[MAXPKTS], unsigned char packets_to_mux[MAXPKTS][BUFSIZE])
 {
 	int k, l;
 	int length = 0;
@@ -384,17 +411,19 @@ uint16_t predict_size_multiplexed_packet ( int num_packets, int single_prot, uns
 	// for each packet, read the protocol field (if present), the separator and the packet itself
 	for (k = 0; k < num_packets ; k++) {
 
-		// add the 'Protocol' field if necessary
+		// count the 'Protocol' field if necessary
 		if ( (k==0) || (single_prot == 0 ) ) {		// the protocol field is always present in the first separator (k=0), and maybe in the rest
-			length ++;
+				for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
+					length ++;
+				}
 		}
 	
-		// add the separator
+		// count the separator
 		for (l = 0; l < size_separators_to_mux[k] ; l++) {
 			length ++;
 		}
 
-		// add the bytes of the packet itself
+		// count the bytes of the packet itself
 		for (l = 0; l < size_packets_to_mux[k] ; l++) {
 			length ++;
 		}
@@ -463,7 +492,7 @@ int main(int argc, char *argv[]) {
 	// variables for storing the packets to multiplex
 	uint16_t total_length;									// total length of the built multiplexed packet
 	unsigned char protocol_rec;								// protocol field of the received muxed packet
-	unsigned char protocol[MAXPKTS];						// protocol field of each packet
+	unsigned char protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];	// protocol field of each packet
 	uint16_t size_separators_to_multiplex[MAXPKTS];			// stores the size of the Simplemux separator. It does not include the "Protocol" field
 	unsigned char separators_to_multiplex[MAXPKTS][2];		// stores the header ('protocol' not included) received from tap, before sending it to the network
 	uint16_t size_packets_to_multiplex[MAXPKTS];			// stores the size of the received packet
@@ -965,105 +994,223 @@ int main(int argc, char *argv[]) {
 
 				while (position < nread_from_net) {
 
-					/* read the separator */
-					// - read 'protocol', the SPB and LXT bits
+					if ( PROTOCOL_FIRST ) {
+						/* read the separator */
+						// - read 'protocol', the SPB and LXT bits
 
-					// check if this is the first separator or not
-					if (first_header_read == 0) {		// this is the first separator
+						// check if this is the first separator or not
+						if (first_header_read == 0) {		// this is the first separator
 
-						// the first thing I expect is a 'protocol' field
-						protocol_rec = buffer_from_net[position];
-						position ++;
+							// the first thing I expect is a 'protocol' field
+							if ( SIZE_PROTOCOL_FIELD == 1 ) {
+								protocol_rec = buffer_from_net[position];
+								position ++;
+							} else {	// SIZE_PROTOCOL_FIELD == 2
+								protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+								position = position + 2;
+							}
 
-						// after the first byte I will find a Mux separator, so I check the next byte
-						// Since this is a first header:
-						//	- SPB will be stored in 'bits[7]'
-						//	- LXT will be stored in 'bits[6]'
-						FromByte(buffer_from_net[position], bits);
+							// after the first byte I will find a Mux separator, so I check the next byte
+							// Since this is a first header:
+							//	- SPB will be stored in 'bits[7]'
+							//	- LXT will be stored in 'bits[6]'
+							FromByte(buffer_from_net[position], bits);
 
-						// check the Single Protocol Bit (SPB, one bit), which only appears in the first
-   						// Simplemux header.  It would is set to 0 if all the multiplexed
-						// packets belong to the same protocol (in this case, the "protocol"
-						// field will only appear in the first Simplemux header).  It is set to
-						// 1 when each packet MAY belong to a different protocol.
-						if (bits[7]) {
-							single_protocol_rec = 1;
+							// check the Single Protocol Bit (SPB, one bit), which only appears in the first
+	   						// Simplemux header.  It would is set to 0 if all the multiplexed
+							// packets belong to the same protocol (in this case, the "protocol"
+							// field will only appear in the first Simplemux header).  It is set to
+							// 1 when each packet MAY belong to a different protocol.
+							if (bits[7]) {
+								single_protocol_rec = 1;
+							} else {
+								single_protocol_rec = 0;
+							}
+
+							// as this is a first header, the length extension bit is the second one, and the maximum
+							// length of a packet is 64 bytes
+							LXT_position = 6;
+							maximum_packet_length = 64;			
+
+							// if I am here, it means that I have read the first separator
+							first_header_read = 1;
+									
 						} else {
-							single_protocol_rec = 0;
+							// Non-first header
+
+							if (single_protocol_rec == 1) {
+								// all the packets belong to the same protocol, so the first byte belongs to the Mux separator, so I check it
+								FromByte(buffer_from_net[position], bits);
+							} else {
+								// each packet belongs to a different protocol, so the first thing I find is the 'Protocol' field
+								// and the second one belongs to the Mux separator, so I check it
+								if ( SIZE_PROTOCOL_FIELD == 1 ) {
+									protocol_rec = buffer_from_net[position];
+									position ++;
+								} else {	// SIZE_PROTOCOL_FIELD == 2
+									protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+									position = position + 2;
+								}
+
+								// get the value of the bits of the first byte
+								// as this is a non-first header:
+								//	- LXT will be stored in 'bits[7]'
+								FromByte(buffer_from_net[position], bits);
+							}
+
+							// as this is a non-first header, the length extension bit is the first one (7), and the maximum
+							// length of a packet is 128 bytes
+							LXT_position = 7;
+							maximum_packet_length = 128;
 						}
 
-						// if this is a first header, the length extension bit is the second one, and the maximum
+						// I have demuxed another packet
+						num_demuxed_packets ++;
+						//do_debug(2, "\n");
+
+						do_debug(1, " NET2TAP: packet #%i demuxed", num_demuxed_packets);
+						if ((debug == 1) && (ROHC_mode == 0) ) do_debug (1,"\n");
+						do_debug(2, ": ");
+
+						// read the length
+						// Check the LXT (length extension) bit.
+						// if this is a first header, the length extension bit is the second one (6), and the maximum
 						// length of a packet is 64 bytes
-						LXT_position = 6;
-						maximum_packet_length = 64;			
 
-						// if I am here, it means that I have read the first separator
-						first_header_read = 1;
-									
-					} else {
-						// Non-first header
+						if (bits[LXT_position]== false) {
+							// if the LXT bit is 0, it means that the separator is one-byte
+							// I have to convert the six less significant bits to an integer, which means the length of the packet
+							// since the two most significant bits are 0, the length is the value of the char
+							packet_length = buffer_from_net[position] % maximum_packet_length;
+							do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
+							PrintByte(2, 8, bits);
 
-						if (single_protocol_rec == 1) {
-							// all the packets belong to the same protocol, so the first byte belongs to the Mux separator, so I check it
-							FromByte(buffer_from_net[position], bits);
-						} else {
-							// each packet belongs to a different protocol, so the first byte is the 'Protocol' field
-							// and the second one belongs to the Mux separator, so I check it
-							protocol_rec = buffer_from_net[position];
 							position ++;
+
+						} else {
+							// if the second bit is 1, it means that the separator is two bytes
+							// I get the six less significant bits by using modulo maximum_packet_length
+							// I do de product by 256 and add the resulting number to the second byte
+							packet_length = ((buffer_from_net[position] % maximum_packet_length) * 256 ) + buffer_from_net[position+1];
+
+							if (debug ) {
+								do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
+								PrintByte(2, 8, bits);
+								FromByte(buffer_from_net[position+1], bits);
+								do_debug(2, " (%02x) ",buffer_from_net[position+1]);
+								PrintByte(2, 8, bits);	
+							}					
+							position = position + 2;
+						}
+						do_debug(2, " (%i bytes)\n", packet_length);
+
+
+					} else { 	// 'Protocol' field goes after the separator
+
+						// read the SPB and LXT bits and 'protocol', 
+
+						// check if this is the first separator or not
+						if (first_header_read == 0) {
+
+							// in the first byte I will find a Mux separator, so I check it
+							// Since this is a first header:
+							//	- SPB will be stored in 'bits[7]'
+							//	- LXT will be stored in 'bits[6]'
+							FromByte(buffer_from_net[position], bits);
+
+							// check the Single Protocol Bit (SPB, one bit), which only appears in the first
+	   						// Simplemux header.  It would is set to 0 if all the multiplexed
+							// packets belong to the same protocol (in this case, the "protocol"
+							// field will only appear in the first Simplemux header).  It is set to
+							// 1 when each packet MAY belong to a different protocol.
+							if (bits[7]) {
+								single_protocol_rec = 1;
+							} else {
+								single_protocol_rec = 0;
+							}
+
+							// as this is a first header, the length extension bit is the second one (6), and the maximum
+							// length of a packet is 64 bytes
+							LXT_position = 6;
+							maximum_packet_length = 64;			
+
+						} else {	// Non-first header
 
 							// get the value of the bits of the first byte
 							// as this is a non-first header:
 							//	- LXT will be stored in 'bits[7]'
 							FromByte(buffer_from_net[position], bits);
+							
+							// as this is a non-first header, the length extension bit is the first one (7), and the maximum
+							// length of a packet is 128 bytes
+							LXT_position = 7;
+							maximum_packet_length = 128;
 						}
 
-						// if this is a non-first header, the length extension bit is the second one, and the maximum
-						// length of a packet is 64 bytes
-						LXT_position = 7;
-						maximum_packet_length = 128;
-					}
+						// I have demuxed another packet
+						num_demuxed_packets ++;
+						//do_debug(2, "\n");
 
-					// I have demuxed another packet
-					num_demuxed_packets ++;
-					//do_debug(2, "\n");
+						do_debug(1, " NET2TAP: packet #%i demuxed", num_demuxed_packets);
+						if ((debug == 1) && (ROHC_mode == 0) ) do_debug (1,"\n");
+						do_debug(2, ": ");
 
-					do_debug(1, " NET2TAP: packet #%i demuxed", num_demuxed_packets);
-					if ((debug == 1) && (ROHC_mode == 0) ) do_debug (1,"\n");
-					do_debug(2, ": ");
-
-					// read the length
-					// Check the LXT (length extension) bit.
-					// if this is a first header, the length extension bit is the second one, and the maximum
-					// length of a packet is 64 bytes
-
-					if (bits[LXT_position]== false) {
-						// if the LXT bit is 0, it means that the separator is one-byte
-						// I have to convert the six less significant bits to an integer, which means the length of the packet
-						// since the two most significant bits are 0, the length is the value of the char
-						packet_length = buffer_from_net[position] % maximum_packet_length;
-						do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
-						PrintByte(2, 8, bits);
-
-						position ++;
-
-					} else {
-						// if the second bit is 1, it means that the separator is two bytes
-						// I get the six less significant bits by using modulo maximum_packet_length
-						// I do de product by 256 and add the resulting number to the second byte
-						packet_length = ((buffer_from_net[position] % maximum_packet_length) * 256 ) + buffer_from_net[position+1];
-
-						if (debug ) {
+						// read the length
+						// Check the LXT (length extension) bit.
+						if (bits[LXT_position]== false) {
+							// if the LXT bit is 0, it means that the separator is one-byte
+							// I have to convert the six less significant bits to an integer, which means the length of the packet
+							// since the two most significant bits are 0, the length is the value of the char
+							packet_length = buffer_from_net[position] % maximum_packet_length;
 							do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
 							PrintByte(2, 8, bits);
-							FromByte(buffer_from_net[position+1], bits);
-							do_debug(2, " (%02x) ",buffer_from_net[position+1]);
-							PrintByte(2, 8, bits);	
-						}					
-						position = position + 2;
-					}
-					do_debug(2, " (%i bytes)\n", packet_length);
 
+							position ++;
+
+						} else {
+							// if the second bit is 1, it means that the separator is two bytes
+							// I get the six less significant bits by using modulo maximum_packet_length
+							// I do de product by 256 and add the resulting number to the second byte
+							packet_length = ((buffer_from_net[position] % maximum_packet_length) * 256 ) + buffer_from_net[position+1];
+
+							if (debug ) {
+								do_debug(2, " Mux separator:(%02x) ", buffer_from_net[position]);
+								PrintByte(2, 8, bits);
+								FromByte(buffer_from_net[position+1], bits);
+								do_debug(2, " (%02x) ",buffer_from_net[position+1]);
+								PrintByte(2, 8, bits);	
+							}					
+							position = position + 2;
+						}
+						do_debug(2, " (%i bytes)\n", packet_length);
+
+						// check if this is the first separator or not
+						if (first_header_read == 0) {		// this is the first separator. The protocol field will always be present
+							// the next thing I expect is a 'protocol' field
+							if ( SIZE_PROTOCOL_FIELD == 1 ) {
+								protocol_rec = buffer_from_net[position];
+								position ++;
+							} else {	// SIZE_PROTOCOL_FIELD == 2
+								protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+								position = position + 2;
+							}
+
+							// if I am here, it means that I have read the first separator
+							first_header_read = 1;
+
+						} else {			// non-first separator. The protocol field may or may not be present
+							if ( single_protocol_rec == 0 ) {
+								// each packet belongs to a different protocol, so the first thing is the 'Protocol' field
+								if ( SIZE_PROTOCOL_FIELD == 1 ) {
+									protocol_rec = buffer_from_net[position];
+									position ++;
+								} else {	// SIZE_PROTOCOL_FIELD == 2
+									protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+									position = position + 2;
+								}
+							}
+						}
+					}
 
 					// copy the packet to a new string
 					for (l = 0; l < packet_length ; l++) {
@@ -1095,25 +1242,6 @@ int main(int argc, char *argv[]) {
 								do_debug(1, " Received ");
 								do_debug(2, "packet\n   ");
 								dump_packet ( packet_length, demuxed_packet );
-/*								for(j = 0; j < packet_length; j++)
-								{
-									do_debug(2, "%02x ", demuxed_packet[j]);
-									if(j != 0 && ((j + 1) % 16) == 0)
-									{
-										do_debug(2, "\n");
-										if ( j != (packet_length -1 )) do_debug(2,"   ");
-									}
-									// separate in groups of 8 bytes
-									else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-									{
-										do_debug(2, "  ");
-									}
-								}
-								if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
-								{
-									do_debug(2, "\n");
-								}
-*/
 							}
 
 						} else {
@@ -1139,25 +1267,6 @@ int main(int argc, char *argv[]) {
 								do_debug(1, " ROHC ");
 								do_debug(2, "packet\n   ");
 								dump_packet (packet_length, demuxed_packet);
-/*								for(j = 0; j < rohc_packet_d.len; j++)
-								{
-									do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet_d, j));
-									if(j != 0 && ((j + 1) % 16) == 0)
-									{
-										do_debug(2, "\n");
-										if ( j != (ip_packet_d.len -1 )) do_debug(2,"   ");
-									}
-									// separate in groups of 8 bytes
-									else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-									{
-										do_debug(2, "  ");
-									}
-								}
-								if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
-								{
-									do_debug(2, "\n");
-								}
-*/
 							}
 
 
@@ -1175,25 +1284,6 @@ int main(int argc, char *argv[]) {
 										do_debug(2, "  ROHC feedback packet received\n   ");
 
 										dump_packet (rcvd_feedback.len, rcvd_feedback.data );
-/*										for(j = 0; j < rcvd_feedback.len; j++)
-										{
-											do_debug(2, "%02x ", rohc_buf_byte_at(rcvd_feedback, j));
-											if(j != 0 && ((j + 1) % 16) == 0)
-											{
-												do_debug(2, "\n");
-												if ( j != (rcvd_feedback.len -1 )) do_debug(2,"   ");
-											}
-											// separate in groups of 8 bytes
-											else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-											{
-												do_debug(2, "  ");
-											}
-										}
-										if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
-										{
-											do_debug(2, "\n");
-										}
-*/
 									}
 
 
@@ -1216,25 +1306,6 @@ int main(int argc, char *argv[]) {
 									if (debug) {
 										do_debug(2, "  ROHC feedback packet generated\n   ");
 										dump_packet (feedback_send.len, feedback_send.data );
-/*										for(j = 0; j < feedback_send.len; j++)
-										{
-											do_debug(2, "%02x ", rohc_buf_byte_at(feedback_send, j));
-											if(j != 0 && ((j + 1) % 16) == 0)
-											{
-												do_debug(2, "\n");
-												if ( j != (feedback_send.len -1 )) do_debug(2,"   ");
-											}
-											// separate in groups of 8 bytes
-											else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-											{
-												do_debug(2, "  ");
-											}
-										}
-										if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
-										{
-											do_debug(2, "\n");
-										}
-*/
 									}
 
 
@@ -1271,27 +1342,8 @@ int main(int argc, char *argv[]) {
 									if (debug) {
 										// dump the decompressed IP packet on terminal
 										dump_packet (ip_packet_d.len, ip_packet_d.data );
-
-/*										for(j = 0; j < ip_packet_d.len; j++)
-										{
-											do_debug(2, "%02x ", rohc_buf_byte_at(ip_packet_d, j));
-											if(j != 0 && ((j + 1) % 16) == 0)
-											{
-												do_debug(2, "\n");
-												if ( j != (ip_packet_d.len -1 )) do_debug(2,"   ");
-											}
-											// separate in groups of 8 bytes
-											else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-											{
-												do_debug(2, "  ");
-											}
-										}
-										if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
-										{
-											do_debug(2, "\n");
-										}
-*/
 									}
+
 								} else {
 									/* no IP packet was decompressed because of ROHC segmentation or
 									 * feedback-only packet:
@@ -1482,25 +1534,6 @@ int main(int argc, char *argv[]) {
 
 					do_debug(2, " ROHC feedback packet received\n   ");
 					dump_packet ( rohc_packet_d.len, rohc_packet_d.data );
-/*					for(j = 0; j < rohc_packet_d.len; j++)
-					{
-						do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet_d, j));
-						if(j != 0 && ((j + 1) % 16) == 0)
-						{
-							do_debug(2, "\n");
-							if ( j != (rohc_packet_d.len -1 )) do_debug(2,"   ");
-						}
-						// separate in groups of 8 bytes
-						else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-						{
-							do_debug(2, "  ");
-						}
-					}
-					if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
-					{
-						do_debug(2, "\n");
-					}
-*/
 				}
 
 
@@ -1587,25 +1620,6 @@ int main(int argc, char *argv[]) {
 				do_debug(2, "\n   ");
 				// dump the newly-created IP packet on terminal
 				dump_packet ( size_packets_to_multiplex[num_pkts_stored_from_tap], packets_to_multiplex[num_pkts_stored_from_tap] );
-/*				for(j = 0; j < size_packets_to_multiplex[num_pkts_stored_from_tap]; j++)
-				{
-					do_debug (2, "%02x ", packets_to_multiplex[num_pkts_stored_from_tap][j]);
-					if(j != 0 && ((j + 1) % 16) == 0)
-					{
-						do_debug(2, "\n");
-						if ( j != (size_packets_to_multiplex[num_pkts_stored_from_tap] -1 )) do_debug(2,"   ");
-					}
-					// separate in groups of 8 bytes
-					else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-					{
-						do_debug(2, "  ");
-					}
-				}
-				if(j != 0 && ((j ) % 16) != 0) // be sure to go to the line
-				{
-					do_debug(2, "\n");
-				}
-*/
 			}
 
 
@@ -1642,7 +1656,12 @@ int main(int argc, char *argv[]) {
 
 					// since this packet has been compressed with ROHC, its protocol number must be 142
 					// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-					protocol[num_pkts_stored_from_tap] = 142;
+					if ( SIZE_PROTOCOL_FIELD == 1 ) {
+						protocol[num_pkts_stored_from_tap][0] = 142;
+					} else {	// SIZE_PROTOCOL_FIELD == 2 
+						protocol[num_pkts_stored_from_tap][0] = 0;
+						protocol[num_pkts_stored_from_tap][1] = 142;
+					}
 
 					// Copy the compressed length and the compressed packet over the packet read from tap
 					size_packets_to_multiplex[num_pkts_stored_from_tap] = rohc_packet.len;
@@ -1654,25 +1673,6 @@ int main(int argc, char *argv[]) {
 					if (debug) {
 						do_debug(2, "  ROHC packet resulting from the ROHC compression (%i bytes):\n   ", rohc_packet.len);
 						dump_packet ( rohc_packet.len, rohc_packet.data );
-/*						for(j = 0; j < rohc_packet.len; j++)
-						{
-							do_debug(2, "%02x ", rohc_buf_byte_at(rohc_packet, j));
-							if(j != 0 && ((j + 1) % 16) == 0)
-							{
-								do_debug(2, "\n");
-								if ( j != (ip_packet_d.len -1 )) do_debug(2,"   ");
-							}
-							// separate in groups of 8 bytes
-							else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-							{
-								do_debug(2, "  ");
-							}
-						}
-						if(j != 0 && ((j ) % 16) != 0)  // be sure to go to the line
-						{
-							do_debug(2, "\n");
-						}
-*/
 					}
 
 				} else {
@@ -1684,8 +1684,12 @@ int main(int argc, char *argv[]) {
 
 					// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP'
 					// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-					protocol[num_pkts_stored_from_tap] = 4;
-
+					if ( SIZE_PROTOCOL_FIELD == 1 ) {
+						protocol[num_pkts_stored_from_tap][0] = 4;
+					} else {	// SIZE_PROTOCOL_FIELD == 2 
+						protocol[num_pkts_stored_from_tap][0] = 0;
+						protocol[num_pkts_stored_from_tap][1] = 4;
+					}
 					fprintf(stderr, "compression of IP packet failed\n");
 
 					// print in the log file
@@ -1703,7 +1707,12 @@ int main(int argc, char *argv[]) {
 
 				// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
 				// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-				protocol[num_pkts_stored_from_tap] = 4;
+				if ( SIZE_PROTOCOL_FIELD == 1 ) {
+					protocol[num_pkts_stored_from_tap][0] = 4;
+				} else {	// SIZE_PROTOCOL_FIELD == 2 
+					protocol[num_pkts_stored_from_tap][0] = 0;
+					protocol[num_pkts_stored_from_tap][1] = 4;
+				}
 			}
 
 
@@ -1738,7 +1747,9 @@ int main(int argc, char *argv[]) {
 			// calculate if all the packets belong to the same protocol
 			single_protocol = 1;
 			for (k = 1; k < num_pkts_stored_from_tap ; k++) {
-				if (protocol[k] != protocol[k-1]) single_protocol = 0;
+				for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+					if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+				}
 			}
 
 			// add the length of the 'protocol' fields of the present packet
@@ -1909,8 +1920,14 @@ int main(int argc, char *argv[]) {
 				// calculate if all the packets belong to the same protocol
 				single_protocol = 1;
 				for (k = 1; k < num_pkts_stored_from_tap ; k++) {
-					if (protocol[k] != protocol[k-1]) single_protocol = 0;
+					for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+						if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+					}
 				}
+
+
+
+
 
 	      		do_debug(1, " Single Protocol Bit = %i\n", single_protocol);
 
@@ -1998,7 +2015,9 @@ int main(int argc, char *argv[]) {
 				// calculate if all the packets belong to the same protocol
 				single_protocol = 1;
 				for (k = 1; k < num_pkts_stored_from_tap ; k++) {
-					if (protocol[k] != protocol[k-1]) single_protocol = 0;
+					for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+						if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+					}
 				}
 
 				// Add the Single Protocol Bit in the first header (the most significant bit)
