@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.5.10                                   *
+ * simplemux.c            version 1.6.0                                   *
  *                                                                        *
  * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
  * these header-compressed packets between a pair of machines (called     *
@@ -61,7 +61,7 @@
 #include <rohc/rohc_decomp.h>
 
 
-#define BUFSIZE 2000   			// buffer for reading from tun/tap interface, must be >= MTU
+#define BUFSIZE 2000   			// buffer for reading from tun interface, must be >= MTU
 #define MTU 1500				// it has to be equal or higher than the one in the network
 #define PORT 55555				// default port
 #define MAXPKTS 100				// maximum number of packets to store
@@ -73,18 +73,16 @@
 
 #define PROTOCOL_FIRST 0		// 1: protocol field goes before the length byte(s) (as in draft-saldana-tsvwg-simplemux-01)
 								// 0: protocol field goes after the length byte(s)  (as in draft-saldana-tsvwg-simplemux-02)
+
 /* global variables */
 int debug;						// 0:no debug; 1:minimum debug; 2:maximum debug 
 char *progname;
 
 
-
-
-
-
 /**************************************************************************
  * tun_alloc: allocates or reconnects to a tun/tap device. The caller     *
  *            must reserve enough space in *dev.                          *
+ * 			flags can be IFF_TUN (1) or IFF_TAP (2)                       *
  **************************************************************************/
 int tun_alloc(char *dev, int flags) {
 
@@ -196,14 +194,13 @@ void my_err(char *msg, ...) {
  **************************************************************************/
 void usage(void) {
   fprintf(stderr, "Usage:\n");
-  fprintf(stderr, "%s -i <ifacename> [-c <peerIP>] [-p <port>] [-u|-a] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tap>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n" , progname);
+  fprintf(stderr, "%s -i <ifacename> [-c <peerIP>] [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
   fprintf(stderr, "%s -h\n", progname);
   fprintf(stderr, "\n");
-  fprintf(stderr, "-i <ifacename>: Name of tun/tap interface to use (mandatory)\n");
+  fprintf(stderr, "-i <ifacename>: Name of tun interface to use (mandatory)\n");
   fprintf(stderr, "-e <ifacename>: Name of local interface to use (mandatory)\n");
   fprintf(stderr, "-c <peerIP>: specify peer destination address (-d <peerIP>) (mandatory)\n");
   fprintf(stderr, "-p <port>: port to listen on, and to connect to (default 55555)\n");
-  fprintf(stderr, "-u|-a: use TUN (-u, default) or TAP (-a)\n");
   fprintf(stderr, "-d: outputs debug information while running. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
   fprintf(stderr, "-r: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
   fprintf(stderr, "-n: number of packets received, to be sent to the network at the same time, default 1, max 100\n");
@@ -211,7 +208,7 @@ void usage(void) {
   fprintf(stderr, "-t: timeout (in usec) to trigger the departure of packets\n");
   fprintf(stderr, "-P: period (in usec) to trigger the departure of packets. If ( timeout < period ) then the timeout has no effect\n");
   fprintf(stderr, "-l: log file name\n");
-  fprintf(stderr, "-L: use default log file name (day and hour Y-m-d_H.M.S)");
+  fprintf(stderr, "-L: use default log file name (day and hour Y-m-d_H.M.S)\n");
   fprintf(stderr, "-h: prints this help text\n");
   exit(1);
 }
@@ -472,13 +469,12 @@ static void print_rohc_traces(void *const priv_ctxt,
 int main(int argc, char *argv[]) {
 
 	// variables for managing the network interfaces
-	int tuntap_fd;										// file descriptor of the tun/tap interface
+	int tun_fd;										// file descriptor of the tun interface
 	int net_fd = 1;									// the file descriptor of the socket of the network interface
 	int feedback_fd = 2;							// the file descriptor of the socket of the feedback received from the network interface
 	int maxfd;										// maximum number of file descriptors
   	fd_set rd_set;									// rd_set is a set of file descriptors used to know which interface has received a packet
-	int flags = IFF_TUN;							// to express if a tun or a tap is to be used
-	char if_name[IFNAMSIZ] = "";					// name of the tun/tap interface (e.g. "tun1")
+	char if_name[IFNAMSIZ] = "";					// name of the tun interface (e.g. "tun1")
 	char interface[IFNAMSIZ]= "";					// name of the network interface (e.g. "eth0")
 	struct sockaddr_in local, remote, feedback, feedback_remote;		// these are structs for storing sockets
 	socklen_t slen = sizeof(remote);				// size of the socket. The type is like an int, but adequate for the size of the socket
@@ -494,20 +490,20 @@ int main(int argc, char *argv[]) {
 	unsigned char protocol_rec;								// protocol field of the received muxed packet
 	unsigned char protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];	// protocol field of each packet
 	uint16_t size_separators_to_multiplex[MAXPKTS];			// stores the size of the Simplemux separator. It does not include the "Protocol" field
-	unsigned char separators_to_multiplex[MAXPKTS][2];		// stores the header ('protocol' not included) received from tap, before sending it to the network
+	unsigned char separators_to_multiplex[MAXPKTS][2];		// stores the header ('protocol' not included) received from tun, before sending it to the network
 	uint16_t size_packets_to_multiplex[MAXPKTS];			// stores the size of the received packet
-	unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];	// stores the packets received from tap, before storing it or sending it to the network
+	unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];	// stores the packets received from tun, before storing it or sending it to the network
 	unsigned char muxed_packet[MTU];						// stores the multiplexed packet
 
 	// variables for storing the packets to demultiplex
 	uint16_t nread_from_net;								// number of bytes read from network which will be demultiplexed
-	unsigned char buffer_from_net[BUFSIZE];					// stores the packet received from the network, before sending it to tap
+	unsigned char buffer_from_net[BUFSIZE];					// stores the packet received from the network, before sending it to tun
 	unsigned char demuxed_packet[MTU];						// stores each demultiplexed packet
 
 	// variables for controlling the arrival and departure of packets
-	unsigned long int tap2net = 0, net2tap = 0;		// number of packets read from tap and from net
+	unsigned long int tun2net = 0, net2tun = 0;		// number of packets read from tun and from net
 	unsigned long int feedback_pkts = 0;			// number of ROHC feedback packets
-	int limit_numpackets_tap = 0;					// limit of the number of tap packets that can be stored. it has to be smaller than MAXPKTS
+	int limit_numpackets_tun = 0;					// limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
 	int size_threshold = MAXTHRESHOLD;				// if the number of bytes stored is higher than this, they are sent
 	uint64_t timeout = MAXTIMEOUT;					// (microseconds) if a packet arrives and the timeout has expired (time from the  
 													// previous sending), the sending is triggered. default 100 seconds
@@ -521,7 +517,7 @@ int main(int argc, char *argv[]) {
 
 	int option;										// command line options
 	int l,j,k;
-	int num_pkts_stored_from_tap = 0;				// number of packets received and not sent from tun/tap (stored)
+	int num_pkts_stored_from_tun = 0;				// number of packets received and not sent from tun (stored)
 	int size_muxed_packet = 0;						// acumulated size of the multiplexed packet
 	int predicted_size_muxed_packet;				// size of the muxed packet if the arrived packet was added to it
 	int position;									// for reading the arrived multiplexed packet
@@ -578,7 +574,7 @@ int main(int argc, char *argv[]) {
 	/************** Check command line options *********************/
 	progname = argv[0];		// argument used when calling the program
 
-	while((option = getopt(argc, argv, "i:e:c:p:n:b:t:P:l:d:r:uahL")) > 0) {
+	while((option = getopt(argc, argv, "i:e:c:p:n:b:t:P:l:d:r:hL")) > 0) {
 	    switch(option) {
 			case 'd':
 				debug = atoi(optarg);		/* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
@@ -589,7 +585,7 @@ int main(int argc, char *argv[]) {
 			case 'h':						/* help */
 				usage();
 				break;
-			case 'i':						/* put the name of the tun/tap interface (e.g. "tun2") in "if_name" */
+			case 'i':						/* put the name of the tun interface (e.g. "tun2") in "if_name" */
 				strncpy(if_name, optarg, IFNAMSIZ-1);
 				break;
 			case 'e':						/* the name of the network interface (e.g. "eth0") in "interface" */
@@ -610,14 +606,8 @@ int main(int argc, char *argv[]) {
 				port = atoi(optarg);		/* atoi Parses a string interpreting its content as an int */
 				port_feedback = port + 1;
 				break;
-			case 'u':						/* use a TUN device */
-				flags = IFF_TUN;
-				break;
-			case 'a':						/* use a TAP device */
-				flags = IFF_TAP;
-				break;
 			case 'n':						/* limit of the number of packets for triggering a muxed packet */
-				limit_numpackets_tap = atoi(optarg);
+				limit_numpackets_tun = atoi(optarg);
 				break;
 			case 'b':						/* size threshold (in bytes) for triggering a muxed packet */
 				size_threshold = atoi(optarg);
@@ -644,7 +634,7 @@ int main(int argc, char *argv[]) {
 
 	/* check the rest of the options */
 	if(*if_name == '\0') {
-		my_err("Must specify tun/tap interface name\n");
+		my_err("Must specify tun interface name\n");
 		usage();
 	} else if(*remote_ip == '\0') {
 		my_err("Must specify the address of the peer\n");
@@ -696,21 +686,21 @@ int main(int argc, char *argv[]) {
 	// if ( timeout < period ) then the timeout has no effect
 	// as soon as one of the conditions is accomplished, all the accumulated packets are sent
 
-	if (( (size_threshold < MAXTHRESHOLD) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tap == 0)) limit_numpackets_tap = MAXPKTS;
+	if (( (size_threshold < MAXTHRESHOLD) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tun == 0)) limit_numpackets_tun = MAXPKTS;
 
 	// if no option is set by the user, it is assumed that every packet will be sent immediately
-	if (( (size_threshold == MAXTHRESHOLD) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tap == 0)) limit_numpackets_tap = 1;
+	if (( (size_threshold == MAXTHRESHOLD) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tun == 0)) limit_numpackets_tun = 1;
 	
 
 	// I calculate 'now' as the moment of the last sending
 	time_last_sent_in_microsec = GetTimeStamp() ; 
 
-	do_debug(1, "threshold: %i. numpackets: %i.timeout: %.2lf\n", size_threshold, limit_numpackets_tap, timeout);
+	do_debug(1, "threshold: %i. numpackets: %i.timeout: %.2lf\n", size_threshold, limit_numpackets_tun, timeout);
 
 
-	/*** initialize tun/tap interface ***/
-	if ( (tuntap_fd = tun_alloc(if_name, flags | IFF_NO_PI)) < 0 ) {
-		my_err("Error connecting to tun/tap interface %s\n", if_name);
+	/*** initialize tun interface ***/
+	if ( (tun_fd = tun_alloc(if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
+		my_err("Error connecting to tun interface %s\n", if_name);
 		exit(1);
 	}
 	do_debug(1, "Successfully connected to interface %s\n", if_name);
@@ -916,11 +906,11 @@ int main(int argc, char *argv[]) {
 
 
   	/*** I need the value of the maximum file descriptor, in order to let select() handle three interface descriptors at once ***/
-    if(tuntap_fd >= net_fd && tuntap_fd >= feedback_fd)		maxfd = tuntap_fd;
-    if(net_fd >= tuntap_fd && net_fd >= feedback_fd)		maxfd = net_fd;
-    if(feedback_fd >= tuntap_fd && feedback_fd >= net_fd)	maxfd = feedback_fd;
+    if(tun_fd >= net_fd && tun_fd >= feedback_fd)		maxfd = tun_fd;
+    if(net_fd >= tun_fd && net_fd >= feedback_fd)		maxfd = net_fd;
+    if(feedback_fd >= tun_fd && feedback_fd >= net_fd)	maxfd = feedback_fd;
 
-	do_debug(1, "tuntap_fd: %i; net_fd: %i; feedback_fd: %i; maxfd: %i\n",tuntap_fd, net_fd, feedback_fd, maxfd);
+	do_debug(1, "tun_fd: %i; net_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, net_fd, feedback_fd, maxfd);
 
 
 	/*****************************************/
@@ -929,7 +919,7 @@ int main(int argc, char *argv[]) {
   	while(1) {
 
    		FD_ZERO(&rd_set);				/* FD_ZERO() clears a set */
-   		FD_SET(tuntap_fd, &rd_set);		/* FD_SET() adds a given file descriptor to a set */
+   		FD_SET(tun_fd, &rd_set);		/* FD_SET() adds a given file descriptor to a set */
 		FD_SET(net_fd, &rd_set);
 		FD_SET(feedback_fd, &rd_set);
 
@@ -951,7 +941,7 @@ int main(int argc, char *argv[]) {
 		/* for some class of I/O operation*/
 		ret = select(maxfd + 1, &rd_set, NULL, NULL, &period_expires); 	//this line stops the program until something
 																		//happens or the period expires
-		// if the program gets here, it means that a packet has arrived (from tun/tap or from the network), or the period has expired
+		// if the program gets here, it means that a packet has arrived (from tun or from the network), or the period has expired
     	if (ret < 0 && errno == EINTR) continue;
 
     	if (ret < 0) {
@@ -962,7 +952,7 @@ int main(int argc, char *argv[]) {
 
 
 		/*****************************************************************************/
-		/***************** NET to TAP. demux and decompress **************************/
+		/***************** NET to tun. demux and decompress **************************/
 		/*****************************************************************************/
 
     	/*** data arrived at the network interface: read, demux, decompress and forward it ***/
@@ -977,16 +967,16 @@ int main(int argc, char *argv[]) {
 
 			if (port == ntohs(remote.sin_port)) {
 	  		/* increase the counter of the number of packets read from the network */
-      			net2tap++;
-	  			do_debug(1, "NET2TAP %lu: Read muxed packet (%i bytes) from %s:%d\n", net2tap, nread_from_net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));				
+      			net2tun++;
+	  			do_debug(1, "NET2TUN %lu: Read muxed packet (%i bytes) from %s:%d\n", net2tun, nread_from_net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));				
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tap, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+					fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
 					fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
 				}
 
-				// if the packet comes from the multiplexing port, I have to demux it and write each packet to the tun/tap interface
+				// if the packet comes from the multiplexing port, I have to demux it and write each packet to the tun interface
 				position = 0; //this is the index for reading the packet/frame
 				num_demuxed_packets = 0;
 
@@ -1068,7 +1058,7 @@ int main(int argc, char *argv[]) {
 						num_demuxed_packets ++;
 						//do_debug(2, "\n");
 
-						do_debug(1, " NET2TAP: packet #%i demuxed", num_demuxed_packets);
+						do_debug(1, " NET2TUN: packet #%i demuxed", num_demuxed_packets);
 						if ((debug == 1) && (ROHC_mode == 0) ) do_debug (1,"\n");
 						do_debug(2, ": ");
 
@@ -1151,7 +1141,7 @@ int main(int argc, char *argv[]) {
 						num_demuxed_packets ++;
 						//do_debug(2, "\n");
 
-						do_debug(1, " NET2TAP: packet #%i demuxed", num_demuxed_packets);
+						do_debug(1, " NET2TUN: packet #%i demuxed", num_demuxed_packets);
 						if ((debug == 1) && (ROHC_mode == 0) ) do_debug (1,"\n");
 						do_debug(2, ": ");
 
@@ -1225,7 +1215,7 @@ int main(int argc, char *argv[]) {
 
 						// write the log file
 						if ( log_file != NULL ) {
-							fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap );	// the packet is bad so I add a line
+							fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun );	// the packet is bad so I add a line
 							fflush(log_file);
 						}
 						
@@ -1336,7 +1326,7 @@ int main(int argc, char *argv[]) {
 
 									//dump the IP packet on the standard output
 									do_debug(2, "  ");
-									do_debug(1, "IP packet resulting from the ROHC decompression (%i bytes) written to TAP\n", packet_length);
+									do_debug(1, "IP packet resulting from the ROHC decompression (%i bytes) written to tun\n", packet_length);
 									do_debug(2, "   ");
 
 									if (debug) {
@@ -1356,7 +1346,7 @@ int main(int argc, char *argv[]) {
 
 									// write the log file
 									if ( log_file != NULL ) {
-										fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tap, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));	// the packet is bad so I add a line
+										fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));	// the packet is bad so I add a line
 										fflush(log_file);
 									}
 								}
@@ -1371,7 +1361,7 @@ int main(int argc, char *argv[]) {
 								// write the log file
 								if ( log_file != NULL ) {
 									// the packet is bad
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap);	
+									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
 									fflush(log_file);
 								}
 							}
@@ -1385,7 +1375,7 @@ int main(int argc, char *argv[]) {
 								// write the log file
 								if ( log_file != NULL ) {
 									// the packet is bad
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap);	
+									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
 									fflush(log_file);
 								}
 							}
@@ -1399,7 +1389,7 @@ int main(int argc, char *argv[]) {
 								// write the log file
 								if ( log_file != NULL ) {
 									// the packet is bad
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap);	
+									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
 									fflush(log_file);
 								}
 							}
@@ -1413,7 +1403,7 @@ int main(int argc, char *argv[]) {
 								// write the log file
 								if ( log_file != NULL ) {
 									// the packet is bad
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap);	
+									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
 									fflush(log_file);
 								}
 							}
@@ -1427,14 +1417,14 @@ int main(int argc, char *argv[]) {
 								// write the log file
 								if ( log_file != NULL ) {
 									// the packet is bad
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tap);	
+									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
 									fflush(log_file);
 								}
 							}
 
 						} /*********** end decompression **************/
 
-						// write the demuxed (and perhaps decompressed) packet to the tun/tap interface
+						// write the demuxed (and perhaps decompressed) packet to the tun interface
 						// if compression is used, check that ROHC has decompressed correctly
 						if ( ( protocol_rec != 142 ) || ((protocol_rec == 142) && ( status == ROHC_STATUS_OK))) {
 
@@ -1453,11 +1443,11 @@ int main(int argc, char *argv[]) {
 							//do_debug(2, "packet length (without separator): %i\n", packet_length);
 
 							// write the demuxed packet to the network
-							cwrite ( tuntap_fd, demuxed_packet, packet_length );
+							cwrite ( tun_fd, demuxed_packet, packet_length );
 
 							// write the log file
 							if ( log_file != NULL ) {
-								fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tap);	// the packet is good
+								fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tun);	// the packet is good
 								fflush(log_file);
 							}
 						}
@@ -1467,14 +1457,14 @@ int main(int argc, char *argv[]) {
 
 			else {
 				// packet with destination port 55555, but a source port different from the multiplexing one
-				// if the packet does not come from the multiplexing port, write it directly into the tun/tap interface
-				cwrite ( tuntap_fd, buffer_from_net, nread_from_net);
-				do_debug(1, "NET2TAP %lu: Non-multiplexed packet. Written %i bytes to tap\n", net2tap, nread_from_net);
+				// if the packet does not come from the multiplexing port, write it directly into the tun interface
+				cwrite ( tun_fd, buffer_from_net, nread_from_net);
+				do_debug(1, "NET2TUN %lu: Non-multiplexed packet. Written %i bytes to tun\n", net2tun, nread_from_net);
 
 				// write the log file
 				if ( log_file != NULL ) {
 					// the packet is good
-					fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tap, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+					fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
 					fflush(log_file);
 				}
 			}
@@ -1483,7 +1473,7 @@ int main(int argc, char *argv[]) {
 
 
 		/****************************************************************************************************************************/		
-		/******* NET to TAP. ROHC feedback packet from the remote decompressor to be delivered to the local compressor **************/
+		/******* NET to tun. ROHC feedback packet from the remote decompressor to be delivered to the local compressor **************/
 		/****************************************************************************************************************************/
 
     	/*** ROHC feedback data arrived at the network interface: read it in order to deliver it to the local compressor ***/
@@ -1577,14 +1567,14 @@ int main(int argc, char *argv[]) {
 			else {
 
 				// packet with destination port 55556, but a source port different from the feedback one
-				// if the packet does not come from the feedback port, write it directly into the tun/tap interface
-				cwrite ( tuntap_fd, buffer_from_net, nread_from_net);
-				do_debug(1, "NET2TAP %lu: Non-feedback packet. Written %i bytes to tap\n", net2tap, nread_from_net);
+				// if the packet does not come from the feedback port, write it directly into the tun interface
+				cwrite ( tun_fd, buffer_from_net, nread_from_net);
+				do_debug(1, "NET2TUN %lu: Non-feedback packet. Written %i bytes to tun\n", net2tun, nread_from_net);
 
 				// write the log file
 				if ( log_file != NULL ) {
 					// the packet is good
-					fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tap, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+					fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
 					fflush(log_file);
 				}
 			}
@@ -1593,25 +1583,25 @@ int main(int argc, char *argv[]) {
 
 
 		/**************************************************************************************/	
-		/***************** TAP to NET: compress and multiplex *********************************/
+		/***************** TUN to NET: compress and multiplex *********************************/
 		/**************************************************************************************/
 	
-    	/*** data arrived at tun/tap: read it, and check if the stored packets should be written to the network ***/
+    	/*** data arrived at tun: read it, and check if the stored packets should be written to the network ***/
 
-    	else if(FD_ISSET(tuntap_fd, &rd_set)) {		/* FD_ISSET tests if a file descriptor is part of the set */
+    	else if(FD_ISSET(tun_fd, &rd_set)) {		/* FD_ISSET tests if a file descriptor is part of the set */
 
-	  		/* read the packet from tun/tap, store it in the array, and store its size */
-      		size_packets_to_multiplex[num_pkts_stored_from_tap] = cread (tuntap_fd, packets_to_multiplex[num_pkts_stored_from_tap], BUFSIZE);
+	  		/* read the packet from tun, store it in the array, and store its size */
+      		size_packets_to_multiplex[num_pkts_stored_from_tun] = cread (tun_fd, packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
 		
-	  		/* increase the counter of the number of packets read from tun/tap*/
-      		tap2net++;
+	  		/* increase the counter of the number of packets read from tun*/
+      		tun2net++;
 
 			if (debug > 1 ) do_debug (2,"\n");
-      		do_debug(1, "TAP2NET %lu: Read packet from tun/tap (%i bytes). ", tap2net, size_packets_to_multiplex[num_pkts_stored_from_tap]);
+      		do_debug(1, "TUN2NET %lu: Read packet from tun (%i bytes). ", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
 
 			// write the log file
 			if ( log_file != NULL ) {
-				fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%lu\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tap], tap2net);
+				fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%lu\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun], tun2net);
 				fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 			}
 
@@ -1619,7 +1609,7 @@ int main(int argc, char *argv[]) {
 			if (debug) {
 				do_debug(2, "\n   ");
 				// dump the newly-created IP packet on terminal
-				dump_packet ( size_packets_to_multiplex[num_pkts_stored_from_tap], packets_to_multiplex[num_pkts_stored_from_tap] );
+				dump_packet ( size_packets_to_multiplex[num_pkts_stored_from_tun], packets_to_multiplex[num_pkts_stored_from_tun] );
 			}
 
 
@@ -1627,11 +1617,11 @@ int main(int argc, char *argv[]) {
 			if ( ROHC_mode > 0 ) {
 				// header compression has been selected by the user
 
-				// copy the length read from tap to the buffer where the packet to be compressed is stored
-				ip_packet.len = size_packets_to_multiplex[num_pkts_stored_from_tap];
+				// copy the length read from tun to the buffer where the packet to be compressed is stored
+				ip_packet.len = size_packets_to_multiplex[num_pkts_stored_from_tun];
 
 				// copy the packet
-				memcpy(rohc_buf_data_at(ip_packet, 0), packets_to_multiplex[num_pkts_stored_from_tap], size_packets_to_multiplex[num_pkts_stored_from_tap]);
+				memcpy(rohc_buf_data_at(ip_packet, 0), packets_to_multiplex[num_pkts_stored_from_tun], size_packets_to_multiplex[num_pkts_stored_from_tun]);
 
 				// reset the buffer where the rohc packet is to be stored
 				rohc_buf_reset (&rohc_packet);
@@ -1657,16 +1647,16 @@ int main(int argc, char *argv[]) {
 					// since this packet has been compressed with ROHC, its protocol number must be 142
 					// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
 					if ( SIZE_PROTOCOL_FIELD == 1 ) {
-						protocol[num_pkts_stored_from_tap][0] = 142;
+						protocol[num_pkts_stored_from_tun][0] = 142;
 					} else {	// SIZE_PROTOCOL_FIELD == 2 
-						protocol[num_pkts_stored_from_tap][0] = 0;
-						protocol[num_pkts_stored_from_tap][1] = 142;
+						protocol[num_pkts_stored_from_tun][0] = 0;
+						protocol[num_pkts_stored_from_tun][1] = 142;
 					}
 
-					// Copy the compressed length and the compressed packet over the packet read from tap
-					size_packets_to_multiplex[num_pkts_stored_from_tap] = rohc_packet.len;
-					for (l = 0; l < size_packets_to_multiplex[num_pkts_stored_from_tap] ; l++) {
-						packets_to_multiplex[num_pkts_stored_from_tap][l] = rohc_buf_byte_at(rohc_packet, l);
+					// Copy the compressed length and the compressed packet over the packet read from tun
+					size_packets_to_multiplex[num_pkts_stored_from_tun] = rohc_packet.len;
+					for (l = 0; l < size_packets_to_multiplex[num_pkts_stored_from_tun] ; l++) {
+						packets_to_multiplex[num_pkts_stored_from_tun][l] = rohc_buf_byte_at(rohc_packet, l);
 					}
 
 					/* dump the ROHC packet on terminal */
@@ -1680,25 +1670,25 @@ int main(int argc, char *argv[]) {
 					/* Send it in its native form */
 
 					// I don't have to copy the native length and the native packet, because they
-					// have already been stored in 'size_packets_to_multiplex[num_pkts_stored_from_tap]' and 'packets_to_multiplex[num_pkts_stored_from_tap]'
+					// have already been stored in 'size_packets_to_multiplex[num_pkts_stored_from_tun]' and 'packets_to_multiplex[num_pkts_stored_from_tun]'
 
 					// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP'
 					// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
 					if ( SIZE_PROTOCOL_FIELD == 1 ) {
-						protocol[num_pkts_stored_from_tap][0] = 4;
+						protocol[num_pkts_stored_from_tun][0] = 4;
 					} else {	// SIZE_PROTOCOL_FIELD == 2 
-						protocol[num_pkts_stored_from_tap][0] = 0;
-						protocol[num_pkts_stored_from_tap][1] = 4;
+						protocol[num_pkts_stored_from_tun][0] = 0;
+						protocol[num_pkts_stored_from_tun][1] = 4;
 					}
 					fprintf(stderr, "compression of IP packet failed\n");
 
 					// print in the log file
 					if ( log_file != NULL ) {
-						fprintf (log_file, "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%lu\\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tap], tap2net);
+						fprintf (log_file, "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%lu\\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun], tun2net);
 						fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 					}
 
-					do_debug(2, "  ROHC did not work. Native packet sent (%i bytes):\n   ", size_packets_to_multiplex[num_pkts_stored_from_tap]);
+					do_debug(2, "  ROHC did not work. Native packet sent (%i bytes):\n   ", size_packets_to_multiplex[num_pkts_stored_from_tun]);
 					//goto release_compressor;
 				}
 
@@ -1708,10 +1698,10 @@ int main(int argc, char *argv[]) {
 				// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
 				// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
 				if ( SIZE_PROTOCOL_FIELD == 1 ) {
-					protocol[num_pkts_stored_from_tap][0] = 4;
+					protocol[num_pkts_stored_from_tun][0] = 4;
 				} else {	// SIZE_PROTOCOL_FIELD == 2 
-					protocol[num_pkts_stored_from_tap][0] = 0;
-					protocol[num_pkts_stored_from_tap][1] = 4;
+					protocol[num_pkts_stored_from_tun][0] = 0;
+					protocol[num_pkts_stored_from_tun][1] = 4;
 				}
 			}
 
@@ -1723,30 +1713,30 @@ int main(int argc, char *argv[]) {
 			// - I store the present one
 
 			// calculate the size without the present packet
-			predicted_size_muxed_packet = predict_size_multiplexed_packet (num_pkts_stored_from_tap, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex);
+			predicted_size_muxed_packet = predict_size_multiplexed_packet (num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex);
 
 			// I add the length of the present packet:
 
 			// separator and length of the present packet
 			if (first_header_written == 0) {
 				// this is the first header, so the maximum length is 64
-				if (size_packets_to_multiplex[num_pkts_stored_from_tap] < 64 ) {
-					predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tap];
+				if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 64 ) {
+					predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
 				} else {
-					predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tap];
+					predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
 				}
 			} else {
 				// this is not the first header, so the maximum length is 128
-				if (size_packets_to_multiplex[num_pkts_stored_from_tap] < 128 ) {
-					predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tap];
+				if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 128 ) {
+					predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
 				} else {
-					predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tap];
+					predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
 				}
 			}
 
 			// calculate if all the packets belong to the same protocol
 			single_protocol = 1;
-			for (k = 1; k < num_pkts_stored_from_tap ; k++) {
+			for (k = 1; k < num_pkts_stored_from_tun ; k++) {
 				for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
 					if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
 				}
@@ -1755,7 +1745,7 @@ int main(int argc, char *argv[]) {
 			// add the length of the 'protocol' fields of the present packet
 			// if pkts belonging to different protocols are multiplexed, I have to add n-1 bytes, each one 
 			//corresponding to the "Protocol" field of a muliplexed packet
-			if (single_protocol == 0 ) predicted_size_muxed_packet = predicted_size_muxed_packet + num_pkts_stored_from_tap;	
+			if (single_protocol == 0 ) predicted_size_muxed_packet = predicted_size_muxed_packet + num_pkts_stored_from_tun;	
 
 
 			if (predicted_size_muxed_packet > MTU ) {
@@ -1770,11 +1760,11 @@ int main(int argc, char *argv[]) {
 					separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
 					size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
 				} else {
-					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tap;		// one byte per packet, corresponding to the 'protocol' field
+					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
 				}
 
 				// build the multiplexed packet without the current one
-				total_length = build_multiplexed_packet ( num_pkts_stored_from_tap, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+				total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
 
 				do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
 
@@ -1783,24 +1773,24 @@ int main(int argc, char *argv[]) {
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length, tap2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tap);
+					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
 					fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 				}
 
 				// I have emptied the buffer, so I have to
 				//move the current packet to the first position of the 'packets_to_multiplex' array
 				for (l = 0; l < BUFSIZE; l++ ) {
-					packets_to_multiplex[0][l]=packets_to_multiplex[num_pkts_stored_from_tap][l];
+					packets_to_multiplex[0][l]=packets_to_multiplex[num_pkts_stored_from_tun][l];
 				}
 
 				// move the current separator to the first position of the array
 				for (l = 0; l < 2; l++ ) {
-					separators_to_multiplex[0][l]=separators_to_multiplex[num_pkts_stored_from_tap][l];
+					separators_to_multiplex[0][l]=separators_to_multiplex[num_pkts_stored_from_tun][l];
 				}
 
 				// move the length to the first position of the array
-				size_packets_to_multiplex[0] = size_packets_to_multiplex[num_pkts_stored_from_tap];
-				size_separators_to_multiplex[0] = size_separators_to_multiplex[num_pkts_stored_from_tap];
+				size_packets_to_multiplex[0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
+				size_separators_to_multiplex[0] = size_separators_to_multiplex[num_pkts_stored_from_tun];
 				for (j=1; j < MAXPKTS; j++) size_packets_to_multiplex [j] = 0;
 
 				// I have sent a packet, so I set to 0 the "first_header_written" bit
@@ -1808,12 +1798,12 @@ int main(int argc, char *argv[]) {
 
 				// reset the length and the number of packets
 				size_muxed_packet = 0;
-				num_pkts_stored_from_tap = 0;
+				num_pkts_stored_from_tun = 0;
 			}	/*** end check if MTU would be reached ***/
 
 
 			// update the size of the muxed packet, adding the size of the current one
-			size_muxed_packet = size_muxed_packet + size_packets_to_multiplex[num_pkts_stored_from_tap];
+			size_muxed_packet = size_muxed_packet + size_packets_to_multiplex[num_pkts_stored_from_tun];
 
 			// I have to add the multiplexing separator. It is 1 byte if the length is smaller than 64 (or 128). 
 			// it is 2 bytes if the lengh is 64 (or 128) or more
@@ -1826,14 +1816,14 @@ int main(int argc, char *argv[]) {
 			}
 
 			// check if the length has to be one or two bytes
-			if (size_packets_to_multiplex[num_pkts_stored_from_tap] < maximum_packet_length ) {
+			if (size_packets_to_multiplex[num_pkts_stored_from_tun] < maximum_packet_length ) {
 
 				// the length can be written in the first byte of the separator (expressed in 6 or 7 bits)
-				size_separators_to_multiplex[num_pkts_stored_from_tap] = 1;
+				size_separators_to_multiplex[num_pkts_stored_from_tun] = 1;
 
 				// add the length to the string.
 				// since the value is < maximum_packet_length, the most significant bits will always be 0
-				separators_to_multiplex[num_pkts_stored_from_tap][0] = size_packets_to_multiplex[num_pkts_stored_from_tap];
+				separators_to_multiplex[num_pkts_stored_from_tun][0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
 
 				// increase the size of the multiplexed packet
 				size_muxed_packet ++;
@@ -1841,8 +1831,8 @@ int main(int argc, char *argv[]) {
 
 				// print the  Mux separator (only one byte)
 				if(debug) {
-					FromByte(separators_to_multiplex[num_pkts_stored_from_tap][0], bits);
-					do_debug(2, " Mux separator:(%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tap]);
+					FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
+					do_debug(2, " Mux separator:(%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
 					if (first_header_written == 0) {
 						PrintByte(2, 7, bits);			// first header
 					} else {
@@ -1853,7 +1843,7 @@ int main(int argc, char *argv[]) {
 
 			} else {
 				// the length requires a two-byte separator (length expressed in 14 or 15 bits)
-				size_separators_to_multiplex[num_pkts_stored_from_tap] = 2;
+				size_separators_to_multiplex[num_pkts_stored_from_tun] = 2;
 
 				// first byte of the Mux separator
 				// It can be:
@@ -1862,14 +1852,14 @@ int main(int argc, char *argv[]) {
 				// get the most significant byte by dividing by 256
 				// add 64 (or 128) in order to put a '1' in the second (or first) bit
 				if (first_header_written == 0) {
-					separators_to_multiplex[num_pkts_stored_from_tap][0] = (size_packets_to_multiplex[num_pkts_stored_from_tap] / 256 ) + 64;	// first header
+					separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 256 ) + 64;	// first header
 				} else {
-					separators_to_multiplex[num_pkts_stored_from_tap][0] = (size_packets_to_multiplex[num_pkts_stored_from_tap] / 256 ) + 128;	// non-first header
+					separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 256 ) + 128;	// non-first header
 				}
 
 				// second byte of the Mux separator
 				// the 8 less significant bytes of the length. Use modulo
-				separators_to_multiplex[num_pkts_stored_from_tap][1] = size_packets_to_multiplex[num_pkts_stored_from_tap] % 256;
+				separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 256;
 
 				// increase the size of the multiplexed packet
 				size_muxed_packet = size_muxed_packet + 2;
@@ -1877,8 +1867,8 @@ int main(int argc, char *argv[]) {
 				// print the two bytes of the separator
 				if(debug) {
 					// first byte
-					FromByte(separators_to_multiplex[0][num_pkts_stored_from_tap], bits);
-					do_debug(2, " Mux separator:(%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tap]);
+					FromByte(separators_to_multiplex[0][num_pkts_stored_from_tun], bits);
+					do_debug(2, " Mux separator:(%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
 					if (first_header_written == 0) {
 						PrintByte(2, 7, bits);			// first header
 					} else {
@@ -1886,15 +1876,15 @@ int main(int argc, char *argv[]) {
 					}
 
 					// second byte
-					FromByte(separators_to_multiplex[num_pkts_stored_from_tap][1], bits);
-					do_debug(2, " (%02x) ", separators_to_multiplex[num_pkts_stored_from_tap][1]);
+					FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
+					do_debug(2, " (%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
 					PrintByte(2, 8, bits);
 					do_debug(2, "\n");
 				}	
 			}
 
 			// I have finished storing the packet, so I increase the number of stored packets
-			num_pkts_stored_from_tap ++;
+			num_pkts_stored_from_tun ++;
 
 			// I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
 			if (first_header_written == 0) first_header_written = 1;
@@ -1902,7 +1892,7 @@ int main(int argc, char *argv[]) {
 
 
 			//do_debug (1,"\n");
-			do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts (%i bytes).", num_pkts_stored_from_tap , size_muxed_packet);
+			do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts (%i bytes).", num_pkts_stored_from_tun , size_muxed_packet);
 			time_in_microsec = GetTimeStamp();
 			time_difference = time_in_microsec - time_last_sent_in_microsec;		
 			do_debug(1, " time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
@@ -1913,13 +1903,13 @@ int main(int argc, char *argv[]) {
 
 			// if the packet limit or the size threshold or the MTU are reached, send all the stored packets to the network
 			// do not worry about the MTU. if it is reached, a number of packets will be sent
-			if ((num_pkts_stored_from_tap == limit_numpackets_tap) || (size_muxed_packet > size_threshold) || (time_difference > timeout )) {
+			if ((num_pkts_stored_from_tun == limit_numpackets_tun) || (size_muxed_packet > size_threshold) || (time_difference > timeout )) {
 
 				// a multiplexed packet has to be sent
 
 				// calculate if all the packets belong to the same protocol
 				single_protocol = 1;
-				for (k = 1; k < num_pkts_stored_from_tap ; k++) {
+				for (k = 1; k < num_pkts_stored_from_tun ; k++) {
 					for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
 						if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
 					}
@@ -1937,23 +1927,23 @@ int main(int argc, char *argv[]) {
 					separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
 					size_muxed_packet = size_muxed_packet + 1;						// one byte corresponding to the 'protocol' field of the first header
 				} else {
-					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tap;	// one byte per packet, corresponding to the 'protocol' field
+					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;	// one byte per packet, corresponding to the 'protocol' field
 				}
 
 				// write the debug information
 				if (debug) {
-					do_debug(1, " TAP2NET**Sending triggered**. ");
-					if (num_pkts_stored_from_tap == limit_numpackets_tap)
+					do_debug(1, " TUN2NET**Sending triggered**. ");
+					if (num_pkts_stored_from_tun == limit_numpackets_tun)
 						do_debug(1, "num packet limit reached. ");
 					if (size_muxed_packet > size_threshold)
 						do_debug(1," size limit reached. ");
 					if (time_difference > timeout)
 						do_debug(1, "timeout reached. ");		
-					do_debug(1, "Writing %i packets (%i bytes) to network\n", num_pkts_stored_from_tap, size_muxed_packet);						
+					do_debug(1, "Writing %i packets (%i bytes) to network\n", num_pkts_stored_from_tun, size_muxed_packet);						
 				}
 
 				// build the multiplexed packet including the current one
-				total_length = build_multiplexed_packet ( num_pkts_stored_from_tap, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+				total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
 
 				//do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
 
@@ -1963,8 +1953,8 @@ int main(int argc, char *argv[]) {
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet, tap2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tap);
-					if (num_pkts_stored_from_tap == limit_numpackets_tap)
+					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+					if (num_pkts_stored_from_tun == limit_numpackets_tun)
 						fprintf(log_file, "\tnumpacket_limit");
 					if (size_muxed_packet > size_threshold)
 						fprintf(log_file, "\tsize_limit");
@@ -1979,7 +1969,7 @@ int main(int argc, char *argv[]) {
 
 				// reset the length and the number of packets
 				size_muxed_packet = 0 ;
-				num_pkts_stored_from_tap = 0;
+				num_pkts_stored_from_tun = 0;
 
 				// update the time of the last packet sent
 				time_last_sent_in_microsec = time_in_microsec;
@@ -1997,7 +1987,7 @@ int main(int argc, char *argv[]) {
 
 		else {
 			time_in_microsec = GetTimeStamp();
-			if ( num_pkts_stored_from_tap > 0 ) {
+			if ( num_pkts_stored_from_tun > 0 ) {
 
 				// There are some packets stored
 
@@ -2005,8 +1995,8 @@ int main(int argc, char *argv[]) {
 				time_difference = time_in_microsec - time_last_sent_in_microsec;		
 
 				if (debug) {
-					do_debug(1, "TAP2NET**Period expired. Sending triggered**. time since last trigger: %" PRIu64 " usec\n", time_difference);	
-					do_debug(1, "Writing %i packets (%i bytes) to network\n", num_pkts_stored_from_tap, size_muxed_packet);						
+					do_debug(1, "TUN2NET**Period expired. Sending triggered**. time since last trigger: %" PRIu64 " usec\n", time_difference);	
+					do_debug(1, "Writing %i packets (%i bytes) to network\n", num_pkts_stored_from_tun, size_muxed_packet);						
 
 				}
 
@@ -2014,7 +2004,7 @@ int main(int argc, char *argv[]) {
 
 				// calculate if all the packets belong to the same protocol
 				single_protocol = 1;
-				for (k = 1; k < num_pkts_stored_from_tap ; k++) {
+				for (k = 1; k < num_pkts_stored_from_tun ; k++) {
 					for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
 						if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
 					}
@@ -2026,13 +2016,13 @@ int main(int argc, char *argv[]) {
 					separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
 					size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
 				} else {
-					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tap;		// one byte per packet, corresponding to the 'protocol' field
+					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
 				}
 
 	      		do_debug(1, " Single Protocol Bit = %i.", single_protocol);
 
 				// build the multiplexed packet
-				total_length = build_multiplexed_packet ( num_pkts_stored_from_tap, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+				total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
 
 				do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
 
@@ -2041,7 +2031,7 @@ int main(int argc, char *argv[]) {
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet, tap2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tap);	
+					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);	
 				}
 			
 				// I have sent a packet, so I set to 0 the "first_header_written" bit
@@ -2049,7 +2039,7 @@ int main(int argc, char *argv[]) {
 
 				// reset the length and the number of packets
 				size_muxed_packet = 0 ;
-				num_pkts_stored_from_tap = 0;
+				num_pkts_stored_from_tun = 0;
 
 			} else {
 				// No packet arrived
