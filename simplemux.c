@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.0                                   *
+ * simplemux.c            version 1.6.2                                   *
  *                                                                        *
  * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
  * these header-compressed packets between a pair of machines (called     *
@@ -59,6 +59,7 @@
 #include <rohc/rohc.h>			// for using header compression
 #include <rohc/rohc_comp.h>
 #include <rohc/rohc_decomp.h>
+
 
 
 #define BUFSIZE 2000   			// buffer for reading from tun interface, must be >= MTU
@@ -194,12 +195,12 @@ void my_err(char *msg, ...) {
  **************************************************************************/
 void usage(void) {
   fprintf(stderr, "Usage:\n");
-  fprintf(stderr, "%s -i <ifacename> [-c <peerIP>] [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
+  fprintf(stderr, "%s -i <tunifacename> -e <ifacename> [-c <peerIP>] [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
   fprintf(stderr, "%s -h\n", progname);
   fprintf(stderr, "\n");
   fprintf(stderr, "-i <ifacename>: Name of tun interface to use (mandatory)\n");
-  fprintf(stderr, "-e <ifacename>: Name of local interface to use (mandatory)\n");
-  fprintf(stderr, "-c <peerIP>: specify peer destination address (-d <peerIP>) (mandatory)\n");
+  fprintf(stderr, "-e <ifacename>: Name of local interface which IP will be used for reception of muxed packets, i.e., the tunnel local end (mandatory)\n");
+  fprintf(stderr, "-c <peerIP>: specify peer destination IP address, i.e. the tunnel remote end (mandatory)\n");
   fprintf(stderr, "-p <port>: port to listen on, and to connect to (default 55555)\n");
   fprintf(stderr, "-d: outputs debug information while running. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
   fprintf(stderr, "-r: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
@@ -771,8 +772,7 @@ int main(int argc, char *argv[]) {
 	// create the sockets for sending packets to the network
     // assign the local address. Source IPv4 address: it is the one of the interface
     strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
-    do_debug(1, "Local IP %s\n", inet_ntoa(local.sin_addr));
-
+	do_debug(1, "Local IP %s\n", local_ip);
 
 	// create the socket for sending multiplexed packets (with separator)
     memset(&local, 0, sizeof(local));
@@ -784,7 +784,7 @@ int main(int argc, char *argv[]) {
 
  	if (bind(net_fd, (struct sockaddr *)&local, sizeof(local))==-1) perror("bind");
 
-    do_debug(1, "Socket for multiplexing open. Remote IP  %s. Port %i. ", inet_ntoa(remote.sin_addr), port); 
+    do_debug(1, "Socket for multiplexing open: Remote IP  %s. Port %i\n", inet_ntoa(remote.sin_addr), port); 
 
 
 	// create the socket for sending feedback packets
@@ -796,7 +796,7 @@ int main(int argc, char *argv[]) {
 
  	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) perror("bind");
 
-    do_debug(1, "Socket for feedback open. Remote IP  %s. Port %i. ", inet_ntoa(feedback_remote.sin_addr), port_feedback); 
+    do_debug(1, "Socket for feedback open: Remote IP  %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), port_feedback); 
 
   
 
