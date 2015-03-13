@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.2                                   *
+ * simplemux.c            version 1.6.4                                   *
  *                                                                        *
  * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
  * these header-compressed packets between a pair of machines (called     *
@@ -59,8 +59,7 @@
 #include <rohc/rohc.h>			// for using header compression
 #include <rohc/rohc_comp.h>
 #include <rohc/rohc_decomp.h>
-
-
+#include <netinet/ip.h>			// for using iphdr type
 
 #define BUFSIZE 2000   			// buffer for reading from tun interface, must be >= MTU
 #define MTU 1500				// it has to be equal or higher than the one in the network
@@ -71,6 +70,13 @@
 
 #define SIZE_PROTOCOL_FIELD 1	// 1: protocol field of one byte
 								// 2: protocol field of two bytes
+
+
+// ****** PEPE ******** 
+#define IPPROTO_TCM			253	// N: TCM Protocol ID
+#define NETWORK_MODE		'N'	// N: network mode
+#define TRANSPORT_MODE		'T'	// T: transport mode
+// ****** PEPE ******** 
 
 #define PROTOCOL_FIRST 0		// 1: protocol field goes before the length byte(s) (as in draft-saldana-tsvwg-simplemux-01)
 								// 0: protocol field goes after the length byte(s)  (as in draft-saldana-tsvwg-simplemux-02)
@@ -195,12 +201,16 @@ void my_err(char *msg, ...) {
  **************************************************************************/
 void usage(void) {
   fprintf(stderr, "Usage:\n");
-  fprintf(stderr, "%s -i <tunifacename> -e <ifacename> [-c <peerIP>] [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
+  fprintf(stderr, "%s -i <ifacename> -e <ifacename> -c <peerIP> -M <N or T> [-o <ifacename>] [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
   fprintf(stderr, "%s -h\n", progname);
   fprintf(stderr, "\n");
-  fprintf(stderr, "-i <ifacename>: Name of tun interface to use (mandatory)\n");
+  fprintf(stderr, "-i <ifacename>: Name of tun interface to use for capturing native packets (mandatory)\n");
   fprintf(stderr, "-e <ifacename>: Name of local interface which IP will be used for reception of muxed packets, i.e., the tunnel local end (mandatory)\n");
   fprintf(stderr, "-c <peerIP>: specify peer destination IP address, i.e. the tunnel remote end (mandatory)\n");
+// ****** PEPE ******** 
+  fprintf(stderr, "-M <mode>: Network(N) or Transport (T) mode (mandatory)\n");
+  fprintf(stderr, "-o <ifacename>: Name of tun interface to use for capturing multiplexed packets (mandatory in network mode)\n");
+// ****** PEPE ******** 
   fprintf(stderr, "-p <port>: port to listen on, and to connect to (default 55555)\n");
   fprintf(stderr, "-d: outputs debug information while running. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
   fprintf(stderr, "-r: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
@@ -465,17 +475,117 @@ static void print_rohc_traces(void *const priv_ctxt,
 
 
 /**************************************************************************
+ * Functions to work with IP Header *
+ **************************************************************************/
+
+// Calculate Ip checksum
+unsigned short in_cksum(unsigned short *addr, int len)
+{
+register int sum = 0;
+u_short answer = 0;
+register u_short *w = addr;
+register int nleft = len;
+/*
+* Our algorithm is simple, using a 32 bit accumulator (sum), we add
+* sequential 16 bit words to it, and at the end, fold back all the
+* carry bits from the top 16 bits into the lower 16 bits.
+*/
+while (nleft > 1)
+{
+sum += *w++;
+nleft -= 2;
+}
+/* mop up an odd byte, if necessary */
+if (nleft == 1)
+{
+*(u_char *) (&answer) = *(u_char *) w;
+sum += answer;
+}
+/* add back carry outs from top 16 bits to low 16 bits */
+sum = (sum >> 16) + (sum & 0xffff); /* add hi 16 to low 16 */
+sum += (sum >> 16); /* add carry */
+answer = ~sum; /* truncate to 16 bits */
+return (answer);
+}
+
+
+
+// Buid an IP Header
+void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local, struct sockaddr_in remote)
+{
+	static uint16_t counter = 0;
+	
+
+	// clean the variable
+	memset (iph, 0, sizeof(struct iphdr));
+
+	iph->ihl = 5;
+	iph->version = 4;
+	iph->tos = 0;
+	iph->tot_len = htons(sizeof(struct iphdr) + len_data);
+	iph->id = htons(1234 + counter);
+	iph->frag_off = 0;
+	iph->ttl = 64;
+	iph->protocol = IPPROTO_TCM;
+	iph->saddr = inet_addr(inet_ntoa(local.sin_addr));
+	//iph->saddr = inet_addr("192.168.137.1");
+	iph->daddr = inet_addr(inet_ntoa(remote.sin_addr));
+
+	iph->check = in_cksum((unsigned short *)iph, sizeof(struct iphdr));
+	
+	do_debug(1, "Checksum: %i\n", iph->check);
+
+	counter ++;
+}
+
+
+// Buid a Full IP Packet
+void BuildFullIPPacket(struct iphdr iph, unsigned char *data_packet, uint16_t len_data, unsigned char *full_ip_packet)
+{
+	memset(full_ip_packet, 0, MTU);
+	memcpy((struct iphdr*)full_ip_packet, &iph, sizeof(struct iphdr));
+	memcpy((struct iphdr*)(full_ip_packet + sizeof(struct iphdr)), data_packet, len_data);
+}
+
+
+//Get IP header from IP packet
+void GetIpHeader(struct iphdr *iph, unsigned char *ip_packet)
+{	
+	memcpy(iph,(struct iphdr*)ip_packet,sizeof(struct iphdr));
+}
+
+//Set IP header in IP Packet
+void SetIpHeader(struct iphdr iph, unsigned char *ip_packet)
+{
+	memcpy((struct iphdr*)ip_packet,&iph,sizeof(struct iphdr));
+}
+
+
+
+
+/**************************************************************************
  ************************ main program ************************************
  **************************************************************************/
 int main(int argc, char *argv[]) {
 
 	// variables for managing the network interfaces
-	int tun_fd;										// file descriptor of the tun interface
+	int tun_fd;										// file descriptor of the tun interface(no mux packet)
+
+// ****** PEPE ******** 
+	int tun1_fd;									// file descriptor of the tun interface (mux packet)   
+// ****** PEPE ******** 
+
 	int net_fd = 1;									// the file descriptor of the socket of the network interface
 	int feedback_fd = 2;							// the file descriptor of the socket of the feedback received from the network interface
 	int maxfd;										// maximum number of file descriptors
   	fd_set rd_set;									// rd_set is a set of file descriptors used to know which interface has received a packet
-	char if_name[IFNAMSIZ] = "";					// name of the tun interface (e.g. "tun1")
+	char if_name[IFNAMSIZ] = "";					// name of the tun interface (e.g. "tun0")
+
+// ****** PEPE ******** 
+	char if2_name[IFNAMSIZ] = "";					// name of the tun interface (e.g. "tun1")
+	char mode[2] = "";								// Network(N) or Transport (T) mode
+// ****** PEPE ******** 
+	
 	char interface[IFNAMSIZ]= "";					// name of the network interface (e.g. "eth0")
 	struct sockaddr_in local, remote, feedback, feedback_remote;		// these are structs for storing sockets
 	socklen_t slen = sizeof(remote);				// size of the socket. The type is like an int, but adequate for the size of the socket
@@ -496,9 +606,16 @@ int main(int argc, char *argv[]) {
 	unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];	// stores the packets received from tun, before storing it or sending it to the network
 	unsigned char muxed_packet[MTU];						// stores the multiplexed packet
 
+// ****** PEPE ******** 
+	bool is_multiplexed_packet;						// To determine if a received packet have been multiplexed
+	struct iphdr ipheader;							// IP header
+	unsigned char full_ip_packet[MTU];				// Full IP packet
+// ****** PEPE ******** 
+
 	// variables for storing the packets to demultiplex
 	uint16_t nread_from_net;								// number of bytes read from network which will be demultiplexed
 	unsigned char buffer_from_net[BUFSIZE];					// stores the packet received from the network, before sending it to tun
+	unsigned char buffer_from_net_aux[BUFSIZE];				// stores the packet received from the network, before sending it to tun
 	unsigned char demuxed_packet[MTU];						// stores each demultiplexed packet
 
 	// variables for controlling the arrival and departure of packets
@@ -575,7 +692,10 @@ int main(int argc, char *argv[]) {
 	/************** Check command line options *********************/
 	progname = argv[0];		// argument used when calling the program
 
-	while((option = getopt(argc, argv, "i:e:c:p:n:b:t:P:l:d:r:hL")) > 0) {
+	
+// ****** PEPE ******** 
+	while((option = getopt(argc, argv, "i:e:o:M:c:p:n:b:t:P:l:d:r:hL")) > 0) {
+// ****** PEPE ******** 
 	    switch(option) {
 			case 'd':
 				debug = atoi(optarg);		/* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
@@ -589,6 +709,14 @@ int main(int argc, char *argv[]) {
 			case 'i':						/* put the name of the tun interface (e.g. "tun2") in "if_name" */
 				strncpy(if_name, optarg, IFNAMSIZ-1);
 				break;
+// ****** PEPE ******** 
+			case 'o':						/* put the name of the tun interface (e.g. "tun2") in "if_name" */
+				strncpy(if2_name, optarg, IFNAMSIZ-1);
+				break;
+			case 'M':						/* Network (N) or Transport (T) mode */
+				strncpy(mode, optarg, 1);
+				break;
+// ****** PEPE ******** 
 			case 'e':						/* the name of the network interface (e.g. "eth0") in "interface" */
 				strncpy(interface, optarg, IFNAMSIZ-1);
 				break;
@@ -622,6 +750,7 @@ int main(int argc, char *argv[]) {
 			default:
 				my_err("Unknown option %c\n", option);
 				usage();
+				break;
     	}
 	}	//end while option
 
@@ -635,7 +764,7 @@ int main(int argc, char *argv[]) {
 
 	/* check the rest of the options */
 	if(*if_name == '\0') {
-		my_err("Must specify tun interface name\n");
+		my_err("Must specify a tun interface name for native packets ('-i' option)\n");
 		usage();
 	} else if(*remote_ip == '\0') {
 		my_err("Must specify the address of the peer\n");
@@ -643,7 +772,19 @@ int main(int argc, char *argv[]) {
 	} else if(*interface == '\0') {
 		my_err("Must specify local interface name\n");
 		usage();
+	} 
+// ****** PEPE ******** 
+	else if((strcmp(mode, "N") != 0) && (strcmp(mode, "T") != 0)) {
+		my_err("Must specify a valid mode ('-M' option)\n");
+		usage();
+	} 
+	// check if we are in network mode and there is no interface name
+	if  ((*mode == 'N') && (*if2_name == '\0')){
+		my_err("In NETWORK mode, a valid tun interface name for multiplexed packets must be specified ('-o' option)\n");
+		usage();
 	}
+// ****** PEPE ******** 	
+
 
 	/* open the log file */
 	if ( file_logging == 1 ) {
@@ -701,11 +842,71 @@ int main(int argc, char *argv[]) {
 
 	/*** initialize tun interface ***/
 	if ( (tun_fd = tun_alloc(if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
-		my_err("Error connecting to tun interface %s\n", if_name);
+		my_err("Error connecting to tun interface for capturing native packets %s\n", if_name);
 		exit(1);
 	}
-	do_debug(1, "Successfully connected to interface %s\n", if_name);
+	do_debug(1, "Successfully connected to interface for capturing native packets %s\n", if_name);
 
+// ****** PEPE ******** 
+	/*** initialize tun interface ***/
+	if ( (tun1_fd = tun_alloc(if2_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
+		my_err("Error connecting to tun interface for capturing multiplexed packets %s\n", if2_name);
+		exit(1);
+	}
+	do_debug(1, "Successfully connected to interface for capturing multiplexed packets %s\n", if2_name);
+
+// ****** PEPE ******** 
+
+
+
+// ****** PEPE ******** 
+	/*** initialize header IP ***/
+	memset(&ipheader, 0, sizeof(struct iphdr));
+	
+// ****** PEPE ******** 
+// ****** JMS ******
+struct sockaddr_in sin;
+struct ip iphdr;
+int sd;
+const int on = 1;
+struct ifreq ifr;
+
+//if (strcmp(mode, "N") != 0) {
+	// The kernel is going to prepare layer 2 information (ethernet frame header) for us.
+	// For that, we need to specify a destination for the kernel in order for it
+	// to decide where to send the raw datagram. We fill in a struct in_addr with
+	// the desired destination IP address, and pass this structure to the sendto() function.
+  memset (&sin, 0, sizeof (struct sockaddr_in));
+  sin.sin_family = AF_INET;
+  sin.sin_addr.s_addr = iphdr.ip_dst.s_addr;
+
+  // Submit request for a raw socket descriptor.
+  if ((sd = socket (AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+    perror ("Raw socket for sending muxed packets bind failed ");
+    exit (EXIT_FAILURE);
+  } else {
+	do_debug(1,"Success: Raw socket for sending muxed packets bind\n");
+}
+
+  // Set flag so socket expects us to provide IPv4 header.
+  if (setsockopt (sd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
+    perror ("setsockopt() failed to set IP_HDRINCL ");
+    exit (EXIT_FAILURE);
+  }
+
+  // Bind socket to interface index.
+  if (setsockopt (sd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof (ifr)) < 0) {
+    perror ("setsockopt() failed to bind to interface ");
+    exit (EXIT_FAILURE);
+  }
+
+
+
+//}
+
+
+
+// ****** JMS ******
 
 	/*** Request a socket for multiplexed packets ***/
 	// AF_INET (exactly the same as PF_INET)
@@ -754,14 +955,6 @@ int main(int argc, char *argv[]) {
 		return (EXIT_FAILURE);
 	}
 
-
-	/*** get the IP address of the local interface ***/
-	if (ioctl(net_fd, SIOCGIFADDR, &iface) < 0) {
-		perror ("ioctl() failed to find the IP address for local interface ");
-		return (EXIT_FAILURE);
-	}
-
-
 	/*** get the MTU of the local interface ***/
 	if (ioctl(net_fd, SIOCGIFMTU, &iface) == -1) network_mtu = 0;
 	else network_mtu = iface.ifr_mtu;
@@ -769,10 +962,19 @@ int main(int argc, char *argv[]) {
 	if (network_mtu > MTU) perror("predefined MTU is higher than the one in the network");
 
 
-	// create the sockets for sending packets to the network
+// ****** PEPE ******** 
+	/*** get the IP address of the local interface ***/
+	if (ioctl(net_fd, SIOCGIFADDR, &iface) < 0) {
+		perror ("ioctl() failed to find the IP address for local interface ");
+		return (EXIT_FAILURE);
+	}
+// ****** PEPE ******** 
+
+		// create the sockets for sending packets to the network
     // assign the local address. Source IPv4 address: it is the one of the interface
     strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
-	do_debug(1, "Local IP %s\n", local_ip);
+    do_debug(1, "Local IP %s\n", local_ip);
+
 
 	// create the socket for sending multiplexed packets (with separator)
     memset(&local, 0, sizeof(local));
@@ -784,7 +986,7 @@ int main(int argc, char *argv[]) {
 
  	if (bind(net_fd, (struct sockaddr *)&local, sizeof(local))==-1) perror("bind");
 
-    do_debug(1, "Socket for multiplexing open: Remote IP  %s. Port %i\n", inet_ntoa(remote.sin_addr), port); 
+    do_debug(1, "Socket for multiplexing open. Remote IP  %s. Port %i\n", inet_ntoa(remote.sin_addr), port); 
 
 
 	// create the socket for sending feedback packets
@@ -796,7 +998,7 @@ int main(int argc, char *argv[]) {
 
  	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) perror("bind");
 
-    do_debug(1, "Socket for feedback open: Remote IP  %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), port_feedback); 
+    do_debug(1, "Socket for feedback open. Remote IP  %s. Port %i\n ", inet_ntoa(feedback_remote.sin_addr), port_feedback); 
 
   
 
@@ -904,13 +1106,20 @@ int main(int argc, char *argv[]) {
 		do_debug(1, "several ROHC decompression profiles enabled\n");
 	}
 
-
+// ****** PEPE ******** 
   	/*** I need the value of the maximum file descriptor, in order to let select() handle three interface descriptors at once ***/
-    if(tun_fd >= net_fd && tun_fd >= feedback_fd)		maxfd = tun_fd;
-    if(net_fd >= tun_fd && net_fd >= feedback_fd)		maxfd = net_fd;
-    if(feedback_fd >= tun_fd && feedback_fd >= net_fd)	maxfd = feedback_fd;
+    //if(tun_fd >= net_fd && tun_fd >= feedback_fd)		maxfd = tun_fd;
+    //if(net_fd >= tun_fd && net_fd >= feedback_fd)		maxfd = net_fd;
+    //if(feedback_fd >= tun_fd && feedback_fd >= net_fd)	maxfd = feedback_fd;
 
-	do_debug(1, "tun_fd: %i; net_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, net_fd, feedback_fd, maxfd);
+    if(tun_fd >= net_fd && tun_fd >= feedback_fd && tun_fd >= tun1_fd)				maxfd = tun_fd;
+    if(tun1_fd >= net_fd && tun1_fd >= feedback_fd && tun1_fd >= tun_fd)			maxfd = tun1_fd;
+	if(net_fd >= tun_fd && net_fd >= feedback_fd && net_fd >= tun1_fd)				maxfd = net_fd;
+    if(feedback_fd >= tun_fd && feedback_fd >= net_fd && feedback_fd >= tun1_fd)	maxfd = feedback_fd;
+
+	//do_debug(1, "tun_fd: %i; net_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, net_fd, feedback_fd, maxfd);
+	do_debug(1, "tun_fd: %i; tun1_fd: %i; net_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, tun1_fd, net_fd, feedback_fd, maxfd);
+// ****** PEPE ******** 
 
 
 	/*****************************************/
@@ -920,6 +1129,9 @@ int main(int argc, char *argv[]) {
 
    		FD_ZERO(&rd_set);				/* FD_ZERO() clears a set */
    		FD_SET(tun_fd, &rd_set);		/* FD_SET() adds a given file descriptor to a set */
+// ****** PEPE ******** 
+   		FD_SET(tun1_fd, &rd_set);		/* FD_SET() adds a given file descriptor to a set */
+// ****** PEPE ******** 
 		FD_SET(net_fd, &rd_set);
 		FD_SET(feedback_fd, &rd_set);
 
@@ -950,22 +1162,55 @@ int main(int argc, char *argv[]) {
     	}
 
 
-
 		/*****************************************************************************/
 		/***************** NET to tun. demux and decompress **************************/
 		/*****************************************************************************/
 
+// ****** PEPE ******** 
     	/*** data arrived at the network interface: read, demux, decompress and forward it ***/
-    	if(FD_ISSET(net_fd, &rd_set)) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
+    	if(FD_ISSET(net_fd, &rd_set)|| FD_ISSET(tun1_fd, &rd_set)) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
 
-	  		// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
-			nread_from_net = recvfrom ( net_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&remote, &slen );
-			if (nread_from_net==-1) perror ("recvfrom()");
+			switch (*mode) {
+				case TRANSPORT_MODE:
+					// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
+					nread_from_net = recvfrom ( net_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&remote, &slen );
+					if (nread_from_net==-1) perror ("recvfrom()");
+					// now buffer_from_net contains the payload (simplemux headers and multiplexled packets) of a full packet or frame.
+					// I don't have the IP and UDP headers
+
+					// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
+					if (port == ntohs(remote.sin_port)) 
+						 is_multiplexed_packet = 1;
+					else is_multiplexed_packet = 0;
+					break;
+				case NETWORK_MODE:
+					// a packet has been received from the network, destinated to the tun1 interface
+					nread_from_net = cread (tun1_fd, buffer_from_net_aux, BUFSIZE);
+					if (nread_from_net==-1) perror ("cread demux()");
+					// now buffer_from_net contains the headers (IP and Simplemux) and the payload of a full packet or frame.
+
+					// copy from "buffer_from_net_aux" everything except the IP header (usually the first 20 bytes)
+					memcpy ( buffer_from_net, buffer_from_net_aux + sizeof(struct iphdr), nread_from_net - sizeof(struct iphdr));
+					// correct the size of "nread from net"
+					nread_from_net = nread_from_net - sizeof(struct iphdr);
+ 
+					// Get IP Header of received packet
+					GetIpHeader(&ipheader,buffer_from_net);
+					if (ipheader.protocol == IPPROTO_TCM) 
+						 is_multiplexed_packet = 1;
+					else is_multiplexed_packet = 0;
+					break;
+			}
+// ****** PEPE ******** 
 
 			// now buffer_from_net contains a full packet or frame.
 			// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
 
-			if (port == ntohs(remote.sin_port)) {
+
+// ****** PEPE ******** 
+			//if (port == ntohs(remote.sin_port)) {
+			if (is_multiplexed_packet) {
+// ****** PEPE ******** 
 	  		/* increase the counter of the number of packets read from the network */
       			net2tun++;
 	  			do_debug(1, "NET2TUN %lu: Read muxed packet (%i bytes) from %s:%d\n", net2tun, nread_from_net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));				
@@ -1442,6 +1687,7 @@ int main(int argc, char *argv[]) {
 							do_debug(2, "\n\n");
 							//do_debug(2, "packet length (without separator): %i\n", packet_length);
 
+
 							// write the demuxed packet to the network
 							cwrite ( tun_fd, demuxed_packet, packet_length );
 
@@ -1768,9 +2014,28 @@ int main(int argc, char *argv[]) {
 
 				do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
 
-				// send the multiplexed packet without the current one
-				if (sendto(net_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
-
+// ****** PEPE ******** 
+			switch (*mode) {
+				case TRANSPORT_MODE:
+					// send the multiplexed packet without the current one
+					if (sendto(net_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+					break;
+				case NETWORK_MODE:
+					// build full IP multiplexed packet
+					BuildIPHeader(&ipheader, total_length, local,remote);
+					BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
+					// send the multiplexed packet without the current one
+					//cwrite ( tun1_fd, full_ip_packet, total_length + sizeof(struct iphdr));
+// ******* JMS *********
+// Send packet
+  if (sendto (sd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+    perror ("sendto() failed ");
+    exit (EXIT_FAILURE);
+  }
+// ******* JMS *********
+// ****** PEPE ******** 
+				break;
+			}
 				// write the log file
 				if ( log_file != NULL ) {
 					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
@@ -1915,10 +2180,6 @@ int main(int argc, char *argv[]) {
 					}
 				}
 
-
-
-
-
 	      		do_debug(1, " Single Protocol Bit = %i\n", single_protocol);
 
 				// Add the Single Protocol Bit in the first header (the most significant bit)
@@ -1945,11 +2206,30 @@ int main(int argc, char *argv[]) {
 				// build the multiplexed packet including the current one
 				total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
 
-				//do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
+				do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
 
-
-				// send the multiplexed packet
-				if (sendto(net_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+// ****** PEPE ******** 
+			switch (*mode) {
+				case TRANSPORT_MODE:
+					// send the multiplexed packet
+					if (sendto(net_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+					break;
+				case NETWORK_MODE:
+					// build full IP multiplexed packet
+					BuildIPHeader(&ipheader, total_length, local,remote);
+					BuildFullIPPacket(ipheader,muxed_packet,total_length,full_ip_packet);
+					// send the multiplexed packet without the current one
+					//cwrite ( tun1_fd, full_ip_packet, total_length + sizeof(struct iphdr) );
+// ******* JMS *********
+// Send packet
+  if (sendto (sd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+    perror ("sendto() failed ");
+    exit (EXIT_FAILURE);
+  }
+// ******* JMS *********
+					break;
+			}
+// ****** PEPE ******** 
 
 				// write the log file
 				if ( log_file != NULL ) {
@@ -2026,8 +2306,28 @@ int main(int argc, char *argv[]) {
 
 				do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
 
-				// send the multiplexed packet
-				if (sendto(net_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+// ****** PEPE ******** 
+			switch (*mode) {
+				case TRANSPORT_MODE:
+					// send the multiplexed packet
+					if (sendto(net_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+					break;
+				case NETWORK_MODE:
+					// build full IP multiplexed packet
+					BuildIPHeader(&ipheader, total_length, local,remote);
+					BuildFullIPPacket(ipheader,muxed_packet,total_length, full_ip_packet);
+					// send the multiplexed packet without the current one
+					//cwrite ( tun1_fd, full_ip_packet, total_length + sizeof(struct iphdr) );
+// ******* JMS *********
+// Send packet
+  if (sendto (sd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &sin, sizeof (struct sockaddr)) < 0)  {
+    perror ("sendto() failed ");
+    exit (EXIT_FAILURE);
+  }
+// ******* JMS *********
+					break;
+			}
+// ****** PEPE ******** 
 
 				// write the log file
 				if ( log_file != NULL ) {
@@ -2077,5 +2377,7 @@ static int gen_random_num(const struct rohc_comp *const comp,
 {
 	return rand();
 }
+
+
 
 
