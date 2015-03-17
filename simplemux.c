@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.6                                   *
+ * simplemux.c            version 1.6.8                                   *
  *                                                                        *
  * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
  * these header-compressed packets between a pair of machines (called     *
@@ -76,6 +76,7 @@
 #define NETWORK_MODE		'N'	// N: network mode
 #define TRANSPORT_MODE		'T'	// T: transport mode
 
+#define Linux_TTL 64			// the initial value of the TTL IP field in Linux
 
 #define PROTOCOL_FIRST 0		// 1: protocol field goes before the length byte(s) (as in draft-saldana-tsvwg-simplemux-01)
 								// 0: protocol field goes after the length byte(s)  (as in draft-saldana-tsvwg-simplemux-02)
@@ -521,7 +522,7 @@ void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local
 	iph->tot_len = htons(sizeof(struct iphdr) + len_data);
 	iph->id = htons(1234 + counter);
 	iph->frag_off = 0;
-	iph->ttl = 64;
+	iph->ttl = Linux_TTL;
 	iph->protocol = IPPROTO_SIMPLEMUX;
 	iph->saddr = inet_addr(inet_ntoa(local.sin_addr));
 	//iph->saddr = inet_addr("192.168.137.1");
@@ -566,30 +567,31 @@ int main(int argc, char *argv[]) {
 
 	// variables for managing the network interfaces
 	int tun_fd;										// file descriptor of the tun interface(no mux packet)
-	int transport_mode_fd = 1;						// the file descriptor of the socket of the network interface
-	int feedback_fd = 2;							// the file descriptor of the socket of the feedback received from the network interface
+	int transport_mode_fd;							// the file descriptor of the socket of the network interface
+	int network_mode_fd;							// the file descriptor of the socket in Network mode
+	int feedback_fd;								// the file descriptor of the socket of the feedback received from the network interface
 	int maxfd;										// maximum number of file descriptors
-	int network_mode_fd;										// the file descriptor of the socket in Network mode
   	fd_set rd_set;									// rd_set is a set of file descriptors used to know which interface has received a packet
-	char if_name[IFNAMSIZ] = "";					// name of the tun interface (e.g. "tun0")
 
+	char tun_if_name[IFNAMSIZ] = "";				// name of the tun interface (e.g. "tun0")
+	char mux_if_name[IFNAMSIZ] = "";				// name of the network interface (e.g. "eth0")
 
 	char mode[2] = "";								// Network(N) or Transport (T) mode
 
 	const int on = 1;								// needed when creating a socket
 
-	
-	char interface[IFNAMSIZ]= "";					// name of the network interface (e.g. "eth0")
-	struct sockaddr_in local, remote, feedback, feedback_remote, mux_socket;		// these are structs for storing sockets
+	struct sockaddr_in local, remote, feedback, feedback_remote;	// these are structs for storing sockets
+
+	struct iphdr ipheader;							// IP header
+	struct ifreq iface;								// network interface
+
 	socklen_t slen = sizeof(remote);				// size of the socket. The type is like an int, but adequate for the size of the socket
 	socklen_t slen_feedback = sizeof(feedback);		// size of the socket. The type is like an int, but adequate for the size of the socket
+
 	char remote_ip[16] = "";            			// dotted quad IP string with the IP of the remote machine
 	char local_ip[16] = "";                 		// dotted quad IP string with the IP of the local machine     
 	unsigned short int port = PORT;					// UDP port to be used for sending the multiplexed packets
 	unsigned short int port_feedback = PORT + 1;	// UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
-	struct ifreq iface;								// network interface
-
-	struct ip iphdr;								// for building the IP header in Network mode
 
 	// variables for storing the packets to multiplex
 	uint16_t total_length;									// total length of the built multiplexed packet
@@ -603,7 +605,7 @@ int main(int argc, char *argv[]) {
 
 
 	bool is_multiplexed_packet;						// To determine if a received packet have been multiplexed
-	struct iphdr ipheader;							// IP header
+
 	unsigned char full_ip_packet[MTU];				// Full IP packet
 
 
@@ -701,18 +703,14 @@ int main(int argc, char *argv[]) {
 			case 'h':						/* help */
 				usage();
 				break;
-			case 'i':						/* put the name of the tun interface (e.g. "tun0") in "if_name" */
-				strncpy(if_name, optarg, IFNAMSIZ-1);
+			case 'i':						/* put the name of the tun interface (e.g. "tun0") in "tun_if_name" */
+				strncpy(tun_if_name, optarg, IFNAMSIZ-1);
 				break;
-//			case 'o':						/* put the name of the tun interface (e.g. "tun2") in "if_name" */
-//				strncpy(if2_name, optarg, IFNAMSIZ-1);
-//				break;
-//
 			case 'M':						/* Network (N) or Transport (T) mode */
 				strncpy(mode, optarg, 1);
 				break;
-			case 'e':						/* the name of the network interface (e.g. "eth0") in "interface" */
-				strncpy(interface, optarg, IFNAMSIZ-1);
+			case 'e':						/* the name of the network interface (e.g. "eth0") in "mux_if_name" */
+				strncpy(mux_if_name, optarg, IFNAMSIZ-1);
 				break;
 			case 'c':						/* destination address of the machine where the tunnel ends */
 				strncpy(remote_ip, optarg, 15);
@@ -757,13 +755,13 @@ int main(int argc, char *argv[]) {
 	}
 
 	/* check the rest of the options */
-	if(*if_name == '\0') {
+	if(*tun_if_name == '\0') {
 		my_err("Must specify a tun interface name for native packets ('-i' option)\n");
 		usage();
 	} else if(*remote_ip == '\0') {
 		my_err("Must specify the address of the peer\n");
 		usage();
-	} else if(*interface == '\0') {
+	} else if(*mux_if_name == '\0') {
 		my_err("Must specify local interface name\n");
 		usage();
 	} 
@@ -788,23 +786,7 @@ int main(int argc, char *argv[]) {
 	do_debug ( 1 , "debug level set to %i\n", debug);
 
 
-	// check ROHC option
-	if ( ROHC_mode < 0 ) ROHC_mode = 0;
-	else if ( ROHC_mode > 2 ) ROHC_mode = 2;
-	switch(ROHC_mode) {
-			case 0:
-				do_debug ( 1 , "ROHC not activated\n", debug);
-				break;
-			case 1:
-				do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
-				break;
-			case 2:
-				do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
-				break;
-			/*case 3:
-				do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);
-				break;*/
-	}
+
 
 	/*** set the triggering parameters according to user selections (or default values) ***/
 	
@@ -826,40 +808,25 @@ int main(int argc, char *argv[]) {
 	// I calculate 'now' as the moment of the last sending
 	time_last_sent_in_microsec = GetTimeStamp() ; 
 
-	do_debug(1, "threshold: %i. numpackets: %i.timeout: %.2lf\n", size_threshold, limit_numpackets_tun, timeout);
+	do_debug(1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %.2lf. period: %.2lf\n", size_threshold, limit_numpackets_tun, timeout, period);
 
 
 	/*** initialize tun interface ***/
-	if ( (tun_fd = tun_alloc(if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
-		my_err("Error connecting to tun interface for capturing native packets %s\n", if_name);
+	if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
+		my_err("Error connecting to tun interface for capturing native packets %s\n", tun_if_name);
 		exit(1);
 	}
-	do_debug(1, "Successfully connected to interface for capturing native packets %s\n", if_name);
-
+	do_debug(1, "Successfully connected to interface for native packets %s\n", tun_if_name);
  
-	/*** initialize tun interface ***/
-/*	if ( (tun1_fd = tun_alloc(if2_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
-		my_err("Error connecting to tun interface for capturing multiplexed packets %s\n", if2_name);
-		exit(1);
-	}
-	do_debug(1, "Successfully connected to interface for capturing multiplexed packets %s\n", if2_name);
-*/
-
-
-
-
 
 	/*** initialize header IP ***/
 	memset(&ipheader, 0, sizeof(struct iphdr));
-	
 
-	/*** Request a socket for 
-		- writing demuxed packets
-		- sending and receiving in TRANSPORT mode ***/
+	/*** Request a socket for writing and receiving muxed packets in TRANSPORT mode ***/
 
 	// AF_INET (exactly the same as PF_INET)
 	// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-	// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets	
+	// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
   	if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
     	perror("socket()");
     	exit(1);
@@ -892,7 +859,7 @@ int main(int argc, char *argv[]) {
 	// bind socket descriptor transport_mode_fd to specified interface with setsockopt() since
 	// none of the other arguments of sendto() specify which interface to use.
 	memset (&iface, 0, sizeof (iface));
-	snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", interface);
+	snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
 	if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
 		perror ("ioctl() failed to find interface ");
 		return (EXIT_FAILURE);
@@ -906,18 +873,10 @@ int main(int argc, char *argv[]) {
 	/*** get the MTU of the local interface ***/
 	if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1) network_mtu = 0;
 	else network_mtu = iface.ifr_mtu;
-	do_debug(1, "MTU: %i\n", network_mtu);
-	if (network_mtu > MTU) perror("predefined MTU is higher than the one in the network");
+	//do_debug(1, "MTU: %i\n", network_mtu);
+	if (network_mtu > MTU) 
+		perror("predefined MTU is higher than the one in the network");
 
-
-
-	// The kernel is going to prepare layer 2 information (ethernet frame header) for us.
-	// For that, we need to specify a destination for the kernel in order for it
-	// to decide where to send the raw datagram. We fill in a struct in_addr with
-	// the desired destination IP address, and pass this structure to the sendto() function.
-	memset (&mux_socket, 0, sizeof (struct sockaddr_in));
-	mux_socket.sin_family = AF_INET;
-	mux_socket.sin_addr.s_addr = iphdr.ip_dst.s_addr;
 
 	// socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
 	// Submit request for a raw socket descriptor.
@@ -925,7 +884,8 @@ int main(int argc, char *argv[]) {
 		perror ("Raw socket for sending muxed packets bind failed ");
 		exit (EXIT_FAILURE);
 	} else {
-		do_debug(1,"Success: Raw socket for sending muxed packets bind\n");
+//		do_debug(1,"Success: Raw socket for sending muxed packets bind\n");
+		do_debug(1,"Raw socket for multiplexing open. Remote IP %s. Protocol number %i\n", inet_ntoa(remote.sin_addr), IPPROTO_SIMPLEMUX);
 	}
 
 	// Set flag so socket expects us to provide IPv4 header.
@@ -940,20 +900,22 @@ int main(int argc, char *argv[]) {
 		exit (EXIT_FAILURE);
 	}
 
-
-
 	/*** get the IP address of the local interface ***/
 	if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
 		perror ("ioctl() failed to find the IP address for local interface ");
 		return (EXIT_FAILURE);
+	} else {
+		// source IPv4 address: it is the one of the interface
+		strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
+		do_debug(1, "Local IP for multiplexing %s. MTU %i\n", local_ip, network_mtu);
 	}
 
 
-	// create the sockets for sending packets to the network
+/*	// create the sockets for sending packets to the network
     // assign the local address. Source IPv4 address: it is the one of the interface
     strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
     do_debug(1, "Local IP %s\n", local_ip);
-
+*/
 
 	// create the socket for sending multiplexed packets (with separator)
     memset(&local, 0, sizeof(local));
@@ -965,8 +927,8 @@ int main(int argc, char *argv[]) {
 
  	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) perror("bind");
 
-    do_debug(1, "Socket for multiplexing open. Remote IP  %s. Port %i\n", inet_ntoa(remote.sin_addr), port); 
-
+//  do_debug(1, "Socket for multiplexing open. Remote IP  %s. Port %i\n", inet_ntoa(remote.sin_addr), port); 
+	do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
 
 	// create the socket for sending feedback packets
     memset(&feedback, 0, sizeof(feedback));
@@ -977,9 +939,26 @@ int main(int argc, char *argv[]) {
 
  	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) perror("bind");
 
-    do_debug(1, "Socket for feedback open. Remote IP  %s. Port %i\n ", inet_ntoa(feedback_remote.sin_addr), port_feedback); 
-
+//  do_debug(1, "Socket for feedback open. Remote IP  %s. Port %i\n ", inet_ntoa(feedback_remote.sin_addr), port_feedback); 
+    do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
   
+	// check ROHC option
+	if ( ROHC_mode < 0 ) ROHC_mode = 0;
+	else if ( ROHC_mode > 2 ) ROHC_mode = 2;
+	switch(ROHC_mode) {
+			case 0:
+				do_debug ( 1 , "ROHC not activated\n", debug);
+				break;
+			case 1:
+				do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
+				break;
+			case 2:
+				do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
+				break;
+			/*case 3:
+				do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);
+				break;*/
+	}
 
 	// If ROHC has been selected, I have to initialize it
 	if ( ROHC_mode > 0 ) {
@@ -997,7 +976,7 @@ int main(int argc, char *argv[]) {
 			goto error;
 		}
 
-		do_debug(1, "ROHC compressor created\n");
+		do_debug(1, "ROHC compressor created. Profiles: ");
 
 		// set the function that will manage the ROHC compressing traces (it will be 'print_rohc_traces')
         if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL))
@@ -1009,35 +988,52 @@ int main(int argc, char *argv[]) {
 		/* Enable the ROHC compression profiles */
 		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_UNCOMPRESSED))
 		{
-			fprintf(stderr, "failed to enable the Uncompressed profile\n");
+			fprintf(stderr, "failed to enable the Uncompressed compression profile\n");
 			goto release_compressor;
+		} else {
+			do_debug(1, "Uncompressed. ");
 		}
+
 		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_IP))
 		{
-			fprintf(stderr, "failed to enable the IP-only profile\n");
+			fprintf(stderr, "failed to enable the IP-only compression profile\n");
 			goto release_compressor;
+		} else {
+			do_debug(1, "IP-only. ");
 		}
+
 		if(!rohc_comp_enable_profiles(compressor, ROHC_PROFILE_UDP, ROHC_PROFILE_UDPLITE, -1))
 		{
-			fprintf(stderr, "failed to enable the IP/UDP and IP/UDP-Lite profiles\n");
+			fprintf(stderr, "failed to enable the IP/UDP and IP/UDP-Lite compression profiles\n");
 			goto release_compressor;
+		} else {
+			do_debug(1, "IP/UDP. IP/UDP-Lite. ");
 		}
+
 		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_RTP))
 		{
-			fprintf(stderr, "failed to enable the RTP profile\n");
+			fprintf(stderr, "failed to enable the RTP compression profile\n");
 			goto release_compressor;
+		} else {
+			do_debug(1, "RTP. ");
 		}
+
 		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_ESP))
 		{
-			fprintf(stderr, "failed to enable the ESP profile\n");
+			fprintf(stderr, "failed to enable the ESP compression profile\n");
 			goto release_compressor;
+		} else {
+			do_debug(1, "ESP. ");
 		}
+
 		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_TCP))
 		{
-			fprintf(stderr, "failed to enable the TCP profile\n");
+			fprintf(stderr, "failed to enable the TCP compression profile\n");
 			goto release_compressor;
+		} else {
+			do_debug(1, "TCP. ");
 		}
-		do_debug(1, "several ROHC compression profiles enabled\n");
+		do_debug(1, "\n");
 
 
         /* Create a ROHC decompressor to operate:
@@ -1053,13 +1049,13 @@ int main(int argc, char *argv[]) {
         	decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);	// Bidirectional Reliable mode (not implemented yet)
 		} */
 
-        if(decompressor == NULL)
+       if(decompressor == NULL)
         {
                 fprintf(stderr, "failed create the ROHC decompressor\n");
                 goto release_decompressor;
         }
 
-		do_debug(1, "ROHC decompressor created\n");
+		do_debug(1, "ROHC decompressor created. Profiles: ");
 
 		// set the function that will manage the ROHC decompressing traces (it will be 'print_rohc_traces')
 		if(!rohc_decomp_set_traces_cb2(decompressor, print_rohc_traces, NULL))
@@ -1069,20 +1065,71 @@ int main(int argc, char *argv[]) {
         }
 
 		// enable rohc decompression profiles
-		status = rohc_decomp_enable_profiles(decompressor,
-                                     ROHC_PROFILE_UNCOMPRESSED,
-                                     ROHC_PROFILE_UDP,
-                                     ROHC_PROFILE_IP,
-                                     ROHC_PROFILE_UDPLITE,
-                                     ROHC_PROFILE_RTP,
-                                     ROHC_PROFILE_ESP,
-                                     ROHC_PROFILE_TCP, -1);
+		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UNCOMPRESSED,-1);
 		if(!status)
 		{
-    		fprintf(stderr, "failed to enable the decompression profiles\n");
+    		fprintf(stderr, "failed to enable the Uncompressed decompression profile\n");
             goto release_decompressor;
+		} else {
+			do_debug(1, "Uncompressed. ");
 		}
-		do_debug(1, "several ROHC decompression profiles enabled\n");
+
+		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_IP,-1);
+		if(!status)
+		{
+    		fprintf(stderr, "failed to enable the IP-only decompression profile\n");
+            goto release_decompressor;
+		} else {
+			do_debug(1, "IP-only. ");
+		}
+
+		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDP,-1);
+		if(!status)
+		{
+    		fprintf(stderr, "failed to enable the IP/UDP decompression profile\n");
+            goto release_decompressor;
+		} else {
+			do_debug(1, "IP/UDP. ");
+		}
+
+		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDPLITE,-1);
+		if(!status)
+		{
+    		fprintf(stderr, "failed to enable the IP/UDP-Lite decompression profile\n");
+            goto release_decompressor;
+		} else {
+			do_debug(1, "IP/UDP-Lite. ");
+		}
+
+		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_RTP,-1);
+		if(!status)
+		{
+    		fprintf(stderr, "failed to enable the RTP decompression profile\n");
+            goto release_decompressor;
+		} else {
+			do_debug(1, "RTP. ");
+		}
+
+		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_ESP,-1);
+		if(!status)
+		{
+    		fprintf(stderr, "failed to enable the ESP decompression profile\n");
+            goto release_decompressor;
+		} else {
+			do_debug(1, "ESP. ");
+		}
+
+		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_TCP,-1);
+		if(!status)
+		{
+    		fprintf(stderr, "failed to enable the TCP decompression profile\n");
+            goto release_decompressor;
+		} else {
+			do_debug(1, "TCP. ");
+		}
+
+		do_debug(1, "\n");
+
 	}
 
 
@@ -1092,9 +1139,14 @@ int main(int argc, char *argv[]) {
 	if(transport_mode_fd >= tun_fd && transport_mode_fd >= feedback_fd && transport_mode_fd >= network_mode_fd)				maxfd = transport_mode_fd;
     if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd)		maxfd = feedback_fd;
 
-	do_debug(1, "tun_fd: %i; network_mode_fd: %i; transport_mode_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, network_mode_fd, transport_mode_fd, feedback_fd, maxfd);
+	//do_debug(1, "tun_fd: %i; network_mode_fd: %i; transport_mode_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, network_mode_fd, transport_mode_fd, feedback_fd, maxfd);
 
+/*    if(tun_fd >= mux_fd && tun_fd >= feedback_fd)		maxfd = tun_fd;
+    if(mux_fd >= tun_fd && mux_fd >= feedback_fd)		maxfd = mux_fd;
+    if(feedback_fd >= tun_fd && feedback_fd >= mux_fd)	maxfd = feedback_fd;
 
+	//do_debug(1, "tun_fd: %i; mux_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, mux_fd, feedback_fd, maxfd);
+*/
 
 	/*****************************************/
 	/************** Main loop ****************/
@@ -1160,7 +1212,7 @@ int main(int argc, char *argv[]) {
 				break;
 
 				case NETWORK_MODE:
-					// a packet has been received from the network, destinated to the tun1 interface
+					// a packet has been received from the network, destinated to the local interface for muxed packets
 					nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
 
 					//nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE, 0, (struct sockaddr *)&remote, &slen );
