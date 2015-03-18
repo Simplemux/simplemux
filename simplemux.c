@@ -1,15 +1,22 @@
 /**************************************************************************
- * simplemux.c            version 1.6.8                                   *
+ * simplemux.c            version 1.6.10                                  *
  *                                                                        *
- * Simplemux compresses headers using ROHC (RFC 3095), and multiplexes    *
- * these header-compressed packets between a pair of machines (called     *
- * optimizers). The multiplexed bundle is sent in an IP/UDP packet.       *
+ * Simplemux multiplexes a number of packets between a pair of machines   *
+ * (called ingress and egress). The multiplexed bundle can be sent        *
+ *    - in an IP/UDP packet (transport mode)                              *
+ *    - in an IP packet belonging to protocol 253 (network mode)          *
  *                                                                        *
- * Simplemux can be seen as a naive implementation of TCM , a protocol    *
- * combining Tunneling, Compressing and Multiplexing for the optimization *
- * of small-packet flows. TCM may use of a number of different standard   *
- * algorithms for header compression, multiplexing and tunneling,         *
- * combined in a similar way to RFC 4170.                                 *
+ * Simplemux is described here:                                           *
+ *  http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/        *
+ *                                                                        *
+ * Multiplexing can be combined with Tunneling and Header Compression     *
+ * for the optimization of small-packet flows. This is called TCM.        *
+ * Different algorithms for header compression, multiplexing and          *
+ * tunneling can be combined in a similar way to RFC 4170.                *
+ *                                                                        *
+ * This code is a combination of:                                         *
+ *      - ROHC header compression (RFC 5225)                              *
+ *      - Simplemux, which is used for both multiplexing and tunneling    * 
  *                                                                        *
  * In 2014 Jose Saldana wrote this program, published under GNU GENERAL   *
  * PUBLIC LICENSE, Version 3, 29 June 2007                                *
@@ -567,9 +574,9 @@ int main(int argc, char *argv[]) {
 
 	// variables for managing the network interfaces
 	int tun_fd;										// file descriptor of the tun interface(no mux packet)
-	int transport_mode_fd;							// the file descriptor of the socket of the network interface
-	int network_mode_fd;							// the file descriptor of the socket in Network mode
-	int feedback_fd;								// the file descriptor of the socket of the feedback received from the network interface
+	int transport_mode_fd = 2;						// the file descriptor of the socket of the network interface
+	int network_mode_fd = 1;						// the file descriptor of the socket in Network mode
+	int feedback_fd = 3;							// the file descriptor of the socket of the feedback received from the network interface
 	int maxfd;										// maximum number of file descriptors
   	fd_set rd_set;									// rd_set is a set of file descriptors used to know which interface has received a packet
 
@@ -754,7 +761,8 @@ int main(int argc, char *argv[]) {
 		usage();
 	}
 
-	/* check the rest of the options */
+
+	// check interface options
 	if(*tun_if_name == '\0') {
 		my_err("Must specify a tun interface name for native packets ('-i' option)\n");
 		usage();
@@ -762,9 +770,10 @@ int main(int argc, char *argv[]) {
 		my_err("Must specify the address of the peer\n");
 		usage();
 	} else if(*mux_if_name == '\0') {
-		my_err("Must specify local interface name\n");
+		my_err("Must specify local interface name for multiplexed packets\n");
 		usage();
 	} 
+
 
 	// check if NETWORK or TRANSPORT mode have been selected (mandatory)
 	else if((strcmp(mode, "N") != 0) && (strcmp(mode, "T") != 0)) {
@@ -785,6 +794,13 @@ int main(int argc, char *argv[]) {
 	else if ( debug > 3 ) debug = 3;
 	do_debug ( 1 , "debug level set to %i\n", debug);
 
+
+	// check ROHC option
+	if ( ROHC_mode < 0 ) {
+		ROHC_mode = 0;
+	} else if ( ROHC_mode > 2 ) { 
+		ROHC_mode = 2;
+	}
 
 
 
@@ -811,7 +827,7 @@ int main(int argc, char *argv[]) {
 	do_debug(1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %.2lf. period: %.2lf\n", size_threshold, limit_numpackets_tun, timeout, period);
 
 
-	/*** initialize tun interface ***/
+	/*** initialize tun interface for native packets ***/
 	if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
 		my_err("Error connecting to tun interface for capturing native packets %s\n", tun_if_name);
 		exit(1);
@@ -819,11 +835,12 @@ int main(int argc, char *argv[]) {
 	do_debug(1, "Successfully connected to interface for native packets %s\n", tun_if_name);
  
 
-	/*** initialize header IP ***/
-	memset(&ipheader, 0, sizeof(struct iphdr));
+	// initialize header IP to be used when receiving a packet in NETWORK mode
+	if ( strcmp(mode, "N") != 0 ) {
+		memset(&ipheader, 0, sizeof(struct iphdr));
+	}
 
 	/*** Request a socket for writing and receiving muxed packets in TRANSPORT mode ***/
-
 	// AF_INET (exactly the same as PF_INET)
 	// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
 	// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
@@ -841,23 +858,8 @@ int main(int argc, char *argv[]) {
     	exit(1);
   	}
 
-    /*** assign the destination address for the multiplexed packets ***/
-    memset(&remote, 0, sizeof(remote));
-    remote.sin_family = AF_INET;
-    remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
-    remote.sin_port = htons(port);						// remote port
 
-
-    /*** assign the destination address for the feedback packets ***/
-    memset(&feedback_remote, 0, sizeof(feedback_remote));
-    feedback_remote.sin_family = AF_INET;
-    feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);	// remote feedback IP (the same IP as the remote one)
-    feedback_remote.sin_port = htons(port_feedback);		// remote feedback port
-
-
-	// Use ioctl() to look up interface index which we will use to
-	// bind socket descriptor transport_mode_fd to specified interface with setsockopt() since
-	// none of the other arguments of sendto() specify which interface to use.
+	// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
 	memset (&iface, 0, sizeof (iface));
 	snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
 	if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
@@ -870,6 +872,7 @@ int main(int argc, char *argv[]) {
 		return (EXIT_FAILURE);
 	}
 
+
 	/*** get the MTU of the local interface ***/
 	if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1) network_mtu = 0;
 	else network_mtu = iface.ifr_mtu;
@@ -877,28 +880,6 @@ int main(int argc, char *argv[]) {
 	if (network_mtu > MTU) 
 		perror("predefined MTU is higher than the one in the network");
 
-
-	// socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
-	// Submit request for a raw socket descriptor.
-	if ((network_mode_fd = socket (AF_INET, SOCK_RAW, IPPROTO_SIMPLEMUX)) < 0) {
-		perror ("Raw socket for sending muxed packets bind failed ");
-		exit (EXIT_FAILURE);
-	} else {
-//		do_debug(1,"Success: Raw socket for sending muxed packets bind\n");
-		do_debug(1,"Raw socket for multiplexing open. Remote IP %s. Protocol number %i\n", inet_ntoa(remote.sin_addr), IPPROTO_SIMPLEMUX);
-	}
-
-	// Set flag so socket expects us to provide IPv4 header.
-	if (setsockopt (network_mode_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
-		perror ("setsockopt() failed to set IP_HDRINCL ");
-		exit (EXIT_FAILURE);
-	}
-
-	// Bind socket to interface index.
-	if (setsockopt (network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
-		perror ("setsockopt() failed to bind to interface ");
-		exit (EXIT_FAILURE);
-	}
 
 	/*** get the IP address of the local interface ***/
 	if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
@@ -911,40 +892,77 @@ int main(int argc, char *argv[]) {
 	}
 
 
-/*	// create the sockets for sending packets to the network
-    // assign the local address. Source IPv4 address: it is the one of the interface
-    strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
-    do_debug(1, "Local IP %s\n", local_ip);
-*/
+    // assign the destination address and port for the multiplexed packets
+    memset(&remote, 0, sizeof(remote));
+    remote.sin_family = AF_INET;
+    remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
+    remote.sin_port = htons(port);						// remote port
 
-	// create the socket for sending multiplexed packets (with separator)
+	// assign the local address and port for the multiplexed packets
     memset(&local, 0, sizeof(local));
-
     local.sin_family = AF_INET;
-    //local.sin_addr.s_addr = htonl(INADDR_ANY); // this would take any interface
-   	local.sin_addr.s_addr = inet_addr(local_ip);		// local IP
+   	local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
     local.sin_port = htons(port);						// local port
 
- 	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) perror("bind");
+	// bind the socket "transport_mode_fd" to the local address and port
+	if (*mode == TRANSPORT_MODE ) {
+	 	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+			perror("bind");
+		} else {
+			do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+		}
+	}
 
-//  do_debug(1, "Socket for multiplexing open. Remote IP  %s. Port %i\n", inet_ntoa(remote.sin_addr), port); 
-	do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
 
-	// create the socket for sending feedback packets
+    // assign the destination address and port for the feedback packets
+    memset(&feedback_remote, 0, sizeof(feedback_remote));
+    feedback_remote.sin_family = AF_INET;
+    feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);	// remote feedback IP (the same IP as the remote one)
+    feedback_remote.sin_port = htons(port_feedback);		// remote feedback port
+
+	// assign the source address and port to the feedback packets
     memset(&feedback, 0, sizeof(feedback));
-
     feedback.sin_family = AF_INET;
    	feedback.sin_addr.s_addr = inet_addr(local_ip);		// local IP
     feedback.sin_port = htons(port_feedback);			// local port (feedback)
 
- 	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) perror("bind");
+	// bind the socket "feedback_fd" to the local feedback address (the same used for multiplexing) and port
+	if ( ROHC_mode > 1 ) {
+	 	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
+			perror("bind");
+		} else {
+	    	do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
+		}
+	}
 
-//  do_debug(1, "Socket for feedback open. Remote IP  %s. Port %i\n ", inet_ntoa(feedback_remote.sin_addr), port_feedback); 
-    do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
-  
-	// check ROHC option
-	if ( ROHC_mode < 0 ) ROHC_mode = 0;
-	else if ( ROHC_mode > 2 ) ROHC_mode = 2;
+
+	if (*mode == NETWORK_MODE ) {
+		// raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
+		// Submit request for a raw socket descriptor
+		if ((network_mode_fd = socket (AF_INET, SOCK_RAW, IPPROTO_SIMPLEMUX)) < 0) {
+			perror ("Raw socket for sending muxed packets bind failed ");
+			exit (EXIT_FAILURE);
+		} else {
+			do_debug(1,"Raw socket for multiplexing open. Remote IP %s. Protocol number %i\n", inet_ntoa(remote.sin_addr), IPPROTO_SIMPLEMUX);
+		}
+
+		// Set flag so socket expects us to provide IPv4 header
+		if (setsockopt (network_mode_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
+			perror ("setsockopt() failed to set IP_HDRINCL ");
+			exit (EXIT_FAILURE);
+		}
+
+		// Bind the socket "network_mode_fd" to interface index
+		// bind socket descriptor "network_mode_fd" to specified interface with setsockopt() since
+		// none of the other arguments of sendto() specify which interface to use.
+		if (setsockopt (network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
+			perror ("setsockopt() failed to bind to interface ");
+			exit (EXIT_FAILURE);
+		}
+	}
+
+
+
 	switch(ROHC_mode) {
 			case 0:
 				do_debug ( 1 , "ROHC not activated\n", debug);
@@ -2052,7 +2070,7 @@ int main(int argc, char *argv[]) {
 					case NETWORK_MODE:
 
 						// build the header
-						BuildIPHeader(&ipheader, total_length, local,remote);
+						BuildIPHeader(&ipheader, total_length, local, remote);
 
 						// build the full IP multiplexed packet
 						BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
