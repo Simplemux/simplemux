@@ -7,4 +7,8 @@ Simplemux is a protocol able to encapsulate a number of packets belonging to dif
 
 The size of the multiplexing headers is kept very low (it may be a single byte when multiplexing small packets) in order to reduce the overhead.
 
-This page includes an implementation of Simplemux written in C for Linux. It uses IP/UDP as the multiplexing protocol, and IP and ROHC as multiplexed protocols.
+This page includes an implementation of Simplemux written in C for Linux. It uses simplemux as the multiplexing protocol, and IP and ROHC as multiplexed protocols. Two options are considered for the tunneling protocol:
+ - Network mode: IP is used for tunneling (with Protocol Number 253)
+ - Transport mode: IP/UDP is used for tunneling (with a common UDP port)
+
+ROCH feedback messages are always sent in IP/UDP packets.
