@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.10                                  *
+ * simplemux.c            version 1.6.11                                  *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress). The multiplexed bundle can be sent        *
@@ -68,15 +68,18 @@
 #include <rohc/rohc_decomp.h>
 #include <netinet/ip.h>			// for using iphdr type
 
-#define BUFSIZE 2000   			// buffer for reading from tun interface, must be >= MTU
+#define BUFSIZE 2000			// buffer for reading from tun interface, must be >= MTU
 #define MTU 1500				// it has to be equal or higher than the one in the network
-#define PORT 55555				// default port
-#define MAXPKTS 100				// maximum number of packets to store
-#define MAXTHRESHOLD 1472		// default threshold of the maximum number of bytes to store. When it is reached, the sending is triggered. By default it is 1500 - 28 (IP/UDP tunneling header)
-#define MAXTIMEOUT 100000000.0	// maximum value of the timeout (microseconds). (default 100 seconds)
-
+#define IPv4_HEADER_SIZE 20
+#define UDP_HEADER_SIZE 8
 #define SIZE_PROTOCOL_FIELD 1	// 1: protocol field of one byte
 								// 2: protocol field of two bytes
+
+#define PORT 55555				// default port
+#define MAXPKTS 100				// maximum number of packets to store
+#define MAXTIMEOUT 100000000.0	// maximum value of the timeout (microseconds). (default 100 seconds)
+
+
 
  
 #define IPPROTO_SIMPLEMUX	253	// N: Simplemux Protocol ID
@@ -96,7 +99,7 @@ char *progname;
 /**************************************************************************
  * tun_alloc: allocates or reconnects to a tun/tap device. The caller     *
  *            must reserve enough space in *dev.                          *
- * 			flags can be IFF_TUN (1) or IFF_TAP (2)                       *
+ *          flags can be IFF_TUN (1) or IFF_TAP (2)                       *
  **************************************************************************/
 int tun_alloc(char *dev, int flags) {
 
@@ -105,8 +108,8 @@ int tun_alloc(char *dev, int flags) {
 	char *clonedev = "/dev/net/tun";
 
 	if( (fd = open(clonedev , O_RDWR)) < 0 ) {
-    	perror("Opening /dev/net/tun");
-    	return fd;
+		perror("Opening /dev/net/tun");
+		return fd;
 	}
 
 	memset(&ifr, 0, sizeof(ifr));
@@ -114,13 +117,13 @@ int tun_alloc(char *dev, int flags) {
 	ifr.ifr_flags = flags;
 
 	if (*dev) {
-	 	strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+		strncpy(ifr.ifr_name, dev, IFNAMSIZ);
 	}
 
 	if( (err = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0 ) {
-	    perror("ioctl(TUNSETIFF)");
-	    close(fd);
-	    return err;
+		perror("ioctl(TUNSETIFF)");
+		close(fd);
+		return err;
 	}
 
 	strcpy(dev, ifr.ifr_name);
@@ -133,14 +136,14 @@ int tun_alloc(char *dev, int flags) {
  *        returned.                                                       *
  **************************************************************************/
 int cread(int fd, unsigned char *buf, int n){
-  
-  int nread;
 
-  if((nread=read(fd, buf, n)) < 0){
-    perror("Reading data");
-    exit(1);
-  }
-  return nread;
+	int nread;
+
+	if((nread=read(fd, buf, n)) < 0){
+		perror("Reading data");
+		exit(1);
+	}
+	return nread;
 }
 
 /**************************************************************************
@@ -148,14 +151,14 @@ int cread(int fd, unsigned char *buf, int n){
  *         returned.                                                      *
  **************************************************************************/
 int cwrite(int fd, unsigned char *buf, int n){
-  
-  int nwritten;
 
-  if((nwritten = write(fd, buf, n)) < 0){
-    perror("Writing data");
-    exit(1);
-  }
-  return nwritten;
+	int nwritten;
+
+	if((nwritten = write(fd, buf, n)) < 0){
+		perror("Writing data");
+		exit(1);
+	}
+	return nwritten;
 }
 
 /**************************************************************************
@@ -164,31 +167,31 @@ int cwrite(int fd, unsigned char *buf, int n){
  **************************************************************************/
 int read_n(int fd, unsigned char *buf, int n) {
 
-  int nread, left = n;
+	int nread, left = n;
 
-  while(left > 0) {
-    if ((nread = cread(fd, buf, left)) == 0){
-      return 0 ;      
-    }else {
-      left -= nread;
-      buf += nread;
-    }
-  }
-  return n;  
+	while(left > 0) {
+		if ((nread = cread(fd, buf, left)) == 0){
+			return 0 ;      
+		}else {
+			left -= nread;
+			buf += nread;
+		}
+	}
+	return n;
 }
 
 /**************************************************************************
  * do_debug: prints debugging stuff (doh!)                                *
  **************************************************************************/
 void do_debug(int level, char *msg, ...){
-  
-  va_list argp;
-  
-  if( debug >= level ) {
-	va_start(argp, msg);
-	vfprintf(stderr, msg, argp);
-	va_end(argp);
-  }
+
+	va_list argp;
+
+	if( debug >= level ) {
+		va_start(argp, msg);
+		vfprintf(stderr, msg, argp);
+		va_end(argp);
+	}
 }
 
 /**************************************************************************
@@ -196,45 +199,45 @@ void do_debug(int level, char *msg, ...){
  **************************************************************************/
 void my_err(char *msg, ...) {
 
-  va_list argp;
-  
-  va_start(argp, msg);
-  vfprintf(stderr, msg, argp);
-  va_end(argp);
+	va_list argp;
+
+	va_start(argp, msg);
+	vfprintf(stderr, msg, argp);
+	va_end(argp);
 }
 
 /**************************************************************************
  * usage: prints usage and exits.                                         *
  **************************************************************************/
 void usage(void) {
-  fprintf(stderr, "Usage:\n");
-  fprintf(stderr, "%s -i <ifacename> -e <ifacename> -c <peerIP> -M <N or T> [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
-  fprintf(stderr, "%s -h\n", progname);
-  fprintf(stderr, "\n");
-  fprintf(stderr, "-i <ifacename>: Name of tun interface to use for capturing native packets (mandatory)\n");
-  fprintf(stderr, "-e <ifacename>: Name of local interface which IP will be used for reception of muxed packets, i.e., the tunnel local end (mandatory)\n");
-  fprintf(stderr, "-c <peerIP>: specify peer destination IP address, i.e. the tunnel remote end (mandatory)\n");
-  fprintf(stderr, "-M <mode>: Network(N) or Transport (T) mode (mandatory)\n");
-  fprintf(stderr, "-p <port>: port to listen on, and to connect to (default 55555)\n");
-  fprintf(stderr, "-d: outputs debug information while running. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
-  fprintf(stderr, "-r: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
-  fprintf(stderr, "-n: number of packets received, to be sent to the network at the same time, default 1, max 100\n");
-  fprintf(stderr, "-b: size threshold (bytes) to trigger the departure of packets, default 1472 (1500 - 28)\n");
-  fprintf(stderr, "-t: timeout (in usec) to trigger the departure of packets\n");
-  fprintf(stderr, "-P: period (in usec) to trigger the departure of packets. If ( timeout < period ) then the timeout has no effect\n");
-  fprintf(stderr, "-l: log file name\n");
-  fprintf(stderr, "-L: use default log file name (day and hour Y-m-d_H.M.S)\n");
-  fprintf(stderr, "-h: prints this help text\n");
-  exit(1);
+	fprintf(stderr, "Usage:\n");
+	fprintf(stderr, "%s -i <ifacename> -e <ifacename> -c <peerIP> -M <N or T> [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
+	fprintf(stderr, "%s -h\n", progname);
+	fprintf(stderr, "\n");
+	fprintf(stderr, "-i <ifacename>: Name of tun interface to use for capturing native packets (mandatory)\n");
+	fprintf(stderr, "-e <ifacename>: Name of local interface which IP will be used for reception of muxed packets, i.e., the tunnel local end (mandatory)\n");
+	fprintf(stderr, "-c <peerIP>: specify peer destination IP address, i.e. the tunnel remote end (mandatory)\n");
+	fprintf(stderr, "-M <mode>: Network(N) or Transport (T) mode (mandatory)\n");
+	fprintf(stderr, "-p <port>: port to listen on, and to connect to (default 55555)\n");
+	fprintf(stderr, "-d: outputs debug information while running. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
+	fprintf(stderr, "-r: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
+	fprintf(stderr, "-n: number of packets received, to be sent to the network at the same time, default 1, max 100\n");
+	fprintf(stderr, "-b: size threshold (bytes) to trigger the departure of packets, default 1472 (1500 - 28) in transport mode and 1480 (1500 - 20) in network mode\n");
+	fprintf(stderr, "-t: timeout (in usec) to trigger the departure of packets\n");
+	fprintf(stderr, "-P: period (in usec) to trigger the departure of packets. If ( timeout < period ) then the timeout has no effect\n");
+	fprintf(stderr, "-l: log file name\n");
+	fprintf(stderr, "-L: use default log file name (day and hour Y-m-d_H.M.S)\n");
+	fprintf(stderr, "-h: prints this help text\n");
+	exit(1);
 }
 
 /**************************************************************************
  * GetTimeStamp: Get a timestamp in microseconds from the OS              *
  **************************************************************************/
 uint64_t GetTimeStamp() {
-    struct timeval tv;
-    gettimeofday(&tv,NULL);
-    return tv.tv_sec*(uint64_t)1000000+tv.tv_usec;
+	struct timeval tv;
+	gettimeofday(&tv,NULL);
+	return tv.tv_sec*(uint64_t)1000000+tv.tv_usec;
 }
 
 /**************************************************************************
@@ -250,11 +253,12 @@ do_debug(1, "%c\n",c );
 unsigned char ToByte(bool b[8]) 
 {
 	int i;
-    unsigned char c = 0;
-    for (i=0; i < 8; ++i)
-        if (b[i])
-            c |= 1 << i;
-    return c;
+	unsigned char c = 0;
+	
+	for (i=0; i < 8; ++i)
+		if (b[i])
+			c |= 1 << i;
+	return c;
 }
 
 /**************************************************************************
@@ -274,8 +278,8 @@ if (bits2[4]) {
 void FromByte(unsigned char c, bool b[8])
 {
 	int i;
-    for (i=0; i < 8; ++i)
-        b[i] = (c & (1<<i)) != 0;
+	for (i=0; i < 8; ++i)
+		b[i] = (c & (1<<i)) != 0;
 }
 
 
@@ -335,12 +339,12 @@ void dump_packet (int packet_size, unsigned char packet[MTU])
 int date_and_time(char buffer[25])
 {
 	time_t timer;
-    struct tm* tm_info;
+	struct tm* tm_info;
 
-    time(&timer);
-    tm_info = localtime(&timer);
+	time(&timer);
+	tm_info = localtime(&timer);
 	strftime(buffer, 25, "%Y-%m-%d_%H.%M.%S", tm_info);
-    return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 }
 
 /**************************************************************************
@@ -452,28 +456,28 @@ static int gen_random_num(const struct rohc_comp *const comp, void *const user_c
 /**
  * @brief Callback to print traces of the ROHC library
  *
- * @param priv_ctxt  An optional private context, may be NULL
- * @param level      The priority level of the trace
- * @param entity     The entity that emitted the trace among:
- *                    \li ROHC_TRACE_COMP
- *                    \li ROHC_TRACE_DECOMP
- * @param profile    The ID of the ROHC compression/decompression profile
- *                   the trace is related to
- * @param format     The format string of the trace
+ * @param priv_ctxt	An optional private context, may be NULL
+ * @param level		The priority level of the trace
+ * @param entity	The entity that emitted the trace among:
+ *					\li ROHC_TRACE_COMP
+ *					\li ROHC_TRACE_DECOMP
+ * @param profile	The ID of the ROHC compression/decompression profile
+ *					the trace is related to
+ * @param format	The format string of the trace
  */
 static void print_rohc_traces(void *const priv_ctxt,
-                              const rohc_trace_level_t level,
-                              const rohc_trace_entity_t entity,
-                              const int profile,
-                              const char *const format,
-                              ...)
+								const rohc_trace_level_t level,
+								const rohc_trace_entity_t entity,
+								const int profile,
+								const char *const format,
+								...)
 {
 	// Only prints ROHC messages if debug level is > 2
 	if ( debug > 2 ) {
-        va_list args;
-        va_start(args, format);
-        vfprintf(stdout, format, args);
-        va_end(args);
+		va_list args;
+		va_start(args, format);
+		vfprintf(stdout, format, args);
+		va_end(args);
 	}
 }
 
@@ -537,7 +541,7 @@ void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local
 
 	iph->check = in_cksum((unsigned short *)iph, sizeof(struct iphdr));
 	
-	do_debug(1, "Checksum: %i\n", iph->check);
+	//do_debug(1, "Checksum: %i\n", iph->check);
 
 	counter ++;
 }
@@ -578,7 +582,7 @@ int main(int argc, char *argv[]) {
 	int network_mode_fd = 1;						// the file descriptor of the socket in Network mode
 	int feedback_fd = 3;							// the file descriptor of the socket of the feedback received from the network interface
 	int maxfd;										// maximum number of file descriptors
-  	fd_set rd_set;									// rd_set is a set of file descriptors used to know which interface has received a packet
+	fd_set rd_set;									// rd_set is a set of file descriptors used to know which interface has received a packet
 
 	char tun_if_name[IFNAMSIZ] = "";				// name of the tun interface (e.g. "tun0")
 	char mux_if_name[IFNAMSIZ] = "";				// name of the network interface (e.g. "eth0")
@@ -595,8 +599,8 @@ int main(int argc, char *argv[]) {
 	socklen_t slen = sizeof(remote);				// size of the socket. The type is like an int, but adequate for the size of the socket
 	socklen_t slen_feedback = sizeof(feedback);		// size of the socket. The type is like an int, but adequate for the size of the socket
 
-	char remote_ip[16] = "";            			// dotted quad IP string with the IP of the remote machine
-	char local_ip[16] = "";                 		// dotted quad IP string with the IP of the local machine     
+	char remote_ip[16] = "";						// dotted quad IP string with the IP of the remote machine
+	char local_ip[16] = "";							// dotted quad IP string with the IP of the local machine     
 	unsigned short int port = PORT;					// UDP port to be used for sending the multiplexed packets
 	unsigned short int port_feedback = PORT + 1;	// UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
 
@@ -626,7 +630,10 @@ int main(int argc, char *argv[]) {
 	unsigned long int tun2net = 0, net2tun = 0;		// number of packets read from tun and from net
 	unsigned long int feedback_pkts = 0;			// number of ROHC feedback packets
 	int limit_numpackets_tun = 0;					// limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
-	int size_threshold = MAXTHRESHOLD;				// if the number of bytes stored is higher than this, they are sent
+
+	int size_threshold = 0;							// if the number of bytes stored is higher than this, a muxed packet is sent
+	int maxthreshold;								// maximum value of the size threshold
+
 	uint64_t timeout = MAXTIMEOUT;					// (microseconds) if a packet arrives and the timeout has expired (time from the  
 													// previous sending), the sending is triggered. default 100 seconds
 	uint64_t period= MAXTIMEOUT;					// period. If it expires, a packet is sent
@@ -652,7 +659,7 @@ int main(int argc, char *argv[]) {
 	int LXT_position;								// the position of the LXT bit. It may be 6 (non-first header) or 7 (first header)
 	int maximum_packet_length;						// the maximum lentgh of a packet. It may be 64 (first header) or 128 (non-first header)
 	int first_header_written = 0;					// it indicates if the first header has been written or not
-    int ret;										// value returned by the "select" function
+	int ret;										// value returned by the "select" function
 
 	struct timeval period_expires;					// it is used for the maximum time waiting for a new packet
 
@@ -678,9 +685,9 @@ int main(int argc, char *argv[]) {
 	unsigned char rohc_buffer_d[BUFSIZE];			// the buffer that will contain the ROHC packet to decompress
 	struct rohc_buf rohc_packet_d = rohc_buf_init_empty(rohc_buffer_d, BUFSIZE);
 
-    /* structures to handle ROHC feedback */
+	/* structures to handle ROHC feedback */
 	unsigned char rcvd_feedback_buffer_d[BUFSIZE];	// the buffer that will contain the ROHC feedback packet received
-    struct rohc_buf rcvd_feedback = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFSIZE);
+	struct rohc_buf rcvd_feedback = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFSIZE);
 
 	unsigned char feedback_send_buffer_d[BUFSIZE];	// the buffer that will contain the ROHC feedback packet to be sent
 	struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
@@ -696,11 +703,11 @@ int main(int argc, char *argv[]) {
 	/************** Check command line options *********************/
 	progname = argv[0];		// argument used when calling the program
 
-	
+
 
 	while((option = getopt(argc, argv, "i:e:M:c:p:n:b:t:P:l:d:r:hL")) > 0) {
 
-	    switch(option) {
+		switch(option) {
 			case 'd':
 				debug = atoi(optarg);		/* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
 				break;
@@ -750,7 +757,7 @@ int main(int argc, char *argv[]) {
 				my_err("Unknown option %c\n", option);
 				usage();
 				break;
-    	}
+		}
 	}	//end while option
 
 	argv += optind;
@@ -802,7 +809,28 @@ int main(int argc, char *argv[]) {
 		ROHC_mode = 2;
 	}
 
+	// define the maximum size threshold
+	switch (*mode) {
+		case TRANSPORT_MODE:
+			maxthreshold = MTU - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
+		break;
 
+		case NETWORK_MODE:
+			maxthreshold = MTU - IPv4_HEADER_SIZE ;
+		break;
+	}
+
+	// the size threshold has not been established by the user 
+	if (size_threshold == 0 ) {
+		size_threshold = maxthreshold;
+		//do_debug (1, "Size threshold established to the maximum: %i.", maxthreshold);
+	}
+
+	// the user has specified a too big size threshold
+	if (size_threshold > maxthreshold ) {
+		size_threshold = maxthreshold;
+		do_debug (1, "Size threshold too big. Established to the maximum: %i\n", maxthreshold);
+	}
 
 	/*** set the triggering parameters according to user selections (or default values) ***/
 	
@@ -815,10 +843,13 @@ int main(int argc, char *argv[]) {
 	// if ( timeout < period ) then the timeout has no effect
 	// as soon as one of the conditions is accomplished, all the accumulated packets are sent
 
-	if (( (size_threshold < MAXTHRESHOLD) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tun == 0)) limit_numpackets_tun = MAXPKTS;
+	// if no limit of the number of packets is set, then it is set to the maximum
+	if (( (size_threshold < maxthreshold) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tun == 0))
+		limit_numpackets_tun = MAXPKTS;
 
 	// if no option is set by the user, it is assumed that every packet will be sent immediately
-	if (( (size_threshold == MAXTHRESHOLD) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tun == 0)) limit_numpackets_tun = 1;
+	if (( (size_threshold == maxthreshold) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tun == 0))
+		limit_numpackets_tun = 1;
 	
 
 	// I calculate 'now' as the moment of the last sending
@@ -833,7 +864,7 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 	do_debug(1, "Successfully connected to interface for native packets %s\n", tun_if_name);
- 
+
 
 	// initialize header IP to be used when receiving a packet in NETWORK mode
 	if ( strcmp(mode, "N") != 0 ) {
@@ -844,19 +875,19 @@ int main(int argc, char *argv[]) {
 	// AF_INET (exactly the same as PF_INET)
 	// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
 	// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
-  	if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-    	perror("socket()");
-    	exit(1);
-  	}
+	if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+		perror("socket()");
+		exit(1);
+	}
 
 	/*** Request a socket for feedback packets ***/
 	// AF_INET (exactly the same as PF_INET)
 	// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
 	// transport_mode_fd is the file descriptor of the socket for managing arrived feedback packets		
-  	if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-    	perror("socket()");
-    	exit(1);
-  	}
+	if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+		perror("socket()");
+		exit(1);
+	}
 
 
 	// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
@@ -892,17 +923,17 @@ int main(int argc, char *argv[]) {
 	}
 
 
-    // assign the destination address and port for the multiplexed packets
-    memset(&remote, 0, sizeof(remote));
-    remote.sin_family = AF_INET;
-    remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
-    remote.sin_port = htons(port);						// remote port
+	// assign the destination address and port for the multiplexed packets
+	memset(&remote, 0, sizeof(remote));
+	remote.sin_family = AF_INET;
+	remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
+	remote.sin_port = htons(port);						// remote port
 
 	// assign the local address and port for the multiplexed packets
-    memset(&local, 0, sizeof(local));
-    local.sin_family = AF_INET;
-   	local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-    local.sin_port = htons(port);						// local port
+	memset(&local, 0, sizeof(local));
+	local.sin_family = AF_INET;
+	local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
+	local.sin_port = htons(port);						// local port
 
 	// bind the socket "transport_mode_fd" to the local address and port
 	if (*mode == TRANSPORT_MODE ) {
@@ -914,24 +945,24 @@ int main(int argc, char *argv[]) {
 	}
 
 
-    // assign the destination address and port for the feedback packets
-    memset(&feedback_remote, 0, sizeof(feedback_remote));
-    feedback_remote.sin_family = AF_INET;
-    feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);	// remote feedback IP (the same IP as the remote one)
-    feedback_remote.sin_port = htons(port_feedback);		// remote feedback port
+	// assign the destination address and port for the feedback packets
+	memset(&feedback_remote, 0, sizeof(feedback_remote));
+	feedback_remote.sin_family = AF_INET;
+	feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);	// remote feedback IP (the same IP as the remote one)
+	feedback_remote.sin_port = htons(port_feedback);		// remote feedback port
 
 	// assign the source address and port to the feedback packets
-    memset(&feedback, 0, sizeof(feedback));
-    feedback.sin_family = AF_INET;
-   	feedback.sin_addr.s_addr = inet_addr(local_ip);		// local IP
-    feedback.sin_port = htons(port_feedback);			// local port (feedback)
+	memset(&feedback, 0, sizeof(feedback));
+	feedback.sin_family = AF_INET;
+	feedback.sin_addr.s_addr = inet_addr(local_ip);		// local IP
+	feedback.sin_port = htons(port_feedback);			// local port (feedback)
 
 	// bind the socket "feedback_fd" to the local feedback address (the same used for multiplexing) and port
 	if ( ROHC_mode > 1 ) {
 	 	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
 			perror("bind");
 		} else {
-	    	do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
+			do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
 		}
 	}
 
@@ -997,11 +1028,11 @@ int main(int argc, char *argv[]) {
 		do_debug(1, "ROHC compressor created. Profiles: ");
 
 		// set the function that will manage the ROHC compressing traces (it will be 'print_rohc_traces')
-        if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL))
-        {
-                fprintf(stderr, "failed to set the callback for traces on compressor\n");
-                goto release_compressor;
-        }
+		if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL))
+		{
+			fprintf(stderr, "failed to set the callback for traces on compressor\n");
+			goto release_compressor;
+		}
 
 		/* Enable the ROHC compression profiles */
 		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_UNCOMPRESSED))
@@ -1054,40 +1085,40 @@ int main(int argc, char *argv[]) {
 		do_debug(1, "\n");
 
 
-        /* Create a ROHC decompressor to operate:
-         *  - with large CIDs use ROHC_LARGE_CID, ROHC_LARGE_CID_MAX
-         *  - with small CIDs use ROHC_SMALL_CID, ROHC_SMALL_CID_MAX maximum of 5 streams (MAX_CID = 4),
-         *  - ROHC_O_MODE: Bidirectional Optimistic mode (O-mode)
-		 *  - ROHC_U_MODE: Unidirectional mode (U-mode).    */
+		/* Create a ROHC decompressor to operate:
+		*  - with large CIDs use ROHC_LARGE_CID, ROHC_LARGE_CID_MAX
+		*  - with small CIDs use ROHC_SMALL_CID, ROHC_SMALL_CID_MAX maximum of 5 streams (MAX_CID = 4),
+		*  - ROHC_O_MODE: Bidirectional Optimistic mode (O-mode)
+		*  - ROHC_U_MODE: Unidirectional mode (U-mode).    */
 		if ( ROHC_mode == 1 ) {
-        	decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_U_MODE);	// Unidirectional mode
+			decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_U_MODE);	// Unidirectional mode
 		} else if ( ROHC_mode == 2 ) {
-        	decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_O_MODE);	// Bidirectional Optimistic mode
-		} /*else if ( ROHC_mode == 3 ) {
-        	decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);	// Bidirectional Reliable mode (not implemented yet)
-		} */
+			decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_O_MODE);	// Bidirectional Optimistic mode
+		}/*else if ( ROHC_mode == 3 ) {
+			decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);	// Bidirectional Reliable mode (not implemented yet)
+		}*/
 
-       if(decompressor == NULL)
-        {
-                fprintf(stderr, "failed create the ROHC decompressor\n");
-                goto release_decompressor;
-        }
+		if(decompressor == NULL)
+		{
+			fprintf(stderr, "failed create the ROHC decompressor\n");
+			goto release_decompressor;
+		}
 
 		do_debug(1, "ROHC decompressor created. Profiles: ");
 
 		// set the function that will manage the ROHC decompressing traces (it will be 'print_rohc_traces')
 		if(!rohc_decomp_set_traces_cb2(decompressor, print_rohc_traces, NULL))
-        {
-                fprintf(stderr, "failed to set the callback for traces on decompressor\n");
-                goto release_decompressor;
-        }
+		{
+			fprintf(stderr, "failed to set the callback for traces on decompressor\n");
+			goto release_decompressor;
+		}
 
 		// enable rohc decompression profiles
 		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UNCOMPRESSED,-1);
 		if(!status)
 		{
     		fprintf(stderr, "failed to enable the Uncompressed decompression profile\n");
-            goto release_decompressor;
+			goto release_decompressor;
 		} else {
 			do_debug(1, "Uncompressed. ");
 		}
@@ -1096,7 +1127,7 @@ int main(int argc, char *argv[]) {
 		if(!status)
 		{
     		fprintf(stderr, "failed to enable the IP-only decompression profile\n");
-            goto release_decompressor;
+			goto release_decompressor;
 		} else {
 			do_debug(1, "IP-only. ");
 		}
@@ -1104,8 +1135,8 @@ int main(int argc, char *argv[]) {
 		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDP,-1);
 		if(!status)
 		{
-    		fprintf(stderr, "failed to enable the IP/UDP decompression profile\n");
-            goto release_decompressor;
+			fprintf(stderr, "failed to enable the IP/UDP decompression profile\n");
+			goto release_decompressor;
 		} else {
 			do_debug(1, "IP/UDP. ");
 		}
@@ -1113,8 +1144,8 @@ int main(int argc, char *argv[]) {
 		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDPLITE,-1);
 		if(!status)
 		{
-    		fprintf(stderr, "failed to enable the IP/UDP-Lite decompression profile\n");
-            goto release_decompressor;
+			fprintf(stderr, "failed to enable the IP/UDP-Lite decompression profile\n");
+			goto release_decompressor;
 		} else {
 			do_debug(1, "IP/UDP-Lite. ");
 		}
@@ -1122,8 +1153,8 @@ int main(int argc, char *argv[]) {
 		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_RTP,-1);
 		if(!status)
 		{
-    		fprintf(stderr, "failed to enable the RTP decompression profile\n");
-            goto release_decompressor;
+			fprintf(stderr, "failed to enable the RTP decompression profile\n");
+			goto release_decompressor;
 		} else {
 			do_debug(1, "RTP. ");
 		}
@@ -1131,8 +1162,8 @@ int main(int argc, char *argv[]) {
 		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_ESP,-1);
 		if(!status)
 		{
-    		fprintf(stderr, "failed to enable the ESP decompression profile\n");
-            goto release_decompressor;
+		fprintf(stderr, "failed to enable the ESP decompression profile\n");
+			goto release_decompressor;
 		} else {
 			do_debug(1, "ESP. ");
 		}
@@ -1141,7 +1172,7 @@ int main(int argc, char *argv[]) {
 		if(!status)
 		{
     		fprintf(stderr, "failed to enable the TCP decompression profile\n");
-            goto release_decompressor;
+			goto release_decompressor;
 		} else {
 			do_debug(1, "TCP. ");
 		}
@@ -1151,17 +1182,17 @@ int main(int argc, char *argv[]) {
 	}
 
 
-  	/*** I need the value of the maximum file descriptor, in order to let select() handle three interface descriptors at once ***/
-    if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd)				maxfd = tun_fd;
-    if(network_mode_fd >= transport_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd)				maxfd = network_mode_fd;
+	/*** I need the value of the maximum file descriptor, in order to let select() handle three interface descriptors at once ***/
+	if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd)				maxfd = tun_fd;
+	if(network_mode_fd >= transport_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd)				maxfd = network_mode_fd;
 	if(transport_mode_fd >= tun_fd && transport_mode_fd >= feedback_fd && transport_mode_fd >= network_mode_fd)				maxfd = transport_mode_fd;
-    if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd)		maxfd = feedback_fd;
+	if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd)		maxfd = feedback_fd;
 
 	//do_debug(1, "tun_fd: %i; network_mode_fd: %i; transport_mode_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, network_mode_fd, transport_mode_fd, feedback_fd, maxfd);
 
-/*    if(tun_fd >= mux_fd && tun_fd >= feedback_fd)		maxfd = tun_fd;
-    if(mux_fd >= tun_fd && mux_fd >= feedback_fd)		maxfd = mux_fd;
-    if(feedback_fd >= tun_fd && feedback_fd >= mux_fd)	maxfd = feedback_fd;
+/*	if(tun_fd >= mux_fd && tun_fd >= feedback_fd)		maxfd = tun_fd;
+	if(mux_fd >= tun_fd && mux_fd >= feedback_fd)		maxfd = mux_fd;
+	if(feedback_fd >= tun_fd && feedback_fd >= mux_fd)	maxfd = feedback_fd;
 
 	//do_debug(1, "tun_fd: %i; mux_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, mux_fd, feedback_fd, maxfd);
 */
@@ -1169,11 +1200,11 @@ int main(int argc, char *argv[]) {
 	/*****************************************/
 	/************** Main loop ****************/
 	/*****************************************/
-  	while(1) {
+	while(1) {
 
-   		FD_ZERO(&rd_set);				/* FD_ZERO() clears a set */
-   		FD_SET(tun_fd, &rd_set);		/* FD_SET() adds a given file descriptor to a set */
-   		FD_SET(network_mode_fd, &rd_set);
+		FD_ZERO(&rd_set);				/* FD_ZERO() clears a set */
+		FD_SET(tun_fd, &rd_set);		/* FD_SET() adds a given file descriptor to a set */
+		FD_SET(network_mode_fd, &rd_set);
 		FD_SET(transport_mode_fd, &rd_set);
 		FD_SET(feedback_fd, &rd_set);
 
@@ -1190,18 +1221,18 @@ int main(int argc, char *argv[]) {
 		period_expires.tv_usec = microseconds_left;		// this is the moment when the period will expire
 
 
-    	/* select () allows a program to monitor multiple file descriptors, */ 
+		/* select () allows a program to monitor multiple file descriptors, */ 
 		/* waiting until one or more of the file descriptors become "ready" */
 		/* for some class of I/O operation*/
 		ret = select(maxfd + 1, &rd_set, NULL, NULL, &period_expires); 	//this line stops the program until something
 																		//happens or the period expires
 		// if the program gets here, it means that a packet has arrived (from tun or from the network), or the period has expired
-    	if (ret < 0 && errno == EINTR) continue;
+		if (ret < 0 && errno == EINTR) continue;
 
-    	if (ret < 0) {
-      		perror("select()");
-      		exit(1);
-    	}
+		if (ret < 0) {
+			perror("select()");
+			exit(1);
+		}
 
 
 		/*****************************************************************************/
@@ -1209,11 +1240,11 @@ int main(int argc, char *argv[]) {
 		/*****************************************************************************/
 
 
-    	// data arrived at the network interface: read, demux, decompress and forward it
+		// data arrived at the network interface: read, demux, decompress and forward it
 		// in Transport mode, the traffic has arrived to transport_mode_fd
 		// in Network mode, the packet has arrived to network_mode_fd
 
-    	if(FD_ISSET(transport_mode_fd, &rd_set)|| FD_ISSET(network_mode_fd, &rd_set)) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
+		if(FD_ISSET(transport_mode_fd, &rd_set)|| FD_ISSET(network_mode_fd, &rd_set)) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
 
 			switch (*mode) {
 				case TRANSPORT_MODE:
@@ -1256,9 +1287,9 @@ int main(int argc, char *argv[]) {
 			// check if the packet is a multiplexed one
 			if (is_multiplexed_packet) {
 
-	  			/* increase the counter of the number of packets read from the network */
-      			net2tun++;
-	  			do_debug(1, "NET2TUN %lu: Read muxed packet (%i bytes) from %s:%d\n", net2tun, nread_from_net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));				
+				/* increase the counter of the number of packets read from the network */
+				net2tun++;
+				do_debug(1, "NET2TUN %lu: Read muxed packet (%i bytes) from %s:%d\n", net2tun, nread_from_net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));				
 
 				// write the log file
 				if ( log_file != NULL ) {
@@ -1297,7 +1328,7 @@ int main(int argc, char *argv[]) {
 							FromByte(buffer_from_net[position], bits);
 
 							// check the Single Protocol Bit (SPB, one bit), which only appears in the first
-	   						// Simplemux header.  It would is set to 0 if all the multiplexed
+							// Simplemux header.  It would is set to 0 if all the multiplexed
 							// packets belong to the same protocol (in this case, the "protocol"
 							// field will only appear in the first Simplemux header).  It is set to
 							// 1 when each packet MAY belong to a different protocol.
@@ -1399,7 +1430,7 @@ int main(int argc, char *argv[]) {
 							FromByte(buffer_from_net[position], bits);
 
 							// check the Single Protocol Bit (SPB, one bit), which only appears in the first
-	   						// Simplemux header.  It would is set to 0 if all the multiplexed
+							// Simplemux header.  It would is set to 0 if all the multiplexed
 							// packets belong to the same protocol (in this case, the "protocol"
 							// field will only appear in the first Simplemux header).  It is set to
 							// 1 when each packet MAY belong to a different protocol.
@@ -1759,7 +1790,7 @@ int main(int argc, char *argv[]) {
 					fflush(log_file);
 				}
 			}
-  		}
+		}
 
 
 
@@ -1767,12 +1798,12 @@ int main(int argc, char *argv[]) {
 		/******* NET to tun. ROHC feedback packet from the remote decompressor to be delivered to the local compressor **************/
 		/****************************************************************************************************************************/
 
-    	/*** ROHC feedback data arrived at the network interface: read it in order to deliver it to the local compressor ***/
+		/*** ROHC feedback data arrived at the network interface: read it in order to deliver it to the local compressor ***/
 
 		// the ROHC mode only affects the decompressor. So if I receive a ROHC feedback packet, I will use it
 		// this implies that if the origin is in ROHC Unidirectional mode and the destination in Bidirectional, feedback will still work
 
-    	else if ( FD_ISSET ( feedback_fd, &rd_set )) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
+		else if ( FD_ISSET ( feedback_fd, &rd_set )) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
 
 	  		// a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
 			nread_from_net = recvfrom ( feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&feedback_remote, &slen_feedback );
@@ -1785,7 +1816,7 @@ int main(int argc, char *argv[]) {
 			if (port_feedback == ntohs(feedback_remote.sin_port)) {
 
 				// the packet comes from the feedback port (default 55556)
-	  			do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", feedback_pkts, nread_from_net, inet_ntoa(feedback.sin_addr), ntohs(feedback.sin_port));
+				do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", feedback_pkts, nread_from_net, inet_ntoa(feedback.sin_addr), ntohs(feedback.sin_port));
 
 				feedback_pkts ++;
 
@@ -1869,26 +1900,26 @@ int main(int argc, char *argv[]) {
 					fflush(log_file);
 				}
 			}
- 		}
+		}
 
 
 
 		/**************************************************************************************/	
 		/***************** TUN to NET: compress and multiplex *********************************/
 		/**************************************************************************************/
-	
-    	/*** data arrived at tun: read it, and check if the stored packets should be written to the network ***/
 
-    	else if(FD_ISSET(tun_fd, &rd_set)) {		/* FD_ISSET tests if a file descriptor is part of the set */
+		/*** data arrived at tun: read it, and check if the stored packets should be written to the network ***/
 
-	  		/* read the packet from tun, store it in the array, and store its size */
-      		size_packets_to_multiplex[num_pkts_stored_from_tun] = cread (tun_fd, packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
+		else if(FD_ISSET(tun_fd, &rd_set)) {		/* FD_ISSET tests if a file descriptor is part of the set */
+
+			/* read the packet from tun, store it in the array, and store its size */
+			size_packets_to_multiplex[num_pkts_stored_from_tun] = cread (tun_fd, packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
 		
-	  		/* increase the counter of the number of packets read from tun*/
-      		tun2net++;
+			/* increase the counter of the number of packets read from tun*/
+			tun2net++;
 
 			if (debug > 1 ) do_debug (2,"\n");
-      		do_debug(1, "TUN2NET %lu: Read packet from tun (%i bytes). ", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
+			do_debug(1, "TUN2NET %lu: Read packet from tun (%i bytes). ", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
 
 			// write the log file
 			if ( log_file != NULL ) {
@@ -1998,8 +2029,8 @@ int main(int argc, char *argv[]) {
 
 
 
-			/*** Calculate if the MTU will be reached when multiplexing the present packet ***/
-			// if the addition of the present packet will imply a multiplexed packet bigger than MTU:
+			/*** Calculate if the size limit will be reached when multiplexing the present packet ***/
+			// if the addition of the present packet will imply a multiplexed packet bigger than the size limit:
 			// - I send the previously stored packets
 			// - I store the present one
 
@@ -2039,11 +2070,11 @@ int main(int argc, char *argv[]) {
 			if (single_protocol == 0 ) predicted_size_muxed_packet = predicted_size_muxed_packet + num_pkts_stored_from_tun;	
 
 
-			if (predicted_size_muxed_packet > MTU ) {
-				// if the present packet is muxed, the MTU will be overriden. So I first empty the buffer
+			if (predicted_size_muxed_packet > size_threshold ) {
+				// if the present packet is muxed, the size threshold will be overriden. So I first empty the buffer
 				//i.e. I build and send a multiplexed packet not including the current one
 
-	      		do_debug(1, " MTU reached. Predicted size: %i bytes. Sending muxed packet without this one.", predicted_size_muxed_packet);
+				do_debug(1, " Size threshold reached. Predicted size: %i bytes. Sending muxed packet without this one.", predicted_size_muxed_packet);
 
 				// add the Single Protocol Bit in the first header (the most significant bit)
 				// it is '1' if all the multiplexed packets belong to the same protocol
@@ -2080,13 +2111,12 @@ int main(int argc, char *argv[]) {
 							perror ("sendto() failed ");
 							exit (EXIT_FAILURE);
 						}
-
 					break;
 				}
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tsize_limit\n", GetTimeStamp(), total_length, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
 					fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 				}
 
@@ -2112,7 +2142,7 @@ int main(int argc, char *argv[]) {
 				// reset the length and the number of packets
 				size_muxed_packet = 0;
 				num_pkts_stored_from_tun = 0;
-			}	/*** end check if MTU would be reached ***/
+			}	/*** end check if size limit would be reached ***/
 
 
 			// update the size of the muxed packet, adding the size of the current one
@@ -2214,7 +2244,7 @@ int main(int argc, char *argv[]) {
 
 			// check if a multiplexed packet has to be sent
 
-			// if the packet limit or the size threshold or the MTU are reached, send all the stored packets to the network
+			// if the packet limit or the size threshold are reached, send all the stored packets to the network
 			// do not worry about the MTU. if it is reached, a number of packets will be sent
 			if ((num_pkts_stored_from_tun == limit_numpackets_tun) || (size_muxed_packet > size_threshold) || (time_difference > timeout )) {
 
@@ -2228,7 +2258,7 @@ int main(int argc, char *argv[]) {
 					}
 				}
 
-	      		do_debug(1, " Single Protocol Bit = %i\n", single_protocol);
+				do_debug(1, " Single Protocol Bit = %i\n", single_protocol);
 
 				// Add the Single Protocol Bit in the first header (the most significant bit)
 				// It is 1 if all the multiplexed packets belong to the same protocol
@@ -2303,7 +2333,7 @@ int main(int argc, char *argv[]) {
 				// update the time of the last packet sent
 				time_last_sent_in_microsec = time_in_microsec;
 			}
-    	} 
+		}
 
 
 		/*************************************************************************************/	
@@ -2346,7 +2376,7 @@ int main(int argc, char *argv[]) {
 					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
 				}
 
-	      		do_debug(1, " Single Protocol Bit = %i.", single_protocol);
+				do_debug(1, " Single Protocol Bit = %i.", single_protocol);
 
 				// build the multiplexed packet
 				total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
@@ -2397,9 +2427,9 @@ int main(int argc, char *argv[]) {
 			time_last_sent_in_microsec = time_in_microsec;
 		}
 
-  	}	// end while(1)
-  
-  	return(0);
+	}	// end while(1)
+
+	return(0);
 
 
 
@@ -2412,7 +2442,7 @@ release_decompressor:
 
 error:
 	fprintf(stderr, "an error occured during program execution, "
-	        "abort program\n");
+		"abort program\n");
 	if ( log_file_name != '\0' ) fclose (log_file);
 	return 1;
 }
@@ -2420,11 +2450,7 @@ error:
 
 
 static int gen_random_num(const struct rohc_comp *const comp,
-                          void *const user_context)
+							void *const user_context)
 {
 	return rand();
 }
-
-
-
-
