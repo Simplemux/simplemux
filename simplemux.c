@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.11                                  *
+ * simplemux.c            version 1.6.13                                  *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress). The multiplexed bundle can be sent        *
@@ -632,7 +632,7 @@ int main(int argc, char *argv[]) {
 	int limit_numpackets_tun = 0;					// limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
 
 	int size_threshold = 0;							// if the number of bytes stored is higher than this, a muxed packet is sent
-	int maxthreshold;								// maximum value of the size threshold
+	int size_max;									// maximum value of the packet size
 
 	uint64_t timeout = MAXTIMEOUT;					// (microseconds) if a packet arrives and the timeout has expired (time from the  
 													// previous sending), the sending is triggered. default 100 seconds
@@ -812,24 +812,24 @@ int main(int argc, char *argv[]) {
 	// define the maximum size threshold
 	switch (*mode) {
 		case TRANSPORT_MODE:
-			maxthreshold = MTU - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
+			size_max = MTU - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
 		break;
 
 		case NETWORK_MODE:
-			maxthreshold = MTU - IPv4_HEADER_SIZE ;
+			size_max = MTU - IPv4_HEADER_SIZE ;
 		break;
 	}
 
 	// the size threshold has not been established by the user 
 	if (size_threshold == 0 ) {
-		size_threshold = maxthreshold;
-		//do_debug (1, "Size threshold established to the maximum: %i.", maxthreshold);
+		size_threshold = size_max;
+		//do_debug (1, "Size threshold established to the maximum: %i.", size_max);
 	}
 
 	// the user has specified a too big size threshold
-	if (size_threshold > maxthreshold ) {
-		size_threshold = maxthreshold;
-		do_debug (1, "Size threshold too big. Established to the maximum: %i\n", maxthreshold);
+	if (size_threshold > size_max ) {
+		size_threshold = size_max;
+		do_debug (1, "Size threshold too big. Established to the maximum: %i\n", size_max);
 	}
 
 	/*** set the triggering parameters according to user selections (or default values) ***/
@@ -844,11 +844,11 @@ int main(int argc, char *argv[]) {
 	// as soon as one of the conditions is accomplished, all the accumulated packets are sent
 
 	// if no limit of the number of packets is set, then it is set to the maximum
-	if (( (size_threshold < maxthreshold) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tun == 0))
+	if (( (size_threshold < size_max) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tun == 0))
 		limit_numpackets_tun = MAXPKTS;
 
 	// if no option is set by the user, it is assumed that every packet will be sent immediately
-	if (( (size_threshold == maxthreshold) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tun == 0))
+	if (( (size_threshold == size_max) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tun == 0))
 		limit_numpackets_tun = 1;
 	
 
@@ -2070,11 +2070,11 @@ int main(int argc, char *argv[]) {
 			if (single_protocol == 0 ) predicted_size_muxed_packet = predicted_size_muxed_packet + num_pkts_stored_from_tun;	
 
 
-			if (predicted_size_muxed_packet > size_threshold ) {
-				// if the present packet is muxed, the size threshold will be overriden. So I first empty the buffer
+			if (predicted_size_muxed_packet > size_max ) {
+				// if the present packet is muxed, the max size of the packet will be overriden. So I first empty the buffer
 				//i.e. I build and send a multiplexed packet not including the current one
 
-				do_debug(1, " Size threshold reached. Predicted size: %i bytes. Sending muxed packet without this one.", predicted_size_muxed_packet);
+				do_debug(1, " \nTUN2NET**Sending triggered** MTU size reached. Predicted size: %i bytes. Sending muxed packet without this one.", predicted_size_muxed_packet);
 
 				// add the Single Protocol Bit in the first header (the most significant bit)
 				// it is '1' if all the multiplexed packets belong to the same protocol
@@ -2088,7 +2088,7 @@ int main(int argc, char *argv[]) {
 				// build the multiplexed packet without the current one
 				total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
 
-				do_debug(1, "size_muxed_packet: %i. total_length: %i\n",size_muxed_packet,total_length);
+				do_debug(1, " size_muxed_packet: %i\n", size_muxed_packet);
 
 
 				// send the multiplexed packet without the current one
@@ -2116,7 +2116,7 @@ int main(int argc, char *argv[]) {
 
 				// write the log file
 				if ( log_file != NULL ) {
-					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tsize_limit\n", GetTimeStamp(), total_length, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+					fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
 					fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 				}
 
@@ -2275,7 +2275,7 @@ int main(int argc, char *argv[]) {
 					if (num_pkts_stored_from_tun == limit_numpackets_tun)
 						do_debug(1, "num packet limit reached. ");
 					if (size_muxed_packet > size_threshold)
-						do_debug(1," size limit reached. ");
+						do_debug(1," size threshold reached. ");
 					if (time_difference > timeout)
 						do_debug(1, "timeout reached. ");		
 					do_debug(1, "Writing %i packets (%i bytes) to network\n", num_pkts_stored_from_tun, size_muxed_packet);						
@@ -2291,7 +2291,8 @@ int main(int argc, char *argv[]) {
 				switch (*mode) {
 					case TRANSPORT_MODE:
 						// send the packet. I don't need to build the header, because I have a UDP socket
-						if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+						if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1)
+							perror("sendto()");
 					break;
 
 					case NETWORK_MODE:
@@ -2299,7 +2300,7 @@ int main(int argc, char *argv[]) {
 						BuildIPHeader(&ipheader, total_length, local,remote);
 
 						// build full IP multiplexed packet
-						BuildFullIPPacket(ipheader,muxed_packet,total_length,full_ip_packet);
+						BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
 
 						// send the multiplexed packet
 						if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
