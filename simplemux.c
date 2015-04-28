@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.15                                  *
+ * simplemux.c            version 1.6.17                                  *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress). The multiplexed bundle can be sent        *
@@ -70,8 +70,7 @@
 #include <rohc/rohc_decomp.h>
 #include <netinet/ip.h>			// for using iphdr type
 
-#define BUFSIZE 2000			// buffer for reading from tun interface, must be >= MTU
-#define MTU 1500				// it has to be equal or higher than the one in the network
+#define BUFSIZE 2000			// buffer for reading from tun interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
 #define UDP_HEADER_SIZE 8
 #define SIZE_PROTOCOL_FIELD 1	// 1: protocol field of one byte
@@ -80,8 +79,6 @@
 #define PORT 55555				// default port
 #define MAXPKTS 100				// maximum number of packets to store
 #define MAXTIMEOUT 100000000.0	// maximum value of the timeout (microseconds). (default 100 seconds)
-
-
 
  
 #define IPPROTO_SIMPLEMUX	253	// N: Simplemux Protocol ID
@@ -96,6 +93,52 @@
 /* global variables */
 int debug;						// 0:no debug; 1:minimum debug; 2:maximum debug 
 char *progname;
+
+
+
+/**
+ * @brief The RTP detection callback which does detect RTP stream.
+ * it assumes that UDP packets belonging to certain ports are RTP packets
+ *
+ * @param ip           The innermost IP packet
+ * @param udp          The UDP header of the packet
+ * @param payload      The UDP payload of the packet
+ * @param payload_size The size of the UDP payload (in bytes)
+ * @return             true if the packet is an RTP packet, false otherwise
+ */
+static bool rtp_detect(const unsigned char *const ip __attribute__((unused)),
+                      const unsigned char *const udp,
+                      const unsigned char *const payload __attribute__((unused)),
+                      const unsigned int payload_size __attribute__((unused)),
+                      void *const rtp_private __attribute__((unused)))
+{
+	const size_t default_rtp_ports_nr = 5;
+	unsigned int default_rtp_ports[] = { 1234, 36780, 33238, 5020, 5002 };
+	uint16_t udp_dport;
+	bool is_rtp = false;
+	size_t i;
+
+	if(udp == NULL)
+	{
+		return false;
+	}
+
+	/* get the UDP destination port */
+	memcpy(&udp_dport, udp + 2, sizeof(uint16_t));
+
+	/* is the UDP destination port in the list of ports reserved for RTP
+	 * traffic by default (for compatibility reasons) */
+	for(i = 0; i < default_rtp_ports_nr; i++)
+	{
+		if(ntohs(udp_dport) == default_rtp_ports[i])
+		{
+			is_rtp = true;
+			break;
+		}
+	}
+
+	return is_rtp;
+}
 
 
 /**************************************************************************
@@ -224,7 +267,7 @@ void usage(void) {
 	fprintf(stderr, "-d: outputs debug information while running. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
 	fprintf(stderr, "-r: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
 	fprintf(stderr, "-n: number of packets received, to be sent to the network at the same time, default 1, max 100\n");
-	fprintf(stderr, "-b: size threshold (bytes) to trigger the departure of packets, default 1472 (1500 - 28) in transport mode and 1480 (1500 - 20) in network mode\n");
+	fprintf(stderr, "-b: size threshold (bytes) to trigger the departure of packets (default MTU-28 in transport mode and MTU-20 in network mode)\n");
 	fprintf(stderr, "-t: timeout (in usec) to trigger the departure of packets\n");
 	fprintf(stderr, "-P: period (in usec) to trigger the departure of packets. If ( timeout < period ) then the timeout has no effect\n");
 	fprintf(stderr, "-l: log file name\n");
@@ -310,7 +353,7 @@ void PrintByte(int debug_level, int num_bits, bool b[8])
 /**************************************************************************
 ************ dump a packet ************************************************
 **************************************************************************/
-void dump_packet (int packet_size, unsigned char packet[MTU])
+void dump_packet (int packet_size, unsigned char packet[BUFSIZE])
 {
 	int j;
 
@@ -552,7 +595,7 @@ void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local
 // Buid a Full IP Packet
 void BuildFullIPPacket(struct iphdr iph, unsigned char *data_packet, uint16_t len_data, unsigned char *full_ip_packet)
 {
-	memset(full_ip_packet, 0, MTU);
+	memset(full_ip_packet, 0, BUFSIZE);
 	memcpy((struct iphdr*)full_ip_packet, &iph, sizeof(struct iphdr));
 	memcpy((struct iphdr*)(full_ip_packet + sizeof(struct iphdr)), data_packet, len_data);
 }
@@ -614,19 +657,19 @@ int main(int argc, char *argv[]) {
 	unsigned char separators_to_multiplex[MAXPKTS][2];		// stores the header ('protocol' not included) received from tun, before sending it to the network
 	uint16_t size_packets_to_multiplex[MAXPKTS];			// stores the size of the received packet
 	unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];	// stores the packets received from tun, before storing it or sending it to the network
-	unsigned char muxed_packet[MTU];						// stores the multiplexed packet
+	unsigned char muxed_packet[BUFSIZE];						// stores the multiplexed packet
 
 
 	bool is_multiplexed_packet;						// To determine if a received packet have been multiplexed
 
-	unsigned char full_ip_packet[MTU];				// Full IP packet
+	unsigned char full_ip_packet[BUFSIZE];				// Full IP packet
 
 
 	// variables for storing the packets to demultiplex
 	uint16_t nread_from_net;								// number of bytes read from network which will be demultiplexed
 	unsigned char buffer_from_net[BUFSIZE];					// stores the packet received from the network, before sending it to tun
 	unsigned char buffer_from_net_aux[BUFSIZE];				// stores the packet received from the network, before sending it to tun
-	unsigned char demuxed_packet[MTU];						// stores each demultiplexed packet
+	unsigned char demuxed_packet[BUFSIZE];						// stores each demultiplexed packet
 
 	// variables for controlling the arrival and departure of packets
 	unsigned long int tun2net = 0, net2tun = 0;		// number of packets read from tun and from net
@@ -810,53 +853,6 @@ int main(int argc, char *argv[]) {
 		ROHC_mode = 2;
 	}
 
-	// define the maximum size threshold
-	switch (*mode) {
-		case TRANSPORT_MODE:
-			size_max = MTU - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
-		break;
-
-		case NETWORK_MODE:
-			size_max = MTU - IPv4_HEADER_SIZE ;
-		break;
-	}
-
-	// the size threshold has not been established by the user 
-	if (size_threshold == 0 ) {
-		size_threshold = size_max;
-		//do_debug (1, "Size threshold established to the maximum: %i.", size_max);
-	}
-
-	// the user has specified a too big size threshold
-	if (size_threshold > size_max ) {
-		size_threshold = size_max;
-		do_debug (1, "Size threshold too big. Established to the maximum: %i\n", size_max);
-	}
-
-	/*** set the triggering parameters according to user selections (or default values) ***/
-	
-	// there are four possibilities for triggering the sending of the packets:
-	// - a threshold of the acumulated packet size
-	// - a number of packets
-	// - a timeout. A packet arrives. If the timeout has been reached, a muxed packet is triggered
-	// - a period. If the period has been reached, a muxed packet is triggered
-
-	// if ( timeout < period ) then the timeout has no effect
-	// as soon as one of the conditions is accomplished, all the accumulated packets are sent
-
-	// if no limit of the number of packets is set, then it is set to the maximum
-	if (( (size_threshold < size_max) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tun == 0))
-		limit_numpackets_tun = MAXPKTS;
-
-	// if no option is set by the user, it is assumed that every packet will be sent immediately
-	if (( (size_threshold == size_max) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tun == 0))
-		limit_numpackets_tun = 1;
-	
-
-	// I calculate 'now' as the moment of the last sending
-	time_last_sent_in_microsec = GetTimeStamp() ; 
-
-	do_debug(1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %.2lf. period: %.2lf\n", size_threshold, limit_numpackets_tun, timeout, period);
 
 
 	/*** initialize tun interface for native packets ***/
@@ -884,11 +880,13 @@ int main(int argc, char *argv[]) {
 	/*** Request a socket for feedback packets ***/
 	// AF_INET (exactly the same as PF_INET)
 	// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-	// transport_mode_fd is the file descriptor of the socket for managing arrived feedback packets		
+	// transport_mode_fd is the file descriptor of the socket for managing arrived feedback packets
+	// I only need the feedback socket if ROHC is activated 
 	if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
 		perror("socket()");
 		exit(1);
 	}
+
 
 
 	// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
@@ -899,18 +897,20 @@ int main(int argc, char *argv[]) {
 		return (EXIT_FAILURE);
 	}
 
+
 	if (ioctl (feedback_fd, SIOCGIFINDEX, &iface) < 0) {
 		perror ("ioctl() failed to find interface ");
 		return (EXIT_FAILURE);
 	}
 
-
 	/*** get the MTU of the local interface ***/
 	if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1) network_mtu = 0;
 	else network_mtu = iface.ifr_mtu;
-	//do_debug(1, "MTU: %i\n", network_mtu);
-	if (network_mtu > MTU) 
-		perror("predefined MTU is higher than the one in the network");
+
+	if (network_mtu > BUFSIZE ) {
+		perror ("Network MTU is higher than the size of the buffer defined at the beginning of this application (check #define BUFSIZE)\n");
+		exit (0);
+	}
 
 
 	/*** get the IP address of the local interface ***/
@@ -946,6 +946,7 @@ int main(int argc, char *argv[]) {
 	}
 
 
+
 	// assign the destination address and port for the feedback packets
 	memset(&feedback_remote, 0, sizeof(feedback_remote));
 	feedback_remote.sin_family = AF_INET;
@@ -959,13 +960,12 @@ int main(int argc, char *argv[]) {
 	feedback.sin_port = htons(port_feedback);			// local port (feedback)
 
 	// bind the socket "feedback_fd" to the local feedback address (the same used for multiplexing) and port
-	if ( ROHC_mode > 1 ) {
-	 	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
-			perror("bind");
-		} else {
-			do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
-		}
+ 	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
+		perror("bind");
+	} else {
+		do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
 	}
+
 
 
 	if (*mode == NETWORK_MODE ) {
@@ -992,6 +992,61 @@ int main(int argc, char *argv[]) {
 			exit (EXIT_FAILURE);
 		}
 	}
+
+
+	// define the maximum size threshold
+	switch (*mode) {
+		case TRANSPORT_MODE:
+			size_max = network_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
+		break;
+
+		case NETWORK_MODE:
+			size_max = network_mtu - IPv4_HEADER_SIZE ;
+		break;
+	}
+
+	// the size threshold has not been established by the user 
+	if (size_threshold == 0 ) {
+		size_threshold = size_max;
+		//do_debug (1, "Size threshold established to the maximum: %i.", size_max);
+	}
+
+	// the user has specified a too big size threshold
+	if (size_threshold > size_max ) {
+		size_threshold = size_max;
+		do_debug (1, "Warning: Size threshold too big. Established to the maximum: %i\n", size_max);
+	}
+
+	/*** set the triggering parameters according to user selections (or default values) ***/
+	
+	// there are four possibilities for triggering the sending of the packets:
+	// - a threshold of the acumulated packet size. Two different options apply:
+	// 		-	the size of the multiplexed packet has exceeded the size threshold specified by the user,
+	//			but not the MTU. In this case, a packet is sent and a new period is started with the
+	//			buffer empty.
+	//		-	the size of the multiplexed packet has exceeded the MTU (and the size threshold consequently).
+	//			In this case, a packet is sent without the last one. A new period is started, and the last 
+	//			packet is stored as the first packet of the next period.
+	// - a number of packets
+	// - a timeout. A packet arrives. If the timeout has been reached, a muxed packet is triggered
+	// - a period. If the period has been reached, a muxed packet is triggered
+
+	// if ( timeout < period ) then the timeout has no effect
+	// as soon as one of the conditions is accomplished, all the accumulated packets are sent
+
+	// if no limit of the number of packets is set, then it is set to the maximum
+	if (( (size_threshold < size_max) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tun == 0))
+		limit_numpackets_tun = MAXPKTS;
+
+	// if no option is set by the user, it is assumed that every packet will be sent immediately
+	if (( (size_threshold == size_max) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tun == 0))
+		limit_numpackets_tun = 1;
+	
+
+	// I calculate 'now' as the moment of the last sending
+	time_last_sent_in_microsec = GetTimeStamp() ; 
+
+	do_debug(1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %.2lf. period: %.2lf\n", size_threshold, limit_numpackets_tun, timeout, period);
 
 
 
@@ -1027,6 +1082,17 @@ int main(int argc, char *argv[]) {
 		}
 
 		do_debug(1, "ROHC compressor created. Profiles: ");
+
+
+		// Set the callback function to be used for detecting RTP
+        if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL))
+        {
+                fprintf(stderr, "failed to set RTP detection callback\n");
+                goto error;
+        }
+
+
+
 
 		// set the function that will manage the ROHC compressing traces (it will be 'print_rohc_traces')
 		if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL))
@@ -1065,7 +1131,7 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr, "failed to enable the RTP compression profile\n");
 			goto release_compressor;
 		} else {
-			do_debug(1, "RTP. ");
+			do_debug(1, "RTP (UDP ports 1234, 36780, 33238, 5020, 5002). ");
 		}
 
 		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_ESP))
@@ -1183,20 +1249,17 @@ int main(int argc, char *argv[]) {
 	}
 
 
+
 	/*** I need the value of the maximum file descriptor, in order to let select() handle three interface descriptors at once ***/
 	if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd)				maxfd = tun_fd;
 	if(network_mode_fd >= transport_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd)				maxfd = network_mode_fd;
 	if(transport_mode_fd >= tun_fd && transport_mode_fd >= feedback_fd && transport_mode_fd >= network_mode_fd)				maxfd = transport_mode_fd;
 	if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd)		maxfd = feedback_fd;
 
+
 	//do_debug(1, "tun_fd: %i; network_mode_fd: %i; transport_mode_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, network_mode_fd, transport_mode_fd, feedback_fd, maxfd);
 
-/*	if(tun_fd >= mux_fd && tun_fd >= feedback_fd)		maxfd = tun_fd;
-	if(mux_fd >= tun_fd && mux_fd >= feedback_fd)		maxfd = mux_fd;
-	if(feedback_fd >= tun_fd && feedback_fd >= mux_fd)	maxfd = feedback_fd;
 
-	//do_debug(1, "tun_fd: %i; mux_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, mux_fd, feedback_fd, maxfd);
-*/
 
 	/*****************************************/
 	/************** Main loop ****************/
@@ -1558,7 +1621,7 @@ int main(int argc, char *argv[]) {
 
 						/************ decompress the packet ***************/
 
-						// if the number of the protocol is NOT 142 (which means ROHC) I do not decompress the packet
+						// if the number of the protocol is NOT 142 (ROHC) I do not decompress the packet
 						if ( protocol_rec != 142 ) {
 							// non-compressed packet
 							// dump the received packet on terminal
@@ -1571,189 +1634,199 @@ int main(int argc, char *argv[]) {
 						} else {
 							// ROHC-compressed packet
 
-							// reset the buffers where the rohc packets, ip packets and feedback info are to be stored
-							rohc_buf_reset (&ip_packet_d);
-							rohc_buf_reset (&rohc_packet_d);
-							rohc_buf_reset (&rcvd_feedback);
-							rohc_buf_reset (&feedback_send);
+							// I cannot decompress the packet if I am in no-ROHC mode
+							if ( ROHC_mode == 0 ) {
+								do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
 
-							// Copy the compressed length and the compressed packet
-							rohc_packet_d.len = packet_length;
+								// write the log file
+								if ( log_file != NULL ) {
+									fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tun);	// the packet may be good, but the decompressor is not in ROHC mode
+									fflush(log_file);
+								}
+							} else {
+								// reset the buffers where the rohc packets, ip packets and feedback info are to be stored
+								rohc_buf_reset (&ip_packet_d);
+								rohc_buf_reset (&rohc_packet_d);
+								rohc_buf_reset (&rcvd_feedback);
+								rohc_buf_reset (&feedback_send);
+
+								// Copy the compressed length and the compressed packet
+								rohc_packet_d.len = packet_length;
 						
-							// Copy the packet itself
-							for (l = 0; l < packet_length ; l++) {
-								rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
-							}
-
-							// dump the ROHC packet on terminal
-							if (debug == 1) {
-								do_debug(1, " ROHC. ");
-							}
-							if (debug == 2) {
-								do_debug(2, " ");
-								do_debug(2, " ROHC packet\n   ");
-								dump_packet (packet_length, demuxed_packet);
-							}
-
-							// decompress the packet
-							status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
-
-							// if bidirectional mode has been set, check the feedback
-							if ( ROHC_mode > 1 ) {
-
-								// check if the decompressor has received feedback, and it has to be delivered to the local compressor
-								if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
-									do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
-									// dump the feedback packet on terminal
-									if (debug) {
-										do_debug(2, "  ROHC feedback packet received\n   ");
-
-										dump_packet (rcvd_feedback.len, rcvd_feedback.data );
-									}
-
-
-									// deliver the feedback received to the local compressor
-									//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
-									if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
-										do_debug(3, "Error delivering feedback received from the remote compressor to the compressor\n");
-									} else {
-										do_debug(3, "Feedback from the remote compressor delivered to the compressor: %i bytes\n", rcvd_feedback.len);
-									}
-								} else {
-									do_debug(3, "No feedback received by the decompressor from the remote compressor\n");
+								// Copy the packet itself
+								for (l = 0; l < packet_length ; l++) {
+									rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
 								}
 
-								// check if the decompressor has generated feedback to be sent by the feedback channel to the other peer
-								if ( !rohc_buf_is_empty( feedback_send ) ) { 
-									do_debug(3, "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n", feedback_send.len);
-
-									// dump the ROHC packet on terminal
-									if (debug) {
-										do_debug(2, "  ROHC feedback packet generated\n   ");
-										dump_packet (feedback_send.len, feedback_send.data );
-									}
-
-
-									// send the feedback packet to the peer
-									if (sendto(feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&feedback_remote, sizeof(feedback_remote))==-1) {
-										perror("sendto()");
-									} else {
-										do_debug(3, "Feedback generated by the decompressor (%i bytes), sent to the compressor\n", feedback_send.len);
-									}
-								} else {
-									do_debug(3, "No feedback generated by the decompressor\n");
+								// dump the ROHC packet on terminal
+								if (debug == 1) {
+									do_debug(1, " ROHC. ");
 								}
-							}
+								if (debug == 2) {
+									do_debug(2, " ");
+									do_debug(2, " ROHC packet\n   ");
+									dump_packet (packet_length, demuxed_packet);
+								}
+
+								// decompress the packet
+								status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
+
+								// if bidirectional mode has been set, check the feedback
+								if ( ROHC_mode > 1 ) {
+
+									// check if the decompressor has received feedback, and it has to be delivered to the local compressor
+									if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
+										do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
+										// dump the feedback packet on terminal
+										if (debug) {
+											do_debug(2, "  ROHC feedback packet received\n   ");
+
+											dump_packet (rcvd_feedback.len, rcvd_feedback.data );
+										}
 
 
-							// check the result of the decompression
+										// deliver the feedback received to the local compressor
+										//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
+										if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
+											do_debug(3, "Error delivering feedback received from the remote compressor to the compressor\n");
+										} else {
+											do_debug(3, "Feedback from the remote compressor delivered to the compressor: %i bytes\n", rcvd_feedback.len);
+										}
+									} else {
+										do_debug(3, "No feedback received by the decompressor from the remote compressor\n");
+									}
 
-							// decompression is successful
-							if ( status == ROHC_STATUS_OK) {
+									// check if the decompressor has generated feedback to be sent by the feedback channel to the other peer
+									if ( !rohc_buf_is_empty( feedback_send ) ) { 
+										do_debug(3, "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n", feedback_send.len);
 
-								if(!rohc_buf_is_empty(ip_packet_d))	{	// decompressed packet is not empty
+										// dump the ROHC packet on terminal
+										if (debug) {
+											do_debug(2, "  ROHC feedback packet generated\n   ");
+											dump_packet (feedback_send.len, feedback_send.data );
+										}
+
+
+										// send the feedback packet to the peer
+										if (sendto(feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&feedback_remote, sizeof(feedback_remote))==-1) {
+											perror("sendto()");
+										} else {
+											do_debug(3, "Feedback generated by the decompressor (%i bytes), sent to the compressor\n", feedback_send.len);
+										}
+									} else {
+										do_debug(3, "No feedback generated by the decompressor\n");
+									}
+								}
+
+								// check the result of the decompression
+
+								// decompression is successful
+								if ( status == ROHC_STATUS_OK) {
+
+									if(!rohc_buf_is_empty(ip_packet_d))	{	// decompressed packet is not empty
 								
-									// ip_packet.len bytes of decompressed IP data available in ip_packet
-									packet_length = ip_packet_d.len;
+										// ip_packet.len bytes of decompressed IP data available in ip_packet
+										packet_length = ip_packet_d.len;
 
-									// copy the packet
-									memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
+										// copy the packet
+										memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
 
-									//dump the IP packet on the standard output
-									do_debug(2, "  ");
-									do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
-									do_debug(2, "   ");
+										//dump the IP packet on the standard output
+										do_debug(2, "  ");
+										do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
+										do_debug(2, "   ");
 
-									if (debug) {
-										// dump the decompressed IP packet on terminal
-										dump_packet (ip_packet_d.len, ip_packet_d.data );
+										if (debug) {
+											// dump the decompressed IP packet on terminal
+											dump_packet (ip_packet_d.len, ip_packet_d.data );
+										}
+
+									} else {
+										/* no IP packet was decompressed because of ROHC segmentation or
+										 * feedback-only packet:
+										 *  - the ROHC packet was a non-final segment, so at least another
+										 *    ROHC segment is required to be able to decompress the full
+										 *    ROHC packet
+										 *  - the ROHC packet was a feedback-only packet, it contained only
+										 *    feedback information, so there was nothing to decompress */
+										do_debug(1, "  no IP packet decompressed\n");
+
+										// write the log file
+										if ( log_file != NULL ) {
+											fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));	// the packet is bad so I add a line
+											fflush(log_file);
+										}
 									}
+								}
 
-								} else {
-									/* no IP packet was decompressed because of ROHC segmentation or
-									 * feedback-only packet:
-									 *  - the ROHC packet was a non-final segment, so at least another
-									 *    ROHC segment is required to be able to decompress the full
-									 *    ROHC packet
-									 *  - the ROHC packet was a feedback-only packet, it contained only
-									 *    feedback information, so there was nothing to decompress */
-									do_debug(1, "  no IP packet decompressed\n");
+								else if ( status == ROHC_STATUS_NO_CONTEXT ) {
+
+									// failure: decompressor failed to decompress the ROHC packet 
+									do_debug(2, "  decompression of ROHC packet failed. No context\n");
+									fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
 
 									// write the log file
 									if ( log_file != NULL ) {
-										fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));	// the packet is bad so I add a line
+										// the packet is bad
+										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
 										fflush(log_file);
 									}
 								}
-							}
 
-							else if ( status == ROHC_STATUS_NO_CONTEXT ) {
+								else if ( status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {	// the output buffer is too small for the compressed packet
 
-								// failure: decompressor failed to decompress the ROHC packet 
-								do_debug(2, "  decompression of ROHC packet failed. No context\n");
-								fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+									// failure: decompressor failed to decompress the ROHC packet 
+									do_debug(2, "  decompression of ROHC packet failed. Output buffer is too small\n");
+									fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
 
-								// write the log file
-								if ( log_file != NULL ) {
-									// the packet is bad
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
-									fflush(log_file);
+									// write the log file
+									if ( log_file != NULL ) {
+										// the packet is bad
+										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
+										fflush(log_file);
+									}
 								}
-							}
 
-							else if ( status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {	// the output buffer is too small for the compressed packet
+								else if ( status == ROHC_STATUS_MALFORMED ) {			// the decompression failed because the ROHC packet is malformed 
 
-								// failure: decompressor failed to decompress the ROHC packet 
-								do_debug(2, "  decompression of ROHC packet failed. Output buffer is too small\n");
-								fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
+									// failure: decompressor failed to decompress the ROHC packet 
+									do_debug(2, "  decompression of ROHC packet failed. No context\n");
+									fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
 
-								// write the log file
-								if ( log_file != NULL ) {
-									// the packet is bad
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
-									fflush(log_file);
+									// write the log file
+									if ( log_file != NULL ) {
+										// the packet is bad
+										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
+										fflush(log_file);
+									}
 								}
-							}
 
-							else if ( status == ROHC_STATUS_MALFORMED ) {			// the decompression failed because the ROHC packet is malformed 
+								else if ( status == ROHC_STATUS_BAD_CRC ) {			// the CRC detected a transmission or decompression problem
 
-								// failure: decompressor failed to decompress the ROHC packet 
-								do_debug(2, "  decompression of ROHC packet failed. No context\n");
-								fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+									// failure: decompressor failed to decompress the ROHC packet 
+									do_debug(2, "  decompression of ROHC packet failed. Bad CRC\n");
+									fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
 
-								// write the log file
-								if ( log_file != NULL ) {
-									// the packet is bad
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
-									fflush(log_file);
+									// write the log file
+									if ( log_file != NULL ) {
+										// the packet is bad
+										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
+										fflush(log_file);
+									}
 								}
-							}
 
-							else if ( status == ROHC_STATUS_BAD_CRC ) {			// the CRC detected a transmission or decompression problem
+								else if ( status == ROHC_STATUS_ERROR ) {				// another problem occurred
 
-								// failure: decompressor failed to decompress the ROHC packet 
-								do_debug(2, "  decompression of ROHC packet failed. Bad CRC\n");
-								fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
+									// failure: decompressor failed to decompress the ROHC packet 
+									do_debug(2, "  decompression of ROHC packet failed. Other error\n");
+									fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
 
-								// write the log file
-								if ( log_file != NULL ) {
-									// the packet is bad
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
-									fflush(log_file);
-								}
-							}
-
-							else if ( status == ROHC_STATUS_ERROR ) {				// another problem occurred
-
-								// failure: decompressor failed to decompress the ROHC packet 
-								do_debug(2, "  decompression of ROHC packet failed. Other error\n");
-								fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
-
-								// write the log file
-								if ( log_file != NULL ) {
-									// the packet is bad
-									fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
-									fflush(log_file);
+									// write the log file
+									if ( log_file != NULL ) {
+										// the packet is bad
+										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
+										fflush(log_file);
+									}
 								}
 							}
 
@@ -2529,7 +2602,7 @@ release_decompressor:
 error:
 	fprintf(stderr, "an error occured during program execution, "
 		"abort program\n");
-	if ( log_file_name != '\0' ) fclose (log_file);
+	if ( log_file != NULL ) fclose (log_file);
 	return 1;
 }
 
