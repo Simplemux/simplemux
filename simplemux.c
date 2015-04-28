@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.14                                  *
+ * simplemux.c            version 1.6.15                                  *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress). The multiplexed bundle can be sent        *
@@ -704,7 +704,6 @@ int main(int argc, char *argv[]) {
 
 	/************** Check command line options *********************/
 	progname = argv[0];		// argument used when calling the program
-
 
 
 	while((option = getopt(argc, argv, "i:e:M:c:p:n:b:t:P:l:d:r:hL")) > 0) {
@@ -2051,6 +2050,7 @@ int main(int argc, char *argv[]) {
 			// if the addition of the present packet will imply a multiplexed packet bigger than the size limit:
 			// - I send the previously stored packets
 			// - I store the present one
+			// - I reset the period
 
 			// calculate the size without the present packet
 			predicted_size_muxed_packet = predict_size_multiplexed_packet (num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex);
@@ -2130,8 +2130,6 @@ int main(int argc, char *argv[]) {
 				}
 
 
-
-
 				// send the multiplexed packet without the current one
 				switch (*mode) {
 					case TRANSPORT_MODE:
@@ -2164,6 +2162,11 @@ int main(int argc, char *argv[]) {
 						}
 					break;
 				}
+
+				// I have sent a packet, so I restart the period: update the time of the last packet sent
+				time_in_microsec = GetTimeStamp();
+				time_last_sent_in_microsec = time_in_microsec;
+
 
 				// I have emptied the buffer, so I have to
 				//move the current packet to the first position of the 'packets_to_multiplex' array
@@ -2398,7 +2401,7 @@ int main(int argc, char *argv[]) {
 				size_muxed_packet = 0 ;
 				num_pkts_stored_from_tun = 0;
 
-				// update the time of the last packet sent
+				// restart the period: update the time of the last packet sent
 				time_last_sent_in_microsec = time_in_microsec;
 			}
 		}
