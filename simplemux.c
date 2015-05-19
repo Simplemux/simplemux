@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.17                                  *
+ * simplemux.c            version 1.6.18                                  *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress). The multiplexed bundle can be sent        *
@@ -70,7 +70,7 @@
 #include <rohc/rohc_decomp.h>
 #include <netinet/ip.h>			// for using iphdr type
 
-#define BUFSIZE 2000			// buffer for reading from tun interface, must be >= MTU of the network
+#define BUFSIZE 2304			// buffer for reading from tun interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
 #define UDP_HEADER_SIZE 8
 #define SIZE_PROTOCOL_FIELD 1	// 1: protocol field of one byte
@@ -267,6 +267,7 @@ void usage(void) {
 	fprintf(stderr, "-d: outputs debug information while running. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
 	fprintf(stderr, "-r: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
 	fprintf(stderr, "-n: number of packets received, to be sent to the network at the same time, default 1, max 100\n");
+	fprintf(stderr, "-m: Maximum Transmission Unit of the network path (by default the one of the local interface is taken)\n");
 	fprintf(stderr, "-b: size threshold (bytes) to trigger the departure of packets (default MTU-28 in transport mode and MTU-20 in network mode)\n");
 	fprintf(stderr, "-t: timeout (in usec) to trigger the departure of packets\n");
 	fprintf(stderr, "-P: period (in usec) to trigger the departure of packets. If ( timeout < period ) then the timeout has no effect\n");
@@ -696,7 +697,9 @@ int main(int argc, char *argv[]) {
 	int predicted_size_muxed_packet;				// size of the muxed packet if the arrived packet was added to it
 	int position;									// for reading the arrived multiplexed packet
 	int packet_length;								// the length of each packet inside the multiplexed bundle
-	int network_mtu;								// the maximum transfer unit of the interface
+	int interface_mtu;								// the maximum transfer unit of the interface
+	int user_mtu = 0;								// the MTU specified by the user (it must be <= interface_mtu)
+	int selected_mtu;								// the MTU that will be used in the program
 	int num_demuxed_packets;						// a counter of the number of packets inside a muxed one
 	int single_protocol;							// it is 1 when the Single-Protocol-Bit of the first header is 1
 	int single_protocol_rec;						// it is the bit Single-Protocol-Bit received in a muxed packet
@@ -749,7 +752,7 @@ int main(int argc, char *argv[]) {
 	progname = argv[0];		// argument used when calling the program
 
 
-	while((option = getopt(argc, argv, "i:e:M:c:p:n:b:t:P:l:d:r:hL")) > 0) {
+	while((option = getopt(argc, argv, "i:e:M:c:p:n:b:t:P:l:d:r:m:hL")) > 0) {
 
 		switch(option) {
 			case 'd':
@@ -787,6 +790,9 @@ int main(int argc, char *argv[]) {
 				break;
 			case 'n':						/* limit of the number of packets for triggering a muxed packet */
 				limit_numpackets_tun = atoi(optarg);
+				break;
+			case 'm':						/* MTU forced by the user */
+				user_mtu = atoi(optarg);
 				break;
 			case 'b':						/* size threshold (in bytes) for triggering a muxed packet */
 				size_threshold = atoi(optarg);
@@ -904,12 +910,31 @@ int main(int argc, char *argv[]) {
 	}
 
 	/*** get the MTU of the local interface ***/
-	if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1) network_mtu = 0;
-	else network_mtu = iface.ifr_mtu;
+	if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1) interface_mtu = 0;
+	else interface_mtu = iface.ifr_mtu;
 
-	if (network_mtu > BUFSIZE ) {
-		perror ("Network MTU is higher than the size of the buffer defined at the beginning of this application (check #define BUFSIZE)\n");
-		exit (0);
+	/*** check if the user has specified a bad MTU ***/
+	do_debug (1, "Local interface MTU: %i\t User-selected MTU: %i\n", interface_mtu, user_mtu);
+
+	if (user_mtu > interface_mtu) {
+		perror ("Error: The MTU specified by the user is higher than the MTU of the interface\n");
+		exit (1);
+	} else {
+
+		// if the user has specified a MTU, I use it instead of network MTU
+		if (user_mtu > 0) {
+			selected_mtu = user_mtu;
+
+		// otherwise, use the MTU of the local interface
+		} else {
+			selected_mtu = interface_mtu;
+		}
+	}
+
+	if (selected_mtu > BUFSIZE ) {
+		do_debug (1, "Selected MTU: %i\t Size of the buffer for packet storage: %i\n", selected_mtu, BUFSIZE);
+		perror ("Error: The MTU selected is higher than the size of the buffer defined.\nCheck #define BUFSIZE at the beginning of this application\n");
+		exit (1);
 	}
 
 
@@ -920,7 +945,7 @@ int main(int argc, char *argv[]) {
 	} else {
 		// source IPv4 address: it is the one of the interface
 		strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
-		do_debug(1, "Local IP for multiplexing %s. MTU %i\n", local_ip, network_mtu);
+		do_debug(1, "Local IP for multiplexing %s\n", local_ip);
 	}
 
 
@@ -997,11 +1022,11 @@ int main(int argc, char *argv[]) {
 	// define the maximum size threshold
 	switch (*mode) {
 		case TRANSPORT_MODE:
-			size_max = network_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
+			size_max = selected_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
 		break;
 
 		case NETWORK_MODE:
-			size_max = network_mtu - IPv4_HEADER_SIZE ;
+			size_max = selected_mtu - IPv4_HEADER_SIZE ;
 		break;
 	}
 
@@ -1013,8 +1038,8 @@ int main(int argc, char *argv[]) {
 
 	// the user has specified a too big size threshold
 	if (size_threshold > size_max ) {
+		do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", size_threshold, size_max);
 		size_threshold = size_max;
-		do_debug (1, "Warning: Size threshold too big. Established to the maximum: %i\n", size_max);
 	}
 
 	/*** set the triggering parameters according to user selections (or default values) ***/
