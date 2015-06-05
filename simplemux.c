@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.18                                  *
+ * simplemux.c            version 1.6.20                                  *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress). The multiplexed bundle can be sent        *
@@ -256,7 +256,7 @@ void my_err(char *msg, ...) {
  **************************************************************************/
 void usage(void) {
 	fprintf(stderr, "Usage:\n");
-	fprintf(stderr, "%s -i <ifacename> -e <ifacename> -c <peerIP> -M <N or T> [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
+	fprintf(stderr, "%s -i <ifacename> -e <ifacename> -c <peerIP> -M <N or T> [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-m <MTU>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
 	fprintf(stderr, "%s -h\n", progname);
 	fprintf(stderr, "\n");
 	fprintf(stderr, "-i <ifacename>: Name of tun interface to use for capturing native packets (mandatory)\n");
@@ -578,7 +578,7 @@ void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local
 	iph->tos = 0;
 	iph->tot_len = htons(sizeof(struct iphdr) + len_data);
 	iph->id = htons(1234 + counter);
-	iph->frag_off = 0;
+	iph->frag_off = 0;	// fragment is allowed
 	iph->ttl = Linux_TTL;
 	iph->protocol = IPPROTO_SIMPLEMUX;
 	iph->saddr = inet_addr(inet_ntoa(local.sin_addr));
@@ -708,6 +708,7 @@ int main(int argc, char *argv[]) {
 	int maximum_packet_length;						// the maximum lentgh of a packet. It may be 64 (first header) or 128 (non-first header)
 	int first_header_written = 0;					// it indicates if the first header has been written or not
 	int ret;										// value returned by the "select" function
+	int drop_packet = 0;
 
 	struct timeval period_expires;					// it is used for the maximum time waiting for a new packet
 
@@ -751,713 +752,680 @@ int main(int argc, char *argv[]) {
 	/************** Check command line options *********************/
 	progname = argv[0];		// argument used when calling the program
 
+	// no arguments specified by the user. Print usage and finish
+	if (argc == 1 ) {
+		usage ();
 
-	while((option = getopt(argc, argv, "i:e:M:c:p:n:b:t:P:l:d:r:m:hL")) > 0) {
+	} else {
+		while((option = getopt(argc, argv, "i:e:M:c:p:n:b:t:P:l:d:r:m:hL")) > 0) {
 
-		switch(option) {
-			case 'd':
-				debug = atoi(optarg);		/* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
-				break;
-			case 'r':
-				ROHC_mode = atoi(optarg);	/* 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)*/ 
-				break;
-			case 'h':						/* help */
-				usage();
-				break;
-			case 'i':						/* put the name of the tun interface (e.g. "tun0") in "tun_if_name" */
-				strncpy(tun_if_name, optarg, IFNAMSIZ-1);
-				break;
-			case 'M':						/* Network (N) or Transport (T) mode */
-				strncpy(mode, optarg, 1);
-				break;
-			case 'e':						/* the name of the network interface (e.g. "eth0") in "mux_if_name" */
-				strncpy(mux_if_name, optarg, IFNAMSIZ-1);
-				break;
-			case 'c':						/* destination address of the machine where the tunnel ends */
-				strncpy(remote_ip, optarg, 15);
-				break;
-			case 'l':						/* name of the log file */
-				strncpy(log_file_name, optarg, 100);
-				file_logging = 1;
-				break;
-			case 'L':						/* name of the log file assigned automatically */
-				date_and_time(log_file_name);
-				file_logging = 1;
-				break;
-			case 'p':						/* port number */
-				port = atoi(optarg);		/* atoi Parses a string interpreting its content as an int */
-				port_feedback = port + 1;
-				break;
-			case 'n':						/* limit of the number of packets for triggering a muxed packet */
-				limit_numpackets_tun = atoi(optarg);
-				break;
-			case 'm':						/* MTU forced by the user */
-				user_mtu = atoi(optarg);
-				break;
-			case 'b':						/* size threshold (in bytes) for triggering a muxed packet */
-				size_threshold = atoi(optarg);
-				break;
-			case 't':						/* timeout for triggering a muxed packet */
-				timeout = atof(optarg);
-				break;
-			case 'P':						/* Period for triggering a muxed packet */
-				period = atof(optarg);
-				break;
-			default:
-				my_err("Unknown option %c\n", option);
-				usage();
-				break;
+			switch(option) {
+				case 'd':
+					debug = atoi(optarg);		/* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
+					break;
+				case 'r':
+					ROHC_mode = atoi(optarg);	/* 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)*/ 
+					break;
+				case 'h':						/* help */
+					usage();
+					break;
+				case 'i':						/* put the name of the tun interface (e.g. "tun0") in "tun_if_name" */
+					strncpy(tun_if_name, optarg, IFNAMSIZ-1);
+					break;
+				case 'M':						/* Network (N) or Transport (T) mode */
+					strncpy(mode, optarg, 1);
+					break;
+				case 'e':						/* the name of the network interface (e.g. "eth0") in "mux_if_name" */
+					strncpy(mux_if_name, optarg, IFNAMSIZ-1);
+					break;
+				case 'c':						/* destination address of the machine where the tunnel ends */
+					strncpy(remote_ip, optarg, 15);
+					break;
+				case 'l':						/* name of the log file */
+					strncpy(log_file_name, optarg, 100);
+					file_logging = 1;
+					break;
+				case 'L':						/* name of the log file assigned automatically */
+					date_and_time(log_file_name);
+					file_logging = 1;
+					break;
+				case 'p':						/* port number */
+					port = atoi(optarg);		/* atoi Parses a string interpreting its content as an int */
+					port_feedback = port + 1;
+					break;
+				case 'n':						/* limit of the number of packets for triggering a muxed packet */
+					limit_numpackets_tun = atoi(optarg);
+					break;
+				case 'm':						/* MTU forced by the user */
+					user_mtu = atoi(optarg);
+					break;
+				case 'b':						/* size threshold (in bytes) for triggering a muxed packet */
+					size_threshold = atoi(optarg);
+					break;
+				case 't':						/* timeout for triggering a muxed packet */
+					timeout = atof(optarg);
+					break;
+				case 'P':						/* Period for triggering a muxed packet */
+					period = atof(optarg);
+					break;
+				default:
+					my_err("Unknown option %c\n", option);
+					usage();
+					break;
+			}
+		}	//end while option
+
+		argv += optind;
+		argc -= optind;
+
+		if(argc > 0) {
+			my_err("Too many options\n");
+			usage();
 		}
-	}	//end while option
-
-	argv += optind;
-	argc -= optind;
-
-	if(argc > 0) {
-		my_err("Too many options\n");
-		usage();
-	}
 
 
-	// check interface options
-	if(*tun_if_name == '\0') {
-		my_err("Must specify a tun interface name for native packets ('-i' option)\n");
-		usage();
-	} else if(*remote_ip == '\0') {
-		my_err("Must specify the address of the peer\n");
-		usage();
-	} else if(*mux_if_name == '\0') {
-		my_err("Must specify local interface name for multiplexed packets\n");
-		usage();
-	} 
+		// check interface options
+		if(*tun_if_name == '\0') {
+			my_err("Must specify a tun interface name for native packets ('-i' option)\n");
+			usage();
+		} else if(*remote_ip == '\0') {
+			my_err("Must specify the address of the peer\n");
+			usage();
+		} else if(*mux_if_name == '\0') {
+			my_err("Must specify local interface name for multiplexed packets\n");
+			usage();
+		} 
 
 
-	// check if NETWORK or TRANSPORT mode have been selected (mandatory)
-	else if((strcmp(mode, "N") != 0) && (strcmp(mode, "T") != 0)) {
-		my_err("Must specify a valid mode ('-M' option)\n");
-		usage();
-	} 
+		// check if NETWORK or TRANSPORT mode have been selected (mandatory)
+		else if((strcmp(mode, "N") != 0) && (strcmp(mode, "T") != 0)) {
+			my_err("Must specify a valid mode ('-M' option)\n");
+			usage();
+		} 
 	
 
-	/* open the log file */
-	if ( file_logging == 1 ) {
-		log_file = fopen(log_file_name, "w");
-		if (log_file == NULL) my_err("Error: cannot open the log file!\n");
-	}
-
-
-	// check debug option
-	if ( debug < 0 ) debug = 0;
-	else if ( debug > 3 ) debug = 3;
-	do_debug ( 1 , "debug level set to %i\n", debug);
-
-
-	// check ROHC option
-	if ( ROHC_mode < 0 ) {
-		ROHC_mode = 0;
-	} else if ( ROHC_mode > 2 ) { 
-		ROHC_mode = 2;
-	}
-
-
-
-	/*** initialize tun interface for native packets ***/
-	if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
-		my_err("Error connecting to tun interface for capturing native packets %s\n", tun_if_name);
-		exit(1);
-	}
-	do_debug(1, "Successfully connected to interface for native packets %s\n", tun_if_name);
-
-
-	// initialize header IP to be used when receiving a packet in NETWORK mode
-	if ( strcmp(mode, "N") != 0 ) {
-		memset(&ipheader, 0, sizeof(struct iphdr));
-	}
-
-	/*** Request a socket for writing and receiving muxed packets in TRANSPORT mode ***/
-	// AF_INET (exactly the same as PF_INET)
-	// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-	// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
-	if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-		perror("socket()");
-		exit(1);
-	}
-
-	/*** Request a socket for feedback packets ***/
-	// AF_INET (exactly the same as PF_INET)
-	// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-	// transport_mode_fd is the file descriptor of the socket for managing arrived feedback packets
-	// I only need the feedback socket if ROHC is activated 
-	if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-		perror("socket()");
-		exit(1);
-	}
-
-
-
-	// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
-	memset (&iface, 0, sizeof (iface));
-	snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
-	if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
-		perror ("ioctl() failed to find interface ");
-		return (EXIT_FAILURE);
-	}
-
-
-	if (ioctl (feedback_fd, SIOCGIFINDEX, &iface) < 0) {
-		perror ("ioctl() failed to find interface ");
-		return (EXIT_FAILURE);
-	}
-
-	/*** get the MTU of the local interface ***/
-	if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1) interface_mtu = 0;
-	else interface_mtu = iface.ifr_mtu;
-
-	/*** check if the user has specified a bad MTU ***/
-	do_debug (1, "Local interface MTU: %i\t User-selected MTU: %i\n", interface_mtu, user_mtu);
-
-	if (user_mtu > interface_mtu) {
-		perror ("Error: The MTU specified by the user is higher than the MTU of the interface\n");
-		exit (1);
-	} else {
-
-		// if the user has specified a MTU, I use it instead of network MTU
-		if (user_mtu > 0) {
-			selected_mtu = user_mtu;
-
-		// otherwise, use the MTU of the local interface
-		} else {
-			selected_mtu = interface_mtu;
-		}
-	}
-
-	if (selected_mtu > BUFSIZE ) {
-		do_debug (1, "Selected MTU: %i\t Size of the buffer for packet storage: %i\n", selected_mtu, BUFSIZE);
-		perror ("Error: The MTU selected is higher than the size of the buffer defined.\nCheck #define BUFSIZE at the beginning of this application\n");
-		exit (1);
-	}
-
-
-	/*** get the IP address of the local interface ***/
-	if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
-		perror ("ioctl() failed to find the IP address for local interface ");
-		return (EXIT_FAILURE);
-	} else {
-		// source IPv4 address: it is the one of the interface
-		strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
-		do_debug(1, "Local IP for multiplexing %s\n", local_ip);
-	}
-
-
-	// assign the destination address and port for the multiplexed packets
-	memset(&remote, 0, sizeof(remote));
-	remote.sin_family = AF_INET;
-	remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
-	remote.sin_port = htons(port);						// remote port
-
-	// assign the local address and port for the multiplexed packets
-	memset(&local, 0, sizeof(local));
-	local.sin_family = AF_INET;
-	local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-	local.sin_port = htons(port);						// local port
-
-	// bind the socket "transport_mode_fd" to the local address and port
-	if (*mode == TRANSPORT_MODE ) {
-	 	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
-			perror("bind");
-		} else {
-			do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
-		}
-	}
-
-
-
-	// assign the destination address and port for the feedback packets
-	memset(&feedback_remote, 0, sizeof(feedback_remote));
-	feedback_remote.sin_family = AF_INET;
-	feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);	// remote feedback IP (the same IP as the remote one)
-	feedback_remote.sin_port = htons(port_feedback);		// remote feedback port
-
-	// assign the source address and port to the feedback packets
-	memset(&feedback, 0, sizeof(feedback));
-	feedback.sin_family = AF_INET;
-	feedback.sin_addr.s_addr = inet_addr(local_ip);		// local IP
-	feedback.sin_port = htons(port_feedback);			// local port (feedback)
-
-	// bind the socket "feedback_fd" to the local feedback address (the same used for multiplexing) and port
- 	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
-		perror("bind");
-	} else {
-		do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
-	}
-
-
-
-	if (*mode == NETWORK_MODE ) {
-		// raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
-		// Submit request for a raw socket descriptor
-		if ((network_mode_fd = socket (AF_INET, SOCK_RAW, IPPROTO_SIMPLEMUX)) < 0) {
-			perror ("Raw socket for sending muxed packets bind failed ");
-			exit (EXIT_FAILURE);
-		} else {
-			do_debug(1,"Raw socket for multiplexing open. Remote IP %s. Protocol number %i\n", inet_ntoa(remote.sin_addr), IPPROTO_SIMPLEMUX);
+		/* open the log file */
+		if ( file_logging == 1 ) {
+			log_file = fopen(log_file_name, "w");
+			if (log_file == NULL) my_err("Error: cannot open the log file!\n");
 		}
 
-		// Set flag so socket expects us to provide IPv4 header
-		if (setsockopt (network_mode_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
-			perror ("setsockopt() failed to set IP_HDRINCL ");
-			exit (EXIT_FAILURE);
+
+		// check debug option
+		if ( debug < 0 ) debug = 0;
+		else if ( debug > 3 ) debug = 3;
+		do_debug ( 1 , "debug level set to %i\n", debug);
+
+
+		// check ROHC option
+		if ( ROHC_mode < 0 ) {
+			ROHC_mode = 0;
+		} else if ( ROHC_mode > 2 ) { 
+			ROHC_mode = 2;
 		}
 
-		// Bind the socket "network_mode_fd" to interface index
-		// bind socket descriptor "network_mode_fd" to specified interface with setsockopt() since
-		// none of the other arguments of sendto() specify which interface to use.
-		if (setsockopt (network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
-			perror ("setsockopt() failed to bind to interface ");
-			exit (EXIT_FAILURE);
+
+
+		/*** initialize tun interface for native packets ***/
+		if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
+			my_err("Error connecting to tun interface for capturing native packets %s\n", tun_if_name);
+			exit(1);
 		}
-	}
+		do_debug(1, "Successfully connected to interface for native packets %s\n", tun_if_name);
 
 
-	// define the maximum size threshold
-	switch (*mode) {
-		case TRANSPORT_MODE:
-			size_max = selected_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
-		break;
-
-		case NETWORK_MODE:
-			size_max = selected_mtu - IPv4_HEADER_SIZE ;
-		break;
-	}
-
-	// the size threshold has not been established by the user 
-	if (size_threshold == 0 ) {
-		size_threshold = size_max;
-		//do_debug (1, "Size threshold established to the maximum: %i.", size_max);
-	}
-
-	// the user has specified a too big size threshold
-	if (size_threshold > size_max ) {
-		do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", size_threshold, size_max);
-		size_threshold = size_max;
-	}
-
-	/*** set the triggering parameters according to user selections (or default values) ***/
-	
-	// there are four possibilities for triggering the sending of the packets:
-	// - a threshold of the acumulated packet size. Two different options apply:
-	// 		-	the size of the multiplexed packet has exceeded the size threshold specified by the user,
-	//			but not the MTU. In this case, a packet is sent and a new period is started with the
-	//			buffer empty.
-	//		-	the size of the multiplexed packet has exceeded the MTU (and the size threshold consequently).
-	//			In this case, a packet is sent without the last one. A new period is started, and the last 
-	//			packet is stored as the first packet of the next period.
-	// - a number of packets
-	// - a timeout. A packet arrives. If the timeout has been reached, a muxed packet is triggered
-	// - a period. If the period has been reached, a muxed packet is triggered
-
-	// if ( timeout < period ) then the timeout has no effect
-	// as soon as one of the conditions is accomplished, all the accumulated packets are sent
-
-	// if no limit of the number of packets is set, then it is set to the maximum
-	if (( (size_threshold < size_max) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tun == 0))
-		limit_numpackets_tun = MAXPKTS;
-
-	// if no option is set by the user, it is assumed that every packet will be sent immediately
-	if (( (size_threshold == size_max) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tun == 0))
-		limit_numpackets_tun = 1;
-	
-
-	// I calculate 'now' as the moment of the last sending
-	time_last_sent_in_microsec = GetTimeStamp() ; 
-
-	do_debug(1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %.2lf. period: %.2lf\n", size_threshold, limit_numpackets_tun, timeout, period);
-
-
-
-	switch(ROHC_mode) {
-			case 0:
-				do_debug ( 1 , "ROHC not activated\n", debug);
-				break;
-			case 1:
-				do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
-				break;
-			case 2:
-				do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
-				break;
-			/*case 3:
-				do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);
-				break;*/
-	}
-
-	// If ROHC has been selected, I have to initialize it
-	if ( ROHC_mode > 0 ) {
-
-		/* initialize the random generator */
-		seed = time(NULL);
-		srand(seed);
-
-		/* Create a ROHC compressor with Large CIDs and the largest MAX_CID
-		 * possible for large CIDs */
-		compressor = rohc_comp_new2(ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, gen_random_num, NULL);
-		if(compressor == NULL)
-		{
-			fprintf(stderr, "failed create the ROHC compressor\n");
-			goto error;
+		// initialize header IP to be used when receiving a packet in NETWORK mode
+		if ( strcmp(mode, "N") != 0 ) {
+			memset(&ipheader, 0, sizeof(struct iphdr));
 		}
 
-		do_debug(1, "ROHC compressor created. Profiles: ");
-
-
-		// Set the callback function to be used for detecting RTP
-        if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL))
-        {
-                fprintf(stderr, "failed to set RTP detection callback\n");
-                goto error;
-        }
-
-
-
-
-		// set the function that will manage the ROHC compressing traces (it will be 'print_rohc_traces')
-		if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL))
-		{
-			fprintf(stderr, "failed to set the callback for traces on compressor\n");
-			goto release_compressor;
-		}
-
-		/* Enable the ROHC compression profiles */
-		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_UNCOMPRESSED))
-		{
-			fprintf(stderr, "failed to enable the Uncompressed compression profile\n");
-			goto release_compressor;
-		} else {
-			do_debug(1, "Uncompressed. ");
-		}
-
-		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_IP))
-		{
-			fprintf(stderr, "failed to enable the IP-only compression profile\n");
-			goto release_compressor;
-		} else {
-			do_debug(1, "IP-only. ");
-		}
-
-		if(!rohc_comp_enable_profiles(compressor, ROHC_PROFILE_UDP, ROHC_PROFILE_UDPLITE, -1))
-		{
-			fprintf(stderr, "failed to enable the IP/UDP and IP/UDP-Lite compression profiles\n");
-			goto release_compressor;
-		} else {
-			do_debug(1, "IP/UDP. IP/UDP-Lite. ");
-		}
-
-		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_RTP))
-		{
-			fprintf(stderr, "failed to enable the RTP compression profile\n");
-			goto release_compressor;
-		} else {
-			do_debug(1, "RTP (UDP ports 1234, 36780, 33238, 5020, 5002). ");
-		}
-
-		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_ESP))
-		{
-			fprintf(stderr, "failed to enable the ESP compression profile\n");
-			goto release_compressor;
-		} else {
-			do_debug(1, "ESP. ");
-		}
-
-		if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_TCP))
-		{
-			fprintf(stderr, "failed to enable the TCP compression profile\n");
-			goto release_compressor;
-		} else {
-			do_debug(1, "TCP. ");
-		}
-		do_debug(1, "\n");
-
-
-		/* Create a ROHC decompressor to operate:
-		*  - with large CIDs use ROHC_LARGE_CID, ROHC_LARGE_CID_MAX
-		*  - with small CIDs use ROHC_SMALL_CID, ROHC_SMALL_CID_MAX maximum of 5 streams (MAX_CID = 4),
-		*  - ROHC_O_MODE: Bidirectional Optimistic mode (O-mode)
-		*  - ROHC_U_MODE: Unidirectional mode (U-mode).    */
-		if ( ROHC_mode == 1 ) {
-			decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_U_MODE);	// Unidirectional mode
-		} else if ( ROHC_mode == 2 ) {
-			decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_O_MODE);	// Bidirectional Optimistic mode
-		}/*else if ( ROHC_mode == 3 ) {
-			decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);	// Bidirectional Reliable mode (not implemented yet)
-		}*/
-
-		if(decompressor == NULL)
-		{
-			fprintf(stderr, "failed create the ROHC decompressor\n");
-			goto release_decompressor;
-		}
-
-		do_debug(1, "ROHC decompressor created. Profiles: ");
-
-		// set the function that will manage the ROHC decompressing traces (it will be 'print_rohc_traces')
-		if(!rohc_decomp_set_traces_cb2(decompressor, print_rohc_traces, NULL))
-		{
-			fprintf(stderr, "failed to set the callback for traces on decompressor\n");
-			goto release_decompressor;
-		}
-
-		// enable rohc decompression profiles
-		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UNCOMPRESSED,-1);
-		if(!status)
-		{
-    		fprintf(stderr, "failed to enable the Uncompressed decompression profile\n");
-			goto release_decompressor;
-		} else {
-			do_debug(1, "Uncompressed. ");
-		}
-
-		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_IP,-1);
-		if(!status)
-		{
-    		fprintf(stderr, "failed to enable the IP-only decompression profile\n");
-			goto release_decompressor;
-		} else {
-			do_debug(1, "IP-only. ");
-		}
-
-		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDP,-1);
-		if(!status)
-		{
-			fprintf(stderr, "failed to enable the IP/UDP decompression profile\n");
-			goto release_decompressor;
-		} else {
-			do_debug(1, "IP/UDP. ");
-		}
-
-		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDPLITE,-1);
-		if(!status)
-		{
-			fprintf(stderr, "failed to enable the IP/UDP-Lite decompression profile\n");
-			goto release_decompressor;
-		} else {
-			do_debug(1, "IP/UDP-Lite. ");
-		}
-
-		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_RTP,-1);
-		if(!status)
-		{
-			fprintf(stderr, "failed to enable the RTP decompression profile\n");
-			goto release_decompressor;
-		} else {
-			do_debug(1, "RTP. ");
-		}
-
-		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_ESP,-1);
-		if(!status)
-		{
-		fprintf(stderr, "failed to enable the ESP decompression profile\n");
-			goto release_decompressor;
-		} else {
-			do_debug(1, "ESP. ");
-		}
-
-		status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_TCP,-1);
-		if(!status)
-		{
-    		fprintf(stderr, "failed to enable the TCP decompression profile\n");
-			goto release_decompressor;
-		} else {
-			do_debug(1, "TCP. ");
-		}
-
-		do_debug(1, "\n");
-
-	}
-
-
-
-	/*** I need the value of the maximum file descriptor, in order to let select() handle three interface descriptors at once ***/
-	if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd)				maxfd = tun_fd;
-	if(network_mode_fd >= transport_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd)				maxfd = network_mode_fd;
-	if(transport_mode_fd >= tun_fd && transport_mode_fd >= feedback_fd && transport_mode_fd >= network_mode_fd)				maxfd = transport_mode_fd;
-	if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd)		maxfd = feedback_fd;
-
-
-	//do_debug(1, "tun_fd: %i; network_mode_fd: %i; transport_mode_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, network_mode_fd, transport_mode_fd, feedback_fd, maxfd);
-
-
-
-	/*****************************************/
-	/************** Main loop ****************/
-	/*****************************************/
-	while(1) {
-
-		FD_ZERO(&rd_set);				/* FD_ZERO() clears a set */
-		FD_SET(tun_fd, &rd_set);		/* FD_SET() adds a given file descriptor to a set */
-		FD_SET(network_mode_fd, &rd_set);
-		FD_SET(transport_mode_fd, &rd_set);
-		FD_SET(feedback_fd, &rd_set);
-
-		/* Initialize the timeout data structure. */
-		time_in_microsec = GetTimeStamp();
-		if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
-			microseconds_left = (period - (time_in_microsec - time_last_sent_in_microsec));			
-		} else {
-			microseconds_left = 0;
-		}
-		// do_debug (1, "microseconds_left: %i\n", microseconds_left);
-
-		period_expires.tv_sec = 0;
-		period_expires.tv_usec = microseconds_left;		// this is the moment when the period will expire
-
-
-		/* select () allows a program to monitor multiple file descriptors, */ 
-		/* waiting until one or more of the file descriptors become "ready" */
-		/* for some class of I/O operation*/
-		ret = select(maxfd + 1, &rd_set, NULL, NULL, &period_expires); 	//this line stops the program until something
-																		//happens or the period expires
-		// if the program gets here, it means that a packet has arrived (from tun or from the network), or the period has expired
-		if (ret < 0 && errno == EINTR) continue;
-
-		if (ret < 0) {
-			perror("select()");
+		/*** Request a socket for writing and receiving muxed packets in TRANSPORT mode ***/
+		// AF_INET (exactly the same as PF_INET)
+		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
+		// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
+		if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+			perror("socket()");
 			exit(1);
 		}
 
 
-		/*****************************************************************************/
-		/***************** NET to tun. demux and decompress **************************/
-		/*****************************************************************************/
+		/*** Request a socket for feedback packets ***/
+		// AF_INET (exactly the same as PF_INET)
+		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
+		// transport_mode_fd is the file descriptor of the socket for managing arrived feedback packets
+		// I only need the feedback socket if ROHC is activated 
+		if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+			perror("socket()");
+			exit(1);
+		}
 
 
-		// data arrived at the network interface: read, demux, decompress and forward it
-		// in Transport mode, the traffic has arrived to transport_mode_fd
-		// in Network mode, the packet has arrived to network_mode_fd
 
-		if(FD_ISSET(transport_mode_fd, &rd_set)|| FD_ISSET(network_mode_fd, &rd_set)) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
+		// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
+		memset (&iface, 0, sizeof (iface));
+		snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
+		if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
+			perror ("ioctl() failed to find interface ");
+			return (EXIT_FAILURE);
+		}
 
-			switch (*mode) {
-				case TRANSPORT_MODE:
-					// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
-					nread_from_net = recvfrom ( transport_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&remote, &slen );
-					if (nread_from_net==-1) perror ("recvfrom()");
-					// now buffer_from_net contains the payload (simplemux headers and multiplexled packets) of a full packet or frame.
-					// I don't have the IP and UDP headers
 
-					// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
-					if (port == ntohs(remote.sin_port)) 
-						 is_multiplexed_packet = 1;
-					else is_multiplexed_packet = 0;
-				break;
+		if (ioctl (feedback_fd, SIOCGIFINDEX, &iface) < 0) {
+			perror ("ioctl() failed to find interface ");
+			return (EXIT_FAILURE);
+		}
 
-				case NETWORK_MODE:
-					// a packet has been received from the network, destinated to the local interface for muxed packets
-					nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
+		/*** get the MTU of the local interface ***/
+		if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1) interface_mtu = 0;
+		else interface_mtu = iface.ifr_mtu;
 
-					//nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE, 0, (struct sockaddr *)&remote, &slen );
-					if (nread_from_net==-1) perror ("cread demux()");
-					// now buffer_from_net contains the headers (IP and Simplemux) and the payload of a full packet or frame.
+		/*** check if the user has specified a bad MTU ***/
+		do_debug (1, "Local interface MTU: %i\t ", interface_mtu);
+		if ( user_mtu > 0 ) {
+			do_debug (1, "User-selected MTU: %i\n", user_mtu);
+		}
 
-					// copy from "buffer_from_net_aux" everything except the IP header (usually the first 20 bytes)
-					memcpy ( buffer_from_net, buffer_from_net_aux + sizeof(struct iphdr), nread_from_net - sizeof(struct iphdr));
-					// correct the size of "nread from net"
-					nread_from_net = nread_from_net - sizeof(struct iphdr);
+		if (user_mtu > interface_mtu) {
+			perror ("Error: The MTU specified by the user is higher than the MTU of the interface\n");
+			exit (1);
+		} else {
 
-					// Get IP Header of received packet
-					GetIpHeader(&ipheader,buffer_from_net_aux);
-					if (ipheader.protocol == IPPROTO_SIMPLEMUX )
-						 is_multiplexed_packet = 1;
-					else is_multiplexed_packet = 0;
+			// if the user has specified a MTU, I use it instead of network MTU
+			if (user_mtu > 0) {
+				selected_mtu = user_mtu;
 
-				break;
+			// otherwise, use the MTU of the local interface
+			} else {
+				selected_mtu = interface_mtu;
+			}
+		}
+
+		if (selected_mtu > BUFSIZE ) {
+			do_debug (1, "Selected MTU: %i\t Size of the buffer for packet storage: %i\n", selected_mtu, BUFSIZE);
+			perror ("Error: The MTU selected is higher than the size of the buffer defined.\nCheck #define BUFSIZE at the beginning of this application\n");
+			exit (1);
+		}
+
+
+		/*** get the IP address of the local interface ***/
+		if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
+			perror ("ioctl() failed to find the IP address for local interface ");
+			return (EXIT_FAILURE);
+		} else {
+			// source IPv4 address: it is the one of the interface
+			strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
+			do_debug(1, "Local IP for multiplexing %s\n", local_ip);
+		}
+
+
+		// assign the destination address and port for the multiplexed packets
+		memset(&remote, 0, sizeof(remote));
+		remote.sin_family = AF_INET;
+		remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
+		remote.sin_port = htons(port);						// remote port
+
+		// assign the local address and port for the multiplexed packets
+		memset(&local, 0, sizeof(local));
+		local.sin_family = AF_INET;
+		local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
+		local.sin_port = htons(port);						// local port
+
+		// bind the socket "transport_mode_fd" to the local address and port
+		if (*mode == TRANSPORT_MODE ) {
+		 	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+				perror("bind");
+			} else {
+				do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+			}
+		}
+
+
+
+		// assign the destination address and port for the feedback packets
+		memset(&feedback_remote, 0, sizeof(feedback_remote));
+		feedback_remote.sin_family = AF_INET;
+		feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);	// remote feedback IP (the same IP as the remote one)
+		feedback_remote.sin_port = htons(port_feedback);		// remote feedback port
+
+		// assign the source address and port to the feedback packets
+		memset(&feedback, 0, sizeof(feedback));
+		feedback.sin_family = AF_INET;
+		feedback.sin_addr.s_addr = inet_addr(local_ip);		// local IP
+		feedback.sin_port = htons(port_feedback);			// local port (feedback)
+
+		// bind the socket "feedback_fd" to the local feedback address (the same used for multiplexing) and port
+	 	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
+			perror("bind");
+		} else {
+			do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
+		}
+
+
+
+		if (*mode == NETWORK_MODE ) {
+			// raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
+			// Submit request for a raw socket descriptor
+			if ((network_mode_fd = socket (AF_INET, SOCK_RAW, IPPROTO_SIMPLEMUX)) < 0) {
+				perror ("Raw socket for sending muxed packets bind failed ");
+				exit (EXIT_FAILURE);
+			} else {
+				do_debug(1,"Raw socket for multiplexing open. Remote IP %s. Protocol number %i\n", inet_ntoa(remote.sin_addr), IPPROTO_SIMPLEMUX);
 			}
 
 
-			// now buffer_from_net contains a full packet or frame.
-			// check if the packet is a multiplexed one
-			if (is_multiplexed_packet) {
+			// Set flag so socket expects us to provide IPv4 header
+			if (setsockopt (network_mode_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
+				perror ("setsockopt() failed to set IP_HDRINCL ");
+				exit (EXIT_FAILURE);
+			}
 
-				/* increase the counter of the number of packets read from the network */
-				net2tun++;
+			// Bind the socket "network_mode_fd" to interface index
+			// bind socket descriptor "network_mode_fd" to specified interface with setsockopt() since
+			// none of the other arguments of sendto() specify which interface to use.
+			if (setsockopt (network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
+				perror ("setsockopt() failed to bind to interface ");
+				exit (EXIT_FAILURE);
+			}
+		}
+
+
+		// define the maximum size threshold
+		switch (*mode) {
+			case TRANSPORT_MODE:
+				size_max = selected_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
+			break;
+
+			case NETWORK_MODE:
+				size_max = selected_mtu - IPv4_HEADER_SIZE ;
+			break;
+		}
+
+		// the size threshold has not been established by the user 
+		if (size_threshold == 0 ) {
+			size_threshold = size_max;
+			//do_debug (1, "Size threshold established to the maximum: %i.", size_max);
+		}
+
+		// the user has specified a too big size threshold
+		if (size_threshold > size_max ) {
+			do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", size_threshold, size_max);
+			size_threshold = size_max;
+		}
+
+		/*** set the triggering parameters according to user selections (or default values) ***/
+	
+		// there are four possibilities for triggering the sending of the packets:
+		// - a threshold of the acumulated packet size. Two different options apply:
+		// 		-	the size of the multiplexed packet has exceeded the size threshold specified by the user,
+		//			but not the MTU. In this case, a packet is sent and a new period is started with the
+		//			buffer empty.
+		//		-	the size of the multiplexed packet has exceeded the MTU (and the size threshold consequently).
+		//			In this case, a packet is sent without the last one. A new period is started, and the last 
+		//			packet is stored as the first packet of the next period.
+		// - a number of packets
+		// - a timeout. A packet arrives. If the timeout has been reached, a muxed packet is triggered
+		// - a period. If the period has been reached, a muxed packet is triggered
+
+		// if ( timeout < period ) then the timeout has no effect
+		// as soon as one of the conditions is accomplished, all the accumulated packets are sent
+
+		// if no limit of the number of packets is set, then it is set to the maximum
+		if (( (size_threshold < size_max) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tun == 0))
+			limit_numpackets_tun = MAXPKTS;
+
+		// if no option is set by the user, it is assumed that every packet will be sent immediately
+		if (( (size_threshold == size_max) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tun == 0))
+			limit_numpackets_tun = 1;
+	
+
+		// I calculate 'now' as the moment of the last sending
+		time_last_sent_in_microsec = GetTimeStamp() ; 
+
+		do_debug(1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %.2lf. period: %.2lf\n", size_threshold, limit_numpackets_tun, timeout, period);
+
+
+
+		switch(ROHC_mode) {
+				case 0:
+					do_debug ( 1 , "ROHC not activated\n", debug);
+					break;
+				case 1:
+					do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
+					break;
+				case 2:
+					do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
+					break;
+				/*case 3:
+					do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);
+					break;*/
+		}
+
+		// If ROHC has been selected, I have to initialize it
+		if ( ROHC_mode > 0 ) {
+
+			/* initialize the random generator */
+			seed = time(NULL);
+			srand(seed);
+
+			/* Create a ROHC compressor with Large CIDs and the largest MAX_CID
+			 * possible for large CIDs */
+			compressor = rohc_comp_new2(ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, gen_random_num, NULL);
+			if(compressor == NULL)
+			{
+				fprintf(stderr, "failed create the ROHC compressor\n");
+				goto error;
+			}
+
+			do_debug(1, "ROHC compressor created. Profiles: ");
+
+
+			// Set the callback function to be used for detecting RTP
+		    if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL))
+		    {
+		            fprintf(stderr, "failed to set RTP detection callback\n");
+		            goto error;
+		    }
+
+
+
+
+			// set the function that will manage the ROHC compressing traces (it will be 'print_rohc_traces')
+			if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL))
+			{
+				fprintf(stderr, "failed to set the callback for traces on compressor\n");
+				goto release_compressor;
+			}
+
+			/* Enable the ROHC compression profiles */
+			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_UNCOMPRESSED))
+			{
+				fprintf(stderr, "failed to enable the Uncompressed compression profile\n");
+				goto release_compressor;
+			} else {
+				do_debug(1, "Uncompressed. ");
+			}
+
+			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_IP))
+			{
+				fprintf(stderr, "failed to enable the IP-only compression profile\n");
+				goto release_compressor;
+			} else {
+				do_debug(1, "IP-only. ");
+			}
+
+			if(!rohc_comp_enable_profiles(compressor, ROHC_PROFILE_UDP, ROHC_PROFILE_UDPLITE, -1))
+			{
+				fprintf(stderr, "failed to enable the IP/UDP and IP/UDP-Lite compression profiles\n");
+				goto release_compressor;
+			} else {
+				do_debug(1, "IP/UDP. IP/UDP-Lite. ");
+			}
+
+			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_RTP))
+			{
+				fprintf(stderr, "failed to enable the RTP compression profile\n");
+				goto release_compressor;
+			} else {
+				do_debug(1, "RTP (UDP ports 1234, 36780, 33238, 5020, 5002). ");
+			}
+
+			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_ESP))
+			{
+				fprintf(stderr, "failed to enable the ESP compression profile\n");
+				goto release_compressor;
+			} else {
+				do_debug(1, "ESP. ");
+			}
+
+			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_TCP))
+			{
+				fprintf(stderr, "failed to enable the TCP compression profile\n");
+				goto release_compressor;
+			} else {
+				do_debug(1, "TCP. ");
+			}
+			do_debug(1, "\n");
+
+
+			/* Create a ROHC decompressor to operate:
+			*  - with large CIDs use ROHC_LARGE_CID, ROHC_LARGE_CID_MAX
+			*  - with small CIDs use ROHC_SMALL_CID, ROHC_SMALL_CID_MAX maximum of 5 streams (MAX_CID = 4),
+			*  - ROHC_O_MODE: Bidirectional Optimistic mode (O-mode)
+			*  - ROHC_U_MODE: Unidirectional mode (U-mode).    */
+			if ( ROHC_mode == 1 ) {
+				decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_U_MODE);	// Unidirectional mode
+			} else if ( ROHC_mode == 2 ) {
+				decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_O_MODE);	// Bidirectional Optimistic mode
+			}/*else if ( ROHC_mode == 3 ) {
+				decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);	// Bidirectional Reliable mode (not implemented yet)
+			}*/
+
+			if(decompressor == NULL)
+			{
+				fprintf(stderr, "failed create the ROHC decompressor\n");
+				goto release_decompressor;
+			}
+
+			do_debug(1, "ROHC decompressor created. Profiles: ");
+
+			// set the function that will manage the ROHC decompressing traces (it will be 'print_rohc_traces')
+			if(!rohc_decomp_set_traces_cb2(decompressor, print_rohc_traces, NULL))
+			{
+				fprintf(stderr, "failed to set the callback for traces on decompressor\n");
+				goto release_decompressor;
+			}
+
+			// enable rohc decompression profiles
+			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UNCOMPRESSED,-1);
+			if(!status)
+			{
+				fprintf(stderr, "failed to enable the Uncompressed decompression profile\n");
+				goto release_decompressor;
+			} else {
+				do_debug(1, "Uncompressed. ");
+			}
+
+			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_IP,-1);
+			if(!status)
+			{
+				fprintf(stderr, "failed to enable the IP-only decompression profile\n");
+				goto release_decompressor;
+			} else {
+				do_debug(1, "IP-only. ");
+			}
+
+			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDP,-1);
+			if(!status)
+			{
+				fprintf(stderr, "failed to enable the IP/UDP decompression profile\n");
+				goto release_decompressor;
+			} else {
+				do_debug(1, "IP/UDP. ");
+			}
+
+			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDPLITE,-1);
+			if(!status)
+			{
+				fprintf(stderr, "failed to enable the IP/UDP-Lite decompression profile\n");
+				goto release_decompressor;
+			} else {
+				do_debug(1, "IP/UDP-Lite. ");
+			}
+
+			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_RTP,-1);
+			if(!status)
+			{
+				fprintf(stderr, "failed to enable the RTP decompression profile\n");
+				goto release_decompressor;
+			} else {
+				do_debug(1, "RTP. ");
+			}
+
+			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_ESP,-1);
+			if(!status)
+			{
+			fprintf(stderr, "failed to enable the ESP decompression profile\n");
+				goto release_decompressor;
+			} else {
+				do_debug(1, "ESP. ");
+			}
+
+			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_TCP,-1);
+			if(!status)
+			{
+				fprintf(stderr, "failed to enable the TCP decompression profile\n");
+				goto release_decompressor;
+			} else {
+				do_debug(1, "TCP. ");
+			}
+
+			do_debug(1, "\n");
+
+		}
+
+
+
+		/*** I need the value of the maximum file descriptor, in order to let select() handle three interface descriptors at once ***/
+		if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd)				maxfd = tun_fd;
+		if(network_mode_fd >= transport_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd)				maxfd = network_mode_fd;
+		if(transport_mode_fd >= tun_fd && transport_mode_fd >= feedback_fd && transport_mode_fd >= network_mode_fd)				maxfd = transport_mode_fd;
+		if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd)		maxfd = feedback_fd;
+
+
+		//do_debug(1, "tun_fd: %i; network_mode_fd: %i; transport_mode_fd: %i; feedback_fd: %i; maxfd: %i\n",tun_fd, network_mode_fd, transport_mode_fd, feedback_fd, maxfd);
+
+
+
+		/*****************************************/
+		/************** Main loop ****************/
+		/*****************************************/
+		while(1) {
+
+			FD_ZERO(&rd_set);				/* FD_ZERO() clears a set */
+			FD_SET(tun_fd, &rd_set);		/* FD_SET() adds a given file descriptor to a set */
+			FD_SET(network_mode_fd, &rd_set);
+			FD_SET(transport_mode_fd, &rd_set);
+			FD_SET(feedback_fd, &rd_set);
+
+			/* Initialize the timeout data structure. */
+			time_in_microsec = GetTimeStamp();
+			if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
+				microseconds_left = (period - (time_in_microsec - time_last_sent_in_microsec));			
+			} else {
+				microseconds_left = 0;
+			}
+			// do_debug (1, "microseconds_left: %i\n", microseconds_left);
+
+			period_expires.tv_sec = 0;
+			period_expires.tv_usec = microseconds_left;		// this is the moment when the period will expire
+
+
+			/* select () allows a program to monitor multiple file descriptors, */ 
+			/* waiting until one or more of the file descriptors become "ready" */
+			/* for some class of I/O operation*/
+			ret = select(maxfd + 1, &rd_set, NULL, NULL, &period_expires); 	//this line stops the program until something
+																			//happens or the period expires
+			// if the program gets here, it means that a packet has arrived (from tun or from the network), or the period has expired
+			if (ret < 0 && errno == EINTR) continue;
+
+			if (ret < 0) {
+				perror("select()");
+				exit(1);
+			}
+
+
+			/*****************************************************************************/
+			/***************** NET to tun. demux and decompress **************************/
+			/*****************************************************************************/
+
+
+			// data arrived at the network interface: read, demux, decompress and forward it
+			// in Transport mode, the traffic has arrived to transport_mode_fd
+			// in Network mode, the packet has arrived to network_mode_fd
+
+			if(FD_ISSET(transport_mode_fd, &rd_set)|| FD_ISSET(network_mode_fd, &rd_set)) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
+
 				switch (*mode) {
 					case TRANSPORT_MODE:
-						do_debug(1, "MUXED PACKET #%lu: Read muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );				
+						// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
+						nread_from_net = recvfrom ( transport_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&remote, &slen );
+						if (nread_from_net==-1) perror ("recvfrom()");
+						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets) of a full packet or frame.
+						// I don't have the IP and UDP headers
 
-						// write the log file
-						if ( log_file != NULL ) {
-							fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
-							fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
-						}
+						// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
+						if (port == ntohs(remote.sin_port)) 
+							 is_multiplexed_packet = 1;
+						else is_multiplexed_packet = 0;
 					break;
 
 					case NETWORK_MODE:
-						do_debug(1, "MUXED PACKET #%lu: Read muxed packet from %s: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );				
+						// a packet has been received from the network, destinated to the local interface for muxed packets
+						nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
 
-						// write the log file
-						if ( log_file != NULL ) {
-							fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr));
-							fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
-						}
+						//nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE, 0, (struct sockaddr *)&remote, &slen );
+						if (nread_from_net==-1) perror ("cread demux()");
+						// now buffer_from_net contains the headers (IP and Simplemux) and the payload of a full packet or frame.
+
+						// copy from "buffer_from_net_aux" everything except the IP header (usually the first 20 bytes)
+						memcpy ( buffer_from_net, buffer_from_net_aux + sizeof(struct iphdr), nread_from_net - sizeof(struct iphdr));
+						// correct the size of "nread from net"
+						nread_from_net = nread_from_net - sizeof(struct iphdr);
+
+						// Get IP Header of received packet
+						GetIpHeader(&ipheader,buffer_from_net_aux);
+						if (ipheader.protocol == IPPROTO_SIMPLEMUX )
+							 is_multiplexed_packet = 1;
+						else is_multiplexed_packet = 0;
+
 					break;
 				}
 
-				// if the packet comes from the multiplexing port, I have to demux it and write each packet to the tun interface
-				position = 0; //this is the index for reading the packet/frame
-				num_demuxed_packets = 0;
 
-				first_header_read = 0;
+				// now buffer_from_net contains a full packet or frame.
+				// check if the packet is a multiplexed one
+				if (is_multiplexed_packet) {
 
-				while (position < nread_from_net) {
+					/* increase the counter of the number of packets read from the network */
+					net2tun++;
+					switch (*mode) {
+						case TRANSPORT_MODE:
+							do_debug(1, "MUXED PACKET #%lu: Read muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );				
 
-					if ( PROTOCOL_FIRST ) {
-						/* read the separator */
-						// - read 'protocol', the SPB and LXT bits
-
-						// check if this is the first separator or not
-						if (first_header_read == 0) {		// this is the first separator
-
-							// the first thing I expect is a 'protocol' field
-							if ( SIZE_PROTOCOL_FIELD == 1 ) {
-								protocol_rec = buffer_from_net[position];
-								position ++;
-							} else {	// SIZE_PROTOCOL_FIELD == 2
-								protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-								position = position + 2;
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+								fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
 							}
+						break;
 
-							// after the first byte I will find a Mux separator, so I check the next byte
-							// Since this is a first header:
-							//	- SPB will be stored in 'bits[7]'
-							//	- LXT will be stored in 'bits[6]'
-							FromByte(buffer_from_net[position], bits);
+						case NETWORK_MODE:
+							do_debug(1, "MUXED PACKET #%lu: Read muxed packet from %s: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );				
 
-							// check the Single Protocol Bit (SPB, one bit), which only appears in the first
-							// Simplemux header.  It would is set to 0 if all the multiplexed
-							// packets belong to the same protocol (in this case, the "protocol"
-							// field will only appear in the first Simplemux header).  It is set to
-							// 1 when each packet MAY belong to a different protocol.
-							if (bits[7]) {
-								single_protocol_rec = 1;
-							} else {
-								single_protocol_rec = 0;
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr));
+								fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
 							}
+						break;
+					}
 
-							// as this is a first header, the length extension bit is the second one, and the maximum
-							// length of a packet is 64 bytes
-							LXT_position = 6;
-							maximum_packet_length = 64;			
+					// if the packet comes from the multiplexing port, I have to demux it and write each packet to the tun interface
+					position = 0; //this is the index for reading the packet/frame
+					num_demuxed_packets = 0;
 
-							// if I am here, it means that I have read the first separator
-							first_header_read = 1;
-									
-						} else {
-							// Non-first header
+					first_header_read = 0;
 
-							if (single_protocol_rec == 1) {
-								// all the packets belong to the same protocol, so the first byte belongs to the Mux separator, so I check it
-								FromByte(buffer_from_net[position], bits);
-							} else {
-								// each packet belongs to a different protocol, so the first thing I find is the 'Protocol' field
-								// and the second one belongs to the Mux separator, so I check it
+					while (position < nread_from_net) {
+
+						if ( PROTOCOL_FIRST ) {
+							/* read the separator */
+							// - read 'protocol', the SPB and LXT bits
+
+							// check if this is the first separator or not
+							if (first_header_read == 0) {		// this is the first separator
+
+								// the first thing I expect is a 'protocol' field
 								if ( SIZE_PROTOCOL_FIELD == 1 ) {
 									protocol_rec = buffer_from_net[position];
 									position ++;
@@ -1465,155 +1433,183 @@ int main(int argc, char *argv[]) {
 									protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
 									position = position + 2;
 								}
+
+								// after the first byte I will find a Mux separator, so I check the next byte
+								// Since this is a first header:
+								//	- SPB will be stored in 'bits[7]'
+								//	- LXT will be stored in 'bits[6]'
+								FromByte(buffer_from_net[position], bits);
+
+								// check the Single Protocol Bit (SPB, one bit), which only appears in the first
+								// Simplemux header.  It would is set to 0 if all the multiplexed
+								// packets belong to the same protocol (in this case, the "protocol"
+								// field will only appear in the first Simplemux header).  It is set to
+								// 1 when each packet MAY belong to a different protocol.
+								if (bits[7]) {
+									single_protocol_rec = 1;
+								} else {
+									single_protocol_rec = 0;
+								}
+
+								// as this is a first header, the length extension bit is the second one, and the maximum
+								// length of a packet is 64 bytes
+								LXT_position = 6;
+								maximum_packet_length = 64;			
+
+								// if I am here, it means that I have read the first separator
+								first_header_read = 1;
+									
+							} else {
+								// Non-first header
+
+								if (single_protocol_rec == 1) {
+									// all the packets belong to the same protocol, so the first byte belongs to the Mux separator, so I check it
+									FromByte(buffer_from_net[position], bits);
+								} else {
+									// each packet belongs to a different protocol, so the first thing I find is the 'Protocol' field
+									// and the second one belongs to the Mux separator, so I check it
+									if ( SIZE_PROTOCOL_FIELD == 1 ) {
+										protocol_rec = buffer_from_net[position];
+										position ++;
+									} else {	// SIZE_PROTOCOL_FIELD == 2
+										protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+										position = position + 2;
+									}
+
+									// get the value of the bits of the first byte
+									// as this is a non-first header:
+									//	- LXT will be stored in 'bits[7]'
+									FromByte(buffer_from_net[position], bits);
+								}
+
+								// as this is a non-first header, the length extension bit is the first one (7), and the maximum
+								// length of a packet is 128 bytes
+								LXT_position = 7;
+								maximum_packet_length = 128;
+							}
+
+							// I have demuxed another packet
+							num_demuxed_packets ++;
+							//do_debug(2, "\n");
+
+							do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
+							//if ((debug == 1) && (ROHC_mode == 0) ) do_debug (1,"\n");
+							do_debug(2, ": ");
+
+							// read the length
+							// Check the LXT (length extension) bit.
+							// if this is a first header, the length extension bit is the second one (6), and the maximum
+							// length of a packet is 64 bytes
+
+							if (bits[LXT_position]== false) {
+								// if the LXT bit is 0, it means that the separator is one-byte
+								// I have to convert the six less significant bits to an integer, which means the length of the packet
+								// since the two most significant bits are 0, the length is the value of the char
+								packet_length = buffer_from_net[position] % maximum_packet_length;
+								do_debug(2, " Mux separator of 1 byte: (%02x) ", buffer_from_net[position]);
+								PrintByte(2, 8, bits);
+
+								position ++;
+
+							} else {
+								// if the second bit is 1, it means that the separator is two bytes
+								// I get the six less significant bits by using modulo maximum_packet_length
+								// I do de product by 256 and add the resulting number to the second byte
+								packet_length = ((buffer_from_net[position] % maximum_packet_length) * 256 ) + buffer_from_net[position+1];
+
+								if (debug ) {
+									do_debug(2, " Mux separator of 2 bytes: (%02x) ", buffer_from_net[position]);
+									PrintByte(2, 8, bits);
+									FromByte(buffer_from_net[position+1], bits);
+									do_debug(2, " (%02x) ",buffer_from_net[position+1]);
+									PrintByte(2, 8, bits);	
+								}					
+								position = position + 2;
+							}
+							do_debug(1, ": total %i bytes\n", packet_length);
+
+
+						} else { 	// 'Protocol' field goes after the separator
+
+							// read the SPB and LXT bits and 'protocol', 
+
+							// check if this is the first separator or not
+							if (first_header_read == 0) {
+
+								// in the first byte I will find a Mux separator, so I check it
+								// Since this is a first header:
+								//	- SPB will be stored in 'bits[7]'
+								//	- LXT will be stored in 'bits[6]'
+								FromByte(buffer_from_net[position], bits);
+
+								// check the Single Protocol Bit (SPB, one bit), which only appears in the first
+								// Simplemux header.  It would is set to 0 if all the multiplexed
+								// packets belong to the same protocol (in this case, the "protocol"
+								// field will only appear in the first Simplemux header).  It is set to
+								// 1 when each packet MAY belong to a different protocol.
+								if (bits[7]) {
+									single_protocol_rec = 1;
+								} else {
+									single_protocol_rec = 0;
+								}
+
+								// as this is a first header, the length extension bit is the second one (6), and the maximum
+								// length of a packet is 64 bytes
+								LXT_position = 6;
+								maximum_packet_length = 64;			
+
+							} else {	// Non-first header
 
 								// get the value of the bits of the first byte
 								// as this is a non-first header:
 								//	- LXT will be stored in 'bits[7]'
 								FromByte(buffer_from_net[position], bits);
-							}
-
-							// as this is a non-first header, the length extension bit is the first one (7), and the maximum
-							// length of a packet is 128 bytes
-							LXT_position = 7;
-							maximum_packet_length = 128;
-						}
-
-						// I have demuxed another packet
-						num_demuxed_packets ++;
-						//do_debug(2, "\n");
-
-						do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
-						//if ((debug == 1) && (ROHC_mode == 0) ) do_debug (1,"\n");
-						do_debug(2, ": ");
-
-						// read the length
-						// Check the LXT (length extension) bit.
-						// if this is a first header, the length extension bit is the second one (6), and the maximum
-						// length of a packet is 64 bytes
-
-						if (bits[LXT_position]== false) {
-							// if the LXT bit is 0, it means that the separator is one-byte
-							// I have to convert the six less significant bits to an integer, which means the length of the packet
-							// since the two most significant bits are 0, the length is the value of the char
-							packet_length = buffer_from_net[position] % maximum_packet_length;
-							do_debug(2, " Mux separator of 1 byte: (%02x) ", buffer_from_net[position]);
-							PrintByte(2, 8, bits);
-
-							position ++;
-
-						} else {
-							// if the second bit is 1, it means that the separator is two bytes
-							// I get the six less significant bits by using modulo maximum_packet_length
-							// I do de product by 256 and add the resulting number to the second byte
-							packet_length = ((buffer_from_net[position] % maximum_packet_length) * 256 ) + buffer_from_net[position+1];
-
-							if (debug ) {
-								do_debug(2, " Mux separator of 2 bytes: (%02x) ", buffer_from_net[position]);
-								PrintByte(2, 8, bits);
-								FromByte(buffer_from_net[position+1], bits);
-								do_debug(2, " (%02x) ",buffer_from_net[position+1]);
-								PrintByte(2, 8, bits);	
-							}					
-							position = position + 2;
-						}
-						do_debug(1, ": total %i bytes\n", packet_length);
-
-
-					} else { 	// 'Protocol' field goes after the separator
-
-						// read the SPB and LXT bits and 'protocol', 
-
-						// check if this is the first separator or not
-						if (first_header_read == 0) {
-
-							// in the first byte I will find a Mux separator, so I check it
-							// Since this is a first header:
-							//	- SPB will be stored in 'bits[7]'
-							//	- LXT will be stored in 'bits[6]'
-							FromByte(buffer_from_net[position], bits);
-
-							// check the Single Protocol Bit (SPB, one bit), which only appears in the first
-							// Simplemux header.  It would is set to 0 if all the multiplexed
-							// packets belong to the same protocol (in this case, the "protocol"
-							// field will only appear in the first Simplemux header).  It is set to
-							// 1 when each packet MAY belong to a different protocol.
-							if (bits[7]) {
-								single_protocol_rec = 1;
-							} else {
-								single_protocol_rec = 0;
-							}
-
-							// as this is a first header, the length extension bit is the second one (6), and the maximum
-							// length of a packet is 64 bytes
-							LXT_position = 6;
-							maximum_packet_length = 64;			
-
-						} else {	// Non-first header
-
-							// get the value of the bits of the first byte
-							// as this is a non-first header:
-							//	- LXT will be stored in 'bits[7]'
-							FromByte(buffer_from_net[position], bits);
 							
-							// as this is a non-first header, the length extension bit is the first one (7), and the maximum
-							// length of a packet is 128 bytes
-							LXT_position = 7;
-							maximum_packet_length = 128;
-						}
+								// as this is a non-first header, the length extension bit is the first one (7), and the maximum
+								// length of a packet is 128 bytes
+								LXT_position = 7;
+								maximum_packet_length = 128;
+							}
 
-						// I have demuxed another packet
-						num_demuxed_packets ++;
-						//do_debug(2, "\n");
+							// I have demuxed another packet
+							num_demuxed_packets ++;
+							//do_debug(2, "\n");
 
-						do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
-						do_debug(2, ": ");
+							do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
+							do_debug(2, ": ");
 
-						// read the length
-						// Check the LXT (length extension) bit.
-						if (bits[LXT_position]== false) {
-							// if the LXT bit is 0, it means that the separator is one-byte
-							// I have to convert the six less significant bits to an integer, which means the length of the packet
-							// since the two most significant bits are 0, the length is the value of the char
-							packet_length = buffer_from_net[position] % maximum_packet_length;
-							do_debug(2, " Mux separator of 1 byte: (%02x) ", buffer_from_net[position]);
-							PrintByte(2, 8, bits);
-
-							position ++;
-
-						} else {
-							// if the second bit is 1, it means that the separator is two bytes
-							// I get the six less significant bits by using modulo maximum_packet_length
-							// I do de product by 256 and add the resulting number to the second byte
-							packet_length = ((buffer_from_net[position] % maximum_packet_length) * 256 ) + buffer_from_net[position+1];
-
-							if (debug ) {
-								do_debug(2, " Mux separator of 2 bytes: (%02x) ", buffer_from_net[position]);
+							// read the length
+							// Check the LXT (length extension) bit.
+							if (bits[LXT_position]== false) {
+								// if the LXT bit is 0, it means that the separator is one-byte
+								// I have to convert the six less significant bits to an integer, which means the length of the packet
+								// since the two most significant bits are 0, the length is the value of the char
+								packet_length = buffer_from_net[position] % maximum_packet_length;
+								do_debug(2, " Mux separator of 1 byte: (%02x) ", buffer_from_net[position]);
 								PrintByte(2, 8, bits);
-								FromByte(buffer_from_net[position+1], bits);
-								do_debug(2, " (%02x) ",buffer_from_net[position+1]);
-								PrintByte(2, 8, bits);	
-							}					
-							position = position + 2;
-						}
-						do_debug(1, ": total %i bytes\n", packet_length);
 
-						// check if this is the first separator or not
-						if (first_header_read == 0) {		// this is the first separator. The protocol field will always be present
-							// the next thing I expect is a 'protocol' field
-							if ( SIZE_PROTOCOL_FIELD == 1 ) {
-								protocol_rec = buffer_from_net[position];
 								position ++;
-							} else {	// SIZE_PROTOCOL_FIELD == 2
-								protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+
+							} else {
+								// if the second bit is 1, it means that the separator is two bytes
+								// I get the six less significant bits by using modulo maximum_packet_length
+								// I do de product by 256 and add the resulting number to the second byte
+								packet_length = ((buffer_from_net[position] % maximum_packet_length) * 256 ) + buffer_from_net[position+1];
+
+								if (debug ) {
+									do_debug(2, " Mux separator of 2 bytes: (%02x) ", buffer_from_net[position]);
+									PrintByte(2, 8, bits);
+									FromByte(buffer_from_net[position+1], bits);
+									do_debug(2, " (%02x) ",buffer_from_net[position+1]);
+									PrintByte(2, 8, bits);	
+								}					
 								position = position + 2;
 							}
+							do_debug(1, ": total %i bytes\n", packet_length);
 
-							// if I am here, it means that I have read the first separator
-							first_header_read = 1;
-
-						} else {			// non-first separator. The protocol field may or may not be present
-							if ( single_protocol_rec == 0 ) {
-								// each packet belongs to a different protocol, so the first thing is the 'Protocol' field
+							// check if this is the first separator or not
+							if (first_header_read == 0) {		// this is the first separator. The protocol field will always be present
+								// the next thing I expect is a 'protocol' field
 								if ( SIZE_PROTOCOL_FIELD == 1 ) {
 									protocol_rec = buffer_from_net[position];
 									position ++;
@@ -1621,1000 +1617,1063 @@ int main(int argc, char *argv[]) {
 									protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
 									position = position + 2;
 								}
+
+								// if I am here, it means that I have read the first separator
+								first_header_read = 1;
+
+							} else {			// non-first separator. The protocol field may or may not be present
+								if ( single_protocol_rec == 0 ) {
+									// each packet belongs to a different protocol, so the first thing is the 'Protocol' field
+									if ( SIZE_PROTOCOL_FIELD == 1 ) {
+										protocol_rec = buffer_from_net[position];
+										position ++;
+									} else {	// SIZE_PROTOCOL_FIELD == 2
+										protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+										position = position + 2;
+									}
+								}
 							}
 						}
-					}
 
-					// copy the packet to a new string
-					for (l = 0; l < packet_length ; l++) {
-						demuxed_packet[l] = buffer_from_net[l + position ];
-					}
-					position = position + packet_length;
-
-					// Check if the position has gone beyond the size of the packet (wrong packet)
-					if (position > nread_from_net) {
-						// The last length read from the separator goes beyond the end of the packet
-						do_debug (1, "  The length of the packet does not fit. Packet discarded\n");
-
-						// write the log file
-						if ( log_file != NULL ) {
-							fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun );	// the packet is bad so I add a line
-							fflush(log_file);
+						// copy the packet to a new string
+						for (l = 0; l < packet_length ; l++) {
+							demuxed_packet[l] = buffer_from_net[l + position ];
 						}
+						position = position + packet_length;
+
+						// Check if the position has gone beyond the size of the packet (wrong packet)
+						if (position > nread_from_net) {
+							// The last length read from the separator goes beyond the end of the packet
+							do_debug (1, "  The length of the packet does not fit. Packet discarded\n");
+
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun );	// the packet is bad so I add a line
+								fflush(log_file);
+							}
 						
-					} else {
-
-						/************ decompress the packet ***************/
-
-						// if the number of the protocol is NOT 142 (ROHC) I do not decompress the packet
-						if ( protocol_rec != 142 ) {
-							// non-compressed packet
-							// dump the received packet on terminal
-							if (debug) {
-								//do_debug(1, " Received ");
-								do_debug(2, "   ");
-								dump_packet ( packet_length, demuxed_packet );
-							}
-
 						} else {
-							// ROHC-compressed packet
 
-							// I cannot decompress the packet if I am in no-ROHC mode
-							if ( ROHC_mode == 0 ) {
-								do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
+							/************ decompress the packet ***************/
 
-								// write the log file
-								if ( log_file != NULL ) {
-									fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tun);	// the packet may be good, but the decompressor is not in ROHC mode
-									fflush(log_file);
+							// if the number of the protocol is NOT 142 (ROHC) I do not decompress the packet
+							if ( protocol_rec != 142 ) {
+								// non-compressed packet
+								// dump the received packet on terminal
+								if (debug) {
+									//do_debug(1, " Received ");
+									do_debug(2, "   ");
+									dump_packet ( packet_length, demuxed_packet );
 								}
+
 							} else {
-								// reset the buffers where the rohc packets, ip packets and feedback info are to be stored
-								rohc_buf_reset (&ip_packet_d);
-								rohc_buf_reset (&rohc_packet_d);
-								rohc_buf_reset (&rcvd_feedback);
-								rohc_buf_reset (&feedback_send);
+								// ROHC-compressed packet
 
-								// Copy the compressed length and the compressed packet
-								rohc_packet_d.len = packet_length;
+								// I cannot decompress the packet if I am in no-ROHC mode
+								if ( ROHC_mode == 0 ) {
+									do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
+
+									// write the log file
+									if ( log_file != NULL ) {
+										fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tun);	// the packet may be good, but the decompressor is not in ROHC mode
+										fflush(log_file);
+									}
+								} else {
+									// reset the buffers where the rohc packets, ip packets and feedback info are to be stored
+									rohc_buf_reset (&ip_packet_d);
+									rohc_buf_reset (&rohc_packet_d);
+									rohc_buf_reset (&rcvd_feedback);
+									rohc_buf_reset (&feedback_send);
+
+									// Copy the compressed length and the compressed packet
+									rohc_packet_d.len = packet_length;
 						
-								// Copy the packet itself
-								for (l = 0; l < packet_length ; l++) {
-									rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
-								}
-
-								// dump the ROHC packet on terminal
-								if (debug == 1) {
-									do_debug(1, " ROHC. ");
-								}
-								if (debug == 2) {
-									do_debug(2, " ");
-									do_debug(2, " ROHC packet\n   ");
-									dump_packet (packet_length, demuxed_packet);
-								}
-
-								// decompress the packet
-								status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
-
-								// if bidirectional mode has been set, check the feedback
-								if ( ROHC_mode > 1 ) {
-
-									// check if the decompressor has received feedback, and it has to be delivered to the local compressor
-									if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
-										do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
-										// dump the feedback packet on terminal
-										if (debug) {
-											do_debug(2, "  ROHC feedback packet received\n   ");
-
-											dump_packet (rcvd_feedback.len, rcvd_feedback.data );
-										}
-
-
-										// deliver the feedback received to the local compressor
-										//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
-										if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
-											do_debug(3, "Error delivering feedback received from the remote compressor to the compressor\n");
-										} else {
-											do_debug(3, "Feedback from the remote compressor delivered to the compressor: %i bytes\n", rcvd_feedback.len);
-										}
-									} else {
-										do_debug(3, "No feedback received by the decompressor from the remote compressor\n");
+									// Copy the packet itself
+									for (l = 0; l < packet_length ; l++) {
+										rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
 									}
 
-									// check if the decompressor has generated feedback to be sent by the feedback channel to the other peer
-									if ( !rohc_buf_is_empty( feedback_send ) ) { 
-										do_debug(3, "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n", feedback_send.len);
-
-										// dump the ROHC packet on terminal
-										if (debug) {
-											do_debug(2, "  ROHC feedback packet generated\n   ");
-											dump_packet (feedback_send.len, feedback_send.data );
-										}
-
-
-										// send the feedback packet to the peer
-										if (sendto(feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&feedback_remote, sizeof(feedback_remote))==-1) {
-											perror("sendto()");
-										} else {
-											do_debug(3, "Feedback generated by the decompressor (%i bytes), sent to the compressor\n", feedback_send.len);
-										}
-									} else {
-										do_debug(3, "No feedback generated by the decompressor\n");
+									// dump the ROHC packet on terminal
+									if (debug == 1) {
+										do_debug(1, " ROHC. ");
 									}
-								}
+									if (debug == 2) {
+										do_debug(2, " ");
+										do_debug(2, " ROHC packet\n   ");
+										dump_packet (packet_length, demuxed_packet);
+									}
 
-								// check the result of the decompression
+									// decompress the packet
+									status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
 
-								// decompression is successful
-								if ( status == ROHC_STATUS_OK) {
+									// if bidirectional mode has been set, check the feedback
+									if ( ROHC_mode > 1 ) {
 
-									if(!rohc_buf_is_empty(ip_packet_d))	{	// decompressed packet is not empty
+										// check if the decompressor has received feedback, and it has to be delivered to the local compressor
+										if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
+											do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
+											// dump the feedback packet on terminal
+											if (debug) {
+												do_debug(2, "  ROHC feedback packet received\n   ");
+
+												dump_packet (rcvd_feedback.len, rcvd_feedback.data );
+											}
+
+
+											// deliver the feedback received to the local compressor
+											//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
+											if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
+												do_debug(3, "Error delivering feedback received from the remote compressor to the compressor\n");
+											} else {
+												do_debug(3, "Feedback from the remote compressor delivered to the compressor: %i bytes\n", rcvd_feedback.len);
+											}
+										} else {
+											do_debug(3, "No feedback received by the decompressor from the remote compressor\n");
+										}
+
+										// check if the decompressor has generated feedback to be sent by the feedback channel to the other peer
+										if ( !rohc_buf_is_empty( feedback_send ) ) { 
+											do_debug(3, "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n", feedback_send.len);
+
+											// dump the ROHC packet on terminal
+											if (debug) {
+												do_debug(2, "  ROHC feedback packet generated\n   ");
+												dump_packet (feedback_send.len, feedback_send.data );
+											}
+
+
+											// send the feedback packet to the peer
+											if (sendto(feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&feedback_remote, sizeof(feedback_remote))==-1) {
+												perror("sendto()");
+											} else {
+												do_debug(3, "Feedback generated by the decompressor (%i bytes), sent to the compressor\n", feedback_send.len);
+											}
+										} else {
+											do_debug(3, "No feedback generated by the decompressor\n");
+										}
+									}
+
+									// check the result of the decompression
+
+									// decompression is successful
+									if ( status == ROHC_STATUS_OK) {
+
+										if(!rohc_buf_is_empty(ip_packet_d))	{	// decompressed packet is not empty
 								
-										// ip_packet.len bytes of decompressed IP data available in ip_packet
-										packet_length = ip_packet_d.len;
+											// ip_packet.len bytes of decompressed IP data available in ip_packet
+											packet_length = ip_packet_d.len;
 
-										// copy the packet
-										memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
+											// copy the packet
+											memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
 
-										//dump the IP packet on the standard output
-										do_debug(2, "  ");
-										do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
-										do_debug(2, "   ");
+											//dump the IP packet on the standard output
+											do_debug(2, "  ");
+											do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
+											do_debug(2, "   ");
 
-										if (debug) {
-											// dump the decompressed IP packet on terminal
-											dump_packet (ip_packet_d.len, ip_packet_d.data );
+											if (debug) {
+												// dump the decompressed IP packet on terminal
+												dump_packet (ip_packet_d.len, ip_packet_d.data );
+											}
+
+										} else {
+											/* no IP packet was decompressed because of ROHC segmentation or
+											 * feedback-only packet:
+											 *  - the ROHC packet was a non-final segment, so at least another
+											 *    ROHC segment is required to be able to decompress the full
+											 *    ROHC packet
+											 *  - the ROHC packet was a feedback-only packet, it contained only
+											 *    feedback information, so there was nothing to decompress */
+											do_debug(1, "  no IP packet decompressed\n");
+
+											// write the log file
+											if ( log_file != NULL ) {
+												fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));	// the packet is bad so I add a line
+												fflush(log_file);
+											}
 										}
+									}
 
-									} else {
-										/* no IP packet was decompressed because of ROHC segmentation or
-										 * feedback-only packet:
-										 *  - the ROHC packet was a non-final segment, so at least another
-										 *    ROHC segment is required to be able to decompress the full
-										 *    ROHC packet
-										 *  - the ROHC packet was a feedback-only packet, it contained only
-										 *    feedback information, so there was nothing to decompress */
-										do_debug(1, "  no IP packet decompressed\n");
+									else if ( status == ROHC_STATUS_NO_CONTEXT ) {
+
+										// failure: decompressor failed to decompress the ROHC packet 
+										do_debug(2, "  decompression of ROHC packet failed. No context\n");
+										fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
 
 										// write the log file
 										if ( log_file != NULL ) {
-											fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));	// the packet is bad so I add a line
+											// the packet is bad
+											fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
+											fflush(log_file);
+										}
+									}
+
+									else if ( status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {	// the output buffer is too small for the compressed packet
+
+										// failure: decompressor failed to decompress the ROHC packet 
+										do_debug(2, "  decompression of ROHC packet failed. Output buffer is too small\n");
+										fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
+
+										// write the log file
+										if ( log_file != NULL ) {
+											// the packet is bad
+											fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
+											fflush(log_file);
+										}
+									}
+
+									else if ( status == ROHC_STATUS_MALFORMED ) {			// the decompression failed because the ROHC packet is malformed 
+
+										// failure: decompressor failed to decompress the ROHC packet 
+										do_debug(2, "  decompression of ROHC packet failed. No context\n");
+										fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+
+										// write the log file
+										if ( log_file != NULL ) {
+											// the packet is bad
+											fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
+											fflush(log_file);
+										}
+									}
+
+									else if ( status == ROHC_STATUS_BAD_CRC ) {			// the CRC detected a transmission or decompression problem
+
+										// failure: decompressor failed to decompress the ROHC packet 
+										do_debug(2, "  decompression of ROHC packet failed. Bad CRC\n");
+										fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
+
+										// write the log file
+										if ( log_file != NULL ) {
+											// the packet is bad
+											fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
+											fflush(log_file);
+										}
+									}
+
+									else if ( status == ROHC_STATUS_ERROR ) {				// another problem occurred
+
+										// failure: decompressor failed to decompress the ROHC packet 
+										do_debug(2, "  decompression of ROHC packet failed. Other error\n");
+										fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
+
+										// write the log file
+										if ( log_file != NULL ) {
+											// the packet is bad
+											fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
 											fflush(log_file);
 										}
 									}
 								}
 
-								else if ( status == ROHC_STATUS_NO_CONTEXT ) {
+							} /*********** end decompression **************/
 
-									// failure: decompressor failed to decompress the ROHC packet 
-									do_debug(2, "  decompression of ROHC packet failed. No context\n");
-									fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+							// write the demuxed (and perhaps decompressed) packet to the tun interface
+							// if compression is used, check that ROHC has decompressed correctly
+							if ( ( protocol_rec != 142 ) || ((protocol_rec == 142) && ( status == ROHC_STATUS_OK))) {
 
-									// write the log file
-									if ( log_file != NULL ) {
-										// the packet is bad
-										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
-										fflush(log_file);
-									}
+								// print the debug information
+								//do_debug(2, "  Protocol: %i ",protocol_rec);
+
+								/*switch(protocol_rec) {
+									case 4:
+										do_debug (2, "(IP)");
+										break;
+									case 142:
+										do_debug (2, "(ROHC)");
+										break;
+								}*/
+								do_debug(2, "\n");
+								//do_debug(2, "packet length (without separator): %i\n", packet_length);
+
+
+								// write the demuxed packet to the network
+								cwrite ( tun_fd, demuxed_packet, packet_length );
+
+								// write the log file
+								if ( log_file != NULL ) {
+									fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tun);	// the packet is good
+									fflush(log_file);
 								}
-
-								else if ( status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {	// the output buffer is too small for the compressed packet
-
-									// failure: decompressor failed to decompress the ROHC packet 
-									do_debug(2, "  decompression of ROHC packet failed. Output buffer is too small\n");
-									fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
-
-									// write the log file
-									if ( log_file != NULL ) {
-										// the packet is bad
-										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
-										fflush(log_file);
-									}
-								}
-
-								else if ( status == ROHC_STATUS_MALFORMED ) {			// the decompression failed because the ROHC packet is malformed 
-
-									// failure: decompressor failed to decompress the ROHC packet 
-									do_debug(2, "  decompression of ROHC packet failed. No context\n");
-									fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
-
-									// write the log file
-									if ( log_file != NULL ) {
-										// the packet is bad
-										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
-										fflush(log_file);
-									}
-								}
-
-								else if ( status == ROHC_STATUS_BAD_CRC ) {			// the CRC detected a transmission or decompression problem
-
-									// failure: decompressor failed to decompress the ROHC packet 
-									do_debug(2, "  decompression of ROHC packet failed. Bad CRC\n");
-									fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
-
-									// write the log file
-									if ( log_file != NULL ) {
-										// the packet is bad
-										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
-										fflush(log_file);
-									}
-								}
-
-								else if ( status == ROHC_STATUS_ERROR ) {				// another problem occurred
-
-									// failure: decompressor failed to decompress the ROHC packet 
-									do_debug(2, "  decompression of ROHC packet failed. Other error\n");
-									fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
-
-									// write the log file
-									if ( log_file != NULL ) {
-										// the packet is bad
-										fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);	
-										fflush(log_file);
-									}
-								}
-							}
-
-						} /*********** end decompression **************/
-
-						// write the demuxed (and perhaps decompressed) packet to the tun interface
-						// if compression is used, check that ROHC has decompressed correctly
-						if ( ( protocol_rec != 142 ) || ((protocol_rec == 142) && ( status == ROHC_STATUS_OK))) {
-
-							// print the debug information
-							//do_debug(2, "  Protocol: %i ",protocol_rec);
-
-							/*switch(protocol_rec) {
-								case 4:
-									do_debug (2, "(IP)");
-									break;
-								case 142:
-									do_debug (2, "(ROHC)");
-									break;
-							}*/
-							do_debug(2, "\n");
-							//do_debug(2, "packet length (without separator): %i\n", packet_length);
-
-
-							// write the demuxed packet to the network
-							cwrite ( tun_fd, demuxed_packet, packet_length );
-
-							// write the log file
-							if ( log_file != NULL ) {
-								fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tun);	// the packet is good
-								fflush(log_file);
 							}
 						}
 					}
 				}
-			}
 
-			else {
-				// packet with destination port 55555, but a source port different from the multiplexing one
-				// if the packet does not come from the multiplexing port, write it directly into the tun interface
-				cwrite ( tun_fd, buffer_from_net, nread_from_net);
-				do_debug(1, "NON-MUXED PACKET #%lu: Non-multiplexed packet. Written %i bytes to tun\n", net2tun, nread_from_net);
+				else {
+					// packet with destination port 55555, but a source port different from the multiplexing one
+					// if the packet does not come from the multiplexing port, write it directly into the tun interface
+					cwrite ( tun_fd, buffer_from_net, nread_from_net);
+					do_debug(1, "NON-MUXED PACKET #%lu: Non-multiplexed packet. Written %i bytes to tun\n", net2tun, nread_from_net);
 
-				// write the log file
-				if ( log_file != NULL ) {
-					// the packet is good
-					fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
-					fflush(log_file);
-				}
-			}
-		}
-
-
-
-		/****************************************************************************************************************************/		
-		/******* NET to tun. ROHC feedback packet from the remote decompressor to be delivered to the local compressor **************/
-		/****************************************************************************************************************************/
-
-		/*** ROHC feedback data arrived at the network interface: read it in order to deliver it to the local compressor ***/
-
-		// the ROHC mode only affects the decompressor. So if I receive a ROHC feedback packet, I will use it
-		// this implies that if the origin is in ROHC Unidirectional mode and the destination in Bidirectional, feedback will still work
-
-		else if ( FD_ISSET ( feedback_fd, &rd_set )) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
-
-	  		// a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
-			nread_from_net = recvfrom ( feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&feedback_remote, &slen_feedback );
-
-			if (nread_from_net == -1) perror ("recvfrom()");
-
-			// now buffer_from_net contains a full packet or frame.
-			// check if the packet comes (source port) from the feedback port (default 55556).  (Its destination port IS the feedback port)
-
-			if (port_feedback == ntohs(feedback_remote.sin_port)) {
-
-				// the packet comes from the feedback port (default 55556)
-				do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", feedback_pkts, nread_from_net, inet_ntoa(feedback.sin_addr), ntohs(feedback.sin_port));
-
-				feedback_pkts ++;
-
-				// write the log file
-				if ( log_file != NULL ) {
-					fprintf (log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, feedback_pkts, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
-					fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
-				}
-
-
-				// reset the buffers where the packets are to be stored
-//rohc_buf_reset (&ip_packet_d);
-					rohc_buf_reset (&rohc_packet_d);
-//rohc_buf_reset (&rcvd_feedback);
-//rohc_buf_reset (&feedback_send);
-
-				// Copy the compressed length and the compressed packet
-				rohc_packet_d.len = nread_from_net;
-		
-				// Copy the packet itself
-				for (l = 0; l < nread_from_net ; l++) {
-					rohc_buf_byte_at(rohc_packet_d, l) = buffer_from_net[l];
-				}
-
-				// dump the ROHC packet on terminal
-				if (debug) {
-
-					do_debug(2, " ROHC feedback packet received\n   ");
-					dump_packet ( rohc_packet_d.len, rohc_packet_d.data );
-				}
-
-
-				// deliver the feedback received to the local compressor
-				//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
-
-				if ( rohc_comp_deliver_feedback2 ( compressor, rohc_packet_d ) == false ) {
-					do_debug(3, "Error delivering feedback to the compressor");
-				} else {
-					do_debug(3, "Feedback delivered to the compressor: %i bytes\n", rohc_packet_d.len);
-				}
-
-				// the information received does not have to be decompressed, because it has been generated as feedback on the other side
-
-				// so I have commented the next lines:
-
-/*				// decompress the packet
-				status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
-
-				// check if the feedback is ok, and it has to be delivered to the local compressor
-				if (status == ROHC_FEEDBACK_ONLY) {
-					if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
-						do_debug(3, "Feedback received by the decompressor (%i bytes), to be delivered to the local compressor\n",rcvd_feedback.len);
-
-						// deliver the feedback received to the local compressor
-						//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
-						//if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
-						//if ( rohc_comp_deliver_feedback2 ( compressor, ip_packet_d ) == false ) {
-						if ( rohc_comp_deliver_feedback2 ( compressor, rohc_packet_d ) == false ) {
-							do_debug(3, "Error delivering feedback to the compressor");
-						} else {
-							do_debug(3, "Feedback delivered to the compressor (%i bytes)\n",rcvd_feedback.len);
-						}
-
-					} else {
-						do_debug(3, "No feedback received by the decompressor\n");
-					}
-				}*/
-			}
-
-			else {
-
-				// packet with destination port 55556, but a source port different from the feedback one
-				// if the packet does not come from the feedback port, write it directly into the tun interface
-				cwrite ( tun_fd, buffer_from_net, nread_from_net);
-				do_debug(1, "NON-FEEDBACK PACKET %lu: Non-feedback packet. Written %i bytes to tun\n", net2tun, nread_from_net);
-
-				// write the log file
-				if ( log_file != NULL ) {
-					// the packet is good
-					fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
-					fflush(log_file);
-				}
-			}
-		}
-
-
-
-		/**************************************************************************************/	
-		/***************** TUN to NET: compress and multiplex *********************************/
-		/**************************************************************************************/
-
-		/*** data arrived at tun: read it, and check if the stored packets should be written to the network ***/
-
-		else if(FD_ISSET(tun_fd, &rd_set)) {		/* FD_ISSET tests if a file descriptor is part of the set */
-
-			/* read the packet from tun, store it in the array, and store its size */
-			size_packets_to_multiplex[num_pkts_stored_from_tun] = cread (tun_fd, packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
-		
-			/* increase the counter of the number of packets read from tun*/
-			tun2net++;
-
-			if (debug > 1 ) do_debug (2,"\n");
-			do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
-
-			// print the native packet received
-			if (debug) {
-				do_debug(2, "   ");
-				// dump the newly-created IP packet on terminal
-				dump_packet ( size_packets_to_multiplex[num_pkts_stored_from_tun], packets_to_multiplex[num_pkts_stored_from_tun] );
-			}
-
-			// write in the log file
-			if ( log_file != NULL ) {
-				fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%lu\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun], tun2net);
-				fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-			}
-
-
-			/******************** compress the headers if the option has been set ****************/
-			if ( ROHC_mode > 0 ) {
-				// header compression has been selected by the user
-
-				// copy the length read from tun to the buffer where the packet to be compressed is stored
-				ip_packet.len = size_packets_to_multiplex[num_pkts_stored_from_tun];
-
-				// copy the packet
-				memcpy(rohc_buf_data_at(ip_packet, 0), packets_to_multiplex[num_pkts_stored_from_tun], size_packets_to_multiplex[num_pkts_stored_from_tun]);
-
-				// reset the buffer where the rohc packet is to be stored
-				rohc_buf_reset (&rohc_packet);
-
-				// compress the IP packet
-				status = rohc_compress4(compressor, ip_packet, &rohc_packet);
-
-				// check the result of the compression
-				if(status == ROHC_STATUS_SEGMENT) {
-					/* success: compression succeeded, but resulting ROHC packet was too
-					 * large for the Maximum Reconstructed Reception Unit (MRRU) configured
-					 * with \ref rohc_comp_set_mrru, the rohc_packet buffer contains the
-					 * first ROHC segment and \ref rohc_comp_get_segment can be used to
-					 * retrieve the next ones. */
-				}
-
-				else if (status == ROHC_STATUS_OK) {
-					/* success: compression succeeded, and resulting ROHC packet fits the
-					* Maximum Reconstructed Reception Unit (MRRU) configured with
-					* \ref rohc_comp_set_mrru, the rohc_packet buffer contains the
-					* rohc_packet_len bytes of the ROHC packet */
-
-					// since this packet has been compressed with ROHC, its protocol number must be 142
-					// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-					if ( SIZE_PROTOCOL_FIELD == 1 ) {
-						protocol[num_pkts_stored_from_tun][0] = 142;
-					} else {	// SIZE_PROTOCOL_FIELD == 2 
-						protocol[num_pkts_stored_from_tun][0] = 0;
-						protocol[num_pkts_stored_from_tun][1] = 142;
-					}
-
-					// Copy the compressed length and the compressed packet over the packet read from tun
-					size_packets_to_multiplex[num_pkts_stored_from_tun] = rohc_packet.len;
-					for (l = 0; l < size_packets_to_multiplex[num_pkts_stored_from_tun] ; l++) {
-						packets_to_multiplex[num_pkts_stored_from_tun][l] = rohc_buf_byte_at(rohc_packet, l);
-					}
-
-					/* dump the ROHC packet on terminal */
-					if (debug >= 1 ) {
-						do_debug(1, " ROHC-compressed to %i bytes\n", rohc_packet.len);
-					}
-					if (debug == 2) {
-						do_debug(2, "   ");
-						dump_packet ( rohc_packet.len, rohc_packet.data );
-					}
-
-				} else {
-					/* compressor failed to compress the IP packet */
-					/* Send it in its native form */
-
-					// I don't have to copy the native length and the native packet, because they
-					// have already been stored in 'size_packets_to_multiplex[num_pkts_stored_from_tun]' and 'packets_to_multiplex[num_pkts_stored_from_tun]'
-
-					// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP'
-					// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-					if ( SIZE_PROTOCOL_FIELD == 1 ) {
-						protocol[num_pkts_stored_from_tun][0] = 4;
-					} else {	// SIZE_PROTOCOL_FIELD == 2 
-						protocol[num_pkts_stored_from_tun][0] = 0;
-						protocol[num_pkts_stored_from_tun][1] = 4;
-					}
-					fprintf(stderr, "compression of IP packet failed\n");
-
-					// print in the log file
+					// write the log file
 					if ( log_file != NULL ) {
-						fprintf (log_file, "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%lu\\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun], tun2net);
-						fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+						// the packet is good
+						fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+						fflush(log_file);
 					}
-
-					do_debug(2, "  ROHC did not work. Native packet sent: %i bytes:\n   ", size_packets_to_multiplex[num_pkts_stored_from_tun]);
-					//goto release_compressor;
-				}
-
-			} else {
-				// header compression has not been selected by the user
-
-				// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
-				// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-				if ( SIZE_PROTOCOL_FIELD == 1 ) {
-					protocol[num_pkts_stored_from_tun][0] = 4;
-				} else {	// SIZE_PROTOCOL_FIELD == 2 
-					protocol[num_pkts_stored_from_tun][0] = 0;
-					protocol[num_pkts_stored_from_tun][1] = 4;
 				}
 			}
 
 
 
-			/*** Calculate if the size limit will be reached when multiplexing the present packet ***/
-			// if the addition of the present packet will imply a multiplexed packet bigger than the size limit:
-			// - I send the previously stored packets
-			// - I store the present one
-			// - I reset the period
+			/****************************************************************************************************************************/		
+			/******* NET to tun. ROHC feedback packet from the remote decompressor to be delivered to the local compressor **************/
+			/****************************************************************************************************************************/
 
-			// calculate the size without the present packet
-			predicted_size_muxed_packet = predict_size_multiplexed_packet (num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex);
+			/*** ROHC feedback data arrived at the network interface: read it in order to deliver it to the local compressor ***/
 
-			// I add the length of the present packet:
+			// the ROHC mode only affects the decompressor. So if I receive a ROHC feedback packet, I will use it
+			// this implies that if the origin is in ROHC Unidirectional mode and the destination in Bidirectional, feedback will still work
 
-			// separator and length of the present packet
-			if (first_header_written == 0) {
-				// this is the first header, so the maximum length is 64
-				if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 64 ) {
-					predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
-				} else {
-					predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
-				}
-			} else {
-				// this is not the first header, so the maximum length is 128
-				if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 128 ) {
-					predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
-				} else {
-					predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
-				}
-			}
+			else if ( FD_ISSET ( feedback_fd, &rd_set )) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
 
-			// calculate if all the packets belong to the same protocol
-			single_protocol = 1;
-			for (k = 1; k < num_pkts_stored_from_tun ; k++) {
-				for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-					if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
-				}
-			}
+		  		// a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
+				nread_from_net = recvfrom ( feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&feedback_remote, &slen_feedback );
 
-			// add the length of the 'protocol' fields of the present packet
-			// if pkts belonging to different protocols are multiplexed, I have to add n-1 bytes, each one 
-			//corresponding to the "Protocol" field of a muliplexed packet
-			if (single_protocol == 0 ) predicted_size_muxed_packet = predicted_size_muxed_packet + num_pkts_stored_from_tun;	
+				if (nread_from_net == -1) perror ("recvfrom()");
 
+				// now buffer_from_net contains a full packet or frame.
+				// check if the packet comes (source port) from the feedback port (default 55556).  (Its destination port IS the feedback port)
 
-			if (predicted_size_muxed_packet > size_max ) {
-				// if the present packet is muxed, the max size of the packet will be overriden. So I first empty the buffer
-				//i.e. I build and send a multiplexed packet not including the current one
+				if (port_feedback == ntohs(feedback_remote.sin_port)) {
 
-				do_debug(2, "\n");
-				switch (*mode) {
-					case TRANSPORT_MODE:
-						do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predicted_size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
-					case NETWORK_MODE:
-						do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predicted_size_muxed_packet + IPv4_HEADER_SIZE );
-					break;
-				}
+					// the packet comes from the feedback port (default 55556)
+					do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", feedback_pkts, nread_from_net, inet_ntoa(feedback.sin_addr), ntohs(feedback.sin_port));
 
-				// add the Single Protocol Bit in the first header (the most significant bit)
-				// it is '1' if all the multiplexed packets belong to the same protocol
-				if (single_protocol == 1) {
-					separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
-					size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
-				} else {
-					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
-				}
+					feedback_pkts ++;
 
-				// build the multiplexed packet without the current one
-				total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
-
-				if (single_protocol) {
-					do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
-				} else {
-					do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
-				}
-				switch (*mode) {
-					case TRANSPORT_MODE:
-						do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-						do_debug(1, " Sending muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
-					break;
-					case NETWORK_MODE:
-						do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-						do_debug(1, " Sending muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE );
-					break;
-				}
-
-
-				// send the multiplexed packet without the current one
-				switch (*mode) {
-					case TRANSPORT_MODE:
-						// send the packet. I don't need to build the header, because I have a UDP socket
-						if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
-						// write the log file
-						if ( log_file != NULL ) {
-							fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
-							fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-						}
-					break;
-
-					case NETWORK_MODE:
-
-						// build the header
-						BuildIPHeader(&ipheader, total_length, local, remote);
-
-						// build the full IP multiplexed packet
-						BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
-
-						// send the packet
-						if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
-							perror ("sendto() failed ");
-							exit (EXIT_FAILURE);
-						}
-						// write the log file
-						if ( log_file != NULL ) {
-							fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
-							fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-						}
-					break;
-				}
-
-				// I have sent a packet, so I restart the period: update the time of the last packet sent
-				time_in_microsec = GetTimeStamp();
-				time_last_sent_in_microsec = time_in_microsec;
-
-
-				// I have emptied the buffer, so I have to
-				//move the current packet to the first position of the 'packets_to_multiplex' array
-				for (l = 0; l < BUFSIZE; l++ ) {
-					packets_to_multiplex[0][l]=packets_to_multiplex[num_pkts_stored_from_tun][l];
-				}
-
-				// move the current separator to the first position of the array
-				for (l = 0; l < 2; l++ ) {
-					separators_to_multiplex[0][l]=separators_to_multiplex[num_pkts_stored_from_tun][l];
-				}
-
-				// move the length to the first position of the array
-				size_packets_to_multiplex[0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
-				size_separators_to_multiplex[0] = size_separators_to_multiplex[num_pkts_stored_from_tun];
-				for (j=1; j < MAXPKTS; j++) size_packets_to_multiplex [j] = 0;
-
-				// I have sent a packet, so I set to 0 the "first_header_written" bit
-				first_header_written = 0;
-
-				// reset the length and the number of packets
-				size_muxed_packet = 0;
-				num_pkts_stored_from_tun = 0;
-			}	/*** end check if size limit would be reached ***/
-
-
-			// update the size of the muxed packet, adding the size of the current one
-			size_muxed_packet = size_muxed_packet + size_packets_to_multiplex[num_pkts_stored_from_tun];
-
-			// I have to add the multiplexing separator. It is 1 byte if the length is smaller than 64 (or 128). 
-			// it is 2 bytes if the lengh is 64 (or 128) or more
-			if (first_header_written == 0) {
-				// this is the first header
-				maximum_packet_length = 64;
-			} else {
-				// this is a non-first header
-				maximum_packet_length = 128;
-			}
-
-			// check if the length has to be one or two bytes
-			if (size_packets_to_multiplex[num_pkts_stored_from_tun] < maximum_packet_length ) {
-
-				// the length can be written in the first byte of the separator (expressed in 6 or 7 bits)
-				size_separators_to_multiplex[num_pkts_stored_from_tun] = 1;
-
-				// add the length to the string.
-				// since the value is < maximum_packet_length, the most significant bits will always be 0
-				separators_to_multiplex[num_pkts_stored_from_tun][0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
-
-				// increase the size of the multiplexed packet
-				size_muxed_packet ++;
-
-
-				// print the  Mux separator (only one byte)
-				if(debug) {
-					FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
-					do_debug(2, " Mux separator of 1 byte: (%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
-					if (first_header_written == 0) {
-						PrintByte(2, 7, bits);			// first header
-					} else {
-						PrintByte(2, 8, bits);			// non-first header
-					}
-					do_debug(2, "\n");
-				}
-
-			} else {
-				// the length requires a two-byte separator (length expressed in 14 or 15 bits)
-				size_separators_to_multiplex[num_pkts_stored_from_tun] = 2;
-
-				// first byte of the Mux separator
-				// It can be:
-				// - first-header: SPB bit, LXT=1 and 6 bits with the most significant bytes of the length
-				// - non-first-header: LXT=1 and 7 bits with the most significant bytes of the length
-				// get the most significant byte by dividing by 256
-				// add 64 (or 128) in order to put a '1' in the second (or first) bit
-				if (first_header_written == 0) {
-					separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 256 ) + 64;	// first header
-				} else {
-					separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 256 ) + 128;	// non-first header
-				}
-
-				// second byte of the Mux separator
-				// the 8 less significant bytes of the length. Use modulo
-				separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 256;
-
-				// increase the size of the multiplexed packet
-				size_muxed_packet = size_muxed_packet + 2;
-
-				// print the two bytes of the separator
-				if(debug) {
-					// first byte
-					FromByte(separators_to_multiplex[0][num_pkts_stored_from_tun], bits);
-					do_debug(2, " Mux separator of 2 bytes: (%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
-					if (first_header_written == 0) {
-						PrintByte(2, 7, bits);			// first header
-					} else {
-						PrintByte(2, 8, bits);			// non-first header
+					// write the log file
+					if ( log_file != NULL ) {
+						fprintf (log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, feedback_pkts, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+						fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
 					}
 
-					// second byte
-					FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
-					do_debug(2, " (%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
-					PrintByte(2, 8, bits);
-					do_debug(2, "\n");
-				}	
-			}
 
-			// I have finished storing the packet, so I increase the number of stored packets
-			num_pkts_stored_from_tun ++;
+					// reset the buffers where the packets are to be stored
+	//rohc_buf_reset (&ip_packet_d);
+						rohc_buf_reset (&rohc_packet_d);
+	//rohc_buf_reset (&rcvd_feedback);
+	//rohc_buf_reset (&feedback_send);
 
-			// I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
-			if (first_header_written == 0) first_header_written = 1;
-
-
-
-			//do_debug (1,"\n");
-			do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes.", num_pkts_stored_from_tun , size_muxed_packet);
-			time_in_microsec = GetTimeStamp();
-			time_difference = time_in_microsec - time_last_sent_in_microsec;		
-			do_debug(1, " Time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
-
-
-
-			// check if a multiplexed packet has to be sent
-
-			// if the packet limit or the size threshold are reached, send all the stored packets to the network
-			// do not worry about the MTU. if it is reached, a number of packets will be sent
-			if ((num_pkts_stored_from_tun == limit_numpackets_tun) || (size_muxed_packet > size_threshold) || (time_difference > timeout )) {
-
-				// a multiplexed packet has to be sent
-
-				// calculate if all the packets belong to the same protocol
-				single_protocol = 1;
-				for (k = 1; k < num_pkts_stored_from_tun ; k++) {
-					for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-						if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
-					}
-				}
-
-
-				// Add the Single Protocol Bit in the first header (the most significant bit)
-				// It is 1 if all the multiplexed packets belong to the same protocol
-				if (single_protocol == 1) {
-					separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
-					size_muxed_packet = size_muxed_packet + 1;						// one byte corresponding to the 'protocol' field of the first header
-				} else {
-					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;	// one byte per packet, corresponding to the 'protocol' field
-				}
-
-				// write the debug information
-				if (debug) {
-					do_debug(2, "\n");
-					do_debug(1, "SENDING TRIGGERED: ");
-					if (num_pkts_stored_from_tun == limit_numpackets_tun)
-						do_debug(1, "num packet limit reached\n");
-					if (size_muxed_packet > size_threshold)
-						do_debug(1," size threshold reached\n");
-					if (time_difference > timeout)
-						do_debug(1, "timeout reached\n");
-
-					if (single_protocol) {
-						do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
-					} else {
-						do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
-					}
-					switch (*mode) {
-						case TRANSPORT_MODE:
-							do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-							do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-						break;
-						case NETWORK_MODE:
-							do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-							do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
-						break;
-					}
+					// Copy the compressed length and the compressed packet
+					rohc_packet_d.len = nread_from_net;
 		
-											
-				}
-
-				// build the multiplexed packet including the current one
-				total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
-
-
-				// send the multiplexed packet
-				switch (*mode) {
-					case TRANSPORT_MODE:
-						// send the packet. I don't need to build the header, because I have a UDP socket
-						if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1)
-							perror("sendto()");
-					break;
-
-					case NETWORK_MODE:
-						// build the header
-						BuildIPHeader(&ipheader, total_length, local,remote);
-
-						// build full IP multiplexed packet
-						BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
-
-						// send the multiplexed packet
-						if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
-							perror ("sendto() failed ");
-							exit (EXIT_FAILURE);
-						}
-					break;
-				}
-
-
-				// write the log file
-				if ( log_file != NULL ) {
-					switch (*mode) {
-						case TRANSPORT_MODE:
-							fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
-						break;
-						case NETWORK_MODE:
-							fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
-						break;
+					// Copy the packet itself
+					for (l = 0; l < nread_from_net ; l++) {
+						rohc_buf_byte_at(rohc_packet_d, l) = buffer_from_net[l];
 					}
-					if (num_pkts_stored_from_tun == limit_numpackets_tun)
-						fprintf(log_file, "\tnumpacket_limit");
-					if (size_muxed_packet > size_threshold)
-						fprintf(log_file, "\tsize_limit");
-					if (time_difference > timeout)
-						fprintf(log_file, "\ttimeout");
-					fprintf(log_file, "\n");
+
+					// dump the ROHC packet on terminal
+					if (debug) {
+
+						do_debug(2, " ROHC feedback packet received\n   ");
+						dump_packet ( rohc_packet_d.len, rohc_packet_d.data );
+					}
+
+
+					// deliver the feedback received to the local compressor
+					//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
+
+					if ( rohc_comp_deliver_feedback2 ( compressor, rohc_packet_d ) == false ) {
+						do_debug(3, "Error delivering feedback to the compressor");
+					} else {
+						do_debug(3, "Feedback delivered to the compressor: %i bytes\n", rohc_packet_d.len);
+					}
+
+					// the information received does not have to be decompressed, because it has been generated as feedback on the other side
+
+					// so I have commented the next lines:
+
+	/*				// decompress the packet
+					status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
+
+					// check if the feedback is ok, and it has to be delivered to the local compressor
+					if (status == ROHC_FEEDBACK_ONLY) {
+						if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
+							do_debug(3, "Feedback received by the decompressor (%i bytes), to be delivered to the local compressor\n",rcvd_feedback.len);
+
+							// deliver the feedback received to the local compressor
+							//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
+							//if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
+							//if ( rohc_comp_deliver_feedback2 ( compressor, ip_packet_d ) == false ) {
+							if ( rohc_comp_deliver_feedback2 ( compressor, rohc_packet_d ) == false ) {
+								do_debug(3, "Error delivering feedback to the compressor");
+							} else {
+								do_debug(3, "Feedback delivered to the compressor (%i bytes)\n",rcvd_feedback.len);
+							}
+
+						} else {
+							do_debug(3, "No feedback received by the decompressor\n");
+						}
+					}*/
+				}
+
+				else {
+
+					// packet with destination port 55556, but a source port different from the feedback one
+					// if the packet does not come from the feedback port, write it directly into the tun interface
+					cwrite ( tun_fd, buffer_from_net, nread_from_net);
+					do_debug(1, "NON-FEEDBACK PACKET %lu: Non-feedback packet. Written %i bytes to tun\n", net2tun, nread_from_net);
+
+					// write the log file
+					if ( log_file != NULL ) {
+						// the packet is good
+						fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+						fflush(log_file);
+					}
+				}
+			}
+
+
+
+			/**************************************************************************************/	
+			/***************** TUN to NET: compress and multiplex *********************************/
+			/**************************************************************************************/
+
+			/*** data arrived at tun: read it, and check if the stored packets should be written to the network ***/
+
+			else if(FD_ISSET(tun_fd, &rd_set)) {		/* FD_ISSET tests if a file descriptor is part of the set */
+
+				/* read the packet from tun, store it in the array, and store its size */
+				size_packets_to_multiplex[num_pkts_stored_from_tun] = cread (tun_fd, packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
+		
+				/* increase the counter of the number of packets read from tun*/
+				tun2net++;
+
+				if (debug > 1 ) do_debug (2,"\n");
+				do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
+
+				// print the native packet received
+				if (debug) {
+					do_debug(2, "   ");
+					// dump the newly-created IP packet on terminal
+					dump_packet ( size_packets_to_multiplex[num_pkts_stored_from_tun], packets_to_multiplex[num_pkts_stored_from_tun] );
+				}
+
+				// write in the log file
+				if ( log_file != NULL ) {
+					fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%lu\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun], tun2net);
 					fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 				}
 
-				// I have sent a packet, so I set to 0 the "first_header_written" bit
-				first_header_written = 0;
-
-				// reset the length and the number of packets
-				size_muxed_packet = 0 ;
-				num_pkts_stored_from_tun = 0;
-
-				// restart the period: update the time of the last packet sent
-				time_last_sent_in_microsec = time_in_microsec;
-			}
-		}
-
-
-		/*************************************************************************************/	
-		/******************** Period expired: multiplex **************************************/
-		/*************************************************************************************/	
-
-		// The period has expired
-		// Check if there is something stored, and send it
-		// since there is no new packet, here it is not necessary to compress anything
-
-		else {
-			time_in_microsec = GetTimeStamp();
-			if ( num_pkts_stored_from_tun > 0 ) {
-
-				// There are some packets stored
-
-				// calculate the time difference
-				time_difference = time_in_microsec - time_last_sent_in_microsec;		
 
 
 
-				if (debug) {
-					do_debug(2, "\n");
-					do_debug(1, "SENDING TRIGGERED. Period expired. Time since last trigger: %" PRIu64 " usec\n", time_difference);
-					if (single_protocol) {
-						do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+				// check if this packet (plus the tunnel and simplemux headers ) is bigger than the MTU. Drop it in that case
+				drop_packet = 0;
+
+
+				if (*mode == TRANSPORT_MODE) {
+					
+						if ( size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3 > selected_mtu ) {
+							drop_packet = 1;
+
+							do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, selected_mtu);
+
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%lu\tto\t%s\t%d\t%i\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+								fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+							}
+						}
+
+					// network mode
 					} else {
-						do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
-					}
-					switch (*mode) {
-						case TRANSPORT_MODE:
-							do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-							do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);	
-						break;
-						case NETWORK_MODE:
-							do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-							do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
-						break;
-					}
-				}
+						if ( size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + 3 > selected_mtu ) {
+							drop_packet = 1;
 
-				// calculate if all the packets belong to the same protocol
-				single_protocol = 1;
-				for (k = 1; k < num_pkts_stored_from_tun ; k++) {
-					for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-						if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
-					}
-				}
+							do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + 3, selected_mtu);
 
-				// Add the Single Protocol Bit in the first header (the most significant bit)
-				// It is 1 if all the multiplexed packets belong to the same protocol
-				if (single_protocol == 1) {
-					separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
-					size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
-				} else {
-					size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
-				}
-
-				// build the multiplexed packet
-				total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
-
-				// send the multiplexed packet
-				switch (*mode) {
-					case TRANSPORT_MODE:
-						// send the packet. I don't need to build the header, because I have a UDP socket	
-						if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
-						// write the log file
-						if ( log_file != NULL ) {
-							fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);	
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%lu\tto\t%s\t%d\t%i\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+								fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+							}
 						}
-					break;
-
-					case NETWORK_MODE:
-						// build the header
-						BuildIPHeader(&ipheader, total_length, local,remote);
-
-						// build the full IP multiplexed packet
-						BuildFullIPPacket(ipheader,muxed_packet,total_length, full_ip_packet);
-
-						// send the packet
-						if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &remote, sizeof (struct sockaddr)) < 0)  {
-							perror ("sendto() failed ");
-							exit (EXIT_FAILURE);
-						}
-						// write the log file
-						if ( log_file != NULL ) {
-							fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);	
-						}
-					break;
-				}
+					}
 
 			
-				// I have sent a packet, so I set to 0 the "first_header_written" bit
-				first_header_written = 0;
 
-				// reset the length and the number of packets
-				size_muxed_packet = 0 ;
-				num_pkts_stored_from_tun = 0;
 
-			} else {
-				// No packet arrived
-				//do_debug(2, "Period expired. Nothing to be sent\n");
+				if ( drop_packet == 0 ) {
+
+
+					/******************** compress the headers if the option has been set ****************/
+					if ( ROHC_mode > 0 ) {
+						// header compression has been selected by the user
+
+						// copy the length read from tun to the buffer where the packet to be compressed is stored
+						ip_packet.len = size_packets_to_multiplex[num_pkts_stored_from_tun];
+
+						// copy the packet
+						memcpy(rohc_buf_data_at(ip_packet, 0), packets_to_multiplex[num_pkts_stored_from_tun], size_packets_to_multiplex[num_pkts_stored_from_tun]);
+
+						// reset the buffer where the rohc packet is to be stored
+						rohc_buf_reset (&rohc_packet);
+
+						// compress the IP packet
+						status = rohc_compress4(compressor, ip_packet, &rohc_packet);
+
+						// check the result of the compression
+						if(status == ROHC_STATUS_SEGMENT) {
+							/* success: compression succeeded, but resulting ROHC packet was too
+							 * large for the Maximum Reconstructed Reception Unit (MRRU) configured
+							 * with \ref rohc_comp_set_mrru, the rohc_packet buffer contains the
+							 * first ROHC segment and \ref rohc_comp_get_segment can be used to
+							 * retrieve the next ones. */
+						}
+
+						else if (status == ROHC_STATUS_OK) {
+							/* success: compression succeeded, and resulting ROHC packet fits the
+							* Maximum Reconstructed Reception Unit (MRRU) configured with
+							* \ref rohc_comp_set_mrru, the rohc_packet buffer contains the
+							* rohc_packet_len bytes of the ROHC packet */
+
+							// since this packet has been compressed with ROHC, its protocol number must be 142
+							// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+							if ( SIZE_PROTOCOL_FIELD == 1 ) {
+								protocol[num_pkts_stored_from_tun][0] = 142;
+							} else {	// SIZE_PROTOCOL_FIELD == 2 
+								protocol[num_pkts_stored_from_tun][0] = 0;
+								protocol[num_pkts_stored_from_tun][1] = 142;
+							}
+
+							// Copy the compressed length and the compressed packet over the packet read from tun
+							size_packets_to_multiplex[num_pkts_stored_from_tun] = rohc_packet.len;
+							for (l = 0; l < size_packets_to_multiplex[num_pkts_stored_from_tun] ; l++) {
+								packets_to_multiplex[num_pkts_stored_from_tun][l] = rohc_buf_byte_at(rohc_packet, l);
+							}
+
+							/* dump the ROHC packet on terminal */
+							if (debug >= 1 ) {
+								do_debug(1, " ROHC-compressed to %i bytes\n", rohc_packet.len);
+							}
+							if (debug == 2) {
+								do_debug(2, "   ");
+								dump_packet ( rohc_packet.len, rohc_packet.data );
+							}
+
+						} else {
+							/* compressor failed to compress the IP packet */
+							/* Send it in its native form */
+
+							// I don't have to copy the native length and the native packet, because they
+							// have already been stored in 'size_packets_to_multiplex[num_pkts_stored_from_tun]' and 'packets_to_multiplex[num_pkts_stored_from_tun]'
+
+							// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP'
+							// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+							if ( SIZE_PROTOCOL_FIELD == 1 ) {
+								protocol[num_pkts_stored_from_tun][0] = 4;
+							} else {	// SIZE_PROTOCOL_FIELD == 2 
+								protocol[num_pkts_stored_from_tun][0] = 0;
+								protocol[num_pkts_stored_from_tun][1] = 4;
+							}
+							fprintf(stderr, "compression of IP packet failed\n");
+
+							// print in the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%lu\\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun], tun2net);
+								fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+							}
+
+							do_debug(2, "  ROHC did not work. Native packet sent: %i bytes:\n   ", size_packets_to_multiplex[num_pkts_stored_from_tun]);
+							//goto release_compressor;
+						}
+
+					} else {
+						// header compression has not been selected by the user
+
+						// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
+						// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+						if ( SIZE_PROTOCOL_FIELD == 1 ) {
+							protocol[num_pkts_stored_from_tun][0] = 4;
+						} else {	// SIZE_PROTOCOL_FIELD == 2 
+							protocol[num_pkts_stored_from_tun][0] = 0;
+							protocol[num_pkts_stored_from_tun][1] = 4;
+						}
+					}
+
+
+					/*** Calculate if the size limit will be reached when multiplexing the present packet ***/
+					// if the addition of the present packet will imply a multiplexed packet bigger than the size limit:
+					// - I send the previously stored packets
+					// - I store the present one
+					// - I reset the period
+
+					// calculate the size without the present packet
+					predicted_size_muxed_packet = predict_size_multiplexed_packet (num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex);
+
+					// I add the length of the present packet:
+
+					// separator and length of the present packet
+					if (first_header_written == 0) {
+						// this is the first header, so the maximum length is 64
+						if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 64 ) {
+							predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
+						} else {
+							predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
+						}
+					} else {
+						// this is not the first header, so the maximum length is 128
+						if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 128 ) {
+							predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
+						} else {
+							predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
+						}
+					}
+
+					// calculate if all the packets belong to the same protocol
+					single_protocol = 1;
+					for (k = 1; k < num_pkts_stored_from_tun ; k++) {
+						for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+							if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+						}
+					}
+
+					// add the length of the 'protocol' fields of the present packet
+					// if pkts belonging to different protocols are multiplexed, I have to add n-1 bytes, each one 
+					//corresponding to the "Protocol" field of a muliplexed packet
+					if (single_protocol == 0 ) predicted_size_muxed_packet = predicted_size_muxed_packet + num_pkts_stored_from_tun;	
+
+
+					if (predicted_size_muxed_packet > size_max ) {
+						// if the present packet is muxed, the max size of the packet will be overriden. So I first empty the buffer
+						//i.e. I build and send a multiplexed packet not including the current one
+
+						do_debug(2, "\n");
+
+
+						switch (*mode) {
+							case TRANSPORT_MODE:
+								do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predicted_size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
+							case NETWORK_MODE:
+								do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predicted_size_muxed_packet + IPv4_HEADER_SIZE );
+							break;
+						}
+
+
+						// add the Single Protocol Bit in the first header (the most significant bit)
+						// it is '1' if all the multiplexed packets belong to the same protocol
+						if (single_protocol == 1) {
+							separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
+							size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
+						} else {
+							size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
+						}
+
+						// build the multiplexed packet without the current one
+						total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+
+						if (single_protocol) {
+							do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+						} else {
+							do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+						}
+						switch (*mode) {
+							case TRANSPORT_MODE:
+								do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+								do_debug(1, " Sending muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
+							break;
+							case NETWORK_MODE:
+								do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+								do_debug(1, " Sending muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE );
+							break;
+						}
+
+
+						// send the multiplexed packet without the current one
+						switch (*mode) {
+							case TRANSPORT_MODE:
+	printf ("length: %i", total_length);
+
+								// send the packet
+								if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+								// write the log file
+								if ( log_file != NULL ) {
+									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+									fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+								}
+						
+							break;
+
+							case NETWORK_MODE:
+
+								// build the header
+								BuildIPHeader(&ipheader, total_length, local, remote);
+
+								// build the full IP multiplexed packet
+								BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
+
+								// send the packet
+								if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+									perror ("sendto() failed");
+									exit (EXIT_FAILURE);
+								}
+								// write the log file
+								if ( log_file != NULL ) {
+									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+									fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+								}
+
+							break;
+						}
+
+
+						// I have sent a packet, so I restart the period: update the time of the last packet sent
+						time_in_microsec = GetTimeStamp();
+						time_last_sent_in_microsec = time_in_microsec;
+
+
+						// I have emptied the buffer, so I have to
+						//move the current packet to the first position of the 'packets_to_multiplex' array
+						for (l = 0; l < BUFSIZE; l++ ) {
+							packets_to_multiplex[0][l]=packets_to_multiplex[num_pkts_stored_from_tun][l];
+						}
+
+						// move the current separator to the first position of the array
+						for (l = 0; l < 2; l++ ) {
+							separators_to_multiplex[0][l]=separators_to_multiplex[num_pkts_stored_from_tun][l];
+						}
+
+						// move the length to the first position of the array
+						size_packets_to_multiplex[0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
+						size_separators_to_multiplex[0] = size_separators_to_multiplex[num_pkts_stored_from_tun];
+						for (j=1; j < MAXPKTS; j++) size_packets_to_multiplex [j] = 0;
+
+
+						// I have sent a packet, so I set to 0 the "first_header_written" bit
+						first_header_written = 0;
+
+						// reset the length and the number of packets
+						size_muxed_packet = 0;
+						num_pkts_stored_from_tun = 0;
+					}	/*** end check if size limit would be reached ***/
+
+
+					// update the size of the muxed packet, adding the size of the current one
+					size_muxed_packet = size_muxed_packet + size_packets_to_multiplex[num_pkts_stored_from_tun];
+
+					// I have to add the multiplexing separator. It is 1 byte if the length is smaller than 64 (or 128). 
+					// it is 2 bytes if the lengh is 64 (or 128) or more
+					if (first_header_written == 0) {
+						// this is the first header
+						maximum_packet_length = 64;
+					} else {
+						// this is a non-first header
+						maximum_packet_length = 128;
+					}
+
+					// check if the length has to be one or two bytes
+					if (size_packets_to_multiplex[num_pkts_stored_from_tun] < maximum_packet_length ) {
+
+						// the length can be written in the first byte of the separator (expressed in 6 or 7 bits)
+						size_separators_to_multiplex[num_pkts_stored_from_tun] = 1;
+
+						// add the length to the string.
+						// since the value is < maximum_packet_length, the most significant bits will always be 0
+						separators_to_multiplex[num_pkts_stored_from_tun][0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
+
+						// increase the size of the multiplexed packet
+						size_muxed_packet ++;
+
+
+						// print the  Mux separator (only one byte)
+						if(debug) {
+							FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
+							do_debug(2, " Mux separator of 1 byte: (%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
+							if (first_header_written == 0) {
+								PrintByte(2, 7, bits);			// first header
+							} else {
+								PrintByte(2, 8, bits);			// non-first header
+							}
+							do_debug(2, "\n");
+						}
+
+					} else {
+						// the length requires a two-byte separator (length expressed in 14 or 15 bits)
+						size_separators_to_multiplex[num_pkts_stored_from_tun] = 2;
+
+						// first byte of the Mux separator
+						// It can be:
+						// - first-header: SPB bit, LXT=1 and 6 bits with the most significant bytes of the length
+						// - non-first-header: LXT=1 and 7 bits with the most significant bytes of the length
+						// get the most significant byte by dividing by 256
+						// add 64 (or 128) in order to put a '1' in the second (or first) bit
+						if (first_header_written == 0) {
+							separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 256 ) + 64;	// first header
+						} else {
+							separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 256 ) + 128;	// non-first header
+						}
+
+						// second byte of the Mux separator
+						// the 8 less significant bytes of the length. Use modulo
+						separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 256;
+
+						// increase the size of the multiplexed packet
+						size_muxed_packet = size_muxed_packet + 2;
+
+						// print the two bytes of the separator
+						if(debug) {
+							// first byte
+							FromByte(separators_to_multiplex[0][num_pkts_stored_from_tun], bits);
+							do_debug(2, " Mux separator of 2 bytes: (%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
+							if (first_header_written == 0) {
+								PrintByte(2, 7, bits);			// first header
+							} else {
+								PrintByte(2, 8, bits);			// non-first header
+							}
+
+							// second byte
+							FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
+							do_debug(2, " (%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
+							PrintByte(2, 8, bits);
+							do_debug(2, "\n");
+						}	
+					}
+
+					// I have finished storing the packet, so I increase the number of stored packets
+					num_pkts_stored_from_tun ++;
+
+					// I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
+					if (first_header_written == 0) first_header_written = 1;
+
+
+
+					//do_debug (1,"\n");
+					do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes.", num_pkts_stored_from_tun , size_muxed_packet);
+					time_in_microsec = GetTimeStamp();
+					time_difference = time_in_microsec - time_last_sent_in_microsec;		
+					do_debug(1, " Time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
+
+
+
+					// check if a multiplexed packet has to be sent
+
+					// if the packet limit or the size threshold are reached, send all the stored packets to the network
+					// do not worry about the MTU. if it is reached, a number of packets will be sent
+					if ((num_pkts_stored_from_tun == limit_numpackets_tun) || (size_muxed_packet > size_threshold) || (time_difference > timeout )) {
+
+						// a multiplexed packet has to be sent
+
+						// calculate if all the packets belong to the same protocol
+						single_protocol = 1;
+						for (k = 1; k < num_pkts_stored_from_tun ; k++) {
+							for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+								if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+							}
+						}
+
+
+						// Add the Single Protocol Bit in the first header (the most significant bit)
+						// It is 1 if all the multiplexed packets belong to the same protocol
+						if (single_protocol == 1) {
+							separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
+							size_muxed_packet = size_muxed_packet + 1;						// one byte corresponding to the 'protocol' field of the first header
+						} else {
+							size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;	// one byte per packet, corresponding to the 'protocol' field
+						}
+
+						// write the debug information
+						if (debug) {
+							do_debug(2, "\n");
+							do_debug(1, "SENDING TRIGGERED: ");
+							if (num_pkts_stored_from_tun == limit_numpackets_tun)
+								do_debug(1, "num packet limit reached\n");
+							if (size_muxed_packet > size_threshold)
+								do_debug(1," size threshold reached\n");
+							if (time_difference > timeout)
+								do_debug(1, "timeout reached\n");
+
+							if (single_protocol) {
+								do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+							} else {
+								do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+							}
+							switch (*mode) {
+								case TRANSPORT_MODE:
+									do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+									do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+								break;
+								case NETWORK_MODE:
+									do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+									do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
+								break;
+							}
+		
+											
+						}
+
+						// build the multiplexed packet including the current one
+						total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+
+
+						// send the multiplexed packet
+						switch (*mode) {
+							case TRANSPORT_MODE:
+								// send the packet. I don't need to build the header, because I have a UDP socket
+								if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1)
+									perror("sendto()");
+							break;
+
+							case NETWORK_MODE:
+								// build the header
+								BuildIPHeader(&ipheader, total_length, local,remote);
+
+								// build full IP multiplexed packet
+								BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
+
+								// send the multiplexed packet
+								if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+									perror ("sendto() failed ");
+									exit (EXIT_FAILURE);
+								}
+							break;
+						}
+
+
+						// write the log file
+						if ( log_file != NULL ) {
+							switch (*mode) {
+								case TRANSPORT_MODE:
+									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+								break;
+								case NETWORK_MODE:
+									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+								break;
+							}
+							if (num_pkts_stored_from_tun == limit_numpackets_tun)
+								fprintf(log_file, "\tnumpacket_limit");
+							if (size_muxed_packet > size_threshold)
+								fprintf(log_file, "\tsize_limit");
+							if (time_difference > timeout)
+								fprintf(log_file, "\ttimeout");
+							fprintf(log_file, "\n");
+							fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+						}
+
+						// I have sent a packet, so I set to 0 the "first_header_written" bit
+						first_header_written = 0;
+
+						// reset the length and the number of packets
+						size_muxed_packet = 0 ;
+						num_pkts_stored_from_tun = 0;
+
+						// restart the period: update the time of the last packet sent
+						time_last_sent_in_microsec = time_in_microsec;
+					}
+				}
 			}
 
-			// restart the period
-			time_last_sent_in_microsec = time_in_microsec;
-		}
+			/*************************************************************************************/	
+			/******************** Period expired: multiplex **************************************/
+			/*************************************************************************************/	
 
-	}	// end while(1)
+			// The period has expired
+			// Check if there is something stored, and send it
+			// since there is no new packet, here it is not necessary to compress anything
 
-	return(0);
+			else {
+				time_in_microsec = GetTimeStamp();
+				if ( num_pkts_stored_from_tun > 0 ) {
 
+					// There are some packets stored
+
+					// calculate the time difference
+					time_difference = time_in_microsec - time_last_sent_in_microsec;		
+
+
+
+					if (debug) {
+						do_debug(2, "\n");
+						do_debug(1, "SENDING TRIGGERED. Period expired. Time since last trigger: %" PRIu64 " usec\n", time_difference);
+						if (single_protocol) {
+							do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+						} else {
+							do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+						}
+						switch (*mode) {
+							case TRANSPORT_MODE:
+								do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+								do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);	
+							break;
+							case NETWORK_MODE:
+								do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+								do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
+							break;
+						}
+					}
+
+					// calculate if all the packets belong to the same protocol
+					single_protocol = 1;
+					for (k = 1; k < num_pkts_stored_from_tun ; k++) {
+						for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+							if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+						}
+					}
+
+					// Add the Single Protocol Bit in the first header (the most significant bit)
+					// It is 1 if all the multiplexed packets belong to the same protocol
+					if (single_protocol == 1) {
+						separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
+						size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
+					} else {
+						size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
+					}
+
+					// build the multiplexed packet
+					total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+
+					// send the multiplexed packet
+					switch (*mode) {
+						case TRANSPORT_MODE:
+							// send the packet. I don't need to build the header, because I have a UDP socket	
+							if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);	
+							}
+						break;
+
+						case NETWORK_MODE:
+							// build the header
+							BuildIPHeader(&ipheader, total_length, local,remote);
+
+							// build the full IP multiplexed packet
+							BuildFullIPPacket(ipheader,muxed_packet,total_length, full_ip_packet);
+
+							// send the packet
+							if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &remote, sizeof (struct sockaddr)) < 0)  {
+								perror ("sendto() failed ");
+								exit (EXIT_FAILURE);
+							}
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);	
+							}
+						break;
+					}
+
+			
+					// I have sent a packet, so I set to 0 the "first_header_written" bit
+					first_header_written = 0;
+
+					// reset the length and the number of packets
+					size_muxed_packet = 0 ;
+					num_pkts_stored_from_tun = 0;
+
+				} else {
+					// No packet arrived
+					//do_debug(2, "Period expired. Nothing to be sent\n");
+				}
+
+				// restart the period
+				time_last_sent_in_microsec = time_in_microsec;
+			}
+
+		}	// end while(1)
+
+		return(0);
+	}
 
 
 /******* labels ************/
