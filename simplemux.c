@@ -271,7 +271,7 @@ void usage(void) {
 	fprintf(stderr, "-b: size threshold (bytes) to trigger the departure of packets (default MTU-28 in transport mode and MTU-20 in network mode)\n");
 	fprintf(stderr, "-t: timeout (in usec) to trigger the departure of packets\n");
 	fprintf(stderr, "-P: period (in usec) to trigger the departure of packets. If ( timeout < period ) then the timeout has no effect\n");
-	fprintf(stderr, "-l: log file name\n");
+	fprintf(stderr, "-l: log file name. Use 'stdout' if you want the log data in standard output\n");
 	fprintf(stderr, "-L: use default log file name (day and hour Y-m-d_H.M.S)\n");
 	fprintf(stderr, "-h: prints this help text\n");
 	exit(1);
@@ -637,7 +637,7 @@ int main(int argc, char *argv[]) {
 
 	const int on = 1;								// needed when creating a socket
 
-	struct sockaddr_in local, remote, feedback, feedback_remote;	// these are structs for storing sockets
+	struct sockaddr_in local, remote, feedback, feedback_remote, received;	// these are structs for storing sockets
 
 	struct iphdr ipheader;							// IP header
 	struct ifreq iface;								// network interface
@@ -846,10 +846,13 @@ int main(int argc, char *argv[]) {
 
 		/* open the log file */
 		if ( file_logging == 1 ) {
-			log_file = fopen(log_file_name, "w");
-			if (log_file == NULL) my_err("Error: cannot open the log file!\n");
+			if (strcmp(log_file_name, "stdout") == 0) {
+				log_file = stdout;
+			} else {
+				log_file = fopen(log_file_name, "w");
+				if (log_file == NULL) my_err("Error: cannot open the log file!\n");
+			}
 		}
-
 
 		// check debug option
 		if ( debug < 0 ) debug = 0;
@@ -1348,13 +1351,14 @@ int main(int argc, char *argv[]) {
 				switch (*mode) {
 					case TRANSPORT_MODE:
 						// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
-						nread_from_net = recvfrom ( transport_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&remote, &slen );
+						// I cannot use 'remote' because it would replace the IP address and port. I use 'received'
+						nread_from_net = recvfrom ( transport_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
 						if (nread_from_net==-1) perror ("recvfrom()");
 						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets) of a full packet or frame.
 						// I don't have the IP and UDP headers
 
 						// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
-						if (port == ntohs(remote.sin_port)) 
+						if (port == ntohs(received.sin_port)) 
 							 is_multiplexed_packet = 1;
 						else is_multiplexed_packet = 0;
 					break;
@@ -1363,7 +1367,6 @@ int main(int argc, char *argv[]) {
 						// a packet has been received from the network, destinated to the local interface for muxed packets
 						nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
 
-						//nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE, 0, (struct sockaddr *)&remote, &slen );
 						if (nread_from_net==-1) perror ("cread demux()");
 						// now buffer_from_net contains the headers (IP and Simplemux) and the payload of a full packet or frame.
 
@@ -1797,8 +1800,8 @@ int main(int argc, char *argv[]) {
 									else if ( status == ROHC_STATUS_NO_CONTEXT ) {
 
 										// failure: decompressor failed to decompress the ROHC packet 
-										do_debug(2, "  decompression of ROHC packet failed. No context\n");
-										fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+										do_debug(1, "  decompression of ROHC packet failed. No context\n");
+										//fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
 
 										// write the log file
 										if ( log_file != NULL ) {
@@ -1811,8 +1814,8 @@ int main(int argc, char *argv[]) {
 									else if ( status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {	// the output buffer is too small for the compressed packet
 
 										// failure: decompressor failed to decompress the ROHC packet 
-										do_debug(2, "  decompression of ROHC packet failed. Output buffer is too small\n");
-										fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
+										do_debug(1, "  decompression of ROHC packet failed. Output buffer is too small\n");
+										//fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
 
 										// write the log file
 										if ( log_file != NULL ) {
@@ -1825,8 +1828,8 @@ int main(int argc, char *argv[]) {
 									else if ( status == ROHC_STATUS_MALFORMED ) {			// the decompression failed because the ROHC packet is malformed 
 
 										// failure: decompressor failed to decompress the ROHC packet 
-										do_debug(2, "  decompression of ROHC packet failed. No context\n");
-										fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+										do_debug(1, "  decompression of ROHC packet failed. No context\n");
+										//fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
 
 										// write the log file
 										if ( log_file != NULL ) {
@@ -1839,8 +1842,8 @@ int main(int argc, char *argv[]) {
 									else if ( status == ROHC_STATUS_BAD_CRC ) {			// the CRC detected a transmission or decompression problem
 
 										// failure: decompressor failed to decompress the ROHC packet 
-										do_debug(2, "  decompression of ROHC packet failed. Bad CRC\n");
-										fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
+										do_debug(1, "  decompression of ROHC packet failed. Bad CRC\n");
+										//fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
 
 										// write the log file
 										if ( log_file != NULL ) {
@@ -1853,8 +1856,8 @@ int main(int argc, char *argv[]) {
 									else if ( status == ROHC_STATUS_ERROR ) {				// another problem occurred
 
 										// failure: decompressor failed to decompress the ROHC packet 
-										do_debug(2, "  decompression of ROHC packet failed. Other error\n");
-										fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
+										do_debug(1, "  decompression of ROHC packet failed. Other error\n");
+										//fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
 
 										// write the log file
 										if ( log_file != NULL ) {
@@ -2311,7 +2314,7 @@ int main(int argc, char *argv[]) {
 								}
 								// write the log file
 								if ( log_file != NULL ) {
-									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
 									fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 								}
 
@@ -2538,7 +2541,7 @@ int main(int argc, char *argv[]) {
 									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
 								break;
 								case NETWORK_MODE:
-									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
 								break;
 							}
 							if (num_pkts_stored_from_tun == limit_numpackets_tun)
@@ -2630,7 +2633,7 @@ int main(int argc, char *argv[]) {
 							if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 							// write the log file
 							if ( log_file != NULL ) {
-								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);	
+								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
 							}
 						break;
 
@@ -2648,7 +2651,7 @@ int main(int argc, char *argv[]) {
 							}
 							// write the log file
 							if ( log_file != NULL ) {
-								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);	
+								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
 							}
 						break;
 					}
