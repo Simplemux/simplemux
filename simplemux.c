@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.20                                  *
+ * simplemux.c            version 1.6.21                                  *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress). The multiplexed bundle can be sent        *
@@ -20,7 +20,7 @@
  *      - ROHC header compression (RFC 5225)                              *
  *      - Simplemux, which is used for both multiplexing and tunneling    * 
  *                                                                        *
- * In 2014 Jose Saldana wrote this program, published under GNU GENERAL   *
+ * In 2015 Jose Saldana wrote this program, published under GNU GENERAL   *
  * PUBLIC LICENSE, Version 3, 29 June 2007                                *
  * Copyright (C) 2007 Free Software Foundation, Inc.                      *
  *                                                                        *
