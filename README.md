@@ -5,6 +5,8 @@ There are some situations in which multiplexing a number of small packets into a
 
 Simplemux is a protocol able to encapsulate a number of packets belonging to different protocols into a single packet. It includes the "Protocol" field on each multiplexing header, thus allowing the inclusion of a number of packets belonging to different protocols on a packet of another protocol.
 
+The specification of Simplemux is here: http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/. It has been proposed to the Transpor Area Working Group of the IETF (https://datatracker.ietf.org/wg/tsvwg/documents/)
+
 The size of the multiplexing headers is kept very low (it may be a single byte when multiplexing small packets) in order to reduce the overhead.
 
 This page includes an implementation of Simplemux written in C for Linux. It uses simplemux as the multiplexing protocol, and IP and ROHC as multiplexed protocols. Two options are considered for the tunneling protocol:
