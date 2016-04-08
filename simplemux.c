@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.22                                  *
+ * simplemux.c            version 1.6.23                                  *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress).                                           *
@@ -462,9 +462,9 @@ uint16_t build_multiplexed_packet ( int num_packets, int single_prot, unsigned c
 // it takes all the variables where packets are stored, and predicts the size of a multiplexed packet including all of them
 // the variables are:
 //	- prot[MAXPKTS][SIZE_PROTOCOL_FIELD]	the protocol byte of each packet
-//	- size_separators_to_mux[MAXPKTS]		the size of each separator (1 or 2 bytes). Protocol byte not included
-//	- separators_to_mux[MAXPKTS][2]			the separators
-//	- size_packets_to_mux[MAXPKTS]			the size of each packet to be multiplexed
+//	- size_separators_to_mux[MAXPKTS]			the size of each separator (1 or 2 bytes). Protocol byte not included
+//	- separators_to_mux[MAXPKTS][2]				the separators
+//	- size_packets_to_mux[MAXPKTS]				the size of each packet to be multiplexed
 //	- packets_to_mux[MAXPKTS][BUFSIZE]		the packet to be multiplexed
 
 // the length of the multiplexed packet is returned by this function
@@ -478,9 +478,9 @@ uint16_t predict_size_multiplexed_packet ( int num_packets, int single_prot, uns
 
 		// count the 'Protocol' field if necessary
 		if ( (k==0) || (single_prot == 0 ) ) {		// the protocol field is always present in the first separator (k=0), and maybe in the rest
-				for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
-					length ++;
-				}
+			for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
+				length ++;
+			}
 		}
 	
 		// count the separator
@@ -571,7 +571,6 @@ return (answer);
 void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local, struct sockaddr_in remote)
 {
 	static uint16_t counter = 0;
-	
 
 	// clean the variable
 	memset (iph, 0, sizeof(struct iphdr));
@@ -626,116 +625,112 @@ void SetIpHeader(struct iphdr iph, unsigned char *ip_packet)
 int main(int argc, char *argv[]) {
 
 	// variables for managing the network interfaces
-	int tun_fd;										// file descriptor of the tun interface(no mux packet)
-	int transport_mode_fd = 2;						// the file descriptor of the socket of the network interface
+	int tun_fd;													// file descriptor of the tun interface(no mux packet)
+	int transport_mode_fd = 2;					// the file descriptor of the socket of the network interface
 	int network_mode_fd = 1;						// the file descriptor of the socket in Network mode
-	int feedback_fd = 3;							// the file descriptor of the socket of the feedback received from the network interface
-	int maxfd;										// maximum number of file descriptors
-	fd_set rd_set;									// rd_set is a set of file descriptors used to know which interface has received a packet
+	int feedback_fd = 3;								// the file descriptor of the socket of the feedback received from the network interface
+	int maxfd;													// maximum number of file descriptors
+	fd_set rd_set;											// rd_set is a set of file descriptors used to know which interface has received a packet
 
-	char tun_if_name[IFNAMSIZ] = "";				// name of the tun interface (e.g. "tun0")
-	char mux_if_name[IFNAMSIZ] = "";				// name of the network interface (e.g. "eth0")
+	char tun_if_name[IFNAMSIZ] = "";		// name of the tun interface (e.g. "tun0")
+	char mux_if_name[IFNAMSIZ] = "";		// name of the network interface (e.g. "eth0")
 
-	char mode[2] = "";								// Network(N) or Transport (T) mode
+	char mode[2] = "";									// Network(N) or Transport (T) mode
 
-	const int on = 1;								// needed when creating a socket
+	const int on = 1;										// needed when creating a socket
 
 	struct sockaddr_in local, remote, feedback, feedback_remote, received;	// these are structs for storing sockets
 
 	struct iphdr ipheader;							// IP header
-	struct ifreq iface;								// network interface
+	struct ifreq iface;									// network interface
 
-	socklen_t slen = sizeof(remote);				// size of the socket. The type is like an int, but adequate for the size of the socket
+	socklen_t slen = sizeof(remote);							// size of the socket. The type is like an int, but adequate for the size of the socket
 	socklen_t slen_feedback = sizeof(feedback);		// size of the socket. The type is like an int, but adequate for the size of the socket
 
-	char remote_ip[16] = "";						// dotted quad IP string with the IP of the remote machine
-	char local_ip[16] = "";							// dotted quad IP string with the IP of the local machine     
-	unsigned short int port = PORT;					// UDP port to be used for sending the multiplexed packets
+	char remote_ip[16] = "";											// dotted quad IP string with the IP of the remote machine
+	char local_ip[16] = "";												// dotted quad IP string with the IP of the local machine     
+	unsigned short int port = PORT;								// UDP port to be used for sending the multiplexed packets
 	unsigned short int port_feedback = PORT + 1;	// UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
 
 	// variables for storing the packets to multiplex
-	uint16_t total_length;									// total length of the built multiplexed packet
-	unsigned char protocol_rec;								// protocol field of the received muxed packet
-	unsigned char protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];	// protocol field of each packet
-	uint16_t size_separators_to_multiplex[MAXPKTS];			// stores the size of the Simplemux separator. It does not include the "Protocol" field
-	unsigned char separators_to_multiplex[MAXPKTS][3];		// stores the header ('protocol' not included) received from tun, before sending it to the network
-	uint16_t size_packets_to_multiplex[MAXPKTS];			// stores the size of the received packet
-	unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];	// stores the packets received from tun, before storing it or sending it to the network
-	unsigned char muxed_packet[BUFSIZE];						// stores the multiplexed packet
-
-
-	bool is_multiplexed_packet;						// To determine if a received packet have been multiplexed
-
-	unsigned char full_ip_packet[BUFSIZE];				// Full IP packet
-
+	uint16_t total_length;																	// total length of the built multiplexed packet
+	unsigned char protocol_rec;															// protocol field of the received muxed packet
+	unsigned char protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];		// protocol field of each packet
+	uint16_t size_separators_to_multiplex[MAXPKTS];					// stores the size of the Simplemux separator. It does not include the "Protocol" field
+	unsigned char separators_to_multiplex[MAXPKTS][3];			// stores the header ('protocol' not included) received from tun, before sending it to the network
+	uint16_t size_packets_to_multiplex[MAXPKTS];						// stores the size of the received packet
+	unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];		// stores the packets received from tun, before storing it or sending it to the network
+	unsigned char muxed_packet[BUFSIZE];										// stores the multiplexed packet
+	bool is_multiplexed_packet;															// To determine if a received packet have been multiplexed
+	unsigned char full_ip_packet[BUFSIZE];									// Full IP packet
 
 	// variables for storing the packets to demultiplex
-	uint16_t nread_from_net;								// number of bytes read from network which will be demultiplexed
+	uint16_t nread_from_net;												// number of bytes read from network which will be demultiplexed
 	unsigned char buffer_from_net[BUFSIZE];					// stores the packet received from the network, before sending it to tun
-	unsigned char buffer_from_net_aux[BUFSIZE];				// stores the packet received from the network, before sending it to tun
-	unsigned char demuxed_packet[BUFSIZE];						// stores each demultiplexed packet
+	unsigned char buffer_from_net_aux[BUFSIZE];			// stores the packet received from the network, before sending it to tun
+	unsigned char demuxed_packet[BUFSIZE];					// stores each demultiplexed packet
 
 	// variables for controlling the arrival and departure of packets
 	unsigned long int tun2net = 0, net2tun = 0;		// number of packets read from tun and from net
-	unsigned long int feedback_pkts = 0;			// number of ROHC feedback packets
-	int limit_numpackets_tun = 0;					// limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
+	unsigned long int feedback_pkts = 0;					// number of ROHC feedback packets
+	int limit_numpackets_tun = 0;									// limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
 
-	int size_threshold = 0;							// if the number of bytes stored is higher than this, a muxed packet is sent
-	int size_max;									// maximum value of the packet size
+	int size_threshold = 0;												// if the number of bytes stored is higher than this, a muxed packet is sent
+	int size_max;																	// maximum value of the packet size
 
-	uint64_t timeout = MAXTIMEOUT;					// (microseconds) if a packet arrives and the timeout has expired (time from the  
-													// previous sending), the sending is triggered. default 100 seconds
-	uint64_t period= MAXTIMEOUT;					// period. If it expires, a packet is sent
-	uint64_t microseconds_left = period;			// the time until the period expires	
+	uint64_t timeout = MAXTIMEOUT;								// (microseconds) if a packet arrives and the timeout has expired (time from the  
+																								//previous sending), the sending is triggered. default 100 seconds
+	uint64_t period= MAXTIMEOUT;									// period. If it expires, a packet is sent
+	uint64_t microseconds_left = period;					// the time until the period expires	
 
 	// very long unsigned integers for storing the system clock in microseconds
-	uint64_t time_last_sent_in_microsec;			// moment when the last multiplexed packet was sent
-	uint64_t time_in_microsec;						// current time
-	uint64_t time_difference;						// difference between two timestamps
+	uint64_t time_last_sent_in_microsec;					// moment when the last multiplexed packet was sent
+	uint64_t time_in_microsec;										// current time
+	uint64_t time_difference;											// difference between two timestamps
 
-	int option;										// command line options
+	int option;															// command line options
 	int l,j,k;
 	int num_pkts_stored_from_tun = 0;				// number of packets received and not sent from tun (stored)
-	int size_muxed_packet = 0;						// acumulated size of the multiplexed packet
+	int size_muxed_packet = 0;							// acumulated size of the multiplexed packet
 	int predicted_size_muxed_packet;				// size of the muxed packet if the arrived packet was added to it
-	int position;									// for reading the arrived multiplexed packet
-	int packet_length;								// the length of each packet inside the multiplexed bundle
-	int interface_mtu;								// the maximum transfer unit of the interface
-	int user_mtu = 0;								// the MTU specified by the user (it must be <= interface_mtu)
-	int selected_mtu;								// the MTU that will be used in the program
-	int num_demuxed_packets;						// a counter of the number of packets inside a muxed one
-	int single_protocol;							// it is 1 when the Single-Protocol-Bit of the first header is 1
-	int single_protocol_rec;						// it is the bit Single-Protocol-Bit received in a muxed packet
-	int first_header_read;							// it is 0 when the first header has not been read
-	int LXT_position;								// the position of the LXT bit. It may be 6 (non-first header) or 7 (first header)
-	int maximum_packet_length;						// the maximum lentgh of a packet. It may be 64 (first header) or 128 (non-first header)
-	int limit_length_two_bytes;						// the maximum length of a packet in order to express it in 2 bytes. It may be 8192 or 16384 (non-first header)
-	int first_header_written = 0;					// it indicates if the first header has been written or not
-	int ret;										// value returned by the "select" function
+	int position;														// for reading the arrived multiplexed packet
+	int packet_length;											// the length of each packet inside the multiplexed bundle
+	int interface_mtu;											// the maximum transfer unit of the interface
+	int user_mtu = 0;												// the MTU specified by the user (it must be <= interface_mtu)
+	int selected_mtu;												// the MTU that will be used in the program
+	int num_demuxed_packets;								// a counter of the number of packets inside a muxed one
+	int single_protocol;										// it is 1 when the Single-Protocol-Bit of the first header is 1
+	int single_protocol_rec;								// it is the bit Single-Protocol-Bit received in a muxed packet
+	int first_header_read;									// it is 0 when the first header has not been read
+	int LXT_position;												// the position of the LXT bit. It may be 6 (non-first header) or 7 (first header)
+	int maximum_packet_length;							// the maximum lentgh of a packet. It may be 64 (first header) or 128 (non-first header)
+	int limit_length_two_bytes;							// the maximum length of a packet in order to express it in 2 bytes. It may be 8192 or 16384 (non-first header)
+	int first_header_written = 0;						// it indicates if the first header has been written or not
+	int ret;																// value returned by the "select" function
 	int drop_packet = 0;
 
 	struct timeval period_expires;					// it is used for the maximum time waiting for a new packet
 
-	bool bits[8];									// it is used for printing the bits of a byte in debug mode
+	bool bits[8];														// it is used for printing the bits of a byte in debug mode
 
 	// ROHC header compression variables
-	int ROHC_mode = 0;								// it is 0 if ROHC is not used
+	int ROHC_mode = 0;			// it is 0 if ROHC is not used
 													// it is 1 for ROHC Unidirectional mode (headers are to be compressed/decompressed)
 													// it is 2 for ROHC Bidirectional Optimistic mode
 													// it is 3 for ROHC Bidirectional Reliable mode (not implemented yet)
 
 	struct rohc_comp *compressor;           		// the ROHC compressor
-	unsigned char ip_buffer[BUFSIZE];				// the buffer that will contain the IPv4 packet to compress
+	unsigned char ip_buffer[BUFSIZE];						// the buffer that will contain the IPv4 packet to compress
 	struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);	
-	unsigned char rohc_buffer[BUFSIZE];				// the buffer that will contain the resulting ROHC packet
+	unsigned char rohc_buffer[BUFSIZE];					// the buffer that will contain the resulting ROHC packet
 	struct rohc_buf rohc_packet = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
 	unsigned int seed;
 	rohc_status_t status;
 
 	struct rohc_decomp *decompressor;       		// the ROHC decompressor
-	unsigned char ip_buffer_d[BUFSIZE];				// the buffer that will contain the resulting IP decompressed packet
+	unsigned char ip_buffer_d[BUFSIZE];					// the buffer that will contain the resulting IP decompressed packet
 	struct rohc_buf ip_packet_d = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
-	unsigned char rohc_buffer_d[BUFSIZE];			// the buffer that will contain the ROHC packet to decompress
+	unsigned char rohc_buffer_d[BUFSIZE];				// the buffer that will contain the ROHC packet to decompress
 	struct rohc_buf rohc_packet_d = rohc_buf_init_empty(rohc_buffer_d, BUFSIZE);
 
 	/* structures to handle ROHC feedback */
@@ -747,9 +742,9 @@ int main(int argc, char *argv[]) {
 
 
 	/* variables for the log file */
-	char log_file_name[100] = "";            		// name of the log file	
+	char log_file_name[100] = "";       // name of the log file	
 	FILE *log_file = NULL;							// file descriptor of the log file
-	int file_logging = 0;							// it is set to 1 if logging into a file is enabled
+	int file_logging = 0;								// it is set to 1 if logging into a file is enabled
 
 
 
@@ -872,7 +867,6 @@ int main(int argc, char *argv[]) {
 		}
 
 
-
 		/*** initialize tun interface for native packets ***/
 		if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
 			my_err("Error connecting to tun interface for capturing native packets %s\n", tun_if_name);
@@ -905,7 +899,6 @@ int main(int argc, char *argv[]) {
 			perror("socket()");
 			exit(1);
 		}
-
 
 
 		// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
@@ -1017,7 +1010,6 @@ int main(int argc, char *argv[]) {
 				do_debug(1,"Raw socket for multiplexing open. Remote IP %s. Protocol number %i\n", inet_ntoa(remote.sin_addr), IPPROTO_SIMPLEMUX);
 			}
 
-
 			// Set flag so socket expects us to provide IPv4 header
 			if (setsockopt (network_mode_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
 				perror ("setsockopt() failed to set IP_HDRINCL ");
@@ -1101,7 +1093,7 @@ int main(int argc, char *argv[]) {
 					do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
 					break;
 				/*case 3:
-					do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);
+					do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);	// Bidirectional Reliable mode (not implemented yet)
 					break;*/
 		}
 
@@ -1284,9 +1276,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			do_debug(1, "\n");
-
 		}
-
 
 		/*** I need the value of the maximum file descriptor, in order to let select() handle four interface descriptors at once ***/
 		if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd)
@@ -1802,7 +1792,6 @@ int main(int argc, char *argv[]) {
 												dump_packet (rcvd_feedback.len, rcvd_feedback.data );
 											}
 
-
 											// deliver the feedback received to the local compressor
 											//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
 											if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
@@ -1947,7 +1936,6 @@ int main(int argc, char *argv[]) {
 										}
 									}
 								}
-
 							} /*********** end decompression **************/
 
 							// write the demuxed (and perhaps decompressed) packet to the tun interface
@@ -2032,11 +2020,9 @@ int main(int argc, char *argv[]) {
 					}
 
 
-					// reset the buffers where the packets are to be stored
-	//rohc_buf_reset (&ip_packet_d);
-						rohc_buf_reset (&rohc_packet_d);
-	//rohc_buf_reset (&rcvd_feedback);
-	//rohc_buf_reset (&feedback_send);
+					// reset the buffer where the packet is to be stored
+					rohc_buf_reset (&rohc_packet_d);
+
 
 					// Copy the compressed length and the compressed packet
 					rohc_packet_d.len = nread_from_net;
@@ -2063,32 +2049,9 @@ int main(int argc, char *argv[]) {
 						do_debug(3, "Feedback delivered to the compressor: %i bytes\n", rohc_packet_d.len);
 					}
 
-					// the information received does not have to be decompressed, because it has been generated as feedback on the other side
-
-					// so I have commented the next lines:
-
-	/*				// decompress the packet
-					status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
-
-					// check if the feedback is ok, and it has to be delivered to the local compressor
-					if (status == ROHC_FEEDBACK_ONLY) {
-						if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
-							do_debug(3, "Feedback received by the decompressor (%i bytes), to be delivered to the local compressor\n",rcvd_feedback.len);
-
-							// deliver the feedback received to the local compressor
-							//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
-							//if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
-							//if ( rohc_comp_deliver_feedback2 ( compressor, ip_packet_d ) == false ) {
-							if ( rohc_comp_deliver_feedback2 ( compressor, rohc_packet_d ) == false ) {
-								do_debug(3, "Error delivering feedback to the compressor");
-							} else {
-								do_debug(3, "Feedback delivered to the compressor (%i bytes)\n",rcvd_feedback.len);
-							}
-
-						} else {
-							do_debug(3, "No feedback received by the decompressor\n");
-						}
-					}*/
+					// the information received does not have to be decompressed, because it has been 
+					// generated as feedback on the other side.
+					// So I don't have to decompress the packet
 				}
 
 				else {
@@ -2278,6 +2241,15 @@ int main(int argc, char *argv[]) {
 					// - I store the present one
 					// - I reset the period
 
+					// calculate if all the packets belong to the same protocol (single_protocol = 1) 
+					//or they belong to different protocols (single_protocol = 0)
+					single_protocol = 1;
+					for (k = 1; k < num_pkts_stored_from_tun ; k++) {
+						for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+							if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+						}
+					}
+
 					// calculate the size without the present packet
 					predicted_size_muxed_packet = predict_size_multiplexed_packet (num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex);
 
@@ -2300,26 +2272,11 @@ int main(int argc, char *argv[]) {
 						}
 					}
 
-					// calculate if all the packets belong to the same protocol
-					single_protocol = 1;
-					for (k = 1; k < num_pkts_stored_from_tun ; k++) {
-						for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-							if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
-						}
-					}
-
-					// add the length of the 'protocol' fields of the present packet
-					// if pkts belonging to different protocols are multiplexed, I have to add n-1 bytes, each one 
-					//corresponding to the "Protocol" field of a muliplexed packet
-					if (single_protocol == 0 ) predicted_size_muxed_packet = predicted_size_muxed_packet + num_pkts_stored_from_tun;	
-
-
 					if (predicted_size_muxed_packet > size_max ) {
 						// if the present packet is muxed, the max size of the packet will be overriden. So I first empty the buffer
 						//i.e. I build and send a multiplexed packet not including the current one
 
 						do_debug(2, "\n");
-
 
 						switch (*mode) {
 							case TRANSPORT_MODE:
@@ -2328,7 +2285,6 @@ int main(int argc, char *argv[]) {
 								do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predicted_size_muxed_packet + IPv4_HEADER_SIZE );
 							break;
 						}
-
 
 						// add the Single Protocol Bit in the first header (the most significant bit)
 						// it is '1' if all the multiplexed packets belong to the same protocol
@@ -2358,11 +2314,10 @@ int main(int argc, char *argv[]) {
 							break;
 						}
 
-
 						// send the multiplexed packet without the current one
 						switch (*mode) {
 							case TRANSPORT_MODE:
-	printf ("length: %i", total_length);
+								// printf ("length: %i", total_length);
 
 								// send the packet
 								if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
@@ -2401,7 +2356,6 @@ int main(int argc, char *argv[]) {
 						time_in_microsec = GetTimeStamp();
 						time_last_sent_in_microsec = time_in_microsec;
 
-
 						// I have emptied the buffer, so I have to
 						//move the current packet to the first position of the 'packets_to_multiplex' array
 						for (l = 0; l < BUFSIZE; l++ ) {
@@ -2417,7 +2371,6 @@ int main(int argc, char *argv[]) {
 						size_packets_to_multiplex[0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
 						size_separators_to_multiplex[0] = size_separators_to_multiplex[num_pkts_stored_from_tun];
 						for (j=1; j < MAXPKTS; j++) size_packets_to_multiplex [j] = 0;
-
 
 						// I have sent a packet, so I set to 0 the "first_header_written" bit
 						first_header_written = 0;
@@ -2462,7 +2415,6 @@ int main(int argc, char *argv[]) {
 						// increase the size of the multiplexed packet
 						size_muxed_packet ++;
 
-
 						// print the  Mux separator (only one byte)
 						if(debug) {
 							FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
@@ -2474,7 +2426,6 @@ int main(int argc, char *argv[]) {
 							}
 							do_debug(2, "\n");
 						}
-
 
 					// two-byte separator
 					} else if (size_packets_to_multiplex[num_pkts_stored_from_tun] < limit_length_two_bytes ) {
@@ -2528,7 +2479,8 @@ int main(int argc, char *argv[]) {
 
 						// the length requires a three-byte separator (length expressed in 20 or 21 bits)
 						size_separators_to_multiplex[num_pkts_stored_from_tun] = 3;
-//FIXME
+
+//FIXME. I have just copied the case of two-byte separator
 						// first byte of the Mux separator
 						// It can be:
 						// - first-header: SPB bit, LXT=1 and 6 bits with the most significant bits of the length
@@ -2597,14 +2549,11 @@ int main(int argc, char *argv[]) {
 					// I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
 					if (first_header_written == 0) first_header_written = 1;
 
-
-
 					//do_debug (1,"\n");
 					do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes.", num_pkts_stored_from_tun , size_muxed_packet);
 					time_in_microsec = GetTimeStamp();
 					time_difference = time_in_microsec - time_last_sent_in_microsec;		
 					do_debug(1, " Time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
-
 
 
 					// check if a multiplexed packet has to be sent
@@ -2622,7 +2571,6 @@ int main(int argc, char *argv[]) {
 								if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
 							}
 						}
-
 
 						// Add the Single Protocol Bit in the first header (the most significant bit)
 						// It is 1 if all the multiplexed packets belong to the same protocol
@@ -2658,14 +2606,11 @@ int main(int argc, char *argv[]) {
 									do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
 									do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
 								break;
-							}
-		
-											
+							}			
 						}
 
 						// build the multiplexed packet including the current one
 						total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
-
 
 						// send the multiplexed packet
 						switch (*mode) {
@@ -2689,7 +2634,6 @@ int main(int argc, char *argv[]) {
 								}
 							break;
 						}
-
 
 						// write the log file
 						if ( log_file != NULL ) {
@@ -2740,8 +2684,6 @@ int main(int argc, char *argv[]) {
 
 					// calculate the time difference
 					time_difference = time_in_microsec - time_last_sent_in_microsec;		
-
-
 
 					if (debug) {
 						do_debug(2, "\n");
@@ -2812,7 +2754,6 @@ int main(int argc, char *argv[]) {
 							}
 						break;
 					}
-
 			
 					// I have sent a packet, so I set to 0 the "first_header_written" bit
 					first_header_written = 0;
@@ -2849,7 +2790,6 @@ error:
 	if ( log_file != NULL ) fclose (log_file);
 	return 1;
 }
-
 
 
 static int gen_random_num(const struct rohc_comp *const comp,
