@@ -14,3 +14,7 @@ This page includes an implementation of Simplemux written in C for Linux. It use
  - Transport mode: IP/UDP is used for tunneling (with a common UDP port)
 
 ROCH feedback messages are always sent in IP/UDP packets.
+
+A research paper about Simplemux can be found here: http://diec.unizar.es/~jsaldana/personal/chicago_CIT2015_in_proc.pdf
+
+A presentation about Simplemux can be found here: http://es.slideshare.net/josemariasaldana/simplemux-traffic-optimization
