@@ -1,4 +1,4 @@
-# simplemux_throughput_pps.pl version 1.2
+# simplemux_throughput_pps.pl version 1.4
 
 # it is able to calculate the throughput and the packet-per-second rate, from a Simplemux output trace
 
@@ -7,20 +7,21 @@
 
 # usage:
 
-# $perl simplemux_throughput_pps.pl <trace file> <tick(us)> <event> <type> <peer IP> <port>
+# $perl simplemux_throughput_pps.pl <tick(us)> <peer IP> <port>
 
 # examples:
 
-# $ perl simplemux_throughput_pps.pl tracefile.txt 1000000 rec native all all
-# $ perl simplemux_throughput_pps.pl log_simplemux 1000000 rec muxed all all
-# $ perl simplemux_throughput_pps.pl log_simplemux 1000000 rec muxed 192.168.0.5 55555
-# $ perl simplemux_throughput_pps.pl log_simplemux 1000000 sent demuxed
+# $ perl simplemux_throughput_pps_live.pl 100000 2 192.168.0.5 all
 
-
+# Print the native and muxed throughput and pps
+# $ ./simplemux_1.6.21 -i tun0 -e eth0 -c 192.168.0.5 -M N -d 0 -r 2 -l stdout | perl simplemux_throughput_pps_live.pl 100000 2 192.168.0.5 all
 
 $tick 		= $ARGV[0];			# the tick in microseconds
-$peer_ip 	= $ARGV[1];			# the IP address of the peer. Put 'all' for any
-$port 		= $ARGV[2];			# the port. Put 'all' for any
+$bw_pps		= $ARGV[1];			# 0	calculate only BW
+						# 1 calculate only pps
+						# 2 calculate both
+$peer_ip 	= $ARGV[2];			# the IP address of the peer. Put 'all' for any
+$port 		= $ARGV[3];			# the port. Put 'all' for any
 
 
 #we compute how many bits were transmitted during each time interval specified
@@ -30,9 +31,24 @@ $num_packets = 0;
 $current_tick_begin = 0;	#the time of the beginning of the current tick
 $initial_timestamp = 0;
 
+my $calculate_BW = 0;
+my $calculate_pps = 0;
+
+if ($bw_pps == 0) {
+	$calculate_BW = 1;
+} elsif ($bw_pps == 1) {
+	$calculate_pps = 1;
+} elsif ($bw_pps == 2) {
+	$calculate_BW = 1;
+	$calculate_pps = 1;
+} else {
+	print STDOUT "Parameter BW_pps not specified or not correct. It must be 0 (BW), 1 (pps) or 2 (BW and pps)\n";
+	exit;
+}
+
 if ($tick == 0)
 {
-	print STDOUT "Tick not specified\nuse:\nperl simplemux_throughput_pps_live.pl <trace file> <tick(us)> <event> <type> <peer IP> <port>\n";
+	print STDOUT "Tick not specified\n";
 	exit;
 }
 
@@ -78,15 +94,21 @@ while (<STDIN>) {
 #		printf STDOUT "native\t$interval\t$throughput_native\t$pps_native\n";
 #		printf STDOUT "muxed\t$interval\t$throughput_muxed\t$pps_muxed\n";
 
-		# 0: native throughput
-		printf STDOUT "0:$throughput_native\n";
-		# 1: muxed throughput
-		printf STDOUT "1:$throughput_muxed\n";
-		# 2: native pps
-		printf STDOUT "2:$pps_native\n";
-		# 3: muxed pps
-		printf STDOUT "3:$pps_muxed\n";
 
+
+		if ($calculate_BW == 1) {
+			# 0: native throughput
+			printf STDOUT "0:$throughput_native\n";
+			# 1: muxed throughput
+			printf STDOUT "1:$throughput_muxed\n";
+		}
+
+		if ($calculate_pps == 1) {
+			# 2: native pps
+			printf STDOUT "2:$pps_native\n";
+			# 3: muxed pps
+			printf STDOUT "3:$pps_muxed\n";
+		}
 		$num_bytes_native = 0;
 		$num_packets_native = 0;
 
@@ -154,15 +176,19 @@ while (<STDIN>) {
 		#printf STDOUT "native\t$interval\t0\t0\n";
 		#printf STDOUT "muxed\t$interval\t0\t0\n";
 
-		# 0: native throughput
-		printf STDOUT "0:0\n";
-		# 1: muxed throughput
-		printf STDOUT "1:0\n";
-		# 2: native pps
-		printf STDOUT "2:0\n";
-		# 3: muxed pps
-		printf STDOUT "3:0\n";
+		if ($calculate_BW == 1) {
+			# 0: native throughput
+			printf STDOUT "0:0\n";
+			# 1: muxed throughput
+			printf STDOUT "1:0\n";
+		}
 
+		if ($calculate_pps == 1) {
+			# 2: native pps
+			printf STDOUT "2:0\n";
+			# 3: muxed pps
+			printf STDOUT "3:0\n";
+		}
 		$current_tick_begin = $current_tick_begin + $tick;		
 	}
 }
