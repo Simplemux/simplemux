@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 1.6.23                                  *
+ * simplemux.c            version 1.6.24                                  *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress).                                           *
@@ -893,7 +893,7 @@ int main(int argc, char *argv[]) {
 		/*** Request a socket for feedback packets ***/
 		// AF_INET (exactly the same as PF_INET)
 		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-		// transport_mode_fd is the file descriptor of the socket for managing arrived feedback packets
+		// feedback_fd is the file descriptor of the socket for managing arrived feedback packets
 		// I only need the feedback socket if ROHC is activated 
 		if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
 			perror("socket()");
