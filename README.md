@@ -18,3 +18,5 @@ ROCH feedback messages are always sent in IP/UDP packets.
 A research paper about Simplemux can be found here: http://diec.unizar.es/~jsaldana/personal/chicago_CIT2015_in_proc.pdf
 
 A presentation about Simplemux can be found here: http://es.slideshare.net/josemariasaldana/simplemux-traffic-optimization
+
+This work has been partially financed by the EU H2020 Wi-5 project (G.A. no: 644262, see http://www.wi5.eu/), and the Spanish Ministry of Economy and Competitiveness project TIN2015-64770-R, in cooperation with the European Regional Development Fund.
