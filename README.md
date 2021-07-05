@@ -20,8 +20,8 @@ A research paper about Simplemux can be found here: http://diec.unizar.es/~jsald
 A presentation about Simplemux can be found here: http://es.slideshare.net/josemariasaldana/simplemux-traffic-optimization
 
 
-How to install ROHC
--------------------
+How to install ROHC and compile Simplemux
+-----------------------------------------
 In Debian, you will need these packages:
 ```
 sudo apt-get install git
