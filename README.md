@@ -19,4 +19,32 @@ A research paper about Simplemux can be found here: http://diec.unizar.es/~jsald
 
 A presentation about Simplemux can be found here: http://es.slideshare.net/josemariasaldana/simplemux-traffic-optimization
 
+
+How to install ROHC
+-------------------
+In Debian, you will need these packages:
+```
+sudo apt-get install git
+sudo apt-get install build-essential
+sudo apt-get install pkgconf
+```
+
+Download version 1.7.0 from https://rohc-lib.org/support/download/, and unzip the content in a folder.
+
+Go go the ROHC folder and make:
+```
+cd rohc-1.7.0/
+./configure --prefix=/usr
+make all
+make check
+sudo make install
+```
+
+And now, you can compile simplemux:
+```
+$ gcc -o simplemux -g -Wall $(pkg-config rohc --cflags) simplemux.c $(pkg-config rohc --libs )
+```
+
+ACKNOWLEDGEMENTS
+----------------
 This work has been partially financed by the **EU H2020 Wi-5 project** (G.A. no: 644262, see http://www.wi5.eu/ and https://github.com/Wi5), and the Spanish Ministry of Economy and Competitiveness project TIN2015-64770-R, in cooperation with the European Regional Development Fund.
