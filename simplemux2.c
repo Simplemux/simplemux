@@ -903,7 +903,7 @@ int main(int argc, char *argv[]) {
 			}				
 
 			/*** initialize tap interface for native packets ***/
-			if ( (tun_fd = (tun_if_name, IFF_TAP | IFF_NO_PI)) < 0 ) {
+			if ( (tun_fd = tun_alloc(tun_if_name, IFF_TAP | IFF_NO_PI)) < 0 ) {
 				my_err("Error connecting to tap interface for capturing native Ethernet frames %s\n", tun_if_name);
 				exit(1);
 			}
