@@ -272,6 +272,7 @@ void usage(void) {
 	fprintf(stderr, "-e <ifacename>: Name of local interface which IP will be used for reception of muxed packets, i.e., the tunnel local end (mandatory)\n");
 	fprintf(stderr, "-c <peerIP>: specify peer destination IP address, i.e. the tunnel remote end (mandatory)\n");
 	fprintf(stderr, "-M <mode>: Network(N) or Transport (T) mode (mandatory)\n");
+	fprintf(stderr, "-T <tunnel mode>: TUN(U, default) or TAP (A) mode\n");
 	fprintf(stderr, "-p <port>: port to listen on, and to connect to (default 55555)\n");
 	fprintf(stderr, "-d: outputs debug information while running. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
 	fprintf(stderr, "-r: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
@@ -643,7 +644,7 @@ int main(int argc, char *argv[]) {
 
 	char mode[2] = "";									// Network(N) or Transport (T) mode
 
-	char tunnel_mode[2]= "";							// TUN (U) or TAP (T) tunnel mode
+	char tunnel_mode[2]= "U";							// TUN (U, default) or TAP (T) tunnel mode
 	
 	const int on = 1;										// needed when creating a socket
 
