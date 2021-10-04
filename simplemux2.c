@@ -416,7 +416,14 @@ int date_and_time(char buffer[25])
 
 // the multiplexed packet is stored in mux_packet[BUFSIZE]
 // the length of the multiplexed packet is returned by this function
-uint16_t build_multiplexed_packet ( int num_packets, int single_prot, unsigned char prot[MAXPKTS][SIZE_PROTOCOL_FIELD], uint16_t size_separators_to_mux[MAXPKTS], unsigned char separators_to_mux[MAXPKTS][3], uint16_t size_packets_to_mux[MAXPKTS], unsigned char packets_to_mux[MAXPKTS][BUFSIZE], unsigned char mux_packet[BUFSIZE])
+uint16_t build_multiplexed_packet ( int num_packets,
+												int single_prot,
+												unsigned char prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
+												uint16_t size_separators_to_mux[MAXPKTS],
+												unsigned char separators_to_mux[MAXPKTS][3],
+												uint16_t size_packets_to_mux[MAXPKTS],
+												unsigned char packets_to_mux[MAXPKTS][BUFSIZE],
+												unsigned char mux_packet[BUFSIZE])
 {
 	int k, l;
 	int length = 0;
@@ -432,18 +439,21 @@ uint16_t build_multiplexed_packet ( int num_packets, int single_prot, unsigned c
 					length ++;
 				}
 			}
-	
+			//do_debug(2, "Protocol field: %02x ", prot[k][0]);
+				
 			// add the separator
 			for (l = 0; l < size_separators_to_mux[k] ; l++) {
 				mux_packet[length] = separators_to_mux[k][l];
 				length ++;
 			}
-		} else {
+		}
+		else {
 			// add the separator
 			for (l = 0; l < size_separators_to_mux[k] ; l++) {
 				mux_packet[length] = separators_to_mux[k][l];
 				length ++;
 			}
+
 			// add the 'Protocol' field if necessary
 			if ( (k==0) || (single_prot == 0 ) ) {		// the protocol field is always present in the first separator (k=0), and maybe in the rest
 				for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
@@ -451,14 +461,16 @@ uint16_t build_multiplexed_packet ( int num_packets, int single_prot, unsigned c
 					length ++;
 				}
 			}
+			//do_debug(2, "Protocol field: %02x ", prot[k][0]);
 		}
-
+		
 		// add the bytes of the packet itself
 		for (l = 0; l < size_packets_to_mux[k] ; l++) {
 			mux_packet[length] = packets_to_mux[k][l];
 			length ++;
 		}
 	}
+
 	return length;
 }
 
@@ -965,7 +977,8 @@ int main(int argc, char *argv[]) {
 		if (user_mtu > interface_mtu) {
 			perror ("Error: The MTU specified by the user is higher than the MTU of the interface\n");
 			exit (1);
-		} else {
+		}
+		else {
 
 			// if the user has specified a MTU, I use it instead of network MTU
 			if (user_mtu > 0) {
@@ -1156,11 +1169,11 @@ int main(int argc, char *argv[]) {
 			// Set the callback function to be used for detecting RTP.
 			// RTP is not detected automatically. So you have to create a callback function "rtp_detect" where you specify the conditions.
 			// In our case we will consider as RTP the UDP packets belonging to certain ports
-		    if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL))
-		    {
-		            fprintf(stderr, "failed to set RTP detection callback\n");
-		            goto error;
-		    }
+		   if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL))
+		   {
+		   	fprintf(stderr, "failed to set RTP detection callback\n");
+		      goto error;
+		   }
 
 			// set the function that will manage the ROHC compressing traces (it will be 'print_rohc_traces')
 			if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL))
@@ -1227,7 +1240,8 @@ int main(int argc, char *argv[]) {
 			*  - ROHC_U_MODE: Unidirectional mode (U-mode).    */
 			if ( ROHC_mode == 1 ) {
 				decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_U_MODE);	// Unidirectional mode
-			} else if ( ROHC_mode == 2 ) {
+			}
+			else if ( ROHC_mode == 2 ) {
 				decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_O_MODE);	// Bidirectional Optimistic mode
 			}/*else if ( ROHC_mode == 3 ) {
 				decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);	// Bidirectional Reliable mode (not implemented yet)
@@ -1342,7 +1356,8 @@ int main(int argc, char *argv[]) {
 			time_in_microsec = GetTimeStamp();
 			if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
 				microseconds_left = (period - (time_in_microsec - time_last_sent_in_microsec));			
-			} else {
+			}
+			else {
 				microseconds_left = 0;
 			}
 			// do_debug (1, "microseconds_left: %i\n", microseconds_left);
@@ -1491,13 +1506,15 @@ int main(int argc, char *argv[]) {
 								// if I am here, it means that I have read the first separator
 								first_header_read = 1;
 									
-							} else {
+							}
+							else {
 								// Non-first header
 
 								if (single_protocol_rec == 1) {
 									// all the packets belong to the same protocol, so the first byte belongs to the Mux separator, so I check it
 									FromByte(buffer_from_net[position], bits);
-								} else {
+								}
+								else {
 									// each packet belongs to a different protocol, so the first thing I find is the 'Protocol' field
 									// and the second one belongs to the Mux separator, so I check it
 									if ( SIZE_PROTOCOL_FIELD == 1 ) {
@@ -1543,7 +1560,8 @@ int main(int argc, char *argv[]) {
 
 								position ++;
 
-							} else {
+							}
+							else {
 								// if the second bit (LXT) of the first byte is 1, it means that the separator is not one-byte
 
 								// check the bit 7 of the second byte
@@ -1599,7 +1617,8 @@ int main(int argc, char *argv[]) {
 							do_debug(1, ": total %i bytes\n", packet_length);
 
 
-						} else { 	// 'Protocol' field goes after the separator
+						}
+						else { 	// 'Protocol' field goes after the separator
 
 							// read the SPB and LXT bits and 'protocol', 
 
@@ -2156,9 +2175,10 @@ int main(int argc, char *argv[]) {
 							fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 						}
 					}
-
+				}
+				
 				// network mode
-				} else {
+ 				else {
 					if ( size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + 3 > selected_mtu ) {
 						drop_packet = 1;
 
@@ -2211,7 +2231,8 @@ int main(int argc, char *argv[]) {
 							// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
 							if ( SIZE_PROTOCOL_FIELD == 1 ) {
 								protocol[num_pkts_stored_from_tun][0] = 142;
-							} else {	// SIZE_PROTOCOL_FIELD == 2 
+							}
+							else {	// SIZE_PROTOCOL_FIELD == 2 
 								protocol[num_pkts_stored_from_tun][0] = 0;
 								protocol[num_pkts_stored_from_tun][1] = 142;
 							}
@@ -2231,7 +2252,8 @@ int main(int argc, char *argv[]) {
 								dump_packet ( rohc_packet.len, rohc_packet.data );
 							}
 
-						} else {
+						}
+						else {
 							/* compressor failed to compress the IP packet */
 							/* Send it in its native form */
 
@@ -2242,7 +2264,8 @@ int main(int argc, char *argv[]) {
 							// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
 							if ( SIZE_PROTOCOL_FIELD == 1 ) {
 								protocol[num_pkts_stored_from_tun][0] = 4;
-							} else {	// SIZE_PROTOCOL_FIELD == 2 
+							}
+							else {	// SIZE_PROTOCOL_FIELD == 2 
 								protocol[num_pkts_stored_from_tun][0] = 0;
 								protocol[num_pkts_stored_from_tun][1] = 4;
 							}
@@ -2258,16 +2281,38 @@ int main(int argc, char *argv[]) {
 							//goto release_compressor;
 						}
 
-					} else {
+					}
+					else {
 						// header compression has not been selected by the user
 
-						// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
-						// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-						if ( SIZE_PROTOCOL_FIELD == 1 ) {
-							protocol[num_pkts_stored_from_tun][0] = 4;
-						} else {	// SIZE_PROTOCOL_FIELD == 2 
-							protocol[num_pkts_stored_from_tun][0] = 0;
-							protocol[num_pkts_stored_from_tun][1] = 4;
+						if (strcmp(tunnel_mode, "A") == 0) {
+							// tap mode
+							
+							// since this frame CANNOT be compressed, its protocol number has to be 143: 'Ethernet on IP' 
+							// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+							if ( SIZE_PROTOCOL_FIELD == 1 ) {
+								protocol[num_pkts_stored_from_tun][0] = 143;
+							}
+							else {	// SIZE_PROTOCOL_FIELD == 2 
+								protocol[num_pkts_stored_from_tun][0] = 0;
+								protocol[num_pkts_stored_from_tun][1] = 143;
+							}
+						}
+						else if (strcmp(tunnel_mode, "U") == 0) {
+							// tun mode
+							
+							// since this IP packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
+							// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+							if ( SIZE_PROTOCOL_FIELD == 1 ) {
+								protocol[num_pkts_stored_from_tun][0] = 4;
+							}
+							else {	// SIZE_PROTOCOL_FIELD == 2 
+								protocol[num_pkts_stored_from_tun][0] = 0;
+								protocol[num_pkts_stored_from_tun][1] = 4;
+							}
+						}
+						else {
+							// error
 						}
 					}
 
@@ -2297,14 +2342,17 @@ int main(int argc, char *argv[]) {
 						// this is the first header, so the maximum length is 64
 						if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 64 ) {
 							predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
-						} else {
+						}
+						else {
 							predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
 						}
-					} else {
+					}
+					else {
 						// this is not the first header, so the maximum length is 128
 						if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 128 ) {
 							predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
-						} else {
+						}
+						else {
 							predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
 						}
 					}
@@ -2328,16 +2376,25 @@ int main(int argc, char *argv[]) {
 						if (single_protocol == 1) {
 							separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
 							size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
-						} else {
+						}
+						else {
 							size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
 						}
 
 						// build the multiplexed packet without the current one
-						total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+						total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
+																				single_protocol,
+																				protocol,
+																				size_separators_to_multiplex,
+																				separators_to_multiplex,
+																				size_packets_to_multiplex,
+																				packets_to_multiplex,
+																				muxed_packet);
 
 						if (single_protocol) {
 							do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
-						} else {
+						}
+						else {
 							do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
 						}
 						switch (*mode) {
@@ -2415,7 +2472,8 @@ int main(int argc, char *argv[]) {
 						// reset the length and the number of packets
 						size_muxed_packet = 0;
 						num_pkts_stored_from_tun = 0;
-					}	/*** end check if size limit would be reached ***/
+					}
+					/*** end check if size limit would be reached ***/
 
 
 					// update the size of the muxed packet, adding the size of the current one
@@ -2429,7 +2487,8 @@ int main(int argc, char *argv[]) {
 						// this is the first header
 						maximum_packet_length = 64;
 						limit_length_two_bytes = 8192;
-					} else {
+					}
+					else {
 						// this is a non-first header
 						maximum_packet_length = 128;
 						limit_length_two_bytes = 16384;
@@ -2455,7 +2514,7 @@ int main(int argc, char *argv[]) {
 						// print the  Mux separator (only one byte)
 						if(debug) {
 							FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
-							do_debug(2, " Mux separator of 1 byte: (%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
+							do_debug(2, " Mux separator of 1 byte: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
 							if (first_header_written == 0) {
 								PrintByte(2, 7, bits);			// first header
 							} else {
@@ -2463,9 +2522,10 @@ int main(int argc, char *argv[]) {
 							}
 							do_debug(2, "\n");
 						}
-
+					}
+					
 					// two-byte separator
-					} else if (size_packets_to_multiplex[num_pkts_stored_from_tun] < limit_length_two_bytes ) {
+					else if (size_packets_to_multiplex[num_pkts_stored_from_tun] < limit_length_two_bytes ) {
 
 						// the length requires a two-byte separator (length expressed in 13 or 14 bits)
 						size_separators_to_multiplex[num_pkts_stored_from_tun] = 2;
@@ -2496,7 +2556,7 @@ int main(int argc, char *argv[]) {
 						if(debug) {
 							// first byte
 							FromByte(separators_to_multiplex[0][num_pkts_stored_from_tun], bits);
-							do_debug(2, " Mux separator of 2 bytes: (%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
+							do_debug(2, " Mux separator of 2 bytes: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
 							if (first_header_written == 0) {
 								PrintByte(2, 7, bits);			// first header
 							} else {
@@ -2505,19 +2565,19 @@ int main(int argc, char *argv[]) {
 
 							// second byte
 							FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
-							do_debug(2, " (%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
+							do_debug(2, " (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
 							PrintByte(2, 8, bits);
 							do_debug(2, "\n");
 						}	
-
+					}
 
 					// three-byte separator
-					} else {
+					else {
 
 						// the length requires a three-byte separator (length expressed in 20 or 21 bits)
 						size_separators_to_multiplex[num_pkts_stored_from_tun] = 3;
 
-//FIXME. I have just copied the case of two-byte separator
+						//FIXME. I have just copied the case of two-byte separator
 						// first byte of the Mux separator
 						// It can be:
 						// - first-header: SPB bit, LXT=1 and 6 bits with the most significant bits of the length
@@ -2529,7 +2589,8 @@ int main(int argc, char *argv[]) {
 							// first header
 							separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 16384 ) + 64;
 
-						} else {
+						}
+						else {
 							// non-first header
 							separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 16384 ) + 128;	
 						}
@@ -2558,7 +2619,7 @@ int main(int argc, char *argv[]) {
 						if(debug) {
 							// first byte
 							FromByte(separators_to_multiplex[0][num_pkts_stored_from_tun], bits);
-							do_debug(2, " Mux separator of 2 bytes: (%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
+							do_debug(2, " Mux separator of 2 bytes: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
 							if (first_header_written == 0) {
 								PrintByte(2, 7, bits);			// first header
 							} else {
@@ -2567,13 +2628,13 @@ int main(int argc, char *argv[]) {
 
 							// second byte
 							FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
-							do_debug(2, " (%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
+							do_debug(2, " (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
 							PrintByte(2, 8, bits);
 							do_debug(2, "\n");
 
 							// third byte
 							FromByte(separators_to_multiplex[num_pkts_stored_from_tun][2], bits);
-							do_debug(2, " (%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][2]);
+							do_debug(2, " (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][2]);
 							PrintByte(2, 8, bits);
 							do_debug(2, "\n");
 						}
@@ -2605,7 +2666,8 @@ int main(int argc, char *argv[]) {
 						single_protocol = 1;
 						for (k = 1; k < num_pkts_stored_from_tun ; k++) {
 							for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-								if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+								if (protocol[k][l] != protocol[k-1][l])
+									single_protocol = 0;
 							}
 						}
 
@@ -2630,7 +2692,7 @@ int main(int argc, char *argv[]) {
 								do_debug(1, "timeout reached\n");
 
 							if (single_protocol) {
-								do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+								do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", protocol[1][0]);
 							} else {
 								do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
 							}
@@ -2647,7 +2709,14 @@ int main(int argc, char *argv[]) {
 						}
 
 						// build the multiplexed packet including the current one
-						total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+						total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
+																				single_protocol,
+																				protocol,
+																				size_separators_to_multiplex,
+																				separators_to_multiplex,
+																				size_packets_to_multiplex,
+																				packets_to_multiplex,
+																				muxed_packet);
 
 						// send the multiplexed packet
 						switch (*mode) {
