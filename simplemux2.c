@@ -979,7 +979,8 @@ int main(int argc, char *argv[]) {
 		}
 
 		/*** get the MTU of the local interface ***/
-		if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1) interface_mtu = 0;
+		if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1)
+			interface_mtu = 0;
 		else interface_mtu = iface.ifr_mtu;
 
 		/*** check if the user has specified a bad MTU ***/
@@ -999,7 +1000,8 @@ int main(int argc, char *argv[]) {
 				selected_mtu = user_mtu;
 
 			// otherwise, use the MTU of the local interface
-			} else {
+			}
+			else {
 				selected_mtu = interface_mtu;
 			}
 		}
@@ -1015,7 +1017,8 @@ int main(int argc, char *argv[]) {
 		if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
 			perror ("ioctl() failed to find the IP address for local interface ");
 			return (EXIT_FAILURE);
-		} else {
+		}
+		else {
 			// source IPv4 address: it is the one of the interface
 			strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
 			do_debug(1, "Local IP for multiplexing %s\n", local_ip);
@@ -1038,7 +1041,8 @@ int main(int argc, char *argv[]) {
 		if (*mode == TRANSPORT_MODE ) {
 		 	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
 				perror("bind");
-			} else {
+			}
+			else {
 				do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
 			}
 		}
@@ -1059,7 +1063,8 @@ int main(int argc, char *argv[]) {
 		// bind the socket "feedback_fd" to the local feedback address (the same used for multiplexing) and port
 	 	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
 			perror("bind");
-		} else {
+		}
+		else {
 			do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
 		}
 
@@ -1145,7 +1150,6 @@ int main(int argc, char *argv[]) {
 		do_debug(1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %.2lf. period: %.2lf\n", size_threshold, limit_numpackets_tun, timeout, period);
 
 
-
 		switch(ROHC_mode) {
 				case 0:
 					do_debug ( 1 , "ROHC not activated\n", debug);
@@ -1172,8 +1176,7 @@ int main(int argc, char *argv[]) {
 			/* Create a ROHC compressor with Large CIDs and the largest MAX_CID
 			 * possible for large CIDs */
 			compressor = rohc_comp_new2(ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, gen_random_num, NULL);
-			if(compressor == NULL)
-			{
+			if(compressor == NULL) {
 				fprintf(stderr, "failed create the ROHC compressor\n");
 				goto error;
 			}
@@ -1183,65 +1186,63 @@ int main(int argc, char *argv[]) {
 			// Set the callback function to be used for detecting RTP.
 			// RTP is not detected automatically. So you have to create a callback function "rtp_detect" where you specify the conditions.
 			// In our case we will consider as RTP the UDP packets belonging to certain ports
-		   if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL))
-		   {
+		   if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL)) {
 		   	fprintf(stderr, "failed to set RTP detection callback\n");
 		      goto error;
 		   }
 
 			// set the function that will manage the ROHC compressing traces (it will be 'print_rohc_traces')
-			if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL))
-			{
+			if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL)) {
 				fprintf(stderr, "failed to set the callback for traces on compressor\n");
 				goto release_compressor;
 			}
 
 			/* Enable the ROHC compression profiles */
-			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_UNCOMPRESSED))
-			{
+			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_UNCOMPRESSED)) {
 				fprintf(stderr, "failed to enable the Uncompressed compression profile\n");
 				goto release_compressor;
-			} else {
+			}
+			else {
 				do_debug(1, "Uncompressed. ");
 			}
 
-			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_IP))
-			{
+			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_IP)) {
 				fprintf(stderr, "failed to enable the IP-only compression profile\n");
 				goto release_compressor;
-			} else {
+			}
+			else {
 				do_debug(1, "IP-only. ");
 			}
 
-			if(!rohc_comp_enable_profiles(compressor, ROHC_PROFILE_UDP, ROHC_PROFILE_UDPLITE, -1))
-			{
+			if(!rohc_comp_enable_profiles(compressor, ROHC_PROFILE_UDP, ROHC_PROFILE_UDPLITE, -1)) {
 				fprintf(stderr, "failed to enable the IP/UDP and IP/UDP-Lite compression profiles\n");
 				goto release_compressor;
-			} else {
+			}
+			else {
 				do_debug(1, "IP/UDP. IP/UDP-Lite. ");
 			}
 
-			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_RTP))
-			{
+			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_RTP)) {
 				fprintf(stderr, "failed to enable the RTP compression profile\n");
 				goto release_compressor;
-			} else {
+			}
+			else {
 				do_debug(1, "RTP (UDP ports 1234, 36780, 33238, 5020, 5002). ");
 			}
 
-			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_ESP))
-			{
+			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_ESP)) {
 				fprintf(stderr, "failed to enable the ESP compression profile\n");
 				goto release_compressor;
-			} else {
+			}
+			else {
 				do_debug(1, "ESP. ");
 			}
 
-			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_TCP))
-			{
+			if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_TCP)) {
 				fprintf(stderr, "failed to enable the TCP compression profile\n");
 				goto release_compressor;
-			} else {
+			}
+			else {
 				do_debug(1, "TCP. ");
 			}
 			do_debug(1, "\n");
@@ -1257,7 +1258,8 @@ int main(int argc, char *argv[]) {
 			}
 			else if ( ROHC_mode == 2 ) {
 				decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_O_MODE);	// Bidirectional Optimistic mode
-			}/*else if ( ROHC_mode == 3 ) {
+			}
+			/*else if ( ROHC_mode == 3 ) {
 				decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);	// Bidirectional Reliable mode (not implemented yet)
 			}*/
 
@@ -1342,6 +1344,8 @@ int main(int argc, char *argv[]) {
 
 			do_debug(1, "\n");
 		}
+		do_debug(1, "\n");
+		
 
 		/*** I need the value of the maximum file descriptor, in order to let select() handle four interface descriptors at once ***/
 		if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd)
@@ -1352,7 +1356,6 @@ int main(int argc, char *argv[]) {
 			maxfd = transport_mode_fd;
 		if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd)
 			maxfd = feedback_fd;
-
 
 
 		/*****************************************/
@@ -2157,7 +2160,7 @@ int main(int argc, char *argv[]) {
 				/* increase the counter of the number of packets read from tun*/
 				tun2net++;
 
-				if (debug > 1 ) do_debug (2,"\n");
+				//if (debug > 1 ) do_debug (2,"\n");
 				if (*tunnel_mode == TUN_MODE)
 					do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
 				else if (*tunnel_mode == TAP_MODE)
@@ -2329,7 +2332,8 @@ int main(int argc, char *argv[]) {
 							}
 						}
 						else {
-							// error
+							perror ("wrong value of 'tunnel_mode'");
+							exit (EXIT_FAILURE);
 						}
 					}
 
@@ -2783,11 +2787,11 @@ int main(int argc, char *argv[]) {
 									switch (*mode) {
 										case TRANSPORT_MODE:
 											do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-											do_debug(1, " Sending to the network a packet containing %i native ones: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+											do_debug(1, " Sending to the network a packet containing %i native one(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
 										break;
 										case NETWORK_MODE:
 											do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-											do_debug(1, " Sending to the network a packet containing %i native ones: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
+											do_debug(1, " Sending to the network a packet containing %i native one(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
 										break;
 									break;
 								}
@@ -2795,11 +2799,11 @@ int main(int argc, char *argv[]) {
 									switch (*mode) {
 										case TRANSPORT_MODE:
 											do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-											do_debug(1, " Sending to the network a packet containing %i native Eth frames: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+											do_debug(1, " Sending to the network a packet containing %i native Eth frame(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
 										break;
 										case NETWORK_MODE:
 											do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-											do_debug(1, " Sending to the network a packet containing %i native Eth frames: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
+											do_debug(1, " Sending to the network a packet containing %i native Eth frame(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
 										break;								
 									break;
 								}
@@ -2826,13 +2830,14 @@ int main(int argc, char *argv[]) {
 								}
 								else {
 									if(strcmp(tunnel_mode,"U")==0) {
-										do_debug(2, " Packet sent (includes %d muxed packets)\n", num_pkts_stored_from_tun);
+										do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
 									}
 									else if(strcmp(tunnel_mode,"A")==0) {
-										do_debug(2, " Packet sent (includes %d muxed frames)\n", num_pkts_stored_from_tun);										
+										do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);										
 									}
 									else {
-										//error
+										perror ("wrong value of 'tunnel_mode'");
+										exit (EXIT_FAILURE);
 									}
 								}
 							break;
@@ -2851,13 +2856,14 @@ int main(int argc, char *argv[]) {
 								}
 								else {
 									if(strcmp(tunnel_mode,"U")==0) {
-										do_debug(2, "Packet sent (includes %d muxed packets)\n", num_pkts_stored_from_tun);
+										do_debug(2, "Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
 									}
 									else if(strcmp(tunnel_mode,"A")==0) {
-										do_debug(2, "Packet sent (includes %d muxed frames)\n", num_pkts_stored_from_tun);
+										do_debug(2, "Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);
 									}
 									else {
-										//error
+										perror ("wrong value of 'tunnel_mode'");
+										exit (EXIT_FAILURE);
 									}
 								}
 							break;
@@ -3020,7 +3026,7 @@ release_decompressor:
 	rohc_decomp_free(decompressor);
 
 error:
-	fprintf(stderr, "an error occured during program execution, "
+	fprintf(stderr, "an error occurred during program execution, "
 		"abort program\n");
 	if ( log_file != NULL ) fclose (log_file);
 	return 1;
