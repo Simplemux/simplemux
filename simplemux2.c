@@ -433,7 +433,7 @@ uint16_t build_multiplexed_packet ( int num_packets,
 
 		if (k == 0)
 			// add a tab before the first separator
-			do_debug(2, "\tseparators: ");
+			do_debug(2, "   Separators: ");
 		else
 			// add a semicolon before the 2nd and subsequent separators
 			do_debug(2, "; ");
@@ -2158,9 +2158,12 @@ int main(int argc, char *argv[]) {
 				tun2net++;
 
 				if (debug > 1 ) do_debug (2,"\n");
-				do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
-
-				// print the native packet received
+				if (*tunnel_mode == TUN_MODE)
+					do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
+				else if (*tunnel_mode == TAP_MODE)
+					do_debug(1, "NATIVE PACKET #%lu: Read packet from tap: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
+					
+				// print the native packet/frame received
 				if (debug) {
 					do_debug(2, "   ");
 					// dump the newly-created IP packet on terminal
