@@ -349,7 +349,7 @@ void PrintByte(int debug_level, int num_bits, bool b[8])
 
 	int i;
 	for (i= 7 ; i>= num_bits ; i--) {
-			do_debug(debug_level, "x");
+			do_debug(debug_level, "_");
 	}
 	for (i= num_bits -1 ; i>=0; i--) {
 		if (b[i]) {
@@ -431,6 +431,15 @@ uint16_t build_multiplexed_packet ( int num_packets,
 	// for each packet, write the protocol field (if required), the separator and the packet itself
 	for (k = 0; k < num_packets ; k++) {
 
+		if (k == 0)
+			// add a tab before the first separator
+			do_debug(2, "\tseparators: ");
+		else
+			// add a semicolon before the 2nd and subsequent separators
+			do_debug(2, "; ");
+			
+		do_debug(2, "#%d: ", k+1);
+		
 		if ( PROTOCOL_FIRST ) {
 			// add the 'Protocol' field if necessary
 			if ( (k==0) || (single_prot == 0 ) ) {		// the protocol field is always present in the first separator (k=0), and maybe in the rest
@@ -438,18 +447,22 @@ uint16_t build_multiplexed_packet ( int num_packets,
 					mux_packet[length] = prot[k][l];
 					length ++;
 				}
+				//do_debug(2, "Protocol field: %02x ", prot[k][0]);
+				do_debug(2, "%02x", prot[k][0]);
 			}
-			//do_debug(2, "Protocol field: %02x ", prot[k][0]);
 				
 			// add the separator
 			for (l = 0; l < size_separators_to_mux[k] ; l++) {
+				do_debug(2, "%02x", separators_to_mux[k][l]);
 				mux_packet[length] = separators_to_mux[k][l];
 				length ++;
 			}
 		}
 		else {
+
 			// add the separator
 			for (l = 0; l < size_separators_to_mux[k] ; l++) {
+				do_debug(2, "%02x", separators_to_mux[k][l]);
 				mux_packet[length] = separators_to_mux[k][l];
 				length ++;
 			}
@@ -460,8 +473,9 @@ uint16_t build_multiplexed_packet ( int num_packets,
 					mux_packet[length] = prot[k][l];
 					length ++;
 				}
+				//do_debug(2, "Protocol field: %02x ", prot[k][0]);
+				do_debug(2, "%02x", prot[k][0]);
 			}
-			//do_debug(2, "Protocol field: %02x ", prot[k][0]);
 		}
 		
 		// add the bytes of the packet itself
@@ -470,7 +484,7 @@ uint16_t build_multiplexed_packet ( int num_packets,
 			length ++;
 		}
 	}
-
+	do_debug(2,"\n");
 	return length;
 }
 
@@ -2333,7 +2347,13 @@ int main(int argc, char *argv[]) {
 					}
 
 					// calculate the size without the present packet
-					predicted_size_muxed_packet = predict_size_multiplexed_packet (num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex);
+					predicted_size_muxed_packet = predict_size_multiplexed_packet (num_pkts_stored_from_tun,
+																										single_protocol,
+																										protocol,
+																										size_separators_to_multiplex,
+																										separators_to_multiplex,
+																										size_packets_to_multiplex,
+																										packets_to_multiplex);
 
 					// I add the length of the present packet:
 
@@ -2397,16 +2417,34 @@ int main(int argc, char *argv[]) {
 						else {
 							do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
 						}
-						switch (*mode) {
-							case TRANSPORT_MODE:
-								do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-								do_debug(1, " Sending muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
-							break;
-							case NETWORK_MODE:
-								do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-								do_debug(1, " Sending muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE );
-							break;
-						}
+						
+						switch(*tunnel_mode) {
+							case TUN_MODE:
+								switch (*mode) {
+									case TRANSPORT_MODE:
+										do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+										do_debug(1, " Sending to the network a muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+									break;
+									case NETWORK_MODE:
+										do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+										do_debug(1, " Sending to the network a muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE );
+									break;
+								break;
+							}
+							case TAP_MODE:
+								switch (*mode) {
+									case TRANSPORT_MODE:
+										do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+										do_debug(1, " Sending to the network a packet without this Eth frame: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+									break;
+									case NETWORK_MODE:
+										do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+										do_debug(1, " Sending to the network a packet without this Eth frame: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE );
+									break;								
+								break;
+							}
+						}	
+
 
 						// send the multiplexed packet without the current one
 						switch (*mode) {
@@ -2501,26 +2539,35 @@ int main(int argc, char *argv[]) {
 					// one-byte separator
 					if (size_packets_to_multiplex[num_pkts_stored_from_tun] < maximum_packet_length ) {
 
-						// the length can be written in the first byte of the separator (expressed in 6 or 7 bits)
+						// the length can be written in the first byte of the separator
+						// it can be expressed in 
+						//	- 6 bits for the first separator
+						// - 7 bits for non-first separators
 						size_separators_to_multiplex[num_pkts_stored_from_tun] = 1;
 
-						// add the length to the string.
-						// since the value is < maximum_packet_length, the most significant bits will always be 0
+						// add the 'length' field to the packet
+						// since the value is < maximum_packet_length, the most significant bits will always be 0:
+						// - first separator: the value will be expressed in 6 bits
+						// - non-first separator: the value will be expressed in 7 bits
 						separators_to_multiplex[num_pkts_stored_from_tun][0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
 
 						// increase the size of the multiplexed packet
 						size_muxed_packet ++;
 
-						// print the  Mux separator (only one byte)
+						// print the Mux separator (only one byte)
 						if(debug) {
 							FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
-							do_debug(2, " Mux separator of 1 byte: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
+							//do_debug(2, " Mux separator of 1 byte: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
+							
+							do_debug(2, " Mux separator of 1 byte (plus Protocol): ");
 							if (first_header_written == 0) {
 								PrintByte(2, 7, bits);			// first header
-							} else {
-								PrintByte(2, 8, bits);			// non-first header
+								do_debug(2, "(SPB field not included)\n");
 							}
-							do_debug(2, "\n");
+							else {
+								PrintByte(2, 8, bits);			// non-first header
+								do_debug(2, "\n");
+							}
 						}
 					}
 					
@@ -2536,19 +2583,31 @@ int main(int argc, char *argv[]) {
 						// - non-first-header: LXT=1 and 7 bits with the most significant bits of the length
 						// get the most significant bits by dividing by 128 (the 7 less significant bits will go in the second byte)
 						// add 64 (or 128) in order to put a '1' in the second (or first) bit
+						
+						// fill the LXT field of the first byte
+						// first header
 						if (first_header_written == 0) {
+							// add 64 (0100 0000) to the header, i.e., set the value of LXT to '1' (7th bit)
 							separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 128 ) + 64;	// first header
-						} else {
+						}
+						// non-first header
+						else {
+							// add 128 (1000 0000) to the header, i.e., set the value of LXT to '1' (8th bit)
 							separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 128 ) + 128;	// non-first header
 						}
 
+
 						// second byte of the Mux separator
+
 						// Length: the 7 less significant bytes of the length. Use modulo 128
 						separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 128;
 
+						// fill the LXT field of the second byte
 						// LXT bit has to be set to 0, because this is the last byte of the length
 						// if I do nothing, it will be 0, since I have used modulo 128
 
+						// SPB field will be filled later
+						
 						// increase the size of the multiplexed packet
 						size_muxed_packet = size_muxed_packet + 2;
 
@@ -2556,16 +2615,21 @@ int main(int argc, char *argv[]) {
 						if(debug) {
 							// first byte
 							FromByte(separators_to_multiplex[0][num_pkts_stored_from_tun], bits);
-							do_debug(2, " Mux separator of 2 bytes: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
+							//do_debug(2, " Mux separator of 2 bytes: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
+							do_debug(2, " Mux separator of 2 bytes (plus Protocol). First byte: ");
 							if (first_header_written == 0) {
 								PrintByte(2, 7, bits);			// first header
-							} else {
+								do_debug(2, " (SPB field not included). ");
+							}
+							else {
 								PrintByte(2, 8, bits);			// non-first header
+								do_debug(2, "");
 							}
 
 							// second byte
 							FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
-							do_debug(2, " (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
+							//do_debug(2, " (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
+							do_debug(2, "second byte: ");
 							PrintByte(2, 8, bits);
 							do_debug(2, "\n");
 						}	
@@ -2662,6 +2726,8 @@ int main(int argc, char *argv[]) {
 
 						// a multiplexed packet has to be sent
 
+						// fill the SPB field (Single Protocol Bit)
+						
 						// calculate if all the packets belong to the same protocol
 						single_protocol = 1;
 						for (k = 1; k < num_pkts_stored_from_tun ; k++) {
@@ -2691,20 +2757,49 @@ int main(int argc, char *argv[]) {
 							if (time_difference > timeout)
 								do_debug(1, "timeout reached\n");
 
-							if (single_protocol) {
-								do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", protocol[1][0]);
-							} else {
-								do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+							if ( SIZE_PROTOCOL_FIELD == 1 ) {
+								if (single_protocol) {
+									do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", protocol[0][0]);
+								}
+								else {
+									do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+								}
 							}
-							switch (*mode) {
-								case TRANSPORT_MODE:
-									do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-									do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-								break;
-								case NETWORK_MODE:
-									do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-									do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
-								break;
+							else {	// SIZE_PROTOCOL_FIELD == 2
+								if (single_protocol) {
+									do_debug(2, "   All packets belong to the same protocol. Added 2 Protocol bytes (0x%02x%02x) in the first separator\n", protocol[0][0], protocol[0][1]);
+								}
+								else {
+									do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+								}
+							}
+
+							
+							switch(*tunnel_mode) {
+								case TUN_MODE:
+									switch (*mode) {
+										case TRANSPORT_MODE:
+											do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+											do_debug(1, " Sending to the network a packet containing %i native ones: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+										break;
+										case NETWORK_MODE:
+											do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+											do_debug(1, " Sending to the network a packet containing %i native ones: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
+										break;
+									break;
+								}
+								case TAP_MODE:
+									switch (*mode) {
+										case TRANSPORT_MODE:
+											do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+											do_debug(1, " Sending to the network a packet containing %i native Eth frames: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+										break;
+										case NETWORK_MODE:
+											do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+											do_debug(1, " Sending to the network a packet containing %i native Eth frames: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
+										break;								
+									break;
+								}
 							}			
 						}
 
@@ -2722,8 +2817,21 @@ int main(int argc, char *argv[]) {
 						switch (*mode) {
 							case TRANSPORT_MODE:
 								// send the packet. I don't need to build the header, because I have a UDP socket
-								if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1)
+								if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
 									perror("sendto()");
+									exit (EXIT_FAILURE);								
+								}
+								else {
+									if(strcmp(tunnel_mode,"U")==0) {
+										do_debug(2, " Packet sent (includes %d muxed packets)\n", num_pkts_stored_from_tun);
+									}
+									else if(strcmp(tunnel_mode,"A")==0) {
+										do_debug(2, " Packet sent (includes %d muxed frames)\n", num_pkts_stored_from_tun);										
+									}
+									else {
+										//error
+									}
+								}
 							break;
 
 							case NETWORK_MODE:
@@ -2737,6 +2845,17 @@ int main(int argc, char *argv[]) {
 								if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
 									perror ("sendto() failed ");
 									exit (EXIT_FAILURE);
+								}
+								else {
+									if(strcmp(tunnel_mode,"U")==0) {
+										do_debug(2, "Packet sent (includes %d muxed packets)\n", num_pkts_stored_from_tun);
+									}
+									else if(strcmp(tunnel_mode,"A")==0) {
+										do_debug(2, "Packet sent (includes %d muxed frames)\n", num_pkts_stored_from_tun);
+									}
+									else {
+										//error
+									}
 								}
 							break;
 						}
@@ -2829,7 +2948,13 @@ int main(int argc, char *argv[]) {
 					}
 
 					// build the multiplexed packet
-					total_length = build_multiplexed_packet ( num_pkts_stored_from_tun, single_protocol, protocol, size_separators_to_multiplex, separators_to_multiplex, size_packets_to_multiplex, packets_to_multiplex, muxed_packet);
+					total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
+																			single_protocol, protocol,
+																			size_separators_to_multiplex,
+																			separators_to_multiplex,
+																			size_packets_to_multiplex,
+																			packets_to_multiplex,
+																			muxed_packet);
 
 					// send the multiplexed packet
 					switch (*mode) {
@@ -2868,7 +2993,8 @@ int main(int argc, char *argv[]) {
 					size_muxed_packet = 0 ;
 					num_pkts_stored_from_tun = 0;
 
-				} else {
+				}
+				else {
 					// No packet arrived
 					//do_debug(2, "Period expired. Nothing to be sent\n");
 				}
