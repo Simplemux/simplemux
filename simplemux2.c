@@ -1415,13 +1415,14 @@ int main(int argc, char *argv[]) {
 						// I cannot use 'remote' because it would replace the IP address and port. I use 'received'
 						nread_from_net = recvfrom ( transport_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
 						if (nread_from_net==-1) perror ("recvfrom()");
-						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets) of a full packet or frame.
+						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
 						// I don't have the IP and UDP headers
 
 						// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
 						if (port == ntohs(received.sin_port)) 
 							 is_multiplexed_packet = 1;
-						else is_multiplexed_packet = 0;
+						else
+							is_multiplexed_packet = 0;
 					break;
 
 					case NETWORK_MODE:
@@ -1439,9 +1440,9 @@ int main(int argc, char *argv[]) {
 						// Get IP Header of received packet
 						GetIpHeader(&ipheader,buffer_from_net_aux);
 						if (ipheader.protocol == IPPROTO_SIMPLEMUX )
-							 is_multiplexed_packet = 1;
-						else is_multiplexed_packet = 0;
-
+							is_multiplexed_packet = 1;
+						else
+							is_multiplexed_packet = 0;
 					break;
 				}
 
@@ -1474,7 +1475,7 @@ int main(int argc, char *argv[]) {
 						break;
 					}
 
-					// if the packet comes from the multiplexing port, I have to demux it and write each packet to the tun interface
+					// if the packet comes from the multiplexing port, I have to demux it and write each packet to the tun / tap interface
 					position = 0; //this is the index for reading the packet/frame
 					num_demuxed_packets = 0;
 
@@ -1492,9 +1493,12 @@ int main(int argc, char *argv[]) {
 								// the first thing I expect is a 'protocol' field
 								if ( SIZE_PROTOCOL_FIELD == 1 ) {
 									protocol_rec = buffer_from_net[position];
+									do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
 									position ++;
-								} else {	// SIZE_PROTOCOL_FIELD == 2
+								}
+								else {	// SIZE_PROTOCOL_FIELD == 2
 									protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+									do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
 									position = position + 2;
 								}
 
@@ -1511,7 +1515,8 @@ int main(int argc, char *argv[]) {
 								// 1 when each packet MAY belong to a different protocol.
 								if (bits[7]) {
 									single_protocol_rec = 1;
-								} else {
+								}
+								else {
 									single_protocol_rec = 0;
 								}
 
@@ -1522,8 +1527,8 @@ int main(int argc, char *argv[]) {
 
 								// if I am here, it means that I have read the first separator
 								first_header_read = 1;
-									
 							}
+
 							else {
 								// Non-first header
 
@@ -1536,9 +1541,13 @@ int main(int argc, char *argv[]) {
 									// and the second one belongs to the Mux separator, so I check it
 									if ( SIZE_PROTOCOL_FIELD == 1 ) {
 										protocol_rec = buffer_from_net[position];
+										if(single_protocol_rec == 0)
+											do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
 										position ++;
 									} else {	// SIZE_PROTOCOL_FIELD == 2
 										protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+										if(single_protocol_rec == 0)
+											do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
 										position = position + 2;
 									}
 
@@ -1572,12 +1581,12 @@ int main(int argc, char *argv[]) {
 								// I have to convert the six less significant bits to an integer, which means the length of the packet
 								// since the two most significant bits are 0, the length is the value of the char
 								packet_length = buffer_from_net[position] % maximum_packet_length;
-								do_debug(2, " Mux separator of 1 byte: (%02x) ", buffer_from_net[position]);
+								do_debug(2, " Mux separator of 1 byte: 0x%02x ", buffer_from_net[position]);
 								PrintByte(2, 8, bits);
 
 								position ++;
-
 							}
+
 							else {
 								// if the second bit (LXT) of the first byte is 1, it means that the separator is not one-byte
 
@@ -1595,17 +1604,17 @@ int main(int argc, char *argv[]) {
 									packet_length = packet_length + (buffer_from_net[position+1] % 128);
 
 									if (debug ) {
-										do_debug(2, " Mux separator of 2 bytes: (%02x) ", buffer_from_net[position]);
+										do_debug(2, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
 										PrintByte(2, 8, bits);
 										FromByte(buffer_from_net[position+1], bits);
-										do_debug(2, " (%02x) ",buffer_from_net[position+1]);
+										do_debug(2, " 0x%02x ",buffer_from_net[position+1]);
 										PrintByte(2, 8, bits);	
 									}					
 									position = position + 2;
-
+								}
 
 								// If the LXT bit is 1, this is a three-byte length
-								} else {
+								else {
 									// I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
 									// I do the product by 16384 (2^14), because the next two bytes include 14 bits of the length
 									packet_length = ((buffer_from_net[position] % maximum_packet_length) * 16384 );
@@ -1618,22 +1627,21 @@ int main(int argc, char *argv[]) {
 									packet_length = packet_length + (buffer_from_net[position+2] % 128);
 
 									if (debug ) {
-										do_debug(2, " Mux separator of 2 bytes: (%02x) ", buffer_from_net[position]);
+										do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
 										PrintByte(2, 8, bits);
 										FromByte(buffer_from_net[position+1], bits);
-										do_debug(2, " (%02x) ",buffer_from_net[position+1]);
+										do_debug(2, ") 0x%02x (",buffer_from_net[position+1]);
 										PrintByte(2, 8, bits);	
 										FromByte(buffer_from_net[position+2], bits);
-										do_debug(2, " (%02x) ",buffer_from_net[position+2]);
+										do_debug(2, ") %02x (",buffer_from_net[position+2]);
 										PrintByte(2, 8, bits);
+										do_debug(2, ")");
 									}					
 									position = position + 3;
 								}
 							}
 
-							do_debug(1, ": total %i bytes\n", packet_length);
-
-
+							do_debug(1, ". Demuxed %i bytes\n", packet_length);
 						}
 						else { 	// 'Protocol' field goes after the separator
 
@@ -1663,8 +1671,9 @@ int main(int argc, char *argv[]) {
 								// maximum length of a single-byte packet is 64 bytes
 								LXT_position = 6;
 								maximum_packet_length = 64;
+							}
 
-							} else {	// Non-first header
+							else {	// Non-first header
 
 								// get the value of the bits of the first byte
 								// as this is a non-first header:
@@ -1692,12 +1701,13 @@ int main(int argc, char *argv[]) {
 								// I have to convert the 6 (or 7) less significant bits to an integer, which means the length of the packet
 								// since the two most significant bits are 0, the length is the value of the char
 								packet_length = buffer_from_net[position] % maximum_packet_length;
-								do_debug(2, " Mux separator of 1 byte: (%02x) ", buffer_from_net[position]);
+								do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
 								PrintByte(2, 8, bits);
-
+								do_debug(2, ")");
 								position ++;
+							}
 
-							} else {
+							else {
 								// if the second bit (LXT) of the first byte is 1, it means that the separator is not one-byte
 
 								// check the bit 7 of the second byte
@@ -1713,17 +1723,19 @@ int main(int argc, char *argv[]) {
 									packet_length = packet_length + (buffer_from_net[position+1] % 128);
 
 									if (debug ) {
-										do_debug(2, " Mux separator of 2 bytes: (%02x) ", buffer_from_net[position]);
+										do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
 										PrintByte(2, 8, bits);
 										FromByte(buffer_from_net[position+1], bits);
-										do_debug(2, " (%02x) ",buffer_from_net[position+1]);
-										PrintByte(2, 8, bits);	
+										do_debug(2, ") 0x%02x (",buffer_from_net[position+1]);
+										PrintByte(2, 8, bits);
+										do_debug(2,")");
 									}					
 									position = position + 2;
 
 
 								// If the LXT bit of the second byte is 1, this is a three-byte length
-								} else {
+								}
+								else {
 									// I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
 									// I do the product by 16384 (2^14), because the next two bytes include 14 bits of the length
 									packet_length = ((buffer_from_net[position] % maximum_packet_length) * 16384 );
@@ -1736,48 +1748,56 @@ int main(int argc, char *argv[]) {
 									packet_length = packet_length + (buffer_from_net[position+2] % 128);
 
 									if (debug ) {
-										do_debug(2, " Mux separator of 2 bytes: (%02x) ", buffer_from_net[position]);
+										do_debug(2, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
 										PrintByte(2, 8, bits);
 										FromByte(buffer_from_net[position+1], bits);
-										do_debug(2, " (%02x) ",buffer_from_net[position+1]);
+										do_debug(2, " %02x ",buffer_from_net[position+1]);
 										PrintByte(2, 8, bits);	
 										FromByte(buffer_from_net[position+2], bits);
-										do_debug(2, " (%02x) ",buffer_from_net[position+2]);
+										do_debug(2, " %02x ",buffer_from_net[position+2]);
 										PrintByte(2, 8, bits);
 									}					
 									position = position + 3;
 								}
 							}
 
-							do_debug(1, ": total %i bytes\n", packet_length);
-
-
 							// check if this is the first separator or not
 							if (first_header_read == 0) {		// this is the first separator. The protocol field will always be present
 								// the next thing I expect is a 'protocol' field
 								if ( SIZE_PROTOCOL_FIELD == 1 ) {
 									protocol_rec = buffer_from_net[position];
+									do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
 									position ++;
-								} else {	// SIZE_PROTOCOL_FIELD == 2
+								}
+								else {	// SIZE_PROTOCOL_FIELD == 2
 									protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+									do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
 									position = position + 2;
 								}
 
 								// if I am here, it means that I have read the first separator
 								first_header_read = 1;
 
-							} else {			// non-first separator. The protocol field may or may not be present
+							}
+							else {			// non-first separator. The protocol field may or may not be present
 								if ( single_protocol_rec == 0 ) {
 									// each packet belongs to a different protocol, so the first thing is the 'Protocol' field
 									if ( SIZE_PROTOCOL_FIELD == 1 ) {
 										protocol_rec = buffer_from_net[position];
+										if(single_protocol_rec == 0)
+											do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
 										position ++;
-									} else {	// SIZE_PROTOCOL_FIELD == 2
+									}
+									else {	// SIZE_PROTOCOL_FIELD == 2
 										protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+										if(single_protocol_rec == 0)
+											do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
 										position = position + 2;
 									}
 								}
 							}
+
+							do_debug(1, ". Demuxed %i bytes\n", packet_length);
 						}
 
 						// copy the packet to a new string
@@ -1796,9 +1816,10 @@ int main(int argc, char *argv[]) {
 								// the packet is bad so I add a line
 								fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun );	
 								fflush(log_file);
-							}
+							}						
+						}
 						
-						} else {
+						else {
 
 							/************ decompress the packet ***************/
 
@@ -1811,8 +1832,8 @@ int main(int argc, char *argv[]) {
 									do_debug(2, "   ");
 									dump_packet ( packet_length, demuxed_packet );
 								}
-
-							} else {
+							}
+							else {
 								// ROHC-compressed packet
 
 								// I cannot decompress the packet if I am in no-ROHC mode
@@ -1824,7 +1845,8 @@ int main(int argc, char *argv[]) {
 										fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tun);	// the packet may be good, but the decompressor is not in ROHC mode
 										fflush(log_file);
 									}
-								} else {
+								}
+								else {
 									// reset the buffers where the rohc packets, ip packets and feedback info are to be stored
 									rohc_buf_reset (&ip_packet_d);
 									rohc_buf_reset (&rohc_packet_d);
@@ -1869,10 +1891,12 @@ int main(int argc, char *argv[]) {
 											//https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
 											if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
 												do_debug(3, "Error delivering feedback received from the remote compressor to the compressor\n");
-											} else {
+											}
+											else {
 												do_debug(3, "Feedback from the remote compressor delivered to the compressor: %i bytes\n", rcvd_feedback.len);
 											}
-										} else {
+										}
+										else {
 											do_debug(3, "No feedback received by the decompressor from the remote compressor\n");
 										}
 
