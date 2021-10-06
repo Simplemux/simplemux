@@ -878,7 +878,7 @@ int main(int argc, char *argv[]) {
 
 
 		// check if NETWORK or TRANSPORT mode have been selected (mandatory)
-		else if((strcmp(mode, "N") != 0) && (strcmp(mode, "U") != 0) && (strcmp(mode, "T") != 0)) {
+		else if((*mode != NETWORK_MODE) && (*mode != UDP_MODE) && (*mode != TCP_MODE)) {
 			my_err("Must specify a valid mode ('-M' option MUST be 'N' (network), 'U' (UDP) or 'T'(TCP))\n");
 			usage();
 		} 
@@ -942,7 +942,7 @@ int main(int argc, char *argv[]) {
 		
 
 		// initialize header IP to be used when receiving a packet in NETWORK mode
-		if ( strcmp(mode, "N") != 0 ) {
+		if ( *mode == NETWORK_MODE ) {
 			memset(&ipheader, 0, sizeof(struct iphdr));
 		}
 
@@ -950,7 +950,12 @@ int main(int argc, char *argv[]) {
 		// AF_INET (exactly the same as PF_INET)
 		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
 		// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
-		if ( strcmp(mode, "U") == 0 ) {
+		if ( *mode == UDP_MODE ) {
+			/* creates an UN-named socket inside the kernel and returns
+			 * an integer known as socket descriptor
+			 * This function takes domain/family as its first argument.
+			 * For Internet family of IPv4 addresses we use AF_INET
+			 */
 			if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
 				perror("socket()");
 				exit(1);
@@ -961,13 +966,34 @@ int main(int argc, char *argv[]) {
 		// AF_INET (exactly the same as PF_INET)
 		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
 		// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
-		if ( strcmp(mode, "T") == 0 ) {
-			if ( ( transport_mode_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP) ) < 0) {
+		if ( *mode == TCP_MODE ) {
+			/* creates an UN-named socket inside the kernel and returns
+			 * an integer known as socket descriptor
+			 * This function takes domain/family as its first argument.
+			 * For Internet family of IPv4 addresses we use AF_INET
+			 */
+			if ( ( transport_mode_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
+				perror("socket()");
+				exit(1);
+			}			
+		}
+
+		/*** Request a socket for writing and receiving muxed packets in Network mode ***/
+		// AF_INET (exactly the same as PF_INET)
+		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
+		// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
+		if ( *mode == NETWORK_MODE ) {
+			/* creates an UN-named socket inside the kernel and returns
+			 * an integer known as socket descriptor
+			 * This function takes domain/family as its first argument.
+			 * For Internet family of IPv4 addresses we use AF_INET
+			 */
+			if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
 				perror("socket()");
 				exit(1);
 			}
 		}
-
+		
 		/*** Request a socket for feedback packets ***/
 		// AF_INET (exactly the same as PF_INET)
 		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
@@ -978,15 +1004,15 @@ int main(int argc, char *argv[]) {
 			exit(1);
 		}
 
-
 		// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
 		memset (&iface, 0, sizeof (iface));
 		snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
 		if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
+			do_debug(0, "HOLA");
 			perror ("ioctl() failed to find interface ");
+			do_debug(0, "HOLA");
 			return (EXIT_FAILURE);
 		}
-
 
 		if (ioctl (feedback_fd, SIOCGIFINDEX, &iface) < 0) {
 			perror ("ioctl() failed to find interface ");
@@ -1027,41 +1053,70 @@ int main(int argc, char *argv[]) {
 			exit (1);
 		}
 
-
-		/*** get the IP address of the local interface ***/
-		if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
-			perror ("ioctl() failed to find the IP address for local interface ");
-			return (EXIT_FAILURE);
-		}
-		else {
-			// source IPv4 address: it is the one of the interface
-			strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
-			do_debug(1, "Local IP for multiplexing %s\n", local_ip);
-		}
-
-
-		// assign the destination address and port for the multiplexed packets
-		memset(&remote, 0, sizeof(remote));
-		remote.sin_family = AF_INET;
-		remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
-		remote.sin_port = htons(port);						// remote port
-
-		// assign the local address and port for the multiplexed packets
-		memset(&local, 0, sizeof(local));
-		local.sin_family = AF_INET;
-		local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-		local.sin_port = htons(port);						// local port
-
-		// bind the socket "transport_mode_fd" to the local address and port
-		if ((*mode == UDP_MODE ) || (*mode == TCP_MODE )) {
-		 	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
-				perror("bind");
+		// UDP mode
+		if (*mode == UDP_MODE) {
+			/*** get the IP address of the local interface ***/
+			if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
+				perror ("ioctl() failed to find the IP address for local interface ");
+				return (EXIT_FAILURE);
 			}
 			else {
-				do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+				// source IPv4 address: it is the one of the interface
+				strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
+				do_debug(1, "Local IP for multiplexing %s\n", local_ip);
+			}
+	
+	
+			// assign the destination address and port for the multiplexed packets
+			memset(&remote, 0, sizeof(remote));
+			remote.sin_family = AF_INET;
+			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
+			remote.sin_port = htons(port);						// remote port
+	
+			// assign the local address and port for the multiplexed packets
+			memset(&local, 0, sizeof(local));
+			local.sin_family = AF_INET;
+			local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
+			local.sin_port = htons(port);						// local port
+	
+			// bind the socket "transport_mode_fd" to the local address and port
+			if ((*mode == UDP_MODE ) || (*mode == TCP_MODE )) {
+			 	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+					perror("bind");
+				}
+				else {
+					do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+				}
 			}
 		}
 
+		// TCP mode
+		else if (*mode == TCP_MODE ) {
+			
+	struct sockaddr_in serv_addr;
+
+	char sendBuff[1025];
+	
+	//transport_mode_fd = socket(AF_INET, SOCK_STREAM, 0);
+	memset(&serv_addr, '0', sizeof(serv_addr));
+	memset(sendBuff, '0', sizeof(sendBuff));
+
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serv_addr.sin_port = htons(5000);
+
+	/* The call to the function "bind()" assigns the details specified
+	 * in the structure 『serv_addr' to the socket created in the step above
+	 */
+	bind(transport_mode_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+
+	/* The call to the function "listen()" with second argument as 10 specifies
+	 * maximum number of client connections that server will queue for this listening
+	 * socket.
+	 */
+	listen(transport_mode_fd, 10);
+
+		}
 
 		// assign the destination address and port for the feedback packets
 		memset(&feedback_remote, 0, sizeof(feedback_remote));
