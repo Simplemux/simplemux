@@ -884,7 +884,7 @@ int main(int argc, char *argv[]) {
 		} 
 	
 		// check if TUN or TAP mode have been selected (mandatory)
-		else if((strcmp(tunnel_mode, "U") != 0) && (strcmp(tunnel_mode, "A") != 0)) {
+		else if((*tunnel_mode != TUN_MODE) && (*tunnel_mode != TAP_MODE)) {
 			my_err("Must specify a valid tunnel mode ('-T' option MUST be 'U' (tun) or 'A' (tap))\n");
 			usage();
 		} 
@@ -913,7 +913,7 @@ int main(int argc, char *argv[]) {
 		}
 
 
-		if (strcmp(tunnel_mode, "U") == 0) {
+		if (*tunnel_mode == TUN_MODE) {
 			// tun tunnel mode (i.e. send IP packets)
 			/*** initialize tun interface for native packets ***/
 			if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
@@ -922,7 +922,7 @@ int main(int argc, char *argv[]) {
 			}
 			do_debug(1, "Successfully connected to interface for native packets %s\n", tun_if_name);		
 		}
-		else if (strcmp(tunnel_mode, "A") == 0) {
+		else if (*tunnel_mode == TAP_MODE) {
 			// tap tunnel mode (i.e. send Ethernet frames)
 			
 			// ROHC mode cannot be used in tunnel mode TAP, because Ethernet headers cannot be compressed
@@ -1008,9 +1008,7 @@ int main(int argc, char *argv[]) {
 		memset (&iface, 0, sizeof (iface));
 		snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
 		if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
-			do_debug(0, "HOLA");
 			perror ("ioctl() failed to find interface ");
-			do_debug(0, "HOLA");
 			return (EXIT_FAILURE);
 		}
 
@@ -1053,8 +1051,8 @@ int main(int argc, char *argv[]) {
 			exit (1);
 		}
 
-		// UDP mode
-		if (*mode == UDP_MODE) {
+		// UDP mode or NETWORK mode
+		if ((*mode == UDP_MODE) || (*mode == NETWORK_MODE)) {
 			/*** get the IP address of the local interface ***/
 			if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
 				perror ("ioctl() failed to find the IP address for local interface ");
@@ -2152,13 +2150,13 @@ int main(int argc, char *argv[]) {
 								}*/
 
 								// tun mode
-								if(strcmp(tunnel_mode,"U")==0) {
+								if(*tunnel_mode == TUN_MODE) {
 	 								// write the demuxed packet to the tun interface
 									cwrite ( tun_fd, demuxed_packet, packet_length );
 									do_debug (2, " Packet of %i bytes sent to the tun interface\n", packet_length);
 								}
 								// tap mode
-								else if(strcmp(tunnel_mode,"A")==0) {
+								else if(*tunnel_mode == TAP_MODE) {
 									if (protocol_rec!= IPPROTO_ETHERNET) {
 										do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);							
 									}
@@ -2459,7 +2457,7 @@ int main(int argc, char *argv[]) {
 					else {
 						// header compression has not been selected by the user
 
-						if (strcmp(tunnel_mode, "A") == 0) {
+						if (*tunnel_mode == TAP_MODE) {
 							// tap mode
 							
 							// since this frame CANNOT be compressed, its protocol number has to be 143: 'Ethernet on IP' 
@@ -2472,7 +2470,7 @@ int main(int argc, char *argv[]) {
 								protocol[num_pkts_stored_from_tun][1] = IPPROTO_ETHERNET;
 							}
 						}
-						else if (strcmp(tunnel_mode, "U") == 0) {
+						else if (*tunnel_mode == TUN_MODE) {
 							// tun mode
 							
 							// since this IP packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
@@ -3013,10 +3011,10 @@ int main(int argc, char *argv[]) {
 									exit (EXIT_FAILURE);								
 								}
 								else {
-									if(strcmp(tunnel_mode,"U")==0) {
+									if(*tunnel_mode == TUN_MODE) {
 										do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
 									}
-									else if(strcmp(tunnel_mode,"A")==0) {
+									else if(*tunnel_mode == TAP_MODE) {
 										do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);										
 									}
 									else {
@@ -3033,10 +3031,10 @@ int main(int argc, char *argv[]) {
 									exit (EXIT_FAILURE);								
 								}
 								else {
-									if(strcmp(tunnel_mode,"U")==0) {
+									if(*tunnel_mode == TUN_MODE) {
 										do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
 									}
-									else if(strcmp(tunnel_mode,"A")==0) {
+									else if(*tunnel_mode == TAP_MODE) {
 										do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);										
 									}
 									else {
@@ -3059,10 +3057,10 @@ int main(int argc, char *argv[]) {
 									exit (EXIT_FAILURE);
 								}
 								else {
-									if(strcmp(tunnel_mode,"U")==0) {
+									if(*tunnel_mode == TUN_MODE) {
 										do_debug(2, "Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
 									}
-									else if(strcmp(tunnel_mode,"A")==0) {
+									else if(*tunnel_mode == TAP_MODE) {
 										do_debug(2, "Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);
 									}
 									else {
