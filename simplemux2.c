@@ -84,7 +84,7 @@
 #define MAXPKTS 100				// maximum number of packets to store
 #define MAXTIMEOUT 100000000.0	// maximum value of the timeout (microseconds). (default 100 seconds)
 
- 
+#define IPPROTO_IP_ON_IP 4			// IP on IP Protocol ID
 #define IPPROTO_SIMPLEMUX	253	// Simplemux Protocol ID (experimental number according to IANA)
 #define IPPROTO_ETHERNET 143		// Ethernet Protocol ID (according to IANA)
 											// see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
@@ -98,8 +98,8 @@
 
 #define Linux_TTL 64			// the initial value of the TTL IP field in Linux
 
-#define PROTOCOL_FIRST 0		// 1: protocol field goes before the length byte(s) (as in draft-saldana-tsvwg-simplemux-01)
-								// 0: protocol field goes after the length byte(s)  (as in draft-saldana-tsvwg-simplemux-02 and subsequent versions)
+#define PROTOCOL_FIRST 0	// 1: protocol field goes before the length byte(s) (as in draft-saldana-tsvwg-simplemux-01)
+									// 0: protocol field goes after the length byte(s)  (as in draft-saldana-tsvwg-simplemux-02 and subsequent versions)
 
 /* global variables */
 int debug;						// 0:no debug; 1:minimum debug; 2:maximum debug 
@@ -2103,7 +2103,7 @@ int main(int argc, char *argv[]) {
 								}
 								// tap mode
 								else if(strcmp(tunnel_mode,"A")==0) {
-									if (protocol_rec!= 143) {
+									if (protocol_rec!= IPPROTO_ETHERNET) {
 										do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);							
 									}
 									else {
@@ -2385,11 +2385,11 @@ int main(int argc, char *argv[]) {
 							// since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP'
 							// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
 							if ( SIZE_PROTOCOL_FIELD == 1 ) {
-								protocol[num_pkts_stored_from_tun][0] = 4;
+								protocol[num_pkts_stored_from_tun][0] = IPPROTO_IP_ON_IP;
 							}
 							else {	// SIZE_PROTOCOL_FIELD == 2 
 								protocol[num_pkts_stored_from_tun][0] = 0;
-								protocol[num_pkts_stored_from_tun][1] = 4;
+								protocol[num_pkts_stored_from_tun][1] = IPPROTO_IP_ON_IP;
 							}
 							fprintf(stderr, "compression of IP packet failed\n");
 
@@ -2413,11 +2413,11 @@ int main(int argc, char *argv[]) {
 							// since this frame CANNOT be compressed, its protocol number has to be 143: 'Ethernet on IP' 
 							// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
 							if ( SIZE_PROTOCOL_FIELD == 1 ) {
-								protocol[num_pkts_stored_from_tun][0] = 143;
+								protocol[num_pkts_stored_from_tun][0] = IPPROTO_ETHERNET;
 							}
 							else {	// SIZE_PROTOCOL_FIELD == 2 
 								protocol[num_pkts_stored_from_tun][0] = 0;
-								protocol[num_pkts_stored_from_tun][1] = 143;
+								protocol[num_pkts_stored_from_tun][1] = IPPROTO_ETHERNET;
 							}
 						}
 						else if (strcmp(tunnel_mode, "U") == 0) {
@@ -2426,11 +2426,11 @@ int main(int argc, char *argv[]) {
 							// since this IP packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
 							// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
 							if ( SIZE_PROTOCOL_FIELD == 1 ) {
-								protocol[num_pkts_stored_from_tun][0] = 4;
+								protocol[num_pkts_stored_from_tun][0] = IPPROTO_IP_ON_IP;
 							}
 							else {	// SIZE_PROTOCOL_FIELD == 2 
 								protocol[num_pkts_stored_from_tun][0] = 0;
-								protocol[num_pkts_stored_from_tun][1] = 4;
+								protocol[num_pkts_stored_from_tun][1] = IPPROTO_IP_ON_IP;
 							}
 						}
 						else {
@@ -3116,7 +3116,8 @@ int main(int argc, char *argv[]) {
 
 					// build the multiplexed packet
 					total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
-																			single_protocol, protocol,
+																			single_protocol,
+																			protocol,
 																			size_separators_to_multiplex,
 																			separators_to_multiplex,
 																			size_packets_to_multiplex,
