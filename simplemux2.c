@@ -85,7 +85,8 @@
 #define MAXTIMEOUT 100000000.0	// maximum value of the timeout (microseconds). (default 100 seconds)
 
 #define IPPROTO_IP_ON_IP 4			// IP on IP Protocol ID
-#define IPPROTO_SIMPLEMUX	253	// Simplemux Protocol ID (experimental number according to IANA)
+#define IPPROTO_SIMPLEMUX	253		// Simplemux Protocol ID (experimental number according to IANA)
+#define IPPROTO_ROHC 142				// ROHC Protocol ID
 #define IPPROTO_ETHERNET 143		// Ethernet Protocol ID (according to IANA)
 											// see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 
@@ -1169,18 +1170,18 @@ int main(int argc, char *argv[]) {
 
 
 		switch(ROHC_mode) {
-				case 0:
-					do_debug ( 1 , "ROHC not activated\n", debug);
-					break;
-				case 1:
-					do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
-					break;
-				case 2:
-					do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
-					break;
-				/*case 3:
-					do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);	// Bidirectional Reliable mode (not implemented yet)
-					break;*/
+			case 0:
+				do_debug ( 1 , "ROHC not activated\n", debug);
+				break;
+			case 1:
+				do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
+				break;
+			case 2:
+				do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
+				break;
+			/*case 3:
+				do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);	// Bidirectional Reliable mode (not implemented yet)
+				break;*/
 		}
 
 		// If ROHC has been selected, I have to initialize it
@@ -1190,7 +1191,7 @@ int main(int argc, char *argv[]) {
 			/* initialize the random generator */
 			seed = time(NULL);
 			srand(seed);
-
+			
 			/* Create a ROHC compressor with Large CIDs and the largest MAX_CID
 			 * possible for large CIDs */
 			compressor = rohc_comp_new2(ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, gen_random_num, NULL);
@@ -1198,16 +1199,16 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "failed create the ROHC compressor\n");
 				goto error;
 			}
-
+			
 			do_debug(1, "ROHC compressor created. Profiles: ");
-
+			
 			// Set the callback function to be used for detecting RTP.
 			// RTP is not detected automatically. So you have to create a callback function "rtp_detect" where you specify the conditions.
 			// In our case we will consider as RTP the UDP packets belonging to certain ports
-		   if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL)) {
-		   	fprintf(stderr, "failed to set RTP detection callback\n");
-		      goto error;
-		   }
+			if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL)) {
+			 	fprintf(stderr, "failed to set RTP detection callback\n");
+				goto error;
+			}
 
 			// set the function that will manage the ROHC compressing traces (it will be 'print_rohc_traces')
 			if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL)) {
@@ -1290,37 +1291,36 @@ int main(int argc, char *argv[]) {
 			do_debug(1, "ROHC decompressor created. Profiles: ");
 
 			// set the function that will manage the ROHC decompressing traces (it will be 'print_rohc_traces')
-			if(!rohc_decomp_set_traces_cb2(decompressor, print_rohc_traces, NULL))
-			{
+			if(!rohc_decomp_set_traces_cb2(decompressor, print_rohc_traces, NULL)) {
 				fprintf(stderr, "failed to set the callback for traces on decompressor\n");
 				goto release_decompressor;
 			}
 
 			// enable rohc decompression profiles
 			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UNCOMPRESSED, -1);
-			if(!status)
-			{
+			if(!status)	{
 				fprintf(stderr, "failed to enable the Uncompressed decompression profile\n");
 				goto release_decompressor;
-			} else {
+			}
+			else {
 				do_debug(1, "Uncompressed. ");
 			}
 
 			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_IP, -1);
-			if(!status)
-			{
+			if(!status)	{
 				fprintf(stderr, "failed to enable the IP-only decompression profile\n");
 				goto release_decompressor;
-			} else {
+			}
+			else {
 				do_debug(1, "IP-only. ");
 			}
 
 			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDP, -1);
-			if(!status)
-			{
+			if(!status)	{
 				fprintf(stderr, "failed to enable the IP/UDP decompression profile\n");
 				goto release_decompressor;
-			} else {
+			}
+			else {
 				do_debug(1, "IP/UDP. ");
 			}
 
@@ -1334,29 +1334,29 @@ int main(int argc, char *argv[]) {
 			}
 
 			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_RTP, -1);
-			if(!status)
-			{
+			if(!status)	{
 				fprintf(stderr, "failed to enable the RTP decompression profile\n");
 				goto release_decompressor;
-			} else {
+			}
+			else {
 				do_debug(1, "RTP. ");
 			}
 
 			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_ESP,-1);
-			if(!status)
-			{
+			if(!status)	{
 			fprintf(stderr, "failed to enable the ESP decompression profile\n");
 				goto release_decompressor;
-			} else {
+			}
+			else {
 				do_debug(1, "ESP. ");
 			}
 
 			status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_TCP, -1);
-			if(!status)
-			{
+			if(!status) {
 				fprintf(stderr, "failed to enable the TCP decompression profile\n");
 				goto release_decompressor;
-			} else {
+			}
+			else {
 				do_debug(1, "TCP. ");
 			}
 
@@ -1381,7 +1381,7 @@ int main(int argc, char *argv[]) {
 		/*****************************************/
 		while(1) {
 
-			FD_ZERO(&rd_set);					/* FD_ZERO() clears a set */
+			FD_ZERO(&rd_set);							/* FD_ZERO() clears a set */
 			FD_SET(tun_fd, &rd_set);			/* FD_SET() adds a given file descriptor to a set */
 			FD_SET(network_mode_fd, &rd_set);
 			FD_SET(transport_mode_fd, &rd_set);
@@ -1587,7 +1587,8 @@ int main(int argc, char *argv[]) {
 										if(single_protocol_rec == 0)
 											do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
 										position ++;
-									} else {	// SIZE_PROTOCOL_FIELD == 2
+									}
+									else {	// SIZE_PROTOCOL_FIELD == 2
 										protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
 										if(single_protocol_rec == 0)
 											do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
@@ -1706,7 +1707,8 @@ int main(int argc, char *argv[]) {
 								// 1 when each packet MAY belong to a different protocol.
 								if (bits[7]) {
 									single_protocol_rec = 1;
-								} else {
+								}
+								else {
 									single_protocol_rec = 0;
 								}
 
@@ -1717,7 +1719,6 @@ int main(int argc, char *argv[]) {
 							}
 
 							else {	// Non-first header
-
 								// get the value of the bits of the first byte
 								// as this is a non-first header:
 								//	- LXT will be stored in 'bits[7]'
@@ -1774,10 +1775,9 @@ int main(int argc, char *argv[]) {
 										do_debug(2,")");
 									}					
 									position = position + 2;
-
+								}
 
 								// If the LXT bit of the second byte is 1, this is a three-byte length
-								}
 								else {
 									// I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
 									// I do the product by 16384 (2^14), because the next two bytes include 14 bits of the length
@@ -1839,7 +1839,6 @@ int main(int argc, char *argv[]) {
 									}
 								}
 							}
-
 							do_debug(1, ". Demuxed %i bytes\n", packet_length);
 						}
 
@@ -1867,7 +1866,7 @@ int main(int argc, char *argv[]) {
 							/************ decompress the packet ***************/
 
 							// if the number of the protocol is NOT 142 (ROHC) I do not decompress the packet
-							if ( protocol_rec != 142 ) {
+							if ( protocol_rec != IPPROTO_ROHC ) {
 								// non-compressed packet
 								// dump the received packet on terminal
 								if (debug) {
@@ -1957,10 +1956,12 @@ int main(int argc, char *argv[]) {
 											// send the feedback packet to the peer
 											if (sendto(feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&feedback_remote, sizeof(feedback_remote))==-1) {
 												perror("sendto()");
-											} else {
+											}
+											else {
 												do_debug(3, "Feedback generated by the decompressor (%i bytes), sent to the compressor\n", feedback_send.len);
 											}
-										} else {
+										}
+										else {
 											do_debug(3, "No feedback generated by the decompressor\n");
 										}
 									}
@@ -1987,8 +1988,8 @@ int main(int argc, char *argv[]) {
 												// dump the decompressed IP packet on terminal
 												dump_packet (ip_packet_d.len, ip_packet_d.data );
 											}
-
-										} else {
+										}
+										else {
 											/* no IP packet was decompressed because of ROHC segmentation or
 											 * feedback-only packet:
 											 *  - the ROHC packet was a non-final segment, so at least another
@@ -2081,16 +2082,16 @@ int main(int argc, char *argv[]) {
 
 							// write the demuxed (and perhaps decompressed) packet to the tun interface
 							// if compression is used, check that ROHC has decompressed correctly
-							if ( ( protocol_rec != 142 ) || ((protocol_rec == 142) && ( status == ROHC_STATUS_OK))) {
+							if ( ( protocol_rec != IPPROTO_ROHC ) || ((protocol_rec == IPPROTO_ROHC) && ( status == ROHC_STATUS_OK))) {
 
 								// print the debug information
 								//do_debug(2, "  Protocol: %i ",protocol_rec);
 
 								/*switch(protocol_rec) {
-									case 4:
+									case IPPROTO_IP_ON_IP:
 										do_debug (2, "(IP)");
 										break;
-									case 142:
+									case IPPROTO_ROHC:
 										do_debug (2, "(ROHC)");
 										break;
 								}*/
@@ -2179,10 +2180,8 @@ int main(int argc, char *argv[]) {
 						fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
 					}
 
-
 					// reset the buffer where the packet is to be stored
 					rohc_buf_reset (&rohc_packet_d);
-
 
 					// Copy the compressed length and the compressed packet
 					rohc_packet_d.len = nread_from_net;
@@ -2194,7 +2193,6 @@ int main(int argc, char *argv[]) {
 
 					// dump the ROHC packet on terminal
 					if (debug) {
-
 						do_debug(2, " ROHC feedback packet received\n   ");
 						dump_packet ( rohc_packet_d.len, rohc_packet_d.data );
 					}
@@ -2205,7 +2203,8 @@ int main(int argc, char *argv[]) {
 
 					if ( rohc_comp_deliver_feedback2 ( compressor, rohc_packet_d ) == false ) {
 						do_debug(3, "Error delivering feedback to the compressor");
-					} else {
+					}
+					else {
 						do_debug(3, "Feedback delivered to the compressor: %i bytes\n", rohc_packet_d.len);
 					}
 
@@ -2213,7 +2212,6 @@ int main(int argc, char *argv[]) {
 					// generated as feedback on the other side.
 					// So I don't have to decompress the packet
 				}
-
 				else {
 
 					// packet with destination port 55556, but a source port different from the feedback one
@@ -2352,11 +2350,11 @@ int main(int argc, char *argv[]) {
 							// since this packet has been compressed with ROHC, its protocol number must be 142
 							// (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
 							if ( SIZE_PROTOCOL_FIELD == 1 ) {
-								protocol[num_pkts_stored_from_tun][0] = 142;
+								protocol[num_pkts_stored_from_tun][0] = IPPROTO_ROHC;
 							}
 							else {	// SIZE_PROTOCOL_FIELD == 2 
 								protocol[num_pkts_stored_from_tun][0] = 0;
-								protocol[num_pkts_stored_from_tun][1] = 142;
+								protocol[num_pkts_stored_from_tun][1] = IPPROTO_ROHC;
 							}
 
 							// Copy the compressed length and the compressed packet over the packet read from tun
@@ -2402,7 +2400,6 @@ int main(int argc, char *argv[]) {
 							do_debug(2, "  ROHC did not work. Native packet sent: %i bytes:\n   ", size_packets_to_multiplex[num_pkts_stored_from_tun]);
 							//goto release_compressor;
 						}
-
 					}
 					else {
 						// header compression has not been selected by the user
@@ -2539,7 +2536,8 @@ int main(int argc, char *argv[]) {
 									case TCP_MODE:
 										do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
 										do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-									break;									case NETWORK_MODE:
+									break;
+									case NETWORK_MODE:
 										do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
 										do_debug(1, " Sending to the network an IP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE );
 									break;
@@ -2554,7 +2552,8 @@ int main(int argc, char *argv[]) {
 									case TCP_MODE:
 										do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
 										do_debug(1, " Sending to the network a TCP packet without this Eth frame: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-									break;									case NETWORK_MODE:
+									break;
+									case NETWORK_MODE:
 										do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
 										do_debug(1, " Sending to the network an IP packet without this Eth frame: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE );
 									break;								
@@ -2575,7 +2574,6 @@ int main(int argc, char *argv[]) {
 									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
 									fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 								}
-						
 							break;
 
 							case TCP_MODE:
@@ -2588,7 +2586,6 @@ int main(int argc, char *argv[]) {
 									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
 									fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 								}
-						
 							break;
 							
 							case NETWORK_MODE:
@@ -2609,7 +2606,6 @@ int main(int argc, char *argv[]) {
 									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
 									fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
 								}
-
 							break;
 						}
 
@@ -2816,7 +2812,8 @@ int main(int argc, char *argv[]) {
 							do_debug(2, " Mux separator of 2 bytes: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
 							if (first_header_written == 0) {
 								PrintByte(2, 7, bits);			// first header
-							} else {
+							}
+							else {
 								PrintByte(2, 8, bits);			// non-first header
 							}
 
@@ -2872,7 +2869,8 @@ int main(int argc, char *argv[]) {
 						if (single_protocol == 1) {
 							separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
 							size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
-						} else {
+						}
+						else {
 							size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;	// one byte per packet, corresponding to the 'protocol' field
 						}
 
@@ -3056,6 +3054,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 
+
 			/*************************************************************************************/	
 			/******************** Period expired: multiplex **************************************/
 			/*************************************************************************************/	
@@ -3078,7 +3077,8 @@ int main(int argc, char *argv[]) {
 						do_debug(1, "SENDING TRIGGERED. Period expired. Time since last trigger: %" PRIu64 " usec\n", time_difference);
 						if (single_protocol) {
 							do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
-						} else {
+						}
+						else {
 							do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
 						}
 						switch (*mode) {
@@ -3110,7 +3110,8 @@ int main(int argc, char *argv[]) {
 					if (single_protocol == 1) {
 						separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
 						size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
-					} else {
+					}
+					else {
 						size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
 					}
 
