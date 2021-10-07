@@ -90,9 +90,10 @@
 #define IPPROTO_ETHERNET 143		// Ethernet Protocol ID (according to IANA)
 											// see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 
-#define NETWORK_MODE		'N'	// N: network mode
-#define UDP_MODE			'U'	// U: UDP mode
-#define TCP_MODE			'T'	// T: TCP mode
+#define NETWORK_MODE		'N'		// N: network mode
+#define UDP_MODE			'U'			// U: UDP mode
+#define TCP_MODE			'T'			// T: TCP client mode
+#define TCP_SERVER_MODE 'S'		// S: TCP server mode
 
 #define TUN_MODE 'U'			// T: tun mode, i.e. IP packets will be tunneled inside Simplemux
 #define TAP_MODE 'A'			// A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
@@ -334,19 +335,16 @@ if (bits2[4]) {
 } else {
 	do_debug(1, "0\n");
 }*/
-void FromByte(unsigned char c, bool b[8])
-{
+void FromByte(unsigned char c, bool b[8]) {
 	int i;
 	for (i=0; i < 8; ++i)
 		b[i] = (c & (1<<i)) != 0;
 }
 
-
 /**************************************************************************
  * PrintByte: prints the bits of a byte                                   *
  **************************************************************************/
-void PrintByte(int debug_level, int num_bits, bool b[8])
-{
+void PrintByte(int debug_level, int num_bits, bool b[8]) {
 	// num_bits is the number of bits to print
 	// if 'num_bits' is smaller than 7, the function prints an 'x' instead of the value
 
@@ -367,8 +365,7 @@ void PrintByte(int debug_level, int num_bits, bool b[8])
 /**************************************************************************
 ************ dump a packet ************************************************
 **************************************************************************/
-void dump_packet (int packet_size, unsigned char packet[BUFSIZE])
-{
+void dump_packet (int packet_size, unsigned char packet[BUFSIZE]) {
 	int j;
 
 	for(j = 0; j < packet_size; j++)
@@ -395,8 +392,7 @@ void dump_packet (int packet_size, unsigned char packet[BUFSIZE])
 /**************************************************************************
  * return an string with the date and the time in format %Y-%m-%d_%H.%M.%S*
  **************************************************************************/
-int date_and_time(char buffer[25])
-{
+int date_and_time(char buffer[25]) {
 	time_t timer;
 	struct tm* tm_info;
 
@@ -426,8 +422,7 @@ uint16_t build_multiplexed_packet ( int num_packets,
 												unsigned char separators_to_mux[MAXPKTS][3],
 												uint16_t size_packets_to_mux[MAXPKTS],
 												unsigned char packets_to_mux[MAXPKTS][BUFSIZE],
-												unsigned char mux_packet[BUFSIZE])
-{
+												unsigned char mux_packet[BUFSIZE]) {
 	int k, l;
 	int length = 0;
 
@@ -504,8 +499,13 @@ uint16_t build_multiplexed_packet ( int num_packets,
 //	- packets_to_mux[MAXPKTS][BUFSIZE]		the packet to be multiplexed
 
 // the length of the multiplexed packet is returned by this function
-uint16_t predict_size_multiplexed_packet ( int num_packets, int single_prot, unsigned char prot[MAXPKTS][SIZE_PROTOCOL_FIELD], uint16_t size_separators_to_mux[MAXPKTS], unsigned char separators_to_mux[MAXPKTS][3], uint16_t size_packets_to_mux[MAXPKTS], unsigned char packets_to_mux[MAXPKTS][BUFSIZE])
-{
+uint16_t predict_size_multiplexed_packet (int num_packets,
+																					int single_prot,
+																					unsigned char prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
+																					uint16_t size_separators_to_mux[MAXPKTS],
+																					unsigned char separators_to_mux[MAXPKTS][3],
+																					uint16_t size_packets_to_mux[MAXPKTS],
+																					unsigned char packets_to_mux[MAXPKTS][BUFSIZE]) {
 	int k, l;
 	int length = 0;
 
@@ -555,8 +555,7 @@ static void print_rohc_traces(void *const priv_ctxt,
 								const rohc_trace_entity_t entity,
 								const int profile,
 								const char *const format,
-								...)
-{
+								...) {
 	// Only prints ROHC messages if debug level is > 2
 	if ( debug > 2 ) {
 		va_list args;
@@ -572,8 +571,7 @@ static void print_rohc_traces(void *const priv_ctxt,
  **************************************************************************/
 
 // Calculate IPv4 checksum
-unsigned short in_cksum(unsigned short *addr, int len)
-{
+unsigned short in_cksum(unsigned short *addr, int len) {
 register int sum = 0;
 u_short answer = 0;
 register u_short *w = addr;
@@ -604,8 +602,7 @@ return (answer);
 
 
 // Buid an IPv4 Header
-void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local, struct sockaddr_in remote)
-{
+void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local, struct sockaddr_in remote) {
 	static uint16_t counter = 0;
 
 	// clean the variable
@@ -632,8 +629,7 @@ void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local
 
 
 // Buid a Full IP Packet
-void BuildFullIPPacket(struct iphdr iph, unsigned char *data_packet, uint16_t len_data, unsigned char *full_ip_packet)
-{
+void BuildFullIPPacket(struct iphdr iph, unsigned char *data_packet, uint16_t len_data, unsigned char *full_ip_packet) {
 	memset(full_ip_packet, 0, BUFSIZE);
 	memcpy((struct iphdr*)full_ip_packet, &iph, sizeof(struct iphdr));
 	memcpy((struct iphdr*)(full_ip_packet + sizeof(struct iphdr)), data_packet, len_data);
@@ -641,17 +637,14 @@ void BuildFullIPPacket(struct iphdr iph, unsigned char *data_packet, uint16_t le
 
 
 //Get IP header from IP packet
-void GetIpHeader(struct iphdr *iph, unsigned char *ip_packet)
-{	
+void GetIpHeader(struct iphdr *iph, unsigned char *ip_packet) {	
 	memcpy(iph,(struct iphdr*)ip_packet,sizeof(struct iphdr));
 }
 
 //Set IP header in IP Packet
-void SetIpHeader(struct iphdr iph, unsigned char *ip_packet)
-{
+void SetIpHeader(struct iphdr iph, unsigned char *ip_packet) {
 	memcpy((struct iphdr*)ip_packet,&iph,sizeof(struct iphdr));
 }
-
 
 
 
@@ -662,9 +655,10 @@ int main(int argc, char *argv[]) {
 
 	// variables for managing the network interfaces
 	int tun_fd;													// file descriptor of the tun interface(no mux packet)
-	int transport_mode_fd = 2;					// the file descriptor of the socket of the network interface
-	int network_mode_fd = 1;						// the file descriptor of the socket in Network mode
-	int feedback_fd = 3;								// the file descriptor of the socket of the feedback received from the network interface
+	int transport_mode_fd = 2;					// file descriptor of the socket in Transport mode: UDP or TCP
+	int network_mode_fd = 1;						// file descriptor of the socket in Network mode
+	int feedback_fd = 3;								// file descriptor of the socket of the feedback received from the network interface
+	int tcp_welcoming_fd = 4;						// file descriptor of the TCP welcoming socket
 	int maxfd;													// maximum number of file descriptors
 	fd_set rd_set;											// rd_set is a set of file descriptors used to know which interface has received a packet
 
@@ -729,7 +723,7 @@ int main(int argc, char *argv[]) {
 	int option;															// command line options
 	int l,j,k;
 	int num_pkts_stored_from_tun = 0;				// number of packets received and not sent from tun (stored)
-	int size_muxed_packet = 0;							// acumulated size of the multiplexed packet
+	int size_muxed_packet = 0;							// accumulated size of the multiplexed packet
 	int predicted_size_muxed_packet;				// size of the muxed packet if the arrived packet was added to it
 	int position;														// for reading the arrived multiplexed packet
 	int packet_length;											// the length of each packet inside the multiplexed bundle
@@ -741,12 +735,13 @@ int main(int argc, char *argv[]) {
 	int single_protocol_rec;								// it is the bit Single-Protocol-Bit received in a muxed packet
 	int first_header_read;									// it is 0 when the first header has not been read
 	int LXT_position;												// the position of the LXT bit. It may be 6 (non-first header) or 7 (first header)
-	int maximum_packet_length;							// the maximum lentgh of a packet. It may be 64 (first header) or 128 (non-first header)
+	int maximum_packet_length;							// the maximum length of a packet. It may be 64 (first header) or 128 (non-first header)
 	int limit_length_two_bytes;							// the maximum length of a packet in order to express it in 2 bytes. It may be 8192 or 16384 (non-first header)
 	int first_header_written = 0;						// it indicates if the first header has been written or not
 	int ret;																// value returned by the "select" function
 	int drop_packet = 0;
-
+	bool client_connected_to_this_tcp_server = 0;		// it is set to '1' if a client has connected to this server
+	
 	struct timeval period_expires;					// it is used for the maximum time waiting for a new packet
 
 	bool bits[8];														// it is used for printing the bits of a byte in debug mode
@@ -792,8 +787,8 @@ int main(int argc, char *argv[]) {
 	// no arguments specified by the user. Print usage and finish
 	if (argc == 1 ) {
 		usage ();
-
-	} else {
+	}
+	else {
 		while((option = getopt(argc, argv, "i:e:M:T:c:p:n:b:t:P:l:d:r:m:hL")) > 0) {
 
 			switch(option) {
@@ -878,7 +873,7 @@ int main(int argc, char *argv[]) {
 
 
 		// check if NETWORK or TRANSPORT mode have been selected (mandatory)
-		else if((*mode != NETWORK_MODE) && (*mode != UDP_MODE) && (*mode != TCP_MODE)) {
+		else if((*mode != NETWORK_MODE) && (*mode != UDP_MODE) && (*mode != TCP_MODE) && (*mode != TCP_SERVER_MODE)) {
 			my_err("Must specify a valid mode ('-M' option MUST be 'N' (network), 'U' (UDP) or 'T'(TCP))\n");
 			usage();
 		} 
@@ -908,7 +903,8 @@ int main(int argc, char *argv[]) {
 		// check ROHC option
 		if ( ROHC_mode < 0 ) {
 			ROHC_mode = 0;
-		} else if ( ROHC_mode > 2 ) { 
+		}
+		else if ( ROHC_mode > 2 ) { 
 			ROHC_mode = 2;
 		}
 
@@ -942,9 +938,9 @@ int main(int argc, char *argv[]) {
 		
 
 		// initialize header IP to be used when receiving a packet in NETWORK mode
-		if ( *mode == NETWORK_MODE ) {
+		/*if ( *mode == NETWORK_MODE ) {
 			memset(&ipheader, 0, sizeof(struct iphdr));
-		}
+		}*/
 
 		/*** Request a socket for writing and receiving muxed packets in UDP mode ***/
 		// AF_INET (exactly the same as PF_INET)
@@ -966,7 +962,7 @@ int main(int argc, char *argv[]) {
 		// AF_INET (exactly the same as PF_INET)
 		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
 		// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
-		if ( *mode == TCP_MODE ) {
+		else if ( *mode == TCP_MODE ) {
 			/* creates an UN-named socket inside the kernel and returns
 			 * an integer known as socket descriptor
 			 * This function takes domain/family as its first argument.
@@ -983,44 +979,168 @@ int main(int argc, char *argv[]) {
 		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
 		// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
 		if ( *mode == NETWORK_MODE ) {
+			// initialize header IP to be used when receiving a packet in NETWORK mode
+			memset(&ipheader, 0, sizeof(struct iphdr));
+			
+			memset (&iface, 0, sizeof (iface));
+			snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
+			
 			/* creates an UN-named socket inside the kernel and returns
 			 * an integer known as socket descriptor
 			 * This function takes domain/family as its first argument.
 			 * For Internet family of IPv4 addresses we use AF_INET
 			 */
-			if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+			/*if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
 				perror("socket()");
 				exit(1);
+			}*/
+		}
+		else if ( *mode == UDP_MODE ) {
+			// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
+			memset (&iface, 0, sizeof (iface));
+			snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
+			if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
+				perror ("ioctl() failed to find interface (transport mode) ");
+				return (EXIT_FAILURE);
 			}
 		}
 		
-		/*** Request a socket for feedback packets ***/
-		// AF_INET (exactly the same as PF_INET)
-		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-		// feedback_fd is the file descriptor of the socket for managing arrived feedback packets
-		// I only need the feedback socket if ROHC is activated 
-		if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-			perror("socket()");
-			exit(1);
+
+
+		if (*mode == NETWORK_MODE ) {
+			
+			// assign the destination address and port for the multiplexed packets
+			memset(&remote, 0, sizeof(remote));
+			remote.sin_family = AF_INET;
+			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
+			remote.sin_port = htons(port);						// remote port
+	
+			// assign the local address and port for the multiplexed packets
+			memset(&local, 0, sizeof(local));
+			local.sin_family = AF_INET;
+			local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
+			local.sin_port = htons(port);						// local port
+			
+			// create a raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
+			// Submit request for a raw socket descriptor
+			if ((network_mode_fd = socket (AF_INET, SOCK_RAW, IPPROTO_SIMPLEMUX)) < 0) {
+				perror ("Raw socket for sending muxed packets bind failed ");
+				exit (EXIT_FAILURE);
+			}
+			else {
+				do_debug(1,"Raw socket for multiplexing open. Remote IP %s. Protocol number %i\n", inet_ntoa(remote.sin_addr), IPPROTO_SIMPLEMUX);
+			}
+
+			// Set flag so socket expects us to provide IPv4 header
+			if (setsockopt (network_mode_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
+				perror ("setsockopt() failed to set IP_HDRINCL ");
+				exit (EXIT_FAILURE);
+			}
+
+			// Bind the socket "network_mode_fd" to interface index
+			// bind socket descriptor "network_mode_fd" to specified interface with setsockopt() since
+			// none of the other arguments of sendto() specify which interface to use.
+			if (setsockopt (network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
+				perror ("setsockopt() failed to bind to interface (network mode) ");
+				exit (EXIT_FAILURE);
+			}
+		}
+		
+		// UDP mode
+		else if ((*mode == UDP_MODE) /*|| (*mode == NETWORK_MODE)*/) {
+			/*** get the IP address of the local interface ***/
+			if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
+				perror ("ioctl() failed to find the IP address for local interface ");
+				return (EXIT_FAILURE);
+			}
+			else {
+				// source IPv4 address: it is the one of the interface
+				strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
+				do_debug(1, "Local IP for multiplexing %s\n", local_ip);
+			}
+	
+			// assign the destination address and port for the multiplexed packets
+			memset(&remote, 0, sizeof(remote));
+			remote.sin_family = AF_INET;
+			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
+			remote.sin_port = htons(port);						// remote port
+	
+			// assign the local address and port for the multiplexed packets
+			memset(&local, 0, sizeof(local));
+			local.sin_family = AF_INET;
+			local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
+			local.sin_port = htons(port);						// local port
+	
+			// bind the socket "transport_mode_fd" to the local address and port
+			//if ((*mode == UDP_MODE ) || (*mode == TCP_MODE )) {
+			 	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+					perror("bind");
+				}
+				else {
+					do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+				}
+			//}
 		}
 
-		// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
-		memset (&iface, 0, sizeof (iface));
-		snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
-		if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
-			perror ("ioctl() failed to find interface ");
-			return (EXIT_FAILURE);
-		}
+		// TCP server mode
+		else if (*mode == TCP_SERVER_MODE ) {
+			
+			/*** get the IP address of the local interface ***/
+			if (ioctl(tcp_welcoming_fd, SIOCGIFADDR, &iface) < 0) {
+				perror ("ioctl() failed to find the IP address for local interface ");
+				return (EXIT_FAILURE);
+			}
+			else {
+				// source IPv4 address: it is the one of the interface
+				strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
+				do_debug(1, "Local IP for multiplexing %s\n", local_ip);
+			}
 
-		if (ioctl (feedback_fd, SIOCGIFINDEX, &iface) < 0) {
-			perror ("ioctl() failed to find interface ");
-			return (EXIT_FAILURE);
+			// assign the destination address and port for the multiplexed packets
+			memset(&remote, 0, sizeof(remote));
+			remote.sin_family = AF_INET;
+			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
+			remote.sin_port = htons(port);						// remote port
+	
+			// assign the local address and port for the multiplexed packets
+			memset(&local, 0, sizeof(local));
+			local.sin_family = AF_INET;
+			local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
+			local.sin_port = htons(port);						// local port
+
+			/* The call to the function "bind()" assigns the details specified
+			 * in the structure 'sockaddr' to the socket created above
+			 */	
+			if (bind(tcp_welcoming_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+				perror("bind");
+			}
+			else {
+				do_debug(1, "Welcoming TCP socket open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+			}
+
+			/* The call to the function "listen()" with second argument as 1 specifies
+			 * maximum number of client connections that the server will queue for this listening
+			 * socket.
+			 */
+			listen(tcp_welcoming_fd, 1);
 		}
 
 		/*** get the MTU of the local interface ***/
-		if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1)
-			interface_mtu = 0;
-		else interface_mtu = iface.ifr_mtu;
+		if (*mode == UDP_MODE)	{
+			if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1)
+				interface_mtu = 0;
+			else interface_mtu = iface.ifr_mtu;
+		}
+		else if (*mode == NETWORK_MODE) {
+			if (ioctl(network_mode_fd, SIOCGIFMTU, &iface) == -1)
+				interface_mtu = 0;
+			else interface_mtu = iface.ifr_mtu;
+		}
+		else if (*mode == TCP_SERVER_MODE ) {
+			if (ioctl(tcp_welcoming_fd, SIOCGIFMTU, &iface) == -1)
+				interface_mtu = 0;
+			else interface_mtu = iface.ifr_mtu;
+		}
 
 		/*** check if the user has specified a bad MTU ***/
 		do_debug (1, "Local interface MTU: %i\t ", interface_mtu);
@@ -1050,72 +1170,23 @@ int main(int argc, char *argv[]) {
 			perror ("Error: The MTU selected is higher than the size of the buffer defined.\nCheck #define BUFSIZE at the beginning of this application\n");
 			exit (1);
 		}
-
-		// UDP mode or NETWORK mode
-		if ((*mode == UDP_MODE) || (*mode == NETWORK_MODE)) {
-			/*** get the IP address of the local interface ***/
-			if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
-				perror ("ioctl() failed to find the IP address for local interface ");
-				return (EXIT_FAILURE);
-			}
-			else {
-				// source IPv4 address: it is the one of the interface
-				strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
-				do_debug(1, "Local IP for multiplexing %s\n", local_ip);
-			}
-	
-	
-			// assign the destination address and port for the multiplexed packets
-			memset(&remote, 0, sizeof(remote));
-			remote.sin_family = AF_INET;
-			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
-			remote.sin_port = htons(port);						// remote port
-	
-			// assign the local address and port for the multiplexed packets
-			memset(&local, 0, sizeof(local));
-			local.sin_family = AF_INET;
-			local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-			local.sin_port = htons(port);						// local port
-	
-			// bind the socket "transport_mode_fd" to the local address and port
-			if ((*mode == UDP_MODE ) || (*mode == TCP_MODE )) {
-			 	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
-					perror("bind");
-				}
-				else {
-					do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
-				}
-			}
+		
+		
+		/*** Request a socket for feedback packets ***/
+		// AF_INET (exactly the same as PF_INET)
+		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
+		// feedback_fd is the file descriptor of the socket for managing arrived feedback packets
+		// I only need the feedback socket if ROHC is activated 
+		if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+			perror("socket()");
+			exit(1);
 		}
 
-		// TCP mode
-		else if (*mode == TCP_MODE ) {
-			
-	struct sockaddr_in serv_addr;
-
-	char sendBuff[1025];
-	
-	//transport_mode_fd = socket(AF_INET, SOCK_STREAM, 0);
-	memset(&serv_addr, '0', sizeof(serv_addr));
-	memset(sendBuff, '0', sizeof(sendBuff));
-
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	serv_addr.sin_port = htons(5000);
-
-	/* The call to the function "bind()" assigns the details specified
-	 * in the structure 『serv_addr' to the socket created in the step above
-	 */
-	bind(transport_mode_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-
-	/* The call to the function "listen()" with second argument as 10 specifies
-	 * maximum number of client connections that server will queue for this listening
-	 * socket.
-	 */
-	listen(transport_mode_fd, 10);
-
+		if (ioctl (feedback_fd, SIOCGIFINDEX, &iface) < 0) {
+			perror ("ioctl() failed to find interface (feedback)");
+			return (EXIT_FAILURE);
 		}
-
+		
 		// assign the destination address and port for the feedback packets
 		memset(&feedback_remote, 0, sizeof(feedback_remote));
 		feedback_remote.sin_family = AF_INET;
@@ -1137,30 +1208,7 @@ int main(int argc, char *argv[]) {
 		}
 
 
-		if (*mode == NETWORK_MODE ) {
-			// create a raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
-			// Submit request for a raw socket descriptor
-			if ((network_mode_fd = socket (AF_INET, SOCK_RAW, IPPROTO_SIMPLEMUX)) < 0) {
-				perror ("Raw socket for sending muxed packets bind failed ");
-				exit (EXIT_FAILURE);
-			} else {
-				do_debug(1,"Raw socket for multiplexing open. Remote IP %s. Protocol number %i\n", inet_ntoa(remote.sin_addr), IPPROTO_SIMPLEMUX);
-			}
 
-			// Set flag so socket expects us to provide IPv4 header
-			if (setsockopt (network_mode_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
-				perror ("setsockopt() failed to set IP_HDRINCL ");
-				exit (EXIT_FAILURE);
-			}
-
-			// Bind the socket "network_mode_fd" to interface index
-			// bind socket descriptor "network_mode_fd" to specified interface with setsockopt() since
-			// none of the other arguments of sendto() specify which interface to use.
-			if (setsockopt (network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
-				perror ("setsockopt() failed to bind to interface ");
-				exit (EXIT_FAILURE);
-			}
-		}
 
 
 		// define the maximum size threshold
@@ -1418,7 +1466,8 @@ int main(int argc, char *argv[]) {
 		do_debug(1, "\n");
 		
 
-		/*** I need the value of the maximum file descriptor, in order to let select() handle four interface descriptors at once ***/
+		/*** I need the value of the maximum file descriptor, in order to let select() handle 4 interface descriptors at once ***/
+		/*		
 		if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd)
 			maxfd = tun_fd;
 		if(network_mode_fd >= transport_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd)
@@ -1426,8 +1475,19 @@ int main(int argc, char *argv[]) {
 		if(transport_mode_fd >= tun_fd && transport_mode_fd >= feedback_fd && transport_mode_fd >= network_mode_fd)
 			maxfd = transport_mode_fd;
 		if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd)
-			maxfd = feedback_fd;
+			maxfd = feedback_fd;*/
 
+		/*** I need the value of the maximum file descriptor, in order to let select() handle 5 interface descriptors at once ***/
+		if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd && tun_fd >= tcp_welcoming_fd)
+			maxfd = tun_fd;
+		if(network_mode_fd >= transport_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd && network_mode_fd >= tcp_welcoming_fd)
+			maxfd = network_mode_fd;
+		if(transport_mode_fd >= tun_fd && transport_mode_fd >= feedback_fd && transport_mode_fd >= network_mode_fd && transport_mode_fd >= tcp_welcoming_fd)
+			maxfd = transport_mode_fd;
+		if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd && feedback_fd >= tcp_welcoming_fd)
+			maxfd = feedback_fd;
+		if(tcp_welcoming_fd >= tun_fd && tcp_welcoming_fd >= transport_mode_fd && tcp_welcoming_fd >= network_mode_fd && tcp_welcoming_fd >= feedback_fd)
+			maxfd = feedback_fd;
 
 		/*****************************************/
 		/************** Main loop ****************/
