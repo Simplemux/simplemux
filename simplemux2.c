@@ -1178,7 +1178,6 @@ int main(int argc, char *argv[]) {
 			perror ("Error: The MTU selected is higher than the size of the buffer defined.\nCheck #define BUFSIZE at the beginning of this application\n");
 			exit (1);
 		}
-		
 
 		// define the maximum size threshold
 		switch (*mode) {
@@ -1237,30 +1236,15 @@ int main(int argc, char *argv[]) {
 		time_last_sent_in_microsec = GetTimeStamp() ; 
 
 		do_debug(1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %.2lf. period: %.2lf\n", size_threshold, limit_numpackets_tun, timeout, period);
-
-
-		/*********** ROHC *************/
-		switch(ROHC_mode) {
-			case 0:
-				do_debug ( 1 , "ROHC not activated\n", debug);
-				break;
-			case 1:
-				do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
-				break;
-			case 2:
-				do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
-				break;
-			/*case 3:
-				do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);	// Bidirectional Reliable mode (not implemented yet)
-				break;*/
-		}
 		
-		if ( ROHC_mode > 0 ) {
+		
+		// I only need the feedback socket if ROHC is activated
+		//but I create it in case the other extreme sends ROHC packets
+		if(1) {
 			/*** Request a socket for feedback packets ***/
 			// AF_INET (exactly the same as PF_INET)
 			// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
 			// feedback_fd is the file descriptor of the socket for managing arrived feedback packets
-			// I only need the feedback socket if ROHC is activated 
 			if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
 				perror("socket()");
 				exit(1);
@@ -1290,10 +1274,26 @@ int main(int argc, char *argv[]) {
 			else {
 				do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
 			}
+		}
 
+		switch(ROHC_mode) {
+			case 0:
+				do_debug ( 1 , "ROHC not activated\n", debug);
+				break;
+			case 1:
+				do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
+				break;
+			case 2:
+				do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
+				break;
+			/*case 3:
+				do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);	// Bidirectional Reliable mode (not implemented yet)
+				break;*/
+		}
 
-			// If ROHC has been selected, I have to initialize it
-			// see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
+		// If ROHC has been selected, I have to initialize it
+		// see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
+		if ( ROHC_mode > 0 ) {
 
 			/* initialize the random generator */
 			seed = time(NULL);
