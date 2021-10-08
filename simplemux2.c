@@ -312,8 +312,7 @@ bool bits[8]={false, true, false, true, false, true, false, false}; is character
 c = ToByte(bits);
 do_debug(1, "%c\n",c );
 // prints an asterisk*/
-unsigned char ToByte(bool b[8]) 
-{
+unsigned char ToByte(bool b[8]) {
 	int i;
 	unsigned char c = 0;
 	
@@ -901,7 +900,6 @@ int main(int argc, char *argv[]) {
 		else if ( debug > 3 ) debug = 3;
 		do_debug ( 1 , "debug level set to %i\n", debug);
 
-
 		// check ROHC option
 		if ( ROHC_mode < 0 ) {
 			ROHC_mode = 0;
@@ -909,7 +907,6 @@ int main(int argc, char *argv[]) {
 		else if ( ROHC_mode > 2 ) { 
 			ROHC_mode = 2;
 		}
-
 
 		if (*tunnel_mode == TUN_MODE) {
 			// tun tunnel mode (i.e. send IP packets)
@@ -1016,6 +1013,8 @@ int main(int argc, char *argv[]) {
 				exit (EXIT_FAILURE);
 			}	
 		}
+		
+		// UDP mode
 		else if ( *mode == UDP_MODE ) {
 			/*** Request a socket for writing and receiving muxed packets in UDP mode ***/
 			// AF_INET (exactly the same as PF_INET)
@@ -1153,6 +1152,9 @@ int main(int argc, char *argv[]) {
 		if ( user_mtu > 0 ) {
 			do_debug (1, "User-selected MTU: %i\n", user_mtu);
 		}
+		else {
+			do_debug (1, "\n");
+		}
 
 		if (user_mtu > interface_mtu) {
 			perror ("Error: The MTU specified by the user is higher than the MTU of the interface\n");
@@ -1177,45 +1179,6 @@ int main(int argc, char *argv[]) {
 			exit (1);
 		}
 		
-		
-		/*** Request a socket for feedback packets ***/
-		// AF_INET (exactly the same as PF_INET)
-		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-		// feedback_fd is the file descriptor of the socket for managing arrived feedback packets
-		// I only need the feedback socket if ROHC is activated 
-		if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-			perror("socket()");
-			exit(1);
-		}
-
-		if (ioctl (feedback_fd, SIOCGIFINDEX, &iface) < 0) {
-			perror ("ioctl() failed to find interface (feedback)");
-			return (EXIT_FAILURE);
-		}
-		
-		// assign the destination address and port for the feedback packets
-		memset(&feedback_remote, 0, sizeof(feedback_remote));
-		feedback_remote.sin_family = AF_INET;
-		feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);	// remote feedback IP (the same IP as the remote one)
-		feedback_remote.sin_port = htons(port_feedback);		// remote feedback port
-
-		// assign the source address and port to the feedback packets
-		memset(&feedback, 0, sizeof(feedback));
-		feedback.sin_family = AF_INET;
-		feedback.sin_addr.s_addr = inet_addr(local_ip);		// local IP
-		feedback.sin_port = htons(port_feedback);			// local port (feedback)
-
-		// bind the socket "feedback_fd" to the local feedback address (the same used for multiplexing) and port
-	 	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
-			perror("bind");
-		}
-		else {
-			do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
-		}
-
-
-
-
 
 		// define the maximum size threshold
 		switch (*mode) {
@@ -1276,6 +1239,7 @@ int main(int argc, char *argv[]) {
 		do_debug(1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %.2lf. period: %.2lf\n", size_threshold, limit_numpackets_tun, timeout, period);
 
 
+		/*********** ROHC *************/
 		switch(ROHC_mode) {
 			case 0:
 				do_debug ( 1 , "ROHC not activated\n", debug);
@@ -1290,10 +1254,46 @@ int main(int argc, char *argv[]) {
 				do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);	// Bidirectional Reliable mode (not implemented yet)
 				break;*/
 		}
-
-		// If ROHC has been selected, I have to initialize it
-		// see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
+		
 		if ( ROHC_mode > 0 ) {
+			/*** Request a socket for feedback packets ***/
+			// AF_INET (exactly the same as PF_INET)
+			// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
+			// feedback_fd is the file descriptor of the socket for managing arrived feedback packets
+			// I only need the feedback socket if ROHC is activated 
+			if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+				perror("socket()");
+				exit(1);
+			}
+	
+			if (ioctl (feedback_fd, SIOCGIFINDEX, &iface) < 0) {
+				perror ("ioctl() failed to find interface (feedback)");
+				return (EXIT_FAILURE);
+			}
+			
+			// assign the destination address and port for the feedback packets
+			memset(&feedback_remote, 0, sizeof(feedback_remote));
+			feedback_remote.sin_family = AF_INET;
+			feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);	// remote feedback IP (the same IP as the remote one)
+			feedback_remote.sin_port = htons(port_feedback);		// remote feedback port
+	
+			// assign the source address and port to the feedback packets
+			memset(&feedback, 0, sizeof(feedback));
+			feedback.sin_family = AF_INET;
+			feedback.sin_addr.s_addr = inet_addr(local_ip);		// local IP
+			feedback.sin_port = htons(port_feedback);			// local port (feedback)
+	
+			// bind the socket "feedback_fd" to the local feedback address (the same used for multiplexing) and port
+		 	if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
+				perror("bind");
+			}
+			else {
+				do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
+			}
+
+
+			// If ROHC has been selected, I have to initialize it
+			// see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
 
 			/* initialize the random generator */
 			seed = time(NULL);
