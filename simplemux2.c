@@ -72,6 +72,8 @@
 #include <rohc/rohc_comp.h>
 #include <rohc/rohc_decomp.h>
 #include <netinet/ip.h>			// for using iphdr type
+#include <ifaddrs.h>
+#include <netdb.h>
 
 #define BUFSIZE 2304			// buffer for reading from tun interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
@@ -1008,27 +1010,55 @@ int main(int argc, char *argv[]) {
 
 
 		if (*mode == NETWORK_MODE ) {
-			
+			//////////////MISSING FIND THE IP ADDRESS OF THE LOCAL INTERFACE//////////////////
 			// assign the destination address and port for the multiplexed packets
 			memset(&remote, 0, sizeof(remote));
 			remote.sin_family = AF_INET;
 			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
-			remote.sin_port = htons(port);						// remote port
+			//remote.sin_port = htons(port);										// remote port. There is no remote port in Network Mode
 	
+		  struct ifaddrs *ifaddr, *ifa;
+	    int family, s;
+	    char host[NI_MAXHOST];
+	
+	    if (getifaddrs(&ifaddr) == -1) {
+	        perror("getifaddrs");
+	        exit(EXIT_FAILURE);
+	    }
+	    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+				if (ifa->ifa_addr == NULL)
+					continue;  
+				
+				s=getnameinfo(ifa->ifa_addr,sizeof(struct sockaddr_in),host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+				
+				if((strcmp(ifa->ifa_name,mux_if_name)==0)&&(ifa->ifa_addr->sa_family==AF_INET)) {
+			    if (s != 0) {
+			        printf("getnameinfo() failed: %s\n", gai_strerror(s));
+			        exit(EXIT_FAILURE);
+			    }
+			    //printf("\tInterface : <%s>\n",ifa->ifa_name );
+			    //printf("\t  Address : <%s>\n", host);
+			    do_debug(1,"Raw socket for multiplexing open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, IPPROTO_SIMPLEMUX);
+			    break;
+				}
+	    }
+	
+	    freeifaddrs(ifaddr);
+    
 			// assign the local address and port for the multiplexed packets
 			memset(&local, 0, sizeof(local));
 			local.sin_family = AF_INET;
 			local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-			local.sin_port = htons(port);						// local port
+			local.sin_port = htons(port);										// local port
 			
 			// create a raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
 			// Submit request for a raw socket descriptor
 			if ((network_mode_fd = socket (AF_INET, SOCK_RAW, IPPROTO_SIMPLEMUX)) < 0) {
-				perror ("Raw socket for sending muxed packets bind failed ");
+				perror ("Raw socket for sending muxed packets failed ");
 				exit (EXIT_FAILURE);
 			}
 			else {
-				do_debug(1,"Raw socket for multiplexing open. Remote IP %s. Protocol number %i\n", inet_ntoa(remote.sin_addr), IPPROTO_SIMPLEMUX);
+				do_debug(1,"Remote IP %s\n", inet_ntoa(remote.sin_addr));
 			}
 
 			// Set flag so socket expects us to provide IPv4 header
