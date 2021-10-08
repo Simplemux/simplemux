@@ -939,42 +939,6 @@ int main(int argc, char *argv[]) {
 		else exit(1); // this would be a failure
 		
 
-		// initialize header IP to be used when receiving a packet in NETWORK mode
-		/*if ( *mode == NETWORK_MODE ) {
-			memset(&ipheader, 0, sizeof(struct iphdr));
-		}*/
-
-		/*** Request a socket for writing and receiving muxed packets in UDP mode ***/
-		// AF_INET (exactly the same as PF_INET)
-		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-		// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
-		if ( *mode == UDP_MODE ) {
-			/* creates an UN-named socket inside the kernel and returns
-			 * an integer known as socket descriptor
-			 * This function takes domain/family as its first argument.
-			 * For Internet family of IPv4 addresses we use AF_INET
-			 */
-			if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-				perror("socket()");
-				exit(1);
-			}
-		}
-
-		/*** Request a socket for writing and receiving muxed packets in TCP mode ***/
-		// AF_INET (exactly the same as PF_INET)
-		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-		// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
-		else if ( *mode == TCP_MODE ) {
-			/* creates an UN-named socket inside the kernel and returns
-			 * an integer known as socket descriptor
-			 * This function takes domain/family as its first argument.
-			 * For Internet family of IPv4 addresses we use AF_INET
-			 */
-			if ( ( transport_mode_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
-				perror("socket()");
-				exit(1);
-			}			
-		}
 
 		/*** Request a socket for writing and receiving muxed packets in Network mode ***/
 		// AF_INET (exactly the same as PF_INET)
@@ -982,33 +946,9 @@ int main(int argc, char *argv[]) {
 		// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
 		if ( *mode == NETWORK_MODE ) {
 			// initialize header IP to be used when receiving a packet in NETWORK mode
-			memset(&ipheader, 0, sizeof(struct iphdr));
-			
+			memset(&ipheader, 0, sizeof(struct iphdr));			
 			memset (&iface, 0, sizeof (iface));
 			snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
-			
-			/* creates an UN-named socket inside the kernel and returns
-			 * an integer known as socket descriptor
-			 * This function takes domain/family as its first argument.
-			 * For Internet family of IPv4 addresses we use AF_INET
-			 */
-			/*if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-				perror("socket()");
-				exit(1);
-			}*/
-		}
-		else if ( *mode == UDP_MODE ) {
-			// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
-			memset (&iface, 0, sizeof (iface));
-			snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
-			if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
-				perror ("ioctl() failed to find interface (transport mode) ");
-				return (EXIT_FAILURE);
-			}
-		}
-		
-
-		if (*mode == NETWORK_MODE ) {
 
 			// get the local IP address of the network interface 'mux_if_name'
 			// using 'getifaddrs()' 	
@@ -1074,11 +1014,32 @@ int main(int argc, char *argv[]) {
 			if (setsockopt (network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
 				perror ("setsockopt() failed to bind to interface (network mode) ");
 				exit (EXIT_FAILURE);
-			}
+			}	
 		}
-		
-		// UDP mode
-		else if ((*mode == UDP_MODE) /*|| (*mode == NETWORK_MODE)*/) {
+		else if ( *mode == UDP_MODE ) {
+			/*** Request a socket for writing and receiving muxed packets in UDP mode ***/
+			// AF_INET (exactly the same as PF_INET)
+			// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
+			// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
+
+			/* creates an UN-named socket inside the kernel and returns
+			 * an integer known as socket descriptor
+			 * This function takes domain/family as its first argument.
+			 * For Internet family of IPv4 addresses we use AF_INET
+			 */
+			if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+				perror("socket() UDP mode");
+				exit(1);
+			}
+
+			// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
+			memset (&iface, 0, sizeof (iface));
+			snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
+			if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
+				perror ("ioctl() failed to find interface (transport mode) ");
+				return (EXIT_FAILURE);
+			}
+
 			/*** get the IP address of the local interface ***/
 			if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
 				perror ("ioctl() failed to find the IP address for local interface ");
@@ -1115,7 +1076,21 @@ int main(int argc, char *argv[]) {
 
 		// TCP server mode
 		else if (*mode == TCP_SERVER_MODE ) {
-			
+			/*** Request a socket for writing and receiving muxed packets in TCP mode ***/
+			// AF_INET (exactly the same as PF_INET)
+			// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
+			// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
+
+			/* creates an UN-named socket inside the kernel and returns
+			 * an integer known as socket descriptor
+			 * This function takes domain/family as its first argument.
+			 * For Internet family of IPv4 addresses we use AF_INET
+			 */
+			if ( ( transport_mode_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
+				perror("socket() TCP mode");
+				exit(1);
+			}			
+						
 			/*** get the IP address of the local interface ***/
 			if (ioctl(tcp_welcoming_fd, SIOCGIFADDR, &iface) < 0) {
 				perror ("ioctl() failed to find the IP address for local interface ");
