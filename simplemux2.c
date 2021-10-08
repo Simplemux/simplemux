@@ -72,8 +72,8 @@
 #include <rohc/rohc_comp.h>
 #include <rohc/rohc_decomp.h>
 #include <netinet/ip.h>			// for using iphdr type
-#include <ifaddrs.h>
-#include <netdb.h>
+#include <ifaddrs.h>				// required for using getifaddrs()
+#include <netdb.h>					// required for using getifaddrs()
 
 #define BUFSIZE 2304			// buffer for reading from tun interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
@@ -1008,23 +1008,19 @@ int main(int argc, char *argv[]) {
 		}
 		
 
-
 		if (*mode == NETWORK_MODE ) {
-			//////////////MISSING FIND THE IP ADDRESS OF THE LOCAL INTERFACE//////////////////
-			// assign the destination address and port for the multiplexed packets
-			memset(&remote, 0, sizeof(remote));
-			remote.sin_family = AF_INET;
-			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
-			//remote.sin_port = htons(port);										// remote port. There is no remote port in Network Mode
-	
+
+			// get the local IP address of the network interface 'mux_if_name'
+			// using 'getifaddrs()' 	
 		  struct ifaddrs *ifaddr, *ifa;
-	    int family, s;
-	    char host[NI_MAXHOST];
+	    int /*family,*/ s;
+	    char host[NI_MAXHOST];	// this will be the IP address
 	
 	    if (getifaddrs(&ifaddr) == -1) {
 	        perror("getifaddrs");
 	        exit(EXIT_FAILURE);
 	    }
+	    
 	    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
 				if (ifa->ifa_addr == NULL)
 					continue;  
@@ -1042,15 +1038,20 @@ int main(int argc, char *argv[]) {
 			    break;
 				}
 	    }
-	
-	    freeifaddrs(ifaddr);
-    
-			// assign the local address and port for the multiplexed packets
+ 
+			// assign the local address for the multiplexed packets
 			memset(&local, 0, sizeof(local));
 			local.sin_family = AF_INET;
-			local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-			local.sin_port = htons(port);										// local port
-			
+			local.sin_addr.s_addr = inet_addr(host);	// convert the string 'host' to an IP address
+
+	    freeifaddrs(ifaddr);
+	    
+ 			// assign the destination address for the multiplexed packets
+			memset(&remote, 0, sizeof(remote));
+			remote.sin_family = AF_INET;
+			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
+			//remote.sin_port = htons(port);										// remote port. There are no ports in Network Mode
+					
 			// create a raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
 			// Submit request for a raw socket descriptor
 			if ((network_mode_fd = socket (AF_INET, SOCK_RAW, IPPROTO_SIMPLEMUX)) < 0) {
