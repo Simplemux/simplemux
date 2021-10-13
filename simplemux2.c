@@ -1701,13 +1701,13 @@ int main(int argc, char *argv[]) {
 						/* Once the sockets are connected, client can read it
 						 * through normal read call on the its socket descriptor.
 						 */
-						nread_from_net = read(tcp_mode_fd, buffer_from_net, sizeof(buffer_from_net)-1);
+						nread_from_net = read(tcp_mode_fd, buffer_from_net, sizeof(buffer_from_net));
 					
 						if(nread_from_net < 0)	{
 							perror("read() error");
 						}
 						else {
-							do_debug(0,"Read %d bytes from the TCP socket", nread_from_net);					 //FIXME: this should say '3'					
+							do_debug(0,"Read %d bytes from the TCP socket\n", nread_from_net);					 //FIXME: this should say '3'					
 						}
 						
 						// as I am reading from the TCP socket, this is a multiplexed packet
@@ -1723,13 +1723,13 @@ int main(int argc, char *argv[]) {
 						/* Once the sockets are connected, client can read it
 						 * through normal read call on the its socket descriptor.
 						 */
-						nread_from_net = read(tcp_mode_fd, buffer_from_net, sizeof(buffer_from_net)-1);
+						nread_from_net = read(tcp_mode_fd, buffer_from_net, sizeof(buffer_from_net));
 					
 						if(nread_from_net < 0)	{
 							perror("read() error");
 						}
 						else {
-							do_debug(0,"Read %d bytes from the TCP socket", nread_from_net);			 //FIXME: this should say '3'			
+							do_debug(0,"Read %d bytes from the TCP socket\n", nread_from_net);			 //FIXME: this should say '3'			
 						}
 						// as I am reading from the TCP socket, this is a multiplexed packet
 						is_multiplexed_packet = 1;
