@@ -1173,6 +1173,8 @@ int main(int argc, char *argv[]) {
 			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
 			remote.sin_port = htons(port);						// remote port
 	
+			do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+			
 			// assign the local address and port for the multiplexed packets
 			memset(&local, 0, sizeof(local));
 			local.sin_family = AF_INET;
@@ -1184,7 +1186,7 @@ int main(int argc, char *argv[]) {
 			 * which tries to connect this socket with the socket (IP address and port)
 			 * of the remote host
 			 */
-			if( connect(tcp_mode_fd, (struct sockaddr *)&remote.sin_addr.s_addr, sizeof(remote.sin_addr.s_addr)) < 0) {
+			if( connect(tcp_mode_fd, (struct sockaddr *)&remote, sizeof(remote)) < 0) {
 				perror("connect() error: Connect Failed \n");
 				return 1;
 			}
@@ -3159,7 +3161,6 @@ int main(int argc, char *argv[]) {
 									do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
 								}
 							}
-
 							
 							switch(*tunnel_mode) {
 								case TUN_MODE:
@@ -3178,6 +3179,7 @@ int main(int argc, char *argv[]) {
 										break;
 									}
 								break;
+								
 								case TAP_MODE:
 									switch (*mode) {
 										case UDP_MODE:
