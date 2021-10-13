@@ -972,7 +972,7 @@ int main(int argc, char *argv[]) {
 			    }
 			    //printf("\tInterface : <%s>\n",ifa->ifa_name );
 			    //printf("\t  Address : <%s>\n", host);
-			    do_debug(1,"Raw socket for multiplexing open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, IPPROTO_SIMPLEMUX);
+			    do_debug(1,"Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, IPPROTO_SIMPLEMUX);
 			    break;
 				}
 	    }
@@ -1070,7 +1070,7 @@ int main(int argc, char *argv[]) {
 				perror("bind");
 			}
 			else {
-				do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+				do_debug(1, "Socket for multiplexing over UDP open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
 			}
 		}
 
@@ -1167,19 +1167,18 @@ int main(int argc, char *argv[]) {
 				do_debug(1, "Local IP for multiplexing %s\n", local_ip);
 			}
 
-			// assign the destination address and port for the multiplexed packets
-			memset(&remote, 0, sizeof(remote));
-			remote.sin_family = AF_INET;
-			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
-			remote.sin_port = htons(port);						// remote port
-	
-			do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
-			
 			// assign the local address and port for the multiplexed packets
 			memset(&local, 0, sizeof(local));
 			local.sin_family = AF_INET;
 			local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
 			local.sin_port = htons(port);						// local port
+			
+			// assign the destination address and port for the multiplexed packets
+			memset(&remote, 0, sizeof(remote));
+			remote.sin_family = AF_INET;
+			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
+			remote.sin_port = htons(port);						// remote port
+
 
 			/* Information like IP address of the remote host and its port is
 			 * bundled up in a structure and a call to function connect() is made
@@ -1187,28 +1186,12 @@ int main(int argc, char *argv[]) {
 			 * of the remote host
 			 */
 			if( connect(tcp_mode_fd, (struct sockaddr *)&remote, sizeof(remote)) < 0) {
-				perror("connect() error: Connect Failed \n");
+				perror("connect() error: TCP connect Failed. The TCP server did not accept the connection");
 				return 1;
 			}
-			
-			/* The call to the function "bind()" assigns the details specified
-			 * in the structure 'sockaddr' to the socket created above
-			 */	
-			 /*
-			if (bind(tcp_welcoming_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
-				perror("bind");
-			}
 			else {
-				do_debug(1, "Welcoming TCP socket open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+				do_debug(1, "Successfully connected to the TCP server at %s:%i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
 			}
-			*/
-			/* The call to the function "listen()" with second argument as 1 specifies
-			 * maximum number of client connections that the server will queue for this listening
-			 * socket.
-			 */
-			 /*
-			listen(tcp_welcoming_fd, 1);
-			*/
 		}
 
 		/*** get the MTU of the local interface ***/
@@ -1357,7 +1340,7 @@ int main(int argc, char *argv[]) {
 				perror("bind");
 			}
 			else {
-				do_debug(1, "Socket for feedback open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
+				do_debug(1, "Socket for ROHC feedback over UDP open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
 			}
 		}
 
@@ -1592,13 +1575,15 @@ int main(int argc, char *argv[]) {
 		/*****************************************/
 		while(1) {
 
-			FD_ZERO(&rd_set);							/* FD_ZERO() clears a set */
-			FD_SET(tun_fd, &rd_set);			/* FD_SET() adds a given file descriptor to a set */
+			/*
+			FD_ZERO(&rd_set);							// FD_ZERO() clears a set
+			FD_SET(tun_fd, &rd_set);			// FD_SET() adds a given file descriptor to a set
 			FD_SET(network_mode_fd, &rd_set);
 			FD_SET(udp_mode_fd, &rd_set);
 			FD_SET(tcp_welcoming_fd, &rd_set);
 			FD_SET(feedback_fd, &rd_set);
-
+			*/
+			
 			/* Initialize the timeout data structure. */
 			time_in_microsec = GetTimeStamp();
 			if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
