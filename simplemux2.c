@@ -217,7 +217,7 @@ int cwrite(int fd, unsigned char *buf, int n){
 	int nwritten;
 
 	if((nwritten = write(fd, buf, n)) < 0){
-		perror("Writing data");
+		perror("cwrite() Error writing data");
 		exit(1);
 	}
 	return nwritten;
@@ -1696,33 +1696,46 @@ int main(int argc, char *argv[]) {
 					break;
 
 					case TCP_MODE:
-						// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
-						// I cannot use 'remote' because it would replace the IP address and port. I use 'received'
-						nread_from_net = recvfrom ( tcp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
-						if (nread_from_net==-1) perror ("recvfrom()");
-						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
-						// I don't have the IP and UDP headers
+						// a packet has been received from the network, destinated to the TCP socket
 
-						// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
-						if (port == ntohs(received.sin_port)) 
-							 is_multiplexed_packet = 1;
-						else
-							is_multiplexed_packet = 0;
+						/* Once the sockets are connected, client can read it
+						 * through normal read call on the its socket descriptor.
+						 */
+						nread_from_net = read(tcp_mode_fd, buffer_from_net, sizeof(buffer_from_net)-1);
+					
+						if(nread_from_net < 0)	{
+							perror("read() error");
+						}
+						else {
+							do_debug(0,"Read %d bytes from the TCP socket", nread_from_net);					 //FIXME: this should say '3'					
+						}
+						
+						// as I am reading from the TCP socket, this is a multiplexed packet
+						is_multiplexed_packet = 1;
+
+						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
+						// I don't have the TCP headers
 					break;
 					
 					case TCP_SERVER_MODE:
-						// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
-						// I cannot use 'remote' because it would replace the IP address and port. I use 'received'
-						nread_from_net = recvfrom ( tcp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
-						if (nread_from_net==-1) perror ("recvfrom()");
+						// a packet has been received from the network, destinated to the TCP socket
+						
+						/* Once the sockets are connected, client can read it
+						 * through normal read call on the its socket descriptor.
+						 */
+						nread_from_net = read(tcp_mode_fd, buffer_from_net, sizeof(buffer_from_net)-1);
+					
+						if(nread_from_net < 0)	{
+							perror("read() error");
+						}
+						else {
+							do_debug(0,"Read %d bytes from the TCP socket", nread_from_net);			 //FIXME: this should say '3'			
+						}
+						// as I am reading from the TCP socket, this is a multiplexed packet
+						is_multiplexed_packet = 1;
+						
 						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
-						// I don't have the IP and UDP headers
-
-						// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
-						if (port == ntohs(received.sin_port)) 
-							 is_multiplexed_packet = 1;
-						else
-							is_multiplexed_packet = 0;
+						// I don't have the TCP headers
 					break;
 					
 					case NETWORK_MODE:
@@ -2376,8 +2389,8 @@ int main(int argc, char *argv[]) {
 								// tun mode
 								if(*tunnel_mode == TUN_MODE) {
 	 								// write the demuxed packet to the tun interface
+									do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
 									cwrite ( tun_fd, demuxed_packet, packet_length );
-									do_debug (2, " Packet of %i bytes sent to the tun interface\n", packet_length);
 								}
 								// tap mode
 								else if(*tunnel_mode == TAP_MODE) {
@@ -2386,8 +2399,8 @@ int main(int argc, char *argv[]) {
 									}
 									else {
 		 								// write the demuxed packet to the tap interface
+										do_debug (2, " Sending frame of %i bytes to the tap interface\n", packet_length);
 										cwrite ( tun_fd, demuxed_packet, packet_length );
-										do_debug (2, " Frame of %i bytes sent to the tap interface\n", packet_length);
 									}
 								}
 								else {
@@ -2411,8 +2424,8 @@ int main(int argc, char *argv[]) {
 				else {
 					// packet with destination port 55555, but a source port different from the multiplexing one
 					// if the packet does not come from the multiplexing port, write it directly into the tun interface
+					do_debug(1, "NON-MUXED PACKET #%lu: Non-multiplexed packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
 					cwrite ( tun_fd, buffer_from_net, nread_from_net);
-					do_debug(1, "NON-MUXED PACKET #%lu: Non-multiplexed packet. Written %i bytes to tun\n", net2tun, nread_from_net);
 
 					// write the log file
 					if ( log_file != NULL ) {
@@ -2494,8 +2507,8 @@ int main(int argc, char *argv[]) {
 
 					// packet with destination port 55556, but a source port different from the feedback one
 					// if the packet does not come from the feedback port, write it directly into the tun interface
+					do_debug(1, "NON-FEEDBACK PACKET %lu: Non-feedback packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
 					cwrite ( tun_fd, buffer_from_net, nread_from_net);
-					do_debug(1, "NON-FEEDBACK PACKET %lu: Non-feedback packet. Written %i bytes to tun\n", net2tun, nread_from_net);
 
 					// write the log file
 					if ( log_file != NULL ) {
