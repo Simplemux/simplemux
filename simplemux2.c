@@ -74,6 +74,8 @@
 #include <netinet/ip.h>			// for using iphdr type
 #include <ifaddrs.h>				// required for using getifaddrs()
 #include <netdb.h>					// required for using getifaddrs()
+#include <poll.h>
+
 
 #define BUFSIZE 2304			// buffer for reading from tun interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
@@ -573,31 +575,29 @@ static void print_rohc_traces(void *const priv_ctxt,
 
 // Calculate IPv4 checksum
 unsigned short in_cksum(unsigned short *addr, int len) {
-register int sum = 0;
-u_short answer = 0;
-register u_short *w = addr;
-register int nleft = len;
-/*
-* Our algorithm is simple, using a 32 bit accumulator (sum), we add
-* sequential 16 bit words to it, and at the end, fold back all the
-* carry bits from the top 16 bits into the lower 16 bits.
-*/
-while (nleft > 1)
-{
-sum += *w++;
-nleft -= 2;
-}
-/* mop up an odd byte, if necessary */
-if (nleft == 1)
-{
-*(u_char *) (&answer) = *(u_char *) w;
-sum += answer;
-}
-/* add back carry outs from top 16 bits to low 16 bits */
-sum = (sum >> 16) + (sum & 0xffff); /* add hi 16 to low 16 */
-sum += (sum >> 16); /* add carry */
-answer = ~sum; /* truncate to 16 bits */
-return (answer);
+	register int sum = 0;
+	u_short answer = 0;
+	register u_short *w = addr;
+	register int nleft = len;
+	/*
+	* Our algorithm is simple, using a 32 bit accumulator (sum), we add
+	* sequential 16 bit words to it, and at the end, fold back all the
+	* carry bits from the top 16 bits into the lower 16 bits.
+	*/
+	while (nleft > 1) {
+		sum += *w++;
+		nleft -= 2;
+	}
+	/* mop up an odd byte, if necessary */
+	if (nleft == 1) {
+		*(u_char *) (&answer) = *(u_char *) w;
+		sum += answer;
+	}
+	/* add back carry outs from top 16 bits to low 16 bits */
+	sum = (sum >> 16) + (sum & 0xffff); /* add hi 16 to low 16 */
+	sum += (sum >> 16); /* add carry */
+	answer = ~sum; /* truncate to 16 bits */
+	return (answer);
 }
 
 
@@ -656,13 +656,16 @@ int main(int argc, char *argv[]) {
 
 	// variables for managing the network interfaces
 	int tun_fd;													// file descriptor of the tun interface(no mux packet)
-	int transport_mode_fd = 2;					// file descriptor of the socket in Transport mode: UDP or TCP
+	int udp_mode_fd = 2;								// file descriptor of the socket in UDP mode
 	int network_mode_fd = 1;						// file descriptor of the socket in Network mode
 	int feedback_fd = 3;								// file descriptor of the socket of the feedback received from the network interface
 	int tcp_welcoming_fd = 4;						// file descriptor of the TCP welcoming socket
+	int tcp_mode_fd = 5;								// file descriptor of the TCP socket
 	int maxfd;													// maximum number of file descriptors
 	fd_set rd_set;											// rd_set is a set of file descriptors used to know which interface has received a packet
 
+	int fd2read;
+	
 	char tun_if_name[IFNAMSIZ] = "";		// name of the tun interface (e.g. "tun0")
 	char mux_if_name[IFNAMSIZ] = "";		// name of the network interface (e.g. "eth0")
 
@@ -673,6 +676,7 @@ int main(int argc, char *argv[]) {
 	const int on = 1;										// needed when creating a socket
 
 	struct sockaddr_in local, remote, feedback, feedback_remote, received;	// these are structs for storing sockets
+	struct sockaddr_in TCPpair;
 
 	struct iphdr ipheader;							// IP header
 	struct ifreq iface;									// network interface
@@ -938,9 +942,6 @@ int main(int argc, char *argv[]) {
 
 
 		/*** Request a socket for writing and receiving muxed packets in Network mode ***/
-		// AF_INET (exactly the same as PF_INET)
-		// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-		// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
 		if ( *mode == NETWORK_MODE ) {
 			// initialize header IP to be used when receiving a packet in NETWORK mode
 			memset(&ipheader, 0, sizeof(struct iphdr));			
@@ -986,9 +987,11 @@ int main(int argc, char *argv[]) {
  			// assign the destination address for the multiplexed packets
 			memset(&remote, 0, sizeof(remote));
 			remote.sin_family = AF_INET;
-			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
-			//remote.sin_port = htons(port);										// remote port. There are no ports in Network Mode
-					
+			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP. There are no ports in Network Mode
+	
+			// AF_INET (exactly the same as PF_INET)
+			// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
+			// network_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
 			// create a raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
 			// Submit request for a raw socket descriptor
 			if ((network_mode_fd = socket (AF_INET, SOCK_RAW, IPPROTO_SIMPLEMUX)) < 0) {
@@ -1019,28 +1022,28 @@ int main(int argc, char *argv[]) {
 			/*** Request a socket for writing and receiving muxed packets in UDP mode ***/
 			// AF_INET (exactly the same as PF_INET)
 			// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-			// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
+			// udp_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
 
 			/* creates an UN-named socket inside the kernel and returns
 			 * an integer known as socket descriptor
 			 * This function takes domain/family as its first argument.
 			 * For Internet family of IPv4 addresses we use AF_INET
 			 */
-			if ( ( transport_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+			if ( ( udp_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
 				perror("socket() UDP mode");
 				exit(1);
 			}
 
-			// Use ioctl() to look up interface index which we will use to bind socket descriptor "transport_mode_fd" to
+			// Use ioctl() to look up interface index which we will use to bind socket descriptor "udp_mode_fd" to
 			memset (&iface, 0, sizeof (iface));
 			snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
-			if (ioctl (transport_mode_fd, SIOCGIFINDEX, &iface) < 0) {
+			if (ioctl (udp_mode_fd, SIOCGIFINDEX, &iface) < 0) {
 				perror ("ioctl() failed to find interface (transport mode) ");
 				return (EXIT_FAILURE);
 			}
 
 			/*** get the IP address of the local interface ***/
-			if (ioctl(transport_mode_fd, SIOCGIFADDR, &iface) < 0) {
+			if (ioctl(udp_mode_fd, SIOCGIFADDR, &iface) < 0) {
 				perror ("ioctl() failed to find the IP address for local interface ");
 				return (EXIT_FAILURE);
 			}
@@ -1062,15 +1065,13 @@ int main(int argc, char *argv[]) {
 			local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
 			local.sin_port = htons(port);						// local port
 	
-			// bind the socket "transport_mode_fd" to the local address and port
-			//if ((*mode == UDP_MODE ) || (*mode == TCP_MODE )) {
-			 	if (bind(transport_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
-					perror("bind");
-				}
-				else {
-					do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
-				}
-			//}
+			// bind the socket "udp_mode_fd" to the local address and port
+		 	if (bind(udp_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+				perror("bind");
+			}
+			else {
+				do_debug(1, "Socket for multiplexing open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+			}
 		}
 
 		// TCP server mode
@@ -1078,18 +1079,22 @@ int main(int argc, char *argv[]) {
 			/*** Request a socket for writing and receiving muxed packets in TCP mode ***/
 			// AF_INET (exactly the same as PF_INET)
 			// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
-			// transport_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
+			// tcp_welcoming_fd is the file descriptor of the socket for managing arrived multiplexed packets
 
 			/* creates an UN-named socket inside the kernel and returns
 			 * an integer known as socket descriptor
 			 * This function takes domain/family as its first argument.
 			 * For Internet family of IPv4 addresses we use AF_INET
 			 */
-			if ( ( transport_mode_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
-				perror("socket() TCP mode");
+			if ( ( tcp_welcoming_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
+				perror("socket() TCP server mode");
 				exit(1);
 			}			
-						
+
+			// Use ioctl() to look up interface index which we will use to bind socket descriptor "udp_mode_fd" to
+			memset (&iface, 0, sizeof (iface));
+			snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
+								
 			/*** get the IP address of the local interface ***/
 			if (ioctl(tcp_welcoming_fd, SIOCGIFADDR, &iface) < 0) {
 				perror ("ioctl() failed to find the IP address for local interface ");
@@ -1130,9 +1135,83 @@ int main(int argc, char *argv[]) {
 			listen(tcp_welcoming_fd, 1);
 		}
 
+		// TCP client mode
+		else if (*mode == TCP_MODE ) {
+			/*** Request a socket for writing and receiving muxed packets in TCP mode ***/
+			// AF_INET (exactly the same as PF_INET)
+			// transport_protocol: 	SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)	
+			// tcp_welcoming_fd is the file descriptor of the socket for managing arrived multiplexed packets
+
+			/* creates an UN-named socket inside the kernel and returns
+			 * an integer known as socket descriptor
+			 * This function takes domain/family as its first argument.
+			 * For Internet family of IPv4 addresses we use AF_INET
+			 */
+			if ( ( tcp_mode_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
+				perror("socket() TCP mode");
+				exit(1);
+			}
+			
+			// Use ioctl() to look up interface index which we will use to bind socket descriptor "udp_mode_fd" to
+			memset (&iface, 0, sizeof (iface));
+			snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
+			
+			/*** get the IP address of the local interface ***/
+			if (ioctl(tcp_mode_fd, SIOCGIFADDR, &iface) < 0) {
+				perror ("ioctl() failed to find the IP address for local interface ");
+				return (EXIT_FAILURE);
+			}
+			else {
+				// source IPv4 address: it is the one of the interface
+				strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
+				do_debug(1, "Local IP for multiplexing %s\n", local_ip);
+			}
+
+			// assign the destination address and port for the multiplexed packets
+			memset(&remote, 0, sizeof(remote));
+			remote.sin_family = AF_INET;
+			remote.sin_addr.s_addr = inet_addr(remote_ip);		// remote IP
+			remote.sin_port = htons(port);						// remote port
+	
+			// assign the local address and port for the multiplexed packets
+			memset(&local, 0, sizeof(local));
+			local.sin_family = AF_INET;
+			local.sin_addr.s_addr = inet_addr(local_ip);		// local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
+			local.sin_port = htons(port);						// local port
+
+			/* Information like IP address of the remote host and its port is
+			 * bundled up in a structure and a call to function connect() is made
+			 * which tries to connect this socket with the socket (IP address and port)
+			 * of the remote host
+			 */
+			if( connect(tcp_mode_fd, (struct sockaddr *)&remote.sin_addr.s_addr, sizeof(remote.sin_addr.s_addr)) < 0) {
+				perror("connect() error: Connect Failed \n");
+				return 1;
+			}
+			
+			/* The call to the function "bind()" assigns the details specified
+			 * in the structure 'sockaddr' to the socket created above
+			 */	
+			 /*
+			if (bind(tcp_welcoming_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+				perror("bind");
+			}
+			else {
+				do_debug(1, "Welcoming TCP socket open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+			}
+			*/
+			/* The call to the function "listen()" with second argument as 1 specifies
+			 * maximum number of client connections that the server will queue for this listening
+			 * socket.
+			 */
+			 /*
+			listen(tcp_welcoming_fd, 1);
+			*/
+		}
+
 		/*** get the MTU of the local interface ***/
 		if (*mode == UDP_MODE)	{
-			if (ioctl(transport_mode_fd, SIOCGIFMTU, &iface) == -1)
+			if (ioctl(udp_mode_fd, SIOCGIFMTU, &iface) == -1)
 				interface_mtu = 0;
 			else interface_mtu = iface.ifr_mtu;
 		}
@@ -1141,7 +1220,7 @@ int main(int argc, char *argv[]) {
 				interface_mtu = 0;
 			else interface_mtu = iface.ifr_mtu;
 		}
-		else if (*mode == TCP_SERVER_MODE ) {
+		else if ((*mode == TCP_SERVER_MODE ) || (*mode == TCP_MODE )) {
 			if (ioctl(tcp_welcoming_fd, SIOCGIFMTU, &iface) == -1)
 				interface_mtu = 0;
 			else interface_mtu = iface.ifr_mtu;
@@ -1188,7 +1267,11 @@ int main(int argc, char *argv[]) {
 			case TCP_MODE:
 				size_max = selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
 			break;
-
+			
+			case TCP_SERVER_MODE:
+				size_max = selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
+			break;
+			
 			case NETWORK_MODE:
 				size_max = selected_mtu - IPv4_HEADER_SIZE ;
 			break;
@@ -1209,7 +1292,7 @@ int main(int argc, char *argv[]) {
 		/*** set the triggering parameters according to user selections (or default values) ***/
 	
 		// there are four possibilities for triggering the sending of the packets:
-		// - a threshold of the acumulated packet size. Two different options apply:
+		// - a threshold of the accumulated packet size. Two different options apply:
 		// 		-	the size of the multiplexed packet has exceeded the size threshold specified by the user,
 		//			but not the MTU. In this case, a packet is sent and a new period is started with the
 		//			buffer empty.
@@ -1472,28 +1555,35 @@ int main(int argc, char *argv[]) {
 		do_debug(1, "\n");
 		
 
-		/*** I need the value of the maximum file descriptor, in order to let select() handle 4 interface descriptors at once ***/
-		/*		
-		if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd)
-			maxfd = tun_fd;
-		if(network_mode_fd >= transport_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd)
-			maxfd = network_mode_fd;
-		if(transport_mode_fd >= tun_fd && transport_mode_fd >= feedback_fd && transport_mode_fd >= network_mode_fd)
-			maxfd = transport_mode_fd;
-		if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd)
-			maxfd = feedback_fd;*/
-
 		/*** I need the value of the maximum file descriptor, in order to let select() handle 5 interface descriptors at once ***/
-		if(tun_fd >= transport_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd && tun_fd >= tcp_welcoming_fd)
+/*		
+		if(tun_fd >= udp_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd && tun_fd >= tcp_welcoming_fd)
 			maxfd = tun_fd;
-		if(network_mode_fd >= transport_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd && network_mode_fd >= tcp_welcoming_fd)
+		if(network_mode_fd >= udp_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd && network_mode_fd >= tcp_welcoming_fd)
 			maxfd = network_mode_fd;
-		if(transport_mode_fd >= tun_fd && transport_mode_fd >= feedback_fd && transport_mode_fd >= network_mode_fd && transport_mode_fd >= tcp_welcoming_fd)
-			maxfd = transport_mode_fd;
-		if(feedback_fd >= tun_fd && feedback_fd >= transport_mode_fd && feedback_fd >= network_mode_fd && feedback_fd >= tcp_welcoming_fd)
+		if(udp_mode_fd >= tun_fd && udp_mode_fd >= feedback_fd && udp_mode_fd >= network_mode_fd && udp_mode_fd >= tcp_welcoming_fd)
+			maxfd = udp_mode_fd;
+		if(feedback_fd >= tun_fd && feedback_fd >= udp_mode_fd && feedback_fd >= network_mode_fd && feedback_fd >= tcp_welcoming_fd)
 			maxfd = feedback_fd;
-		if(tcp_welcoming_fd >= tun_fd && tcp_welcoming_fd >= transport_mode_fd && tcp_welcoming_fd >= network_mode_fd && tcp_welcoming_fd >= feedback_fd)
+		if(tcp_welcoming_fd >= tun_fd && tcp_welcoming_fd >= udp_mode_fd && tcp_welcoming_fd >= network_mode_fd && tcp_welcoming_fd >= feedback_fd)
 			maxfd = feedback_fd;
+*/
+		/** POLL **/
+	  struct pollfd* fds_poll = malloc(5*sizeof(struct pollfd));
+	  memset(fds_poll, 0, 5*sizeof(struct pollfd));
+	
+	  fds_poll[0].fd = tun_fd;
+	  fds_poll[1].fd = network_mode_fd;
+	  fds_poll[2].fd = udp_mode_fd;
+	  fds_poll[3].fd = feedback_fd;
+	  fds_poll[4].fd = tcp_welcoming_fd;
+	
+	  fds_poll[0].events = POLLIN;
+	  fds_poll[1].events = POLLIN;
+	  fds_poll[2].events = POLLIN;
+	  fds_poll[3].events = POLLIN;
+	  fds_poll[4].events = POLLIN;
+		/** END POLL **/
 
 		/*****************************************/
 		/************** Main loop ****************/
@@ -1503,7 +1593,8 @@ int main(int argc, char *argv[]) {
 			FD_ZERO(&rd_set);							/* FD_ZERO() clears a set */
 			FD_SET(tun_fd, &rd_set);			/* FD_SET() adds a given file descriptor to a set */
 			FD_SET(network_mode_fd, &rd_set);
-			FD_SET(transport_mode_fd, &rd_set);
+			FD_SET(udp_mode_fd, &rd_set);
+			FD_SET(tcp_welcoming_fd, &rd_set);
 			FD_SET(feedback_fd, &rd_set);
 
 			/* Initialize the timeout data structure. */
@@ -1523,6 +1614,7 @@ int main(int argc, char *argv[]) {
 			/* select () allows a program to monitor multiple file descriptors, */ 
 			/* waiting until one or more of the file descriptors become "ready" */
 			/* for some class of I/O operation*/
+			/*
 			ret = select(maxfd + 1, &rd_set, NULL, NULL, &period_expires); 	//this line stops the program until something
 																			//happens or the period expires
 
@@ -1532,25 +1624,70 @@ int main(int argc, char *argv[]) {
 			if (ret < 0) {
 				perror("select()");
 				exit(1);
+			}*/
+
+			/** POLL **/
+	    // check if a frame has arrived to any of the file descriptors
+	    fd2read = poll(fds_poll, 5, time_in_microsec + microseconds_left);
+	
+	
+	    /********************************/
+	    /**** Error in poll function ****/
+	    /********************************/
+	    if(fd2read < 0) {
+	      if(fd2read == -1 || errno != EINTR ) {
+	
+	      }
+	      else {
+	        perror("[OdinAP] Error in poll function");
+	        return -1;
+	      }
+	    }
+	
+	    /*******************************************/
+	    /**** A frame has arrived to one socket ****/
+	    /*******************************************/
+	    // a frame has arrived to one of the sockets in 'fds_poll'
+	    //else if (fd2read > 0) {
+
+			/** END POLL **/
+
+
+			/************* VOY POR AQUÍ. QUÉ HACER PARA ABRIR EL NUEVO SOCKET ***********/
+			//if(FD_ISSET(tcp_welcoming_fd, &rd_set)) {
+			if((fds_poll[4].revents & POLLIN) && (client_connected_to_this_tcp_server == 0)) {
+
+				unsigned int len = sizeof(struct sockaddr);
+				tcp_mode_fd = accept(tcp_welcoming_fd, (struct sockaddr*)&TCPpair, &len);
+				client_connected_to_this_tcp_server = 1;
+
+        if(tcp_mode_fd <= 0) {
+          perror("[OdinAP] Error in 'accept' the TCP Socket");
+        }
+
+				// change the descriptor to that of tcp_mode_fd
+				fds_poll[4].fd = tcp_mode_fd;
+				
+				do_debug(1,"TCP connection started by the client. Socket for connecting to the client: %d\n", tcp_mode_fd);
 			}
-
-
+			
 			/*****************************************************************************/
 			/***************** NET to tun. demux and decompress **************************/
 			/*****************************************************************************/
 
 			// data arrived at the network interface: read, demux, decompress and forward it
-			// in Transport mode, the traffic has arrived to transport_mode_fd
+			// in UDP mode, the traffic has arrived to udp_mode_fd
 			// in Network mode, the packet has arrived to network_mode_fd
 
 			// FD_ISSET tests to see if a file descriptor is part of the set
-			if(FD_ISSET(transport_mode_fd, &rd_set) || FD_ISSET(network_mode_fd, &rd_set)) {		
+			//else if(FD_ISSET(udp_mode_fd, &rd_set) || FD_ISSET(network_mode_fd, &rd_set)) {
+			else if((fds_poll[2].revents & POLLIN) || (fds_poll[1].revents & POLLIN)) {	
 
 				switch (*mode) {
 					case UDP_MODE:
 						// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
 						// I cannot use 'remote' because it would replace the IP address and port. I use 'received'
-						nread_from_net = recvfrom ( transport_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
+						nread_from_net = recvfrom ( udp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
 						if (nread_from_net==-1) perror ("recvfrom()");
 						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
 						// I don't have the IP and UDP headers
@@ -1565,7 +1702,7 @@ int main(int argc, char *argv[]) {
 					case TCP_MODE:
 						// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
 						// I cannot use 'remote' because it would replace the IP address and port. I use 'received'
-						nread_from_net = recvfrom ( transport_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
+						nread_from_net = recvfrom ( tcp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
 						if (nread_from_net==-1) perror ("recvfrom()");
 						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
 						// I don't have the IP and UDP headers
@@ -2276,8 +2413,9 @@ int main(int argc, char *argv[]) {
 			// the ROHC mode only affects the decompressor. So if I receive a ROHC feedback packet, I will use it
 			// this implies that if the origin is in ROHC Unidirectional mode and the destination in Bidirectional, feedback will still work
 
-			else if ( FD_ISSET ( feedback_fd, &rd_set )) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
-
+			//else if ( FD_ISSET ( feedback_fd, &rd_set )) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
+			else if(fds_poll[3].revents & POLLIN) {
+			
 		  		// a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
 				nread_from_net = recvfrom ( feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&feedback_remote, &slen_feedback );
 
@@ -2356,8 +2494,8 @@ int main(int argc, char *argv[]) {
 			/*** data arrived at tun: read it, and check if the stored packets should be written to the network ***/
 
 			/* FD_ISSET tests if a file descriptor is part of the set */
-			else if(FD_ISSET(tun_fd, &rd_set)) {
-
+			//else if(FD_ISSET(tun_fd, &rd_set)) {
+			else if(fds_poll[0].revents & POLLIN) {
 				/* read the packet from tun, store it in the array, and store its size */
 				size_packets_to_multiplex[num_pkts_stored_from_tun] = cread (tun_fd, packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
 		
@@ -2660,8 +2798,9 @@ int main(int argc, char *argv[]) {
 										do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
 										do_debug(1, " Sending to the network an IP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE );
 									break;
-								break;
-							}
+								}
+							break;
+
 							case TAP_MODE:
 								switch (*mode) {
 									case UDP_MODE:
@@ -2675,9 +2814,9 @@ int main(int argc, char *argv[]) {
 									case NETWORK_MODE:
 										do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
 										do_debug(1, " Sending to the network an IP packet without this Eth frame: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE );
-									break;								
-								break;
-							}
+									break;
+								}
+							break;
 						}	
 
 
@@ -2687,7 +2826,7 @@ int main(int argc, char *argv[]) {
 								// printf ("length: %i", total_length);
 
 								// send the packet
-								if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+								if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 								// write the log file
 								if ( log_file != NULL ) {
 									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
@@ -2699,7 +2838,7 @@ int main(int argc, char *argv[]) {
 								// printf ("length: %i", total_length);
 
 								// send the packet
-								if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+								if (sendto(tcp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 								// write the log file
 								if ( log_file != NULL ) {
 									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
@@ -3037,8 +3176,8 @@ int main(int argc, char *argv[]) {
 											do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
 											do_debug(1, " Sending to the network an IP packet containing %i native one(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
 										break;
-									break;
-								}
+									}
+								break;
 								case TAP_MODE:
 									switch (*mode) {
 										case UDP_MODE:
@@ -3052,9 +3191,9 @@ int main(int argc, char *argv[]) {
 										case NETWORK_MODE:
 											do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
 											do_debug(1, " Sending to the network an IP packet containing %i native Eth frame(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
-										break;								
-									break;
-								}
+										break;
+									}
+								break;
 							}			
 						}
 
@@ -3072,7 +3211,7 @@ int main(int argc, char *argv[]) {
 						switch (*mode) {
 							case UDP_MODE:
 								// send the packet. I don't need to build the header, because I have a UDP socket
-								if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+								if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
 									perror("sendto()");
 									exit (EXIT_FAILURE);								
 								}
@@ -3092,7 +3231,7 @@ int main(int argc, char *argv[]) {
 
 							case TCP_MODE:
 								// send the packet. I don't need to build the header, because I have a TCP socket
-								if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+								if (sendto(tcp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
 									perror("sendto()");
 									exit (EXIT_FAILURE);								
 								}
@@ -3248,7 +3387,7 @@ int main(int argc, char *argv[]) {
 					switch (*mode) {
 						case UDP_MODE:
 							// send the packet. I don't need to build the header, because I have a UDP socket	
-							if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+							if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 							// write the log file
 							if ( log_file != NULL ) {
 								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
@@ -3257,7 +3396,7 @@ int main(int argc, char *argv[]) {
 
 						case TCP_MODE:
 							// send the packet. I don't need to build the header, because I have a TCP socket	
-							if (sendto(transport_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
+							if (sendto(tcp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) perror("sendto()");
 							// write the log file
 							if ( log_file != NULL ) {
 								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
@@ -3301,6 +3440,11 @@ int main(int argc, char *argv[]) {
 			}
 
 		}	// end while(1)
+
+		/** POLL **/
+	  // free the variables
+	  free(fds_poll);
+	  /** END POLL **/
 
 		return(0);
 	}
