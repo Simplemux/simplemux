@@ -1245,6 +1245,10 @@ int main(int argc, char *argv[]) {
 
 		// define the maximum size threshold
 		switch (*mode) {
+			case NETWORK_MODE:
+				size_max = selected_mtu - IPv4_HEADER_SIZE ;
+			break;
+			
 			case UDP_MODE:
 				size_max = selected_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
 			break;
@@ -1255,10 +1259,6 @@ int main(int argc, char *argv[]) {
 			
 			case TCP_SERVER_MODE:
 				size_max = selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
-			break;
-			
-			case NETWORK_MODE:
-				size_max = selected_mtu - IPv4_HEADER_SIZE ;
 			break;
 		}
 
@@ -1634,13 +1634,15 @@ int main(int argc, char *argv[]) {
 	    /*******************************************/
 	    /**** A frame has arrived to one socket ****/
 	    /*******************************************/
+	    //FIXME: uncomment this
 	    // a frame has arrived to one of the sockets in 'fds_poll'
 	    //else if (fd2read > 0) {
 
 			/** END POLL **/
 
-
-			/************* VOY POR AQUÍ. QUÉ HACER PARA ABRIR EL NUEVO SOCKET ***********/
+			/******************************************************************/
+			/********************* TCP connection from a client ***************/
+			/******************************************************************/
 			//if(FD_ISSET(tcp_welcoming_fd, &rd_set)) {
 			if((fds_poll[4].revents & POLLIN) && (client_connected_to_this_tcp_server == 0)) {
 
@@ -1654,6 +1656,7 @@ int main(int argc, char *argv[]) {
 
 				// change the descriptor to that of tcp_mode_fd
 				fds_poll[4].fd = tcp_mode_fd;
+				// from now on, the TCP welcoming socket will NOT accept any other connection
 				
 				do_debug(1,"TCP connection started by the client. Socket for connecting to the client: %d\n", tcp_mode_fd);
 			}
@@ -1665,10 +1668,12 @@ int main(int argc, char *argv[]) {
 			// data arrived at the network interface: read, demux, decompress and forward it
 			// in UDP mode, the traffic has arrived to udp_mode_fd
 			// in Network mode, the packet has arrived to network_mode_fd
+			// in TCP server mode, the packet has arrived to fds_poll[4].fd = tcp_mode_fd
+			// in TCP client mode, the packet has arrived to fds_poll[5].fd = tcp_mode_fd
 
 			// FD_ISSET tests to see if a file descriptor is part of the set
 			//else if(FD_ISSET(udp_mode_fd, &rd_set) || FD_ISSET(network_mode_fd, &rd_set)) {
-			else if((fds_poll[2].revents & POLLIN) || (fds_poll[1].revents & POLLIN)) {	
+			else if((fds_poll[2].revents & POLLIN) || (fds_poll[1].revents & POLLIN) || (fds_poll[4].revents & POLLIN) || (fds_poll[5].revents & POLLIN)) {	
 
 				switch (*mode) {
 					case UDP_MODE:
@@ -1687,6 +1692,21 @@ int main(int argc, char *argv[]) {
 					break;
 
 					case TCP_MODE:
+						// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
+						// I cannot use 'remote' because it would replace the IP address and port. I use 'received'
+						nread_from_net = recvfrom ( tcp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
+						if (nread_from_net==-1) perror ("recvfrom()");
+						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
+						// I don't have the IP and UDP headers
+
+						// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
+						if (port == ntohs(received.sin_port)) 
+							 is_multiplexed_packet = 1;
+						else
+							is_multiplexed_packet = 0;
+					break;
+					
+					case TCP_SERVER_MODE:
 						// a packet has been received from the network, destinated to the multiplexing port. 'slen' is the length of the IP address
 						// I cannot use 'remote' because it would replace the IP address and port. I use 'received'
 						nread_from_net = recvfrom ( tcp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
@@ -1731,7 +1751,7 @@ int main(int argc, char *argv[]) {
 					net2tun++;
 					switch (*mode) {
 						case UDP_MODE:
-							do_debug(1, "MUXED PACKET #%lu: Read muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );				
+							do_debug(1, "MUXED PACKET #%lu: Read UDP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );				
 
 							// write the log file
 							if ( log_file != NULL ) {
@@ -1741,7 +1761,17 @@ int main(int argc, char *argv[]) {
 						break;
 
 						case TCP_MODE:
-							do_debug(1, "MUXED PACKET #%lu: Read muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );				
+							do_debug(1, "MUXED PACKET #%lu: Read TCP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + TCP_HEADER_SIZE );				
+
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+								fflush(log_file);	// If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
+							}
+						break;
+
+						case TCP_SERVER_MODE:
+							do_debug(1, "MUXED PACKET #%lu: Read TCP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + TCP_HEADER_SIZE );				
 
 							// write the log file
 							if ( log_file != NULL ) {
@@ -1751,7 +1781,7 @@ int main(int argc, char *argv[]) {
 						break;
 
 						case NETWORK_MODE:
-							do_debug(1, "MUXED PACKET #%lu: Read muxed packet from %s: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );				
+							do_debug(1, "MUXED PACKET #%lu: Read IP muxed packet from %s: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );				
 
 							// write the log file
 							if ( log_file != NULL ) {
