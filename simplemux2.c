@@ -1711,7 +1711,7 @@ int main(int argc, char *argv[]) {
 									(fds_poll[5].revents & POLLIN) ||
 									(fds_poll[6].revents & POLLIN) )*/
 				{
-					do_debug(0,"HELLO1\n");
+					do_debug(0,"HELLO1\n"); // FIXME REMOVE
 	
 					is_multiplexed_packet = -1;
 	
@@ -1760,7 +1760,6 @@ int main(int argc, char *argv[]) {
 					}*/
 	
 					else if (*mode == TCP_CLIENT_MODE) {
-						do_debug(0,"HELLO3; size of buffer_from_net: %d\n", sizeof(buffer_from_net));
 						// a packet has been received from the network, destined to the TCP socket
 	
 						/* Once the sockets are connected, client can read it
@@ -1789,7 +1788,7 @@ int main(int argc, char *argv[]) {
 					}*/
 	
 					else if (*mode == TCP_SERVER_MODE) {		
-						do_debug(0,"HELLO5\n");
+						do_debug(0,"HELLO5\n");// FIXME REMOVE
 	
 						// a packet has been received from the network, destined to the TCP socket
 						
@@ -2971,7 +2970,7 @@ int main(int argc, char *argv[]) {
 									else {
 										// send the packet
 										//if (sendto(tcp_welcoming_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
-										if (write(tcp_welcoming_fd, muxed_packet, total_length)==-1) {
+										if (write(tcp_server_fd, muxed_packet, total_length)==-1) {
 											perror("write() in TCP server mode failed");
 											exit (EXIT_FAILURE);
 										}
@@ -3405,11 +3404,13 @@ int main(int argc, char *argv[]) {
 										perror("sendto() in TCP mode failed");
 										exit (EXIT_FAILURE);								
 									}*/
+									do_debug(0,"HELLO11\n"); // FIXME REMOVE
 									if(accepting_tcp_connections == 1) {
 										do_debug(1," The packet should be sent to the TCP socket. But no client has yet been connected to this server\n");
 									}
 									else {
-										if (write(tcp_welcoming_fd, muxed_packet, total_length)==-1) {
+										do_debug(0,"HELLO12\n"); // FIXME REMOVE
+										if (write(tcp_server_fd, muxed_packet, total_length)==-1) {
 											perror("write() in TCP server mode failed");
 											exit (EXIT_FAILURE);
 										}
