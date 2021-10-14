@@ -656,13 +656,13 @@ int main(int argc, char *argv[]) {
 
 	// variables for managing the network interfaces
 	int tun_fd;													// file descriptor of the tun interface(no mux packet)
-	int udp_mode_fd = 2;								// file descriptor of the socket in UDP mode
-	int network_mode_fd = 1;						// file descriptor of the socket in Network mode
-	int feedback_fd = 3;								// file descriptor of the socket of the feedback received from the network interface
-	int tcp_welcoming_fd = 4;						// file descriptor of the TCP welcoming socket
-	int tcp_client_fd = 5;							// file descriptor of the TCP socket
-	int tcp_server_fd = 6;
-	//int maxfd;													// maximum number of file descriptors
+	int udp_mode_fd;								// file descriptor of the socket in UDP mode
+	int network_mode_fd;						// file descriptor of the socket in Network mode
+	int feedback_fd;								// file descriptor of the socket of the feedback received from the network interface
+	int tcp_welcoming_fd;						// file descriptor of the TCP welcoming socket
+	int tcp_client_fd;							// file descriptor of the TCP socket
+	int tcp_server_fd;
+	int maxfd;													// maximum number of file descriptors
 	//fd_set rd_set;											// rd_set is a set of file descriptors used to know which interface has received a packet
 
 	int fd2read;
@@ -672,7 +672,7 @@ int main(int argc, char *argv[]) {
 
 	char mode[2] = "";									// Network (N) or UDP (U) or TCP (T) mode
 
-	char tunnel_mode[2]= "U";							// TUN (U, default) or TAP (T) tunnel mode
+	char tunnel_mode[2]= "U";						// TUN (U, default) or TAP (T) tunnel mode
 	
 	const int on = 1;										// needed when creating a socket
 
@@ -1559,25 +1559,33 @@ int main(int argc, char *argv[]) {
 			maxfd = feedback_fd;
 */
 		/** POLL **/
-	  struct pollfd* fds_poll = malloc(7*sizeof(struct pollfd));
-	  memset(fds_poll, 0, 7*sizeof(struct pollfd));
+	  struct pollfd* fds_poll = malloc(3*sizeof(struct pollfd));
+	  memset(fds_poll, 0, 3*sizeof(struct pollfd));
 	
 	  fds_poll[0].fd = tun_fd;
-	  fds_poll[1].fd = network_mode_fd;
-	  fds_poll[2].fd = udp_mode_fd;
-	  fds_poll[3].fd = feedback_fd;
-	  fds_poll[4].fd = tcp_welcoming_fd;
-	  fds_poll[5].fd = tcp_client_fd;
+	  fds_poll[1].fd = feedback_fd;
+	  if (*mode == NETWORK_MODE)
+		  fds_poll[2].fd = network_mode_fd;
+		else if (*mode == UDP_MODE)
+			fds_poll[2].fd = udp_mode_fd;
+	  else if (*mode==TCP_SERVER_MODE)
+		  fds_poll[2].fd = tcp_welcoming_fd;
+	  else
+	  	fds_poll[2].fd = tcp_client_fd;
+	  
+
 	  //fds_poll[6].fd will be populated once a TCP connection is accepted
 	
 	  fds_poll[0].events = POLLIN;
 	  fds_poll[1].events = POLLIN;
 	  fds_poll[2].events = POLLIN;
-	  fds_poll[3].events = POLLIN;
-	  fds_poll[4].events = POLLIN;
-	  fds_poll[5].events = POLLIN;
+	  //fds_poll[3].events = POLLIN;
+	  //fds_poll[4].events = POLLIN;
+	  //fds_poll[5].events = POLLIN;
 		/** END POLL **/
 
+		do_debug(1,"tun_fd: %d; network_mode_fd: %d; udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n",
+			tun_fd, network_mode_fd, udp_mode_fd, feedback_fd, tcp_welcoming_fd, tcp_client_fd);
 		/*****************************************/
 		/************** Main loop ****************/
 		/*****************************************/
@@ -1638,6 +1646,9 @@ int main(int argc, char *argv[]) {
 	        return -1;
 	      }
 	    }
+	    else {
+				do_debug(4,"fd2read: %d; mode: %c; accepting_tcp_connections: %i\n", fd2read, *mode, accepting_tcp_connections);	    
+	    }
 	
 	    /*******************************************/
 	    /**** A frame has arrived to one socket ****/
@@ -1652,8 +1663,9 @@ int main(int argc, char *argv[]) {
 			/********************* TCP connection from a client ***************/
 			/******************************************************************/
 			//if(FD_ISSET(tcp_welcoming_fd, &rd_set)) {
-			if((fds_poll[4].revents & POLLIN) && (accepting_tcp_connections == 1)) {
+			if ((fds_poll[2].revents & POLLIN) && (*mode==TCP_SERVER_MODE) && (accepting_tcp_connections == 1) ) {
 
+				//do_debug(0,"HELLO0\n");
 				unsigned int len = sizeof(struct sockaddr);
 				tcp_server_fd = accept(tcp_welcoming_fd, (struct sockaddr*)&TCPpair, &len);
 				
@@ -1665,13 +1677,16 @@ int main(int argc, char *argv[]) {
         }
 
 				// change the descriptor to that of tcp_server_fd
-				//fds_poll[4].fd = tcp_server_fd; FIXME: is this needed?
-				
+				fds_poll[2].fd = tcp_server_fd; //FIXME: is this needed?
+				if(tcp_server_fd > maxfd)
+          maxfd = tcp_server_fd;
+
 				// add the socket to the fds poll set
-				fds_poll[6].fd = tcp_server_fd;
-				fds_poll[6].events = POLLIN;
+				//fds_poll[6].fd = tcp_server_fd;
+				//fds_poll[6].events = POLLIN;
 				
-				do_debug(1,"TCP connection started by the client. Socket for connecting to the client: %d\n", tcp_server_fd);
+				do_debug(1,"TCP connection started by the client. Socket for connecting to the client: %d\n", tcp_server_fd);				
+
 			}
 			
 			/*****************************************************************************/
@@ -1686,113 +1701,119 @@ int main(int argc, char *argv[]) {
 
 			// FD_ISSET tests to see if a file descriptor is part of the set
 			//else if(FD_ISSET(udp_mode_fd, &rd_set) || FD_ISSET(network_mode_fd, &rd_set)) {
-				
-			else if ( (fds_poll[2].revents & POLLIN) ||
+			
+			else if ( (fds_poll[2].revents & POLLIN) && 
+								(((*mode == TCP_SERVER_MODE) && (accepting_tcp_connections == 0))  ||
+								(*mode == NETWORK_MODE) || 
+								(*mode == UDP_MODE) ||
+								(*mode == TCP_CLIENT_MODE) ) )
+			/*else if ( (fds_poll[2].revents & POLLIN) ||
 								(fds_poll[1].revents & POLLIN) ||
 								(fds_poll[5].revents & POLLIN) ||
-								(fds_poll[6].revents & POLLIN) )
-			{	
+								(fds_poll[6].revents & POLLIN) )*/
+			{
+				do_debug(0,"HELLO1\n");
 
-				if (fds_poll[2].revents & POLLIN) {
-					if (*mode == UDP_MODE) {
-						// a packet has been received from the network, destined to the multiplexing port
-						// 'slen' is the length of the IP address
-						// I cannot use 'remote' because it would replace the IP address and port. I use 'received'
-						nread_from_net = recvfrom ( udp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
-						if (nread_from_net==-1) {
-							perror ("recvfrom() UDP error");
-						}
-						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
-						// I don't have the IP and UDP headers
 
-						// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
-						if (port == ntohs(received.sin_port)) 
-							 is_multiplexed_packet = 1;
-						else
-							is_multiplexed_packet = 0;
+				if (*mode == UDP_MODE) {
+					// a packet has been received from the network, destined to the multiplexing port
+					// 'slen' is the length of the IP address
+					// I cannot use 'remote' because it would replace the IP address and port. I use 'received'
+					nread_from_net = recvfrom ( udp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
+					if (nread_from_net==-1) {
+						perror ("recvfrom() UDP error");
 					}
-					else {
-						do_debug(1,"Error: received UDP packet but Simplemux is not in UDP mode");	
-					}
+					// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
+					// I don't have the IP and UDP headers
+
+					// check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
+					if (port == ntohs(received.sin_port)) 
+						 is_multiplexed_packet = 1;
+					else
+						is_multiplexed_packet = 0;
 				}
-				else if (fds_poll[1].revents & POLLIN) {
-					if (*mode == NETWORK_MODE) {
-						// a packet has been received from the network, destined to the local interface for muxed packets
-						nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
+				/*else {
+					do_debug(1,"Error: received UDP packet but Simplemux is not in UDP mode");	
+				}*/
 
-						if (nread_from_net==-1) perror ("cread demux()");
-						// now buffer_from_net contains the headers (IP and Simplemux) and the payload of a full packet or frame.
+				else if (*mode == NETWORK_MODE) {
+					// a packet has been received from the network, destined to the local interface for muxed packets
+					nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
 
-						// copy from "buffer_from_net_aux" everything except the IP header (usually the first 20 bytes)
-						memcpy ( buffer_from_net, buffer_from_net_aux + sizeof(struct iphdr), nread_from_net - sizeof(struct iphdr));
-						// correct the size of "nread from net"
-						nread_from_net = nread_from_net - sizeof(struct iphdr);
+					if (nread_from_net==-1) perror ("cread demux()");
+					// now buffer_from_net contains the headers (IP and Simplemux) and the payload of a full packet or frame.
 
-						// Get IP Header of received packet
-						GetIpHeader(&ipheader,buffer_from_net_aux);
-						if (ipheader.protocol == IPPROTO_SIMPLEMUX )
-							is_multiplexed_packet = 1;
-						else
-							is_multiplexed_packet = 0;
-					}
-					else {
-						do_debug(1,"Error: received IP packet but Simplemux is not in Network mode");	
-					}
-				}
-				else if (fds_poll[5].revents & POLLIN) {
-					if (*mode == TCP_CLIENT_MODE) {
+					// copy from "buffer_from_net_aux" everything except the IP header (usually the first 20 bytes)
+					memcpy ( buffer_from_net, buffer_from_net_aux + sizeof(struct iphdr), nread_from_net - sizeof(struct iphdr));
+					// correct the size of "nread from net"
+					nread_from_net = nread_from_net - sizeof(struct iphdr);
 
-						// a packet has been received from the network, destined to the TCP socket
-
-						/* Once the sockets are connected, client can read it
-						 * through normal read call on the its socket descriptor.
-						 */
-						nread_from_net = read(tcp_client_fd, buffer_from_net, sizeof(buffer_from_net));
-					
-						if(nread_from_net < 0)	{
-							perror("read() error TCP mode");
-						}
-						else {
-							do_debug(0,"Read %d bytes from the TCP socket\n", nread_from_net);					 //FIXME: this should say '3'					
-						}
-						
-						// as I am reading from the TCP socket, this is a multiplexed packet
+					// Get IP Header of received packet
+					GetIpHeader(&ipheader,buffer_from_net_aux);
+					if (ipheader.protocol == IPPROTO_SIMPLEMUX )
 						is_multiplexed_packet = 1;
+					else
+						is_multiplexed_packet = 0;
+				}
+				/*else {
+					do_debug(1,"Error: received IP packet but Simplemux is not in Network mode");	
+				}*/
 
-						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
-						// I don't have the TCP headers
+				else if (*mode == TCP_CLIENT_MODE) {
+					do_debug(0,"HELLO3\n");
+					// a packet has been received from the network, destined to the TCP socket
+
+					/* Once the sockets are connected, client can read it
+					 * through normal read call on the its socket descriptor.
+					 */
+					nread_from_net = read(tcp_client_fd, buffer_from_net, sizeof(buffer_from_net));
+				
+					if(nread_from_net < 0)	{
+						perror("read() error TCP mode");
 					}
 					else {
-						do_debug(1,"Error: received TCP packet but Simplemux is not in TCP client mode");	
+						do_debug(0,"Read %d bytes from the TCP socket\n", nread_from_net);					 //FIXME: this should say '3'					
 					}
-				}
-				else if (fds_poll[6].revents & POLLIN) {
-					if (*mode == TCP_SERVER_MODE) {		
-
-						// a packet has been received from the network, destined to the TCP socket
-						
-						/* Once the sockets are connected, client can read it
-						 * through normal read call on the its socket descriptor.
-						 */
-						nread_from_net = read(tcp_client_fd, buffer_from_net, sizeof(buffer_from_net));
 					
-						if(nread_from_net < 0)	{
-							perror("read() error TCP server mode");
-						}
-						else {
-							do_debug(0,"Read %d bytes from the TCP socket\n", nread_from_net);			 //FIXME: this should say '3'			
-						}
-						// as I am reading from the TCP socket, this is a multiplexed packet
-						is_multiplexed_packet = 1;
-						
-						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
-						// I don't have the TCP headers
+					// as I am reading from the TCP socket, this is a multiplexed packet
+					is_multiplexed_packet = 1;
+
+					// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
+					// I don't have the TCP headers
+				}
+				/*else {
+					do_debug(1,"Error: received TCP packet but Simplemux is not in TCP client mode");	
+				}*/
+
+				else if (*mode == TCP_SERVER_MODE) {		
+					do_debug(0,"HELLO5\n");
+
+					// a packet has been received from the network, destined to the TCP socket
+					
+					/* Once the sockets are connected, client can read it
+					 * through normal read call on the its socket descriptor.
+					 */
+					nread_from_net = read(tcp_server_fd, buffer_from_net, sizeof(buffer_from_net));
+				
+					if(nread_from_net < 0)	{
+						perror("read() error TCP server mode");
 					}
 					else {
-						do_debug(1,"Error: received TCP packet but Simplemux is not in TCP server mode");	
+						do_debug(0,"Read %d bytes from the TCP socket\n", nread_from_net);			 //FIXME: this should say '3'			
 					}
+					// as I am reading from the TCP socket, this is a multiplexed packet
+					is_multiplexed_packet = 1;
+					
+					// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
+					// I don't have the TCP headers
 				}
-
+				/*else {
+					do_debug(1,"Error: received TCP packet but Simplemux is not in TCP server mode");	
+				}*/
+		
+				else {
+					// error: unknown mode				
+				}
 
 				// now buffer_from_net contains a full packet or frame.
 				// check if the packet is a multiplexed one
@@ -2482,7 +2503,7 @@ int main(int argc, char *argv[]) {
 			// this implies that if the origin is in ROHC Unidirectional mode and the destination in Bidirectional, feedback will still work
 
 			//else if ( FD_ISSET ( feedback_fd, &rd_set )) {		/* FD_ISSET tests to see if a file descriptor is part of the set */
-			else if(fds_poll[3].revents & POLLIN) {
+			else if(fds_poll[1].revents & POLLIN) {
 			
 		  		// a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
 				nread_from_net = recvfrom ( feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&feedback_remote, &slen_feedback );
