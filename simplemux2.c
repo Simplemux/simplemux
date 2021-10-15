@@ -664,7 +664,7 @@ int main(int argc, char *argv[]) {
 	int tcp_welcoming_fd;						// file descriptor of the TCP welcoming socket
 	int tcp_client_fd;							// file descriptor of the TCP socket
 	int tcp_server_fd;
-	int maxfd;													// maximum number of file descriptors
+	//int maxfd;													// maximum number of file descriptors
 
 
 	int fd2read;
@@ -1647,8 +1647,7 @@ int main(int argc, char *argv[]) {
 					// change the descriptor to that of tcp_server_fd
 					// from now on, tcp_server_fd will be used
 					fds_poll[2].fd = tcp_server_fd;
-					if(tcp_server_fd > maxfd)
-	          maxfd = tcp_server_fd;
+					//if(tcp_server_fd > maxfd) maxfd = tcp_server_fd;
 					
 					do_debug(1,"TCP connection started by the client. Socket for connecting to the client: %d\n", tcp_server_fd);				
 	
@@ -1722,7 +1721,7 @@ int main(int argc, char *argv[]) {
 							is_multiplexed_packet = -1;
 						}
 						else {
-							do_debug(0,"Read %d bytes from the TCP socket\n", nread_from_net);					 //FIXME: this should say '3'					
+							do_debug(4,"Read %d bytes from the TCP socket\n", nread_from_net);					
 						
 							// as I am reading from the TCP socket, this is a multiplexed packet
 							is_multiplexed_packet = 1;
@@ -1747,7 +1746,7 @@ int main(int argc, char *argv[]) {
 							is_multiplexed_packet = -1;
 						}
 						else {
-							do_debug(0,"Read %d bytes from the TCP socket\n", nread_from_net);			 //FIXME: this should say '3'			
+							do_debug(4,"Read %d bytes from the TCP socket\n", nread_from_net);			
 							// as I am reading from the TCP socket, this is a multiplexed packet
 							is_multiplexed_packet = 1;
 						}
