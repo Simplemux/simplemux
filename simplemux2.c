@@ -450,7 +450,7 @@ uint16_t build_multiplexed_packet ( int num_packets,
 					length ++;
 				}
 				//do_debug(2, "Protocol field: %02x ", prot[k][0]);
-				do_debug(2, "%02x", prot[k][0]);
+				do_debug(2, "0x%02x", prot[k][0]);
 			}
 				
 			// add the separator
@@ -463,6 +463,7 @@ uint16_t build_multiplexed_packet ( int num_packets,
 		else {
 
 			// add the separator
+			do_debug(2, "0x");
 			for (l = 0; l < size_separators_to_mux[k] ; l++) {
 				do_debug(2, "%02x", separators_to_mux[k][l]);
 				mux_packet[length] = separators_to_mux[k][l];
