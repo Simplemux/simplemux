@@ -77,35 +77,36 @@
 #include <poll.h>
 
 
-#define BUFSIZE 2304			// buffer for reading from tun interface, must be >= MTU of the network
+#define BUFSIZE 2304					// buffer for reading from tun interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
 #define UDP_HEADER_SIZE 8
 #define TCP_HEADER_SIZE 20
-#define SIZE_PROTOCOL_FIELD 1	// 1: protocol field of one byte
-								// 2: protocol field of two bytes
+#define SIZE_PROTOCOL_FIELD 1		// 1: protocol field of one byte
+																// 2: protocol field of two bytes
+#define NUMBER_OF_SOCKETS 3			// I am using 3 sockets in the program
 
-#define PORT 55555				// default port
-#define MAXPKTS 100				// maximum number of packets to store
+#define PORT 55555							// default port
+#define MAXPKTS 100							// maximum number of packets to store
 #define MAXTIMEOUT 100000000.0	// maximum value of the timeout (microseconds). (default 100 seconds)
 
 #define IPPROTO_IP_ON_IP 4			// IP on IP Protocol ID
 #define IPPROTO_SIMPLEMUX	253		// Simplemux Protocol ID (experimental number according to IANA)
 #define IPPROTO_ROHC 142				// ROHC Protocol ID
 #define IPPROTO_ETHERNET 143		// Ethernet Protocol ID (according to IANA)
-											// see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
+																// see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 
-#define NETWORK_MODE		'N'		// N: network mode
-#define UDP_MODE			'U'			// U: UDP mode
-#define TCP_CLIENT_MODE			'T'			// T: TCP client mode
-#define TCP_SERVER_MODE 'S'		// S: TCP server mode
+#define NETWORK_MODE		'N'			// N: network mode
+#define UDP_MODE				'U'			// U: UDP mode
+#define TCP_CLIENT_MODE	'T'			// T: TCP client mode
+#define TCP_SERVER_MODE 'S'			// S: TCP server mode
 
-#define TUN_MODE 'U'			// T: tun mode, i.e. IP packets will be tunneled inside Simplemux
-#define TAP_MODE 'A'			// A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
+#define TUN_MODE 'U'						// T: tun mode, i.e. IP packets will be tunneled inside Simplemux
+#define TAP_MODE 'A'						// A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
 
 #define Linux_TTL 64			// the initial value of the TTL IP field in Linux
 
 #define PROTOCOL_FIRST 0	// 1: protocol field goes before the length byte(s) (as in draft-saldana-tsvwg-simplemux-01)
-									// 0: protocol field goes after the length byte(s)  (as in draft-saldana-tsvwg-simplemux-02 and subsequent versions)
+													// 0: protocol field goes after the length byte(s)  (as in draft-saldana-tsvwg-simplemux-02 and subsequent versions)
 
 /* global variables */
 int debug;						// 0:no debug; 1:minimum debug; 2:maximum debug 
@@ -663,7 +664,7 @@ int main(int argc, char *argv[]) {
 	int tcp_client_fd;							// file descriptor of the TCP socket
 	int tcp_server_fd;
 	int maxfd;													// maximum number of file descriptors
-	//fd_set rd_set;											// rd_set is a set of file descriptors used to know which interface has received a packet
+
 
 	int fd2read;
 	
@@ -716,9 +717,9 @@ int main(int argc, char *argv[]) {
 	int size_threshold = 0;												// if the number of bytes stored is higher than this, a muxed packet is sent
 	int size_max;																	// maximum value of the packet size
 
-	uint64_t timeout = MAXTIMEOUT;								// (microseconds) if a packet arrives and the timeout has expired (time from the  
+	uint64_t timeout = MAXTIMEOUT;								// (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
 																								//previous sending), the sending is triggered. default 100 seconds
-	uint64_t period= MAXTIMEOUT;									// period. If it expires, a packet is sent
+	uint64_t period= MAXTIMEOUT;									// (microseconds). If the 'period' expires, a packet is sent
 	uint64_t microseconds_left = period;					// the time until the period expires	
 
 	// very long unsigned integers for storing the system clock in microseconds
@@ -744,15 +745,12 @@ int main(int argc, char *argv[]) {
 	int maximum_packet_length;							// the maximum length of a packet. It may be 64 (first header) or 128 (non-first header)
 	int limit_length_two_bytes;							// the maximum length of a packet in order to express it in 2 bytes. It may be 8192 or 16384 (non-first header)
 	int first_header_written = 0;						// it indicates if the first header has been written or not
-	//int ret;																// value returned by the "select" function
 	int drop_packet = 0;
 	bool accepting_tcp_connections;					// it is set to '1' if this is a TCP server and no connections have started
-	
-	struct timeval period_expires;					// it is used for the maximum time waiting for a new packet
 
 	bool bits[8];														// it is used for printing the bits of a byte in debug mode
 
-	// ROHC header compression variables
+	/* ROHC header compression variables */
 	int ROHC_mode = 0;			// it is 0 if ROHC is not used
 													// it is 1 for ROHC Unidirectional mode (headers are to be compressed/decompressed)
 													// it is 2 for ROHC Bidirectional Optimistic mode
@@ -810,7 +808,7 @@ int main(int argc, char *argv[]) {
 				case 'i':						/* put the name of the tun interface (e.g. "tun0") in "tun_if_name" */
 					strncpy(tun_if_name, optarg, IFNAMSIZ-1);
 					break;
-				case 'M':						/* Network (N) or UDP (U) or TCP (T) mode */
+				case 'M':						/* Network (N) or UDP (U) or TCP client (T) or TCP server (S) mode */
 					strncpy(mode, optarg, 1);
 					break;
 				case 'T':						/* TUN (U) or TAP (A) tunnel mode */
@@ -844,10 +842,10 @@ int main(int argc, char *argv[]) {
 					size_threshold = atoi(optarg);
 					break;
 				case 't':						/* timeout for triggering a muxed packet */
-					timeout = atof(optarg);
+					timeout = atoll(optarg);
 					break;
 				case 'P':						/* Period for triggering a muxed packet */
-					period = atof(optarg);
+					period = atoll(optarg);
 					break;
 				default:
 					my_err("Unknown option %c\n", option);
@@ -1292,7 +1290,7 @@ int main(int argc, char *argv[]) {
 		//			buffer empty.
 		//		-	the size of the multiplexed packet has exceeded the MTU (and the size threshold consequently).
 		//			In this case, a packet is sent without the last one. A new period is started, and the last 
-		//			packet is stored as the first packet of the next period.
+		//			packet is stored as the first packet to be sent at the end of the next period.
 		// - a number of packets
 		// - a timeout. A packet arrives. If the timeout has been reached, a muxed packet is triggered
 		// - a period. If the period has been reached, a muxed packet is triggered
@@ -1312,7 +1310,8 @@ int main(int argc, char *argv[]) {
 		// I calculate 'now' as the moment of the last sending
 		time_last_sent_in_microsec = GetTimeStamp() ; 
 
-		do_debug(1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %.2lf. period: %.2lf\n", size_threshold, limit_numpackets_tun, timeout, period);
+		do_debug (1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %"PRIu64"us. period: %"PRIu64"us\n",
+							size_threshold, limit_numpackets_tun, timeout, period);
 		
 		
 		// I only need the feedback socket if ROHC is activated
@@ -1353,6 +1352,8 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
+		//do_debug(1,"tun_fd: %d; network_mode_fd: %d; udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n", tun_fd, network_mode_fd, udp_mode_fd, feedback_fd, tcp_welcoming_fd, tcp_client_fd);
+		
 		switch(ROHC_mode) {
 			case 0:
 				do_debug ( 1 , "ROHC not activated\n", debug);
@@ -1549,22 +1550,17 @@ int main(int argc, char *argv[]) {
 		do_debug(1, "\n");
 		
 
-		/*** I need the value of the maximum file descriptor, in order to let select() handle 5 interface descriptors at once ***/
-/*		
-		if(tun_fd >= udp_mode_fd && tun_fd >= feedback_fd && tun_fd >= network_mode_fd && tun_fd >= tcp_welcoming_fd)
-			maxfd = tun_fd;
-		if(network_mode_fd >= udp_mode_fd && network_mode_fd >= feedback_fd && network_mode_fd >= tun_fd && network_mode_fd >= tcp_welcoming_fd)
-			maxfd = network_mode_fd;
-		if(udp_mode_fd >= tun_fd && udp_mode_fd >= feedback_fd && udp_mode_fd >= network_mode_fd && udp_mode_fd >= tcp_welcoming_fd)
-			maxfd = udp_mode_fd;
-		if(feedback_fd >= tun_fd && feedback_fd >= udp_mode_fd && feedback_fd >= network_mode_fd && feedback_fd >= tcp_welcoming_fd)
-			maxfd = feedback_fd;
-		if(tcp_welcoming_fd >= tun_fd && tcp_welcoming_fd >= udp_mode_fd && tcp_welcoming_fd >= network_mode_fd && tcp_welcoming_fd >= feedback_fd)
-			maxfd = feedback_fd;
-*/
-		/** POLL **/
-	  struct pollfd* fds_poll = malloc(3*sizeof(struct pollfd));
-	  memset(fds_poll, 0, 3*sizeof(struct pollfd));
+		/** prepare POLL structure **/
+		// it has size 3 (NUMBER_OF_SOCKETS), because it handles 3 sockets
+		// - tun/tap socket where demuxed packets are sent/received
+		// - feedback socket
+		// - socket where muxed packets are sent/received. It can be:
+		//			- Network mode: IP raw socket
+		//			- UDP mode: UDP socket
+		//			- TCP server mode
+		//			- TCP client mode
+	  struct pollfd* fds_poll = malloc(NUMBER_OF_SOCKETS * sizeof(struct pollfd));
+	  memset(fds_poll, 0, NUMBER_OF_SOCKETS * sizeof(struct pollfd));
 	
 	  fds_poll[0].fd = tun_fd;
 	  fds_poll[1].fd = feedback_fd;
@@ -1577,33 +1573,17 @@ int main(int argc, char *argv[]) {
 	  else
 	  	fds_poll[2].fd = tcp_client_fd;
 	  
-
-	  //fds_poll[6].fd will be populated once a TCP connection is accepted
-	
 	  fds_poll[0].events = POLLIN;
 	  fds_poll[1].events = POLLIN;
 	  fds_poll[2].events = POLLIN;
-	  //fds_poll[3].events = POLLIN;
-	  //fds_poll[4].events = POLLIN;
-	  //fds_poll[5].events = POLLIN;
-		/** END POLL **/
-
-		do_debug(1,"tun_fd: %d; network_mode_fd: %d; udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n",
-			tun_fd, network_mode_fd, udp_mode_fd, feedback_fd, tcp_welcoming_fd, tcp_client_fd);
+		/** END prepare POLL structure **/	
+			
+		
 		/*****************************************/
 		/************** Main loop ****************/
 		/*****************************************/
 		while(1) {
-
-			/*
-			FD_ZERO(&rd_set);							// FD_ZERO() clears a set
-			FD_SET(tun_fd, &rd_set);			// FD_SET() adds a given file descriptor to a set
-			FD_SET(network_mode_fd, &rd_set);
-			FD_SET(udp_mode_fd, &rd_set);
-			FD_SET(tcp_welcoming_fd, &rd_set);
-			FD_SET(feedback_fd, &rd_set);
-			*/
-			
+		
 			/* Initialize the timeout data structure. */
 			time_in_microsec = GetTimeStamp();
 			if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
@@ -1612,32 +1592,20 @@ int main(int argc, char *argv[]) {
 			else {
 				microseconds_left = 0;
 			}
-			// do_debug (1, "microseconds_left: %i\n", microseconds_left);
+			//do_debug (1, "microseconds_left: %i\n", microseconds_left);
 
-			period_expires.tv_sec = 0;
-			period_expires.tv_usec = microseconds_left;		// this is the moment when the period will expire
-
-
-			/* select () allows a program to monitor multiple file descriptors, */ 
-			/* waiting until one or more of the file descriptors become "ready" */
-			/* for some class of I/O operation*/
-			/*
-			ret = select(maxfd + 1, &rd_set, NULL, NULL, &period_expires); 	//this line stops the program until something
-																			//happens or the period expires
-
-			// if the program gets here, it means that a packet has arrived (from tun or from the network), or the period has expired
-			if (ret < 0 && errno == EINTR) continue;
-
-			if (ret < 0) {
-				perror("select()");
-				exit(1);
-			}*/
-
+			//if (microseconds_left > 0) do_debug(0,"%"PRIu64"\n", microseconds_left);
+			int milliseconds_left = (int)(microseconds_left / 1000.0);
+			
 			/** POLL **/
 	    // check if a frame has arrived to any of the file descriptors
-	    //fd2read = poll(fds_poll, 3, time_in_microsec + microseconds_left);
-			fd2read = poll(fds_poll, 3, 0);
-	
+			// - the first argument is the pollfd struct
+			// - the second argument is '3', i.e. the number of sockets NUMBER_OF_SOCKETS
+			// - third argument: the timeout specifies the number of milliseconds that
+      //   poll() should block waiting for a file descriptor to become ready.
+	    fd2read = poll(fds_poll, NUMBER_OF_SOCKETS, milliseconds_left);
+
+
 	    /********************************/
 	    /**** Error in poll function ****/
 	    /********************************/
@@ -1656,15 +1624,15 @@ int main(int argc, char *argv[]) {
 	    /*******************************************/
 	    // a frame has arrived to one of the sockets in 'fds_poll'
 	    else if (fd2read > 0) {
-				do_debug(0,"fd2read: %d; mode: %c; accepting_tcp_connections: %i\n", fd2read, *mode, accepting_tcp_connections);
+				//do_debug(0,"fd2read: %d; mode: %c; accepting_tcp_connections: %i\n", fd2read, *mode, accepting_tcp_connections);
 
 				/******************************************************************/
 				/********************* TCP connection from a client ***************/
 				/******************************************************************/
-				//if(FD_ISSET(tcp_welcoming_fd, &rd_set)) {
+				// a connection request has arrived to the welcoming socket
 				if ((fds_poll[2].revents & POLLIN) && (*mode==TCP_SERVER_MODE) && (accepting_tcp_connections == 1) ) {
-	
-					//do_debug(0,"HELLO0\n");
+
+					// accept the connection
 					unsigned int len = sizeof(struct sockaddr);
 					tcp_server_fd = accept(tcp_welcoming_fd, (struct sockaddr*)&TCPpair, &len);
 					
@@ -1676,13 +1644,10 @@ int main(int argc, char *argv[]) {
 	        }
 	
 					// change the descriptor to that of tcp_server_fd
-					fds_poll[2].fd = tcp_server_fd; //FIXME: is this needed?
+					// from now on, tcp_server_fd will be used
+					fds_poll[2].fd = tcp_server_fd;
 					if(tcp_server_fd > maxfd)
 	          maxfd = tcp_server_fd;
-	
-					// add the socket to the fds poll set
-					//fds_poll[6].fd = tcp_server_fd;
-					//fds_poll[6].events = POLLIN;
 					
 					do_debug(1,"TCP connection started by the client. Socket for connecting to the client: %d\n", tcp_server_fd);				
 	
@@ -1693,26 +1658,14 @@ int main(int argc, char *argv[]) {
 				/*****************************************************************************/
 	
 				// data arrived at the network interface: read, demux, decompress and forward it
-				// in UDP mode, the traffic has arrived to udp_mode_fd
-				// in Network mode, the packet has arrived to network_mode_fd
-				// in TCP server mode, the packet has arrived to fds_poll[6].fd = tcp_server_fd
-				// in TCP client mode, the packet has arrived to fds_poll[5].fd = tcp_client_fd
-	
-				// FD_ISSET tests to see if a file descriptor is part of the set
-				//else if(FD_ISSET(udp_mode_fd, &rd_set) || FD_ISSET(network_mode_fd, &rd_set)) {
-				
+				// in TCP_SERVER_MODE, I will only enter here if the TCP connection is already started
+				// in the rest of modes, I will enter here if a muxed packet has arrived				
 				else if ( (fds_poll[2].revents & POLLIN) && 
 									(((*mode == TCP_SERVER_MODE) && (accepting_tcp_connections == 0))  ||
 									(*mode == NETWORK_MODE) || 
 									(*mode == UDP_MODE) ||
 									(*mode == TCP_CLIENT_MODE) ) )
-				/*else if ( (fds_poll[2].revents & POLLIN) ||
-									(fds_poll[1].revents & POLLIN) ||
-									(fds_poll[5].revents & POLLIN) ||
-									(fds_poll[6].revents & POLLIN) )*/
 				{
-					do_debug(0,"HELLO1\n"); // FIXME REMOVE
-	
 					is_multiplexed_packet = -1;
 	
 					if (*mode == UDP_MODE) {
@@ -1732,9 +1685,6 @@ int main(int argc, char *argv[]) {
 						else
 							is_multiplexed_packet = 0;
 					}
-					/*else {
-						do_debug(1,"Error: received UDP packet but Simplemux is not in UDP mode");	
-					}*/
 	
 					else if (*mode == NETWORK_MODE) {
 						// a packet has been received from the network, destined to the local interface for muxed packets
@@ -1755,9 +1705,6 @@ int main(int argc, char *argv[]) {
 						else
 							is_multiplexed_packet = 0;
 					}
-					/*else {
-						do_debug(1,"Error: received IP packet but Simplemux is not in Network mode");	
-					}*/
 	
 					else if (*mode == TCP_CLIENT_MODE) {
 						// a packet has been received from the network, destined to the TCP socket
@@ -1783,13 +1730,8 @@ int main(int argc, char *argv[]) {
 						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
 						// I don't have the TCP headers
 					}
-					/*else {
-						do_debug(1,"Error: received TCP packet but Simplemux is not in TCP client mode");	
-					}*/
 	
 					else if (*mode == TCP_SERVER_MODE) {		
-						do_debug(0,"HELLO5\n");// FIXME REMOVE
-	
 						// a packet has been received from the network, destined to the TCP socket
 						
 						/* Once the sockets are connected, client can read it
@@ -1812,9 +1754,6 @@ int main(int argc, char *argv[]) {
 						// now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
 						// I don't have the TCP headers
 					}
-					/*else {
-						do_debug(1,"Error: received TCP packet but Simplemux is not in TCP server mode");	
-					}*/
 			
 					else {
 						// error: unknown mode				
@@ -2499,7 +2438,6 @@ int main(int argc, char *argv[]) {
 						}
 					}
 				}
-	
 	
 	
 				/****************************************************************************************************************************/		
@@ -3372,62 +3310,6 @@ int main(int argc, char *argv[]) {
 										}
 									}
 								break;
-	
-								case TCP_CLIENT_MODE:
-									// send the packet. I don't need to build the header, because I have a TCP socket
-									/*if (sendto(tcp_client_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
-										perror("sendto() in TCP mode failed");
-										exit (EXIT_FAILURE);								
-									}*/
-									
-									if (write(tcp_client_fd, muxed_packet, total_length)==-1) {
-										perror("write() in TCP client mode failed");
-										exit (EXIT_FAILURE);
-									}
-									else {
-										if(*tunnel_mode == TUN_MODE) {
-											do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
-										}
-										else if(*tunnel_mode == TAP_MODE) {
-											do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);										
-										}
-										else {
-											perror ("wrong value of 'tunnel_mode'");
-											exit (EXIT_FAILURE);
-										}
-									}
-								break;
-	
-								case TCP_SERVER_MODE:
-									// send the packet. I don't need to build the header, because I have a TCP socket
-									/*if (sendto(tcp_client_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
-										perror("sendto() in TCP mode failed");
-										exit (EXIT_FAILURE);								
-									}*/
-									do_debug(0,"HELLO11\n"); // FIXME REMOVE
-									if(accepting_tcp_connections == 1) {
-										do_debug(1," The packet should be sent to the TCP socket. But no client has yet been connected to this server\n");
-									}
-									else {
-										do_debug(0,"HELLO12\n"); // FIXME REMOVE
-										if (write(tcp_server_fd, muxed_packet, total_length)==-1) {
-											perror("write() in TCP server mode failed");
-											exit (EXIT_FAILURE);
-										}
-										else {
-											if(*tunnel_mode == TUN_MODE) {
-												do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
-											}
-											else if(*tunnel_mode == TAP_MODE) {
-												do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);										
-											}
-											else {
-												perror ("wrong value of 'tunnel_mode'");
-												exit (EXIT_FAILURE);
-											}
-										}
-									}
-								break;
 								
 								case NETWORK_MODE:
 									// build the header
@@ -3451,6 +3333,54 @@ int main(int argc, char *argv[]) {
 										else {
 											perror ("wrong value of 'tunnel_mode'");
 											exit (EXIT_FAILURE);
+										}
+									}
+								break;
+									
+								case TCP_CLIENT_MODE:
+									// send the packet. I don't need to build the header, because I have a TCP socket
+									
+									if (write(tcp_client_fd, muxed_packet, total_length)==-1) {
+										perror("write() in TCP client mode failed");
+										exit (EXIT_FAILURE);
+									}
+									else {
+										if(*tunnel_mode == TUN_MODE) {
+											do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
+										}
+										else if(*tunnel_mode == TAP_MODE) {
+											do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);										
+										}
+										else {
+											perror ("wrong value of 'tunnel_mode'");
+											exit (EXIT_FAILURE);
+										}
+									}
+								break;
+	
+								case TCP_SERVER_MODE:
+									// send the packet. I don't need to build the header, because I have a TCP socket
+									
+									// check if the connection has already been established by the client
+									if(accepting_tcp_connections == 1) {
+										do_debug(1," The packet should be sent to the TCP socket. But no client has yet been connected to this server\n");
+									}
+									else {
+										if (write(tcp_server_fd, muxed_packet, total_length)==-1) {
+											perror("write() in TCP server mode failed");
+											exit (EXIT_FAILURE);
+										}
+										else {
+											if(*tunnel_mode == TUN_MODE) {
+												do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
+											}
+											else if(*tunnel_mode == TAP_MODE) {
+												do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);										
+											}
+											else {
+												perror ("wrong value of 'tunnel_mode'");
+												exit (EXIT_FAILURE);
+											}
 										}
 									}
 								break;
@@ -3492,158 +3422,153 @@ int main(int argc, char *argv[]) {
 					}
 				}
 	
-	
-				/*************************************************************************************/	
-				/******************** Period expired: multiplex **************************************/
-				/*************************************************************************************/	
-	
-				// The period has expired
-				// Check if there is something stored, and send it
-				// since there is no new packet, here it is not necessary to compress anything
-	
-				else {
-					time_in_microsec = GetTimeStamp();
-					if ( num_pkts_stored_from_tun > 0 ) {
-	
-						// There are some packets stored
-	
-						// calculate the time difference
-						time_difference = time_in_microsec - time_last_sent_in_microsec;		
-	
-						if (debug) {
-							do_debug(2, "\n");
-							do_debug(1, "SENDING TRIGGERED. Period expired. Time since last trigger: %" PRIu64 " usec\n", time_difference);
-							if (single_protocol) {
-								do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
-							}
-							else {
-								do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
-							}
-							switch (*mode) {
-								case UDP_MODE:
-									do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-									do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);	
-								break;
-								case TCP_CLIENT_MODE:
-									do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-									do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);	
-								break;
-								case NETWORK_MODE:
-									do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-									do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
-								break;
-							}
-						}
-	
-						// calculate if all the packets belong to the same protocol
-						single_protocol = 1;
-						for (k = 1; k < num_pkts_stored_from_tun ; k++) {
-							for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-								if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
-							}
-						}
-	
-						// Add the Single Protocol Bit in the first header (the most significant bit)
-						// It is 1 if all the multiplexed packets belong to the same protocol
-						if (single_protocol == 1) {
-							separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
-							size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
+
+				}	
+			/*************************************************************************************/	
+			/******************** Period expired: multiplex **************************************/
+			/*************************************************************************************/	
+
+			// The period has expired
+			// Check if there is something stored, and send it
+			// since there is no new packet, here it is not necessary to compress anything
+
+			else {  // fd2read == 0
+				//do_debug(2, "Period expired\n");
+				time_in_microsec = GetTimeStamp();
+				if ( num_pkts_stored_from_tun > 0 ) {
+
+					// There are some packets stored
+
+					// calculate the time difference
+					time_difference = time_in_microsec - time_last_sent_in_microsec;		
+
+					if (debug) {
+						do_debug(2, "\n");
+						do_debug(1, "SENDING TRIGGERED. Period expired. Time since last trigger: %" PRIu64 " usec\n", time_difference);
+						if (single_protocol) {
+							do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
 						}
 						else {
-							size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
+							do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
 						}
-	
-						// build the multiplexed packet
-						total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
-																				single_protocol,
-																				protocol,
-																				size_separators_to_multiplex,
-																				separators_to_multiplex,
-																				size_packets_to_multiplex,
-																				packets_to_multiplex,
-																				muxed_packet);
-	
-						// send the multiplexed packet
 						switch (*mode) {
 							case UDP_MODE:
-								// send the packet. I don't need to build the header, because I have a UDP socket	
-								if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
-									perror("sendto()");
-									exit (EXIT_FAILURE);
-								}
-								// write the log file
-								if ( log_file != NULL ) {
-									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
-								}
+								do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+								do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);	
 							break;
-	
-							case TCP_SERVER_MODE:
-								// send the packet. I don't need to build the header, because I have a TCP socket	
-								//if (sendto(tcp_client_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1)
-								//	perror("sendto()");
-								
-								if (write(tcp_welcoming_fd, muxed_packet, total_length)==-1) {
-									perror("write() in TCP server mode failed");
-									exit (EXIT_FAILURE);	
-								}
-									
-								// write the log file
-								if ( log_file != NULL ) {
-									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
-								}
-							break;
-	
 							case TCP_CLIENT_MODE:
-								// send the packet. I don't need to build the header, because I have a TCP socket	
-								//if (sendto(tcp_client_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1)
-								//	perror("sendto()");
-								
-								if (write(tcp_client_fd, muxed_packet, total_length)==-1) {
-									perror("write() in TCP client mode failed");
-									exit (EXIT_FAILURE);	
-								}
-									
-								// write the log file
-								if ( log_file != NULL ) {
-									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
-								}
+								do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+								do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);	
 							break;
-							
 							case NETWORK_MODE:
-								// build the header
-								BuildIPHeader(&ipheader, total_length, local,remote);
-	
-								// build the full IP multiplexed packet
-								BuildFullIPPacket(ipheader,muxed_packet,total_length, full_ip_packet);
-	
-								// send the packet
-								if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &remote, sizeof (struct sockaddr)) < 0)  {
-									perror ("sendto() failed ");
-									exit (EXIT_FAILURE);
-								}
-								// write the log file
-								if ( log_file != NULL ) {
-									fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
-								}
+								do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+								do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
 							break;
 						}
-				
-						// I have sent a packet, so I set to 0 the "first_header_written" bit
-						first_header_written = 0;
-	
-						// reset the length and the number of packets
-						size_muxed_packet = 0 ;
-						num_pkts_stored_from_tun = 0;
-	
+					}
+
+					// calculate if all the packets belong to the same protocol
+					single_protocol = 1;
+					for (k = 1; k < num_pkts_stored_from_tun ; k++) {
+						for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+							if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+						}
+					}
+
+					// Add the Single Protocol Bit in the first header (the most significant bit)
+					// It is 1 if all the multiplexed packets belong to the same protocol
+					if (single_protocol == 1) {
+						separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;	// this puts a 1 in the most significant bit position
+						size_muxed_packet = size_muxed_packet + 1;								// one byte corresponding to the 'protocol' field of the first header
 					}
 					else {
-						// No packet arrived
-						//do_debug(2, "Period expired. Nothing to be sent\n");
+						size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;		// one byte per packet, corresponding to the 'protocol' field
 					}
-	
-					// restart the period
-					time_last_sent_in_microsec = time_in_microsec;
+
+					// build the multiplexed packet
+					total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
+																			single_protocol,
+																			protocol,
+																			size_separators_to_multiplex,
+																			separators_to_multiplex,
+																			size_packets_to_multiplex,
+																			packets_to_multiplex,
+																			muxed_packet);
+
+					// send the multiplexed packet
+					switch (*mode) {
+						
+						case NETWORK_MODE:
+							// build the header
+							BuildIPHeader(&ipheader, total_length, local,remote);
+
+							// build the full IP multiplexed packet
+							BuildFullIPPacket(ipheader,muxed_packet,total_length, full_ip_packet);
+
+							// send the packet
+							if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &remote, sizeof (struct sockaddr)) < 0)  {
+								perror ("sendto() failed ");
+								exit (EXIT_FAILURE);
+							}
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
+							}
+						break;
+						
+						case UDP_MODE:
+							// send the packet. I don't need to build the header, because I have a UDP socket	
+							if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+								perror("sendto()");
+								exit (EXIT_FAILURE);
+							}
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
+							}
+						break;
+
+						case TCP_SERVER_MODE:
+							// send the packet. I don't need to build the header, because I have a TCP socket							
+							if (write(tcp_welcoming_fd, muxed_packet, total_length)==-1) {
+								perror("write() in TCP server mode failed");
+								exit (EXIT_FAILURE);	
+							}
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
+							}
+						break;
+
+						case TCP_CLIENT_MODE:
+							// send the packet. I don't need to build the header, because I have a TCP socket	
+							if (write(tcp_client_fd, muxed_packet, total_length)==-1) {
+								perror("write() in TCP client mode failed");
+								exit (EXIT_FAILURE);	
+							}
+							// write the log file
+							if ( log_file != NULL ) {
+								fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);	
+							}
+						break;
+					}
+			
+					// I have sent a packet, so I set to 0 the "first_header_written" bit
+					first_header_written = 0;
+
+					// reset the length and the number of packets
+					size_muxed_packet = 0 ;
+					num_pkts_stored_from_tun = 0;
+
 				}
+				else {
+					// No packet arrived
+					//do_debug(2, "Period expired. Nothing to be sent\n");
+				}
+
+				// restart the period
+				time_last_sent_in_microsec = time_in_microsec;
+
 			}
 		}	// end while(1)
 
