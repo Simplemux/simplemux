@@ -1,0 +1,98 @@
+local simplemux = Proto("simplemux", "Simplemux packet/frame multiplexer");
+
+-- declare the fields of the header
+local f_SPB = ProtoField.uint8("simplemux.SPB", "SPB (Single Protocol Bit)", base.DEC)
+local f_LXT = ProtoField.uint8("simplemux.LXT", "LXT (Length Extension)", base.DEC)
+local f_LEN = ProtoField.uint16("simplemux.LEN", "LEN (Payload length)", base.DEC)
+local f_Protocol = ProtoField.uint8("simplemux.Protocol", "Protocol", base.HEX)
+
+simplemux.fields = { f_SPB, f_LXT, f_LEN, f_Protocol }
+
+local data_dis = Dissector.get("data")
+
+-- dissector function
+function simplemux.dissector(buf, pkt, tree)
+	-- put a name in the "protocol" column
+	pkt.cols['protocol'] = "Simplemux"
+
+	-- variable to store the offset: positions I have advanced
+	local offset = 0
+
+	-- first byte
+	-- this is a way to get the most significant bit
+	SPB = ( buf(0,1):uint() - ( buf(0,1):uint() % 128 ) ) / 128
+
+	-- this is a way to get the second bit
+	local value = buf(0,1):uint()
+
+	-- remove the most significant bit
+	if SPB == 1 then
+		value = value - 128
+	end
+	LXT = ( value - (value % 64 ) ) / 64
+
+	-- check if the length has 1 or 2 bytes (depending on LXT, second bit)
+	if LXT == 0 then
+		-- create the Simplemux protocol tree item
+		-- the second argument of 'buf' means the number of bytes that are considered
+		--a part of simplemux
+		local subtree = tree:add(simplemux, buf(offset,2))
+
+        	-- first byte (there is no second byte)
+        	subtree:add(f_SPB, SPB)
+		subtree:add(f_LXT, LXT)
+
+		LEN = buf(offset,1):uint() % 64
+
+		subtree:add(f_LEN, LEN)
+
+		offset = offset + 1
+
+		-- second byte: Protocol field
+		Protocol = buf(offset,1):uint()
+		subtree:add(f_Protocol, Protocol)
+
+		offset = offset + 1
+	else
+                -- create the Simplemux protocol tree item
+                -- the second argument of 'buf' means the number of bytes that are considered
+                --a part of simplemux
+                local subtree = tree:add(simplemux, buf(offset,3))
+
+		-- first byte
+        	subtree:add(f_SPB, SPB)
+        	subtree:add(f_LXT, LXT)
+
+		-- seccond byte
+
+		-- the length is between the first and the second bytes
+		-- 6 bits come from the first byte (I remove the two most significant ones)
+		-- 7 bits come from the second byte (I remove the most significant one)
+                LEN = ((buf(offset,1):uint() % 64 ) * 128 )+ (buf(offset + 1,1):uint() % 128)
+
+                subtree:add(f_LEN, LEN)
+
+                offset = offset + 2
+
+		-- third byte
+		Protocol = buf(offset,1):uint()
+		subtree:add(f_Protocol, Protocol)
+		offset = offset + 1
+	end
+
+
+	-- if Protocol is 0x04, what comes next is an IP packet
+	if Protocol == 0x04 then
+		Dissector.get("ip"):call(buf(offset):tvb(), pkt, tree)
+	--else
+	end
+end
+
+-- load the UDP port table
+local udp_encap_table = DissectorTable.get("udp.port")
+local tcp_encap_table = DissectorTable.get("tcp.port")
+
+-- register the protocol to port 55555
+udp_encap_table:add(55555, simplemux)
+tcp_encap_table:add(55555, simplemux)
+
