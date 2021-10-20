@@ -1,3 +1,8 @@
+-- lua dissector for Simplemux
+
+-- FIXME: only valid for the first header. It does NOT yet decode the second and
+--subsequent headers
+
 local simplemux = Proto("simplemux", "Simplemux packet/frame multiplexer");
 
 -- declare the fields of the header
@@ -13,7 +18,7 @@ local protocol_types = { [4] = "IPv4",
 -- declare the field 'protocol type'
 local protocol_type = ProtoField.uint8("simplemux.Protocol", "Protocol", base.DEC, protocol_types)
 
--- define the field structure
+-- define the field structure of the Simplemux header
 simplemux.fields = { f_SPB, f_LXT, f_LEN, protocol_type }
 
 local data_dis = Dissector.get("data")
@@ -46,12 +51,11 @@ function simplemux.dissector(buf, pkt, tree)
 		--a part of simplemux
 		local subtree = tree:add(simplemux, buf(offset,2))
 
-        	-- first byte (there is no second byte)
+        	-- first byte (including SPB, LXT and LEN)
         	subtree:add(f_SPB, SPB)
 		subtree:add(f_LXT, LXT)
 
 		LEN = buf(offset,1):uint() % 64
-
 		subtree:add(f_LEN, LEN)
 
 		offset = offset + 1
@@ -67,22 +71,21 @@ function simplemux.dissector(buf, pkt, tree)
                 --a part of simplemux
                 local subtree = tree:add(simplemux, buf(offset,3))
 
-		-- first byte
+		-- first byte (including SPB, LXT and part of LEN)
         	subtree:add(f_SPB, SPB)
         	subtree:add(f_LXT, LXT)
 
-		-- seccond byte
+		-- seccond byte (including LXT and the rest of LEN)
 
 		-- the length is between the first and the second bytes
 		-- 6 bits come from the first byte (I remove the two most significant ones)
 		-- 7 bits come from the second byte (I remove the most significant one)
                 LEN = ((buf(offset,1):uint() % 64 ) * 128 )+ (buf(offset + 1,1):uint() % 128)
-
                 subtree:add(f_LEN, LEN)
 
                 offset = offset + 2
 
-		-- third byte
+		-- third byte: Protocol
 		Protocol = buf(offset,1):uint()
                 subtree:add(protocol_type, Protocol)
 
@@ -92,7 +95,7 @@ function simplemux.dissector(buf, pkt, tree)
 	-- dissect the next content
 
 	-- if Protocol is 4, what comes next is an IP packet
-	if Protocol == 0x04 then
+	if Protocol == 4 then
 		Dissector.get("ip"):call(buf(offset):tvb(), pkt, tree)
 	end
 	-- if Protocol is 143, there is an Eth frame inside
