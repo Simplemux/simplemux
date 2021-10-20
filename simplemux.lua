@@ -4,9 +4,17 @@ local simplemux = Proto("simplemux", "Simplemux packet/frame multiplexer");
 local f_SPB = ProtoField.uint8("simplemux.SPB", "SPB (Single Protocol Bit)", base.DEC)
 local f_LXT = ProtoField.uint8("simplemux.LXT", "LXT (Length Extension)", base.DEC)
 local f_LEN = ProtoField.uint16("simplemux.LEN", "LEN (Payload length)", base.DEC)
-local f_Protocol = ProtoField.uint8("simplemux.Protocol", "Protocol", base.HEX)
 
-simplemux.fields = { f_SPB, f_LXT, f_LEN, f_Protocol }
+-- declare the value strings for the field 'Protocol'
+local protocol_types = { [4] = "IPv4",
+			 [143] = "Ethernet",
+			 [142] = "ROHC" }
+
+-- declare the field 'protocol type'
+local protocol_type = ProtoField.uint8("simplemux.Protocol", "Protocol", base.DEC, protocol_types)
+
+-- define the field structure
+simplemux.fields = { f_SPB, f_LXT, f_LEN, protocol_type }
 
 local data_dis = Dissector.get("data")
 
@@ -50,7 +58,7 @@ function simplemux.dissector(buf, pkt, tree)
 
 		-- second byte: Protocol field
 		Protocol = buf(offset,1):uint()
-		subtree:add(f_Protocol, Protocol)
+		subtree:add(protocol_type, Protocol)
 
 		offset = offset + 1
 	else
@@ -76,15 +84,24 @@ function simplemux.dissector(buf, pkt, tree)
 
 		-- third byte
 		Protocol = buf(offset,1):uint()
-		subtree:add(f_Protocol, Protocol)
+                subtree:add(protocol_type, Protocol)
+
 		offset = offset + 1
 	end
 
+	-- dissect the next content
 
-	-- if Protocol is 0x04, what comes next is an IP packet
+	-- if Protocol is 4, what comes next is an IP packet
 	if Protocol == 0x04 then
 		Dissector.get("ip"):call(buf(offset):tvb(), pkt, tree)
-	--else
+	end
+	-- if Protocol is 143, there is an Eth frame inside
+	if Protocol == 143 then
+                Dissector.get("eth_withoutfcs"):call(buf(offset):tvb(), pkt, tree)
+	end
+	-- if Protocol is 142, there is a ROHC compressed packet inside
+        if Protocol == 142 then
+                Dissector.get("rohc"):call(buf(offset):tvb(), pkt, tree)
 	end
 end
 
