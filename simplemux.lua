@@ -111,8 +111,10 @@ end
 -- load the UDP port table
 local udp_encap_table = DissectorTable.get("udp.port")
 local tcp_encap_table = DissectorTable.get("tcp.port")
+local ip_encap_table = DissectorTable.get("ip.proto")
 
 -- register the protocol to port 55555
 udp_encap_table:add(55555, simplemux)
 tcp_encap_table:add(55555, simplemux)
-
+-- register IANA protocol 253 as Simplemux
+ip_encap_table:add(253, simplemux)
