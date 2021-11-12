@@ -44,67 +44,75 @@ function simplemux.dissector(buf, pkt, tree)
 	end
 	LXT = ( value - (value % 64 ) ) / 64
 
+	-- create the Simplemux subtree
+	
 	-- check if the length has 1 or 2 bytes (depending on LXT, second bit)
 	if LXT == 0 then
+		-- the length field is one byte long
+		
 		-- create the Simplemux protocol tree item
 		-- the second argument of 'buf' means the number of bytes that are considered
 		--a part of simplemux
 		local subtree = tree:add(simplemux, buf(offset,2))
 
-        	-- first byte (including SPB, LXT and LEN)
-        	subtree:add(f_SPB, SPB)
+    -- first byte (including SPB, LXT and LEN)
+    subtree:add(f_SPB, SPB)
 		subtree:add(f_LXT, LXT)
 
 		LEN = buf(offset,1):uint() % 64
 		subtree:add(f_LEN, LEN)
 
 		offset = offset + 1
-
-		-- second byte: Protocol field
+		
+		-- last byte (the second byte): Protocol field
 		Protocol = buf(offset,1):uint()
-		subtree:add(protocol_type, Protocol)
-
-		offset = offset + 1
+	  subtree:add(protocol_type, Protocol)
+	
+		offset = offset + 1	
+		
 	else
-                -- create the Simplemux protocol tree item
-                -- the second argument of 'buf' means the number of bytes that are considered
-                --a part of simplemux
-                local subtree = tree:add(simplemux, buf(offset,3))
+		-- the length field is two bytes long
+		
+    -- create the Simplemux protocol tree item
+    -- the second argument of 'buf' means the number of bytes that are considered
+    -- a part of simplemux
+    local subtree = tree:add(simplemux, buf(offset,3))
 
 		-- first byte (including SPB, LXT and part of LEN)
-        	subtree:add(f_SPB, SPB)
-        	subtree:add(f_LXT, LXT)
+    subtree:add(f_SPB, SPB)
+    subtree:add(f_LXT, LXT)
 
 		-- seccond byte (including LXT and the rest of LEN)
 
 		-- the length is between the first and the second bytes
 		-- 6 bits come from the first byte (I remove the two most significant ones)
 		-- 7 bits come from the second byte (I remove the most significant one)
-                LEN = ((buf(offset,1):uint() % 64 ) * 128 )+ (buf(offset + 1,1):uint() % 128)
-                subtree:add(f_LEN, LEN)
+    LEN = ((buf(offset,1):uint() % 64 ) * 128 )+ (buf(offset + 1,1):uint() % 128)
+    subtree:add(f_LEN, LEN)
 
-                offset = offset + 2
-
-		-- third byte: Protocol
+    offset = offset + 2
+	
+		-- last byte (the third byte): Protocol field
 		Protocol = buf(offset,1):uint()
-                subtree:add(protocol_type, Protocol)
-
-		offset = offset + 1
+	  subtree:add(protocol_type, Protocol)
+	
+		offset = offset + 1	
 	end
-
+	
+		
 	-- dissect the next content
 
-	-- if Protocol is 4, what comes next is an IP packet
+	-- if Protocol is 4, there is an IP packet inside
 	if Protocol == 4 then
 		Dissector.get("ip"):call(buf(offset):tvb(), pkt, tree)
 	end
 	-- if Protocol is 143, there is an Eth frame inside
 	if Protocol == 143 then
-                Dissector.get("eth_withoutfcs"):call(buf(offset):tvb(), pkt, tree)
+    Dissector.get("eth_withoutfcs"):call(buf(offset):tvb(), pkt, tree)
 	end
 	-- if Protocol is 142, there is a ROHC compressed packet inside
-        if Protocol == 142 then
-                Dissector.get("rohc"):call(buf(offset):tvb(), pkt, tree)
+  if Protocol == 142 then
+    Dissector.get("rohc"):call(buf(offset):tvb(), pkt, tree)
 	end
 end
 
@@ -114,7 +122,10 @@ local tcp_encap_table = DissectorTable.get("tcp.port")
 local ip_encap_table = DissectorTable.get("ip.proto")
 
 -- register the protocol to port 55555
+-- this is needed in Transport mode
 udp_encap_table:add(55555, simplemux)
 tcp_encap_table:add(55555, simplemux)
+
 -- register IANA protocol 253 as Simplemux
+-- this is needed in Network mode
 ip_encap_table:add(253, simplemux)
