@@ -1,7 +1,6 @@
 -- lua dissector for Simplemux
 
--- FIXME: only valid for the first header. It does NOT yet decode the second and
---subsequent headers
+local debug = 0 -- set this to 1 if you want debug information
 
 local simplemux = Proto("simplemux", "Simplemux packet/frame multiplexer");
 
@@ -25,20 +24,14 @@ local muxed_packet = ProtoField.string("simplemux.simplemux_payload", "simplemux
 simplemux.fields = { f_SPB, f_LXT, f_LEN, protocol_type, muxed_packet }
 
 
-
-	
-
-
-
-
-
-
 local data_dis = Dissector.get("data")
 
 -- dissector function
 function simplemux.dissector(buf, pkt, tree)
 
-	print()
+	if (debug == 1 ) then
+		print()
+	end
 	
 	-- first, I check if there is one or more than one packet inside the Simplemux bundle
 	local moreThanAPacket = 0
@@ -104,11 +97,9 @@ function simplemux.dissector(buf, pkt, tree)
 			moreThanAPacket = 1
 		end
 	end
-	print ("total bufLen: " .. buf:len() .. ". LEN: " .. LEN .. ". moreThanAPacket: " .. moreThanAPacket .. ". singleProtocol: " .. singleProtocol)
-
-
-
-
+	if (debug == 1 ) then
+		print ("total bufLen: " .. buf:len() .. ". LEN: " .. LEN .. ". moreThanAPacket: " .. moreThanAPacket .. ". singleProtocol: " .. singleProtocol)
+	end
 
 
 	-- use a different approach if there is a Simplemux packet, or
@@ -119,7 +110,9 @@ function simplemux.dissector(buf, pkt, tree)
 		-- if there is just a Simplemux packet, I can show all the layers using
 		-- the Wireshark dissectors
 
-		print(" dissecting a single muxed packet")
+		if (debug == 1 ) then
+			print(" dissecting a single muxed packet")
+		end
 		
 		-- put a name in the "protocol" column
 		pkt.cols['protocol'] = "Simplemux"
@@ -254,12 +247,17 @@ function simplemux.dissector(buf, pkt, tree)
 					-- the length field is 6 bits long
 					LEN = buf(offset,1):uint() % 64
 					
-					print("   offset: " .. offset .. " LEN: " .. LEN)
+					if (debug == 1 ) then
+						print("   offset: " .. offset .. " LEN: " .. LEN)
+					end
+					
 					subtree:add(f_LEN, LEN)
 					offset = offset + 1
 				
-
-					print("  packet " .. packetNumber .. "  the length field is 6 bits long")	
+					if (debug == 1 ) then
+						print("  packet " .. packetNumber .. "  the length field is 6 bits long")	
+					end
+					
 					-- the length field is one byte long
 				
 					-- create the Simplemux protocol tree item
@@ -287,7 +285,10 @@ function simplemux.dissector(buf, pkt, tree)
 					offset = offset + LEN
 					
 				else -- LXT == 1
-					print("  packet " .. packetNumber .. "  the length field is 14 bits long")
+					if (debug == 1 ) then
+						print("  packet " .. packetNumber .. "  the length field is 14 bits long")
+					end
+					
 					-- the length field is 14 bits long
 					
 			    -- create the Simplemux protocol tree item
@@ -305,7 +306,9 @@ function simplemux.dissector(buf, pkt, tree)
 					-- 6 bits come from the first byte (I remove the two most significant ones)
 					-- 7 bits come from the second byte (I remove the most significant one)
 			    LEN = ((buf(offset,1):uint() % 64 ) * 128 )+ (buf(offset + 1,1):uint() % 128)
-			    print("   offset: " .. offset .. " LEN: " .. LEN)
+			    if (debug == 1 ) then
+				    print("   offset: " .. offset .. " LEN: " .. LEN)
+			    end
 			    subtree:add(f_LEN, LEN)
 			
 			    offset = offset + 2
@@ -341,10 +344,10 @@ function simplemux.dissector(buf, pkt, tree)
 					-- the length field is 7 bits long
 					LEN = buf(offset,1):uint() % 128
 					
-					print("  packet " .. packetNumber .. "  the length field is 7 bits long")	
-					print("   offset: " .. offset .. " LEN: " .. LEN)
-					
-					offset = offset + 1
+					if (debug == 1 ) then
+						print("  packet " .. packetNumber .. "  the length field is 7 bits long")	
+						print("   offset: " .. offset .. " LEN: " .. LEN)
+					end
 
 					if (singleProtocol == 0) then
 						-- the simplemux separator DOES have a 'Protocol' field
@@ -357,10 +360,8 @@ function simplemux.dissector(buf, pkt, tree)
 						-- first byte (including LXT and LEN)
 				    subtree:add(f_LXT, LXT)
 			    	subtree:add(f_LEN, LEN)
-						-- add the content
-						simplemux_payload = buf(offset,LEN) 
-						subtree:add(muxed_packet, simplemux_payload)
-					
+			    	offset = offset + 1
+			    				
 						-- last byte: 'Protocol' field
 						Protocol = buf(offset,1):uint()
 				  	subtree:add(protocol_type, Protocol)
@@ -385,6 +386,8 @@ function simplemux.dissector(buf, pkt, tree)
 				    subtree:add(f_LXT, LXT)
 			    	subtree:add(f_LEN, LEN)
 			    	
+			    	offset = offset + 1
+			    	
 						-- add the content
 						simplemux_payload = buf(offset,LEN) 
 						subtree:add(muxed_packet, simplemux_payload)
@@ -398,7 +401,9 @@ function simplemux.dissector(buf, pkt, tree)
 					--	second byte: LEN2
 					--  OPTIONAL: second byte: protocol	
 			
-					print("  packet " .. packetNumber .. "  the length field is 15 bits long")
+					if (debug == 1 ) then
+						print("  packet " .. packetNumber .. "  the length field is 15 bits long")
+					end
 					-- the length field is 15 bits long
 					
 					-- second byte (including LXT and the rest of LEN)
@@ -407,9 +412,9 @@ function simplemux.dissector(buf, pkt, tree)
 					-- 6 bits come from the first byte (I remove the two most significant ones)
 					-- 7 bits come from the second byte (I remove the most significant one)
 			    LEN = ((buf(offset,1):uint() % 64 ) * 128 )+ (buf(offset + 1,1):uint() % 128)
-			    print("   offset: " .. offset .. " LEN: " .. LEN)
-
-			    offset = offset + 2
+			    if (debug == 1 ) then
+			    	print("   offset: " .. offset .. " LEN: " .. LEN)
+			    end
 				
 					if (singleProtocol == 0) then
 						-- the simplemux separator DOES have a 'Protocol' field
@@ -422,9 +427,7 @@ function simplemux.dissector(buf, pkt, tree)
 						-- first and second bytes (including LXT and LEN)
 				    subtree:add(f_LXT, LXT)
 			    	subtree:add(f_LEN, LEN)
-						-- add the content
-						simplemux_payload = buf(offset,LEN) 
-						subtree:add(muxed_packet, simplemux_payload)
+			    	offset = offset + 2
 					
 						-- last byte: 'Protocol' field
 						Protocol = buf(offset,1):uint()
@@ -449,6 +452,7 @@ function simplemux.dissector(buf, pkt, tree)
 						-- first and second bytes (including LXT and LEN)
 				    subtree:add(f_LXT, LXT)
 			    	subtree:add(f_LEN, LEN)
+			    	offset = offset + 2
 			    	
 						-- add the content
 						simplemux_payload = buf(offset,LEN) 
@@ -460,7 +464,9 @@ function simplemux.dissector(buf, pkt, tree)
 			end
 			
 			packetNumber = packetNumber + 1
-			print ("   total bufLen: " .. buf:len() .. ". LEN: " .. LEN .. ". offset: " .. offset .. ". packets: " .. packetNumber)			
+			if (debug == 1 ) then
+				print ("   total bufLen: " .. buf:len() .. ". LEN: " .. LEN .. ". offset: " .. offset .. ". packets: " .. packetNumber)	
+			end		
 	
 		end -- end while		
 		
