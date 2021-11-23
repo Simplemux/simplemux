@@ -1,5 +1,8 @@
 -- lua dissector for Simplemux
 
+-- Pending: get the length from the previous header, instead of getting it from the length
+-- of the buffer
+
 local debug = 0 -- set this to 1 if you want debug information
 
 local simplemux = Proto("simplemux", "Simplemux packet/frame multiplexer");
@@ -19,7 +22,9 @@ local protocol_type = ProtoField.uint8("simplemux.Protocol", "Protocol", base.DE
 
 -- define the field structure of the Simplemux header
 simplemux.fields = { f_SPB, f_LXT, f_LEN, protocol_type }
-simplemux.fields.bytes = ProtoField.bytes("simplemux.bytes", "Bytes")
+
+-- define this in order to show the bytes of the Simplemux payload
+simplemux.fields.bytes = ProtoField.bytes("simplemux.bytes", "Simplemux payload")
 
 
 local data_dis = Dissector.get("data")
@@ -103,7 +108,7 @@ function simplemux.dissector(buf, pkt, tree)
 
         -- last byte: 'Protocol' field
         Protocol = buf(offset,1):uint()
-        subtree:add(protocol_type, Protocol)
+        subtree:add(protocol_type, buf(offset,1))
       
         -- add the Protocol length to the offset
         offset = offset + 1
@@ -157,7 +162,7 @@ function simplemux.dissector(buf, pkt, tree)
       
         -- last byte: Protocol field
         Protocol = buf(offset,1):uint()
-        subtree:add(protocol_type, Protocol)
+        subtree:add(protocol_type, buf(offset,1))
       
         offset = offset + 1        
         
@@ -218,7 +223,7 @@ function simplemux.dissector(buf, pkt, tree)
                 
           -- last byte: 'Protocol' field
           Protocol = buf(offset,1):uint()
-          subtree:add(protocol_type, Protocol)
+          subtree:add(protocol_type, buf(offset,1))
       
           -- add the Protocol length to the offset
           offset = offset + 1
@@ -309,7 +314,7 @@ function simplemux.dissector(buf, pkt, tree)
         
           -- last byte: 'Protocol' field
           Protocol = buf(offset,1):uint()
-          subtree:add(protocol_type, Protocol)
+          subtree:add(protocol_type, buf(offset,1))
       
           -- add the Protocol length to the offset
           offset = offset + 1
