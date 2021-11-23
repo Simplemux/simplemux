@@ -11,8 +11,8 @@ local f_LEN = ProtoField.uint16("simplemux.LEN", "LEN (Payload length)", base.DE
 
 -- declare the value strings for the field 'Protocol'
 local protocol_types = { [4] = "IPv4",
-                         [143] = "Ethernet",
-                         [142] = "ROHC" }
+       [143] = "Ethernet",
+       [142] = "ROHC" }
 
 -- declare the field 'protocol type'
 local protocol_type = ProtoField.uint8("simplemux.Protocol", "Protocol", base.DEC, protocol_types)
@@ -22,6 +22,7 @@ local muxed_packet = ProtoField.string("simplemux.simplemux_payload", "simplemux
 
 -- define the field structure of the Simplemux header
 simplemux.fields = { f_SPB, f_LXT, f_LEN, protocol_type, muxed_packet }
+simplemux.fields.bytes = ProtoField.bytes("simplemux.bytes", "Bytes")
 
 
 local data_dis = Dissector.get("data")
@@ -280,8 +281,20 @@ function simplemux.dissector(buf, pkt, tree)
           
           -- add the content
           simplemux_payload = buf(offset,LEN) 
-          subtree:add(muxed_packet, simplemux_payload)
-          
+          subtree:add(simplemux.fields.bytes, simplemux_payload)
+
+          if Protocol == 4 then
+            Dissector.get("ip"):call(buf(offset):tvb(), pkt, subtree)
+          end
+          -- if Protocol is 143, there is an Eth frame inside
+          if Protocol == 143 then
+            Dissector.get("eth_withoutfcs"):call(buf(offset):tvb(), pkt, subtree)
+          end
+          -- if Protocol is 142, there is a ROHC compressed packet inside
+          if Protocol == 142 then
+            Dissector.get("rohc"):call(buf(offset):tvb(), pkt, subtree)
+          end
+
           offset = offset + LEN
           
         else -- LXT == 1
@@ -321,8 +334,20 @@ function simplemux.dissector(buf, pkt, tree)
           
           -- add the content
           simplemux_payload = buf(offset,LEN) 
-          subtree:add(muxed_packet, simplemux_payload)
-          
+          subtree:add(simplemux.fields.bytes, simplemux_payload)
+
+          if Protocol == 4 then
+            Dissector.get("ip"):call(buf(offset):tvb(), pkt, subtree)
+          end
+          -- if Protocol is 143, there is an Eth frame inside
+          if Protocol == 143 then
+            Dissector.get("eth_withoutfcs"):call(buf(offset):tvb(), pkt, subtree)
+          end
+          -- if Protocol is 142, there is a ROHC compressed packet inside
+          if Protocol == 142 then
+            Dissector.get("rohc"):call(buf(offset):tvb(), pkt, subtree)
+          end
+
           offset = offset + LEN
         end  
         
@@ -371,8 +396,20 @@ function simplemux.dissector(buf, pkt, tree)
             
             -- add the content
             simplemux_payload = buf(offset,LEN) 
-            subtree:add(muxed_packet, simplemux_payload)
-            
+            subtree:add(simplemux.fields.bytes, simplemux_payload)
+
+            if Protocol == 4 then
+              Dissector.get("ip"):call(buf(offset):tvb(), pkt, subtree)
+            end
+            -- if Protocol is 143, there is an Eth frame inside
+            if Protocol == 143 then
+              Dissector.get("eth_withoutfcs"):call(buf(offset):tvb(), pkt, subtree)
+            end
+            -- if Protocol is 142, there is a ROHC compressed packet inside
+            if Protocol == 142 then
+              Dissector.get("rohc"):call(buf(offset):tvb(), pkt, subtree)
+            end
+
             offset = offset + LEN
           else
             -- the simplemux separator does NOT have a 'Protocol' field
@@ -390,8 +427,20 @@ function simplemux.dissector(buf, pkt, tree)
             
             -- add the content
             simplemux_payload = buf(offset,LEN) 
-            subtree:add(muxed_packet, simplemux_payload)
+            subtree:add(simplemux.fields.bytes, simplemux_payload)
             
+            if Protocol == 4 then
+              Dissector.get("ip"):call(buf(offset):tvb(), pkt, subtree)
+            end
+            -- if Protocol is 143, there is an Eth frame inside
+            if Protocol == 143 then
+              Dissector.get("eth_withoutfcs"):call(buf(offset):tvb(), pkt, subtree)
+            end
+            -- if Protocol is 142, there is a ROHC compressed packet inside
+            if Protocol == 142 then
+              Dissector.get("rohc"):call(buf(offset):tvb(), pkt, subtree)
+            end
+
             offset = offset + LEN  
           end  
 
@@ -438,8 +487,20 @@ function simplemux.dissector(buf, pkt, tree)
             
             -- add the content
             simplemux_payload = buf(offset,LEN) 
-            subtree:add(muxed_packet, simplemux_payload)
-            
+            subtree:add(simplemux.fields.bytes, simplemux_payload)
+
+            if Protocol == 4 then
+              Dissector.get("ip"):call(buf(offset):tvb(), pkt, subtree)
+            end
+            -- if Protocol is 143, there is an Eth frame inside
+            if Protocol == 143 then
+              Dissector.get("eth_withoutfcs"):call(buf(offset):tvb(), pkt, subtree)
+            end
+            -- if Protocol is 142, there is a ROHC compressed packet inside
+            if Protocol == 142 then
+              Dissector.get("rohc"):call(buf(offset):tvb(), pkt, subtree)
+            end
+                        
             offset = offset + LEN
           else
             -- the simplemux separator does NOT have a 'Protocol' field
@@ -456,7 +517,7 @@ function simplemux.dissector(buf, pkt, tree)
             
             -- add the content
             simplemux_payload = buf(offset,LEN) 
-            subtree:add(muxed_packet, simplemux_payload)
+            subtree:add(simplemux.fields.bytes, simplemux_payload)
             
             offset = offset + LEN  
           end
