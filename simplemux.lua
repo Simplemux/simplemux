@@ -12,6 +12,9 @@ local f_SPB = ProtoField.uint8("simplemux.SPB", "SPB (Single Protocol Bit)", bas
 local f_LXT = ProtoField.uint8("simplemux.LXT", "LXT (Length Extension)", base.DEC)
 local f_LEN = ProtoField.uint16("simplemux.LEN", "LEN (Payload length)", base.DEC)
 
+-- experiment based on https://stackoverflow.com/questions/51248914/how-to-handle-bit-fields-in-wireshark-lua-dissector
+-- local single = ProtoField.uint8("Single", "Single", base.DEC, NULL, 0x80)
+
 -- declare the value strings for the field 'Protocol'
 local protocol_types = {[4] = "IPv4",
                         [143] = "Ethernet",
@@ -47,7 +50,11 @@ function simplemux.dissector(buf, pkt, tree)
   
   -- this is a way to get the most significant bit
   singleProtocol = ( buf(0,1):uint() - ( buf(0,1):uint() % 128 ) ) / 128
-  
+
+  -- experiment
+  --local single_range = buf(0,1)
+  --local single_ = single:uint()
+  --subtree:add(single, single_range, single_)
 
   -- variable to store the offset: positions I have advanced
   local offset = 0
@@ -78,7 +85,12 @@ function simplemux.dissector(buf, pkt, tree)
         -- the simplemux separator is 2 bytes long:
         --  first byte: SPB-LXT-LEN
         --  second byte: protocol
-        
+
+        -- create the Simplemux protocol tree item
+        -- the second argument of 'buf' means the number of bytes that are considered
+        --a part of simplemux
+        local subtree = tree:add(simplemux, buf(offset,2))
+           
         -- the length field is 6 bits long
         LEN = buf(offset,1):uint() % 64
         
@@ -95,10 +107,7 @@ function simplemux.dissector(buf, pkt, tree)
         
         -- the length field is one byte long
       
-        -- create the Simplemux protocol tree item
-        -- the second argument of 'buf' means the number of bytes that are considered
-        --a part of simplemux
-        local subtree = tree:add(simplemux, buf(offset,2))
+
   
         -- first byte (including SPB, LXT and LEN)
         subtree:add(f_SPB, SPB)
