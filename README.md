@@ -29,7 +29,11 @@ sudo apt-get install build-essential
 sudo apt-get install pkgconf
 ```
 
-Download version 1.7.0 from https://rohc-lib.org/support/download/, and unzip the content in a folder.
+Download version 1.7.0 from https://rohc-lib.org/support/download/, and unzip the content in a folder. You can do it with these commands:
+```
+wget https://rohc-lib.org/download/rohc-1.7.x/1.7.0/rohc-1.7.0.tar.xz --no-check-certificate
+tar -xvf rohc-1.7.0.tar.xz
+```
 
 Go go the ROHC folder and make:
 ```
@@ -38,11 +42,14 @@ cd rohc-1.7.0/
 make all
 make check
 sudo make install
+cd ..
 ```
 
-And now, you can compile simplemux:
+And now, you can download and compile simplemux:
 ```
-$ gcc -o simplemux -g -Wall $(pkg-config rohc --cflags) simplemux.c $(pkg-config rohc --libs )
+git clone https://github.com/Simplemux/simplemux.git
+cd simplemux
+gcc -o simplemux -g -Wall $(pkg-config rohc --cflags) simplemux.c $(pkg-config rohc --libs )
 ```
 
 ACKNOWLEDGEMENTS
