@@ -83,7 +83,7 @@ function simplemux.dissector(buf, pkt, tree)
       -- check if the length has 1 or 2 bytes (depending on LXT, second bit)
       if LXT == 0 then
         -- the simplemux separator is 2 bytes long:
-        --  first byte: SPB-LXT-LEN
+        --  first byte: SPB-LXT-LEN (6 bits)
         --  second byte: protocol
 
         -- create the Simplemux protocol tree item
@@ -96,26 +96,17 @@ function simplemux.dissector(buf, pkt, tree)
         
         if (debug == 1 ) then
           print("   offset: " .. offset .. " LEN: " .. LEN)
-        end
-        
-        subtree:add(f_LEN, LEN)
-        offset = offset + 1
-      
-        if (debug == 1 ) then
           print("  packet " .. packetNumber .. "  the length field is 6 bits long")  
         end
         
-        -- the length field is one byte long
-      
-
   
         -- first byte (including SPB, LXT and LEN)
         subtree:add(f_SPB, SPB)
         subtree:add(f_LXT, LXT)
-    
-        LEN = buf(offset,1):uint() % 64
+        subtree:add(f_LEN, LEN)
+        offset = offset + 1
 
-        -- last byte: 'Protocol' field
+        -- second byte: 'Protocol' field
         Protocol = buf(offset,1):uint()
         subtree:add(protocol_type, buf(offset,1))
       
@@ -141,6 +132,10 @@ function simplemux.dissector(buf, pkt, tree)
         offset = offset + LEN
         
       else -- LXT == 1
+        -- the simplemux separator is 3 bytes long:
+        --  first byte: SPB-LXT-LEN1
+        --  second byte: LEN2
+        --  third byte: protocol
         if (debug == 1 ) then
           print("  packet " .. packetNumber .. "  the length field is 14 bits long")
         end
