@@ -12,8 +12,6 @@ local f_SPB = ProtoField.uint8("simplemux.SPB", "SPB (Single Protocol Bit)", bas
 local f_LXT = ProtoField.uint8("simplemux.LXT", "LXT (Length Extension)", base.DEC)
 local f_LEN = ProtoField.uint16("simplemux.LEN", "LEN (Payload length)", base.DEC)
 
--- experiment based on https://stackoverflow.com/questions/51248914/how-to-handle-bit-fields-in-wireshark-lua-dissector
--- local single = ProtoField.uint8("Single", "Single", base.DEC, NULL, 0x80)
 
 -- declare the value strings for the field 'Protocol'
 local protocol_types = {[4] = "IPv4",
@@ -28,6 +26,29 @@ simplemux.fields = { f_SPB, f_LXT, f_LEN, protocol_type }
 
 -- define this in order to show the bytes of the Simplemux payload
 simplemux.fields.bytes = ProtoField.bytes("simplemux.bytes", "Simplemux payload")
+
+
+-- experiment based on https://stackoverflow.com/questions/51248914/how-to-handle-bit-fields-in-wireshark-lua-dissector
+-- this prints '1... ....' or '0... ....' depending on the value of the first bit
+simplemux.fields.first_header_first_bit = ProtoField.uint8("Single_Protocol_Bit", "Single Protocol Bit", base.DEC, null, 0x80)
+
+-- this prints '.1.. .....' or '.0.. ....' depending on the value of the second bit
+simplemux.fields.first_header_second_bit = ProtoField.uint8("Length_Extenxsion_First_Header", "Length extension", base.DEC, null, 0x40)
+
+-- this prints '1... ....' or '0... ....' depending on the value of the first bit
+simplemux.fields.non_first_header_first_bit = ProtoField.uint8("Length_Extension_non-First_header", "Length extension", base.DEC, null, 0x80)
+
+-- this prints '..101010', i.e. the value of the six less-significant bits
+simplemux.fields.first_header_third_to_eighth_bits = ProtoField.uint8("Length_6bits", "Length", base.DEC, null, 0x3F)
+
+-- this prints '.0101010', i.e. the value of the seven less-significant bits
+simplemux.fields.non_first_header_second_to_eighth_bits = ProtoField.uint8("Length_7bits", "Length", base.DEC, null, 0x7F)
+
+-- this prints '..101010 10101010', i.e. the value of the seven less-significant bits
+simplemux.fields.first_header_third_to_sixteenth_bits = ProtoField.uint16("Length_14bits", "Length", base.DEC, null, 0x3FFF)
+
+-- this prints '.0101010 10101010', i.e. the value of the seven less-significant bits
+simplemux.fields.non_first_header_second_to_sixteenth_bits = ProtoField.uint16("Length_15bits", "Length", base.DEC, null, 0x7FFF)
 
 
 local data_dis = Dissector.get("data")
@@ -99,11 +120,18 @@ function simplemux.dissector(buf, pkt, tree)
           print("  packet " .. packetNumber .. "  the length field is 6 bits long")  
         end
         
-  
         -- first byte (including SPB, LXT and LEN)
-        subtree:add(f_SPB, SPB)
-        subtree:add(f_LXT, LXT)
-        subtree:add(f_LEN, LEN)
+        -- subtree:add(f_SPB, SPB)
+        -- subtree:add(f_LXT, LXT)
+        -- subtree:add(f_LEN, LEN)
+
+        -- add SPB
+        subtree:add(simplemux.fields.first_header_first_bit, buf(offset,1))
+        -- add LXT
+        subtree:add(simplemux.fields.first_header_second_bit, buf(offset,1))
+        -- add length
+        subtree:add(simplemux.fields.first_header_third_to_eighth_bits, buf(offset,1))
+
         offset = offset + 1
 
         -- second byte: 'Protocol' field
@@ -148,8 +176,8 @@ function simplemux.dissector(buf, pkt, tree)
         local subtree = tree:add(simplemux, buf(offset,3))
     
         -- first byte (including SPB, LXT and part of LEN)
-        subtree:add(f_SPB, SPB)
-        subtree:add(f_LXT, LXT)
+        -- subtree:add(f_SPB, SPB)
+        -- subtree:add(f_LXT, LXT)
     
         -- second byte (including LXT and the rest of LEN)
     
@@ -160,8 +188,16 @@ function simplemux.dissector(buf, pkt, tree)
         if (debug == 1 ) then
           print("   offset: " .. offset .. " LEN: " .. LEN)
         end
-        subtree:add(f_LEN, LEN)
-    
+        -- subtree:add(f_LEN, LEN)
+
+        -- add SPB
+        subtree:add(simplemux.fields.first_header_first_bit, buf(offset,1))
+        -- add LXT
+        subtree:add(simplemux.fields.first_header_second_bit, buf(offset,1))
+        -- add Length
+        subtree:add(simplemux.fields.first_header_third_to_sixteenth_bits, buf(offset,2))
+
+ 
         offset = offset + 2
       
         -- last byte: Protocol field
@@ -173,6 +209,7 @@ function simplemux.dissector(buf, pkt, tree)
         -- add the content
         simplemux_payload = buf(offset,LEN) 
         subtree:add(simplemux.fields.bytes, simplemux_payload)
+
 
         if Protocol == 4 then
           Dissector.get("ip"):call(buf(offset):tvb(), pkt, subtree)
@@ -221,8 +258,14 @@ function simplemux.dissector(buf, pkt, tree)
           local subtree = tree:add(simplemux, buf(offset,2))
       
           -- first byte (including LXT and LEN)
-          subtree:add(f_LXT, LXT)
-          subtree:add(f_LEN, LEN)
+          -- subtree:add(f_LXT, LXT)
+          -- subtree:add(f_LEN, LEN)
+
+          -- add LXT
+          subtree:add(simplemux.fields.non_first_header_first_bit, buf(offset,1))
+          -- add length
+          subtree:add(simplemux.fields.non_first_header_second_to_eighth_bits, buf(offset,1))
+
           offset = offset + 1
                 
           -- last byte: 'Protocol' field
@@ -258,9 +301,14 @@ function simplemux.dissector(buf, pkt, tree)
           local subtree = tree:add(simplemux, buf(offset,1))
       
           -- first byte (including LXT and LEN)
-          subtree:add(f_LXT, LXT)
-          subtree:add(f_LEN, LEN)
-          
+          -- subtree:add(f_LXT, LXT)
+          -- subtree:add(f_LEN, LEN)
+
+          -- add LXT
+          subtree:add(simplemux.fields.non_first_header_first_bit, buf(offset,1))
+          -- add length
+          subtree:add(simplemux.fields.non_first_header_second_to_eighth_bits, buf(offset,1))
+
           offset = offset + 1
           
           -- add the content
@@ -312,8 +360,14 @@ function simplemux.dissector(buf, pkt, tree)
           local subtree = tree:add(simplemux, buf(offset,3))
       
           -- first and second bytes (including LXT and LEN)
-          subtree:add(f_LXT, LXT)
-          subtree:add(f_LEN, LEN)
+          -- subtree:add(f_LXT, LXT)
+          -- subtree:add(f_LEN, LEN)
+
+          -- add LXT
+          subtree:add(simplemux.fields.non_first_header_first_bit, buf(offset,1))
+          -- add length
+          subtree:add(simplemux.fields.non_first_header_second_to_sixteenth_bits, buf(offset,1))
+
           offset = offset + 2
         
           -- last byte: 'Protocol' field
@@ -349,8 +403,14 @@ function simplemux.dissector(buf, pkt, tree)
           local subtree = tree:add(simplemux, buf(offset,2))
       
           -- first and second bytes (including LXT and LEN)
-          subtree:add(f_LXT, LXT)
-          subtree:add(f_LEN, LEN)
+          -- subtree:add(f_LXT, LXT)
+          -- subtree:add(f_LEN, LEN)
+
+          -- add LXT
+          subtree:add(simplemux.fields.non_first_header_first_bit, buf(offset,1))
+          -- add length
+          subtree:add(simplemux.fields.non_first_header_second_to_sixteenth_bits, buf(offset,1))
+
           offset = offset + 2
           
           -- add the content
