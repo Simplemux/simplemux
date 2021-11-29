@@ -31,35 +31,53 @@ local singleProtocolOptions = {
 -- this prints '1... ....' or '0... ....' depending on the value of the first bit
 simplemux.fields.first_header_first_bit = ProtoField.uint8("Single_Protocol_Bit", "Single Protocol Bit", base.DEC, singleProtocolOptions, 0x80)
 
+-- this prints '1... ....  .... ....' or '0... ....  .... ....' depending on the value of the first bit
+simplemux.fields.first_header_first_bit_16 = ProtoField.uint16("Single_Protocol_Bit", "Single Protocol Bit", base.DEC, singleProtocolOptions, 0x8000)
+
+
 
 -- LXT
 local lengthExtensionOptionsFirstHeader = {
     [0] = "Packet/frame length in 6 bits",
-    [1] = "Packet/frame length in 14 bits"
+    [1] = "Packet/frame length in 13 bits"
 }
 -- this prints '.1.. .....' or '.0.. ....' depending on the value of the second bit
 simplemux.fields.first_header_second_bit = ProtoField.uint8("Length_Extenxsion_First_Header", "Length extension", base.DEC, lengthExtensionOptionsFirstHeader, 0x40)
 
+-- this prints '.1.. .....  .... ....' or '.0.. ....  .... ....' depending on the value of the second bit
+simplemux.fields.first_header_second_bit_16 = ProtoField.uint16("Length_Extenxsion_First_Header", "Length extension", base.DEC, lengthExtensionOptionsFirstHeader, 0x4000)
+
+
 local lengthExtensionOptionsNonFirstHeader = {
     [0] = "Packet/frame length in 7 bits",
-    [1] = "Packet/frame length in 15 bits"
+    [1] = "Packet/frame length in 14 bits"
 }
 -- this prints '1... ....' or '0... ....' depending on the value of the first bit
 simplemux.fields.non_first_header_first_bit = ProtoField.uint8("Length_Extension_non-First_header", "Length extension", base.DEC, lengthExtensionOptionsNonFirstHeader, 0x80)
+
+-- this prints '1... ....  .... ....' or '0... ....  .... ....' depending on the value of the first bit
+simplemux.fields.non_first_header_first_bit_16 = ProtoField.uint16("Length_Extension_non-First_header", "Length extension", base.DEC, lengthExtensionOptionsNonFirstHeader, 0x8000)
+
+local lengthExtensionOptionsSecondByte = {
+    [0] = "No more bytes for length",
+    [1] = "Third byte for length (not implemented)"
+}
+-- this prints '.... ....  0... ....' or '.... ....  1... ....' depending on the value of the first bit
+simplemux.fields.first_header_nineth_bit = ProtoField.uint16("Second_Length_Extenxsion", "Second length extension", base.DEC, lengthExtensionOptionsSecondByte, 0x0080)
 
 
 -- Length
 -- this prints '..101010', i.e. the value of the six less-significant bits
 simplemux.fields.first_header_third_to_eighth_bits = ProtoField.uint8("Length_6bits", "Length", base.DEC, null, 0x3F)
 
--- this prints '..101010 10101010', i.e. the value of the seven less-significant bits
-simplemux.fields.first_header_third_to_sixteenth_bits = ProtoField.uint16("Length_14bits", "Length", base.DEC, null, 0x3FFF)
+-- this prints '..101010 .0101010', i.e. the value of the seven less-significant bits
+simplemux.fields.first_header_third_to_sixteenth_bits = ProtoField.uint16("Length_13bits", "Length", base.DEC, null, 0x3F7F)
 
 -- this prints '.0101010', i.e. the value of the seven less-significant bits
 simplemux.fields.non_first_header_second_to_eighth_bits = ProtoField.uint8("Length_7bits", "Length", base.DEC, null, 0x7F)
 
--- this prints '.0101010 10101010', i.e. the value of the seven less-significant bits
-simplemux.fields.non_first_header_second_to_sixteenth_bits = ProtoField.uint16("Length_15bits", "Length", base.DEC, null, 0x7FFF)
+-- this prints '.0101010 .0101010', i.e. the bits where the length is expressed
+simplemux.fields.non_first_header_second_to_sixteenth_bits = ProtoField.uint16("Length_14bits", "Length", base.DEC, null, 0x7F7F)
 
 
 -- define this in order to show the bytes of the Simplemux payload
@@ -85,7 +103,12 @@ function simplemux.dissector(buf, pkt, tree)
   --   six bits: part of the LENGTH
   
   -- this is a way to get the most significant bit
-  singleProtocol = ( buf(0,1):uint() - ( buf(0,1):uint() % 128 ) ) / 128
+  --singleProtocol = ( buf(0,1):uint() - ( buf(0,1):uint() % 128 ) ) / 128
+
+  -- this is another way (see http://lua-users.org/wiki/BitwiseOperators)
+  -- bit.band() makes a bitwise AND, in this case with 0x80 (= 1000 0000)
+  -- bit.rshift() moves the bits to the right n positions
+  singleProtocol = bit.rshift(bit.band( buf(0,1):uint(), 0x80 ), 7)
 
   -- variable to store the offset: positions I have advanced
   local offset = 0
@@ -101,16 +124,19 @@ function simplemux.dissector(buf, pkt, tree)
       --   six bits: part of the LENGTH
       
       -- this is a way to get the most significant bit
-      SPB = ( buf(offset,1):uint() - ( buf(offset,1):uint() % 128 ) ) / 128
+      -- SPB = ( buf(offset,1):uint() - ( buf(offset,1):uint() % 128 ) ) / 128
+      SPB = singleProtocol
               
       -- this is a way to get the second bit
-      local value = buf(0,1):uint()
+      -- local value = buf(0,1):uint()
       -- remove the most significant bit
-      if SPB == 1 then
-        value = value - 128
-      end
-      LXT = ( value - (value % 64 ) ) / 64
-      
+      -- if SPB == 1 then
+      --   value = value - 128
+      -- end
+      --LXT = ( value - (value % 64 ) ) / 64
+
+      LXT = bit.rshift(bit.band( buf(0,1):uint(), 0x40 ), 6)
+
       -- check if the length has 1 or 2 bytes (depending on LXT, second bit)
       if LXT == 0 then
         -- the simplemux separator is 2 bytes long:
@@ -123,7 +149,10 @@ function simplemux.dissector(buf, pkt, tree)
         local subtree = tree:add(simplemux, buf(offset,2))
            
         -- the length field is 6 bits long
-        LEN = buf(offset,1):uint() % 64
+        -- LEN = buf(offset,1):uint() % 64
+
+        -- make a bitwise AND with 0x3F ( = 0011 1111)
+        LEN = bit.band( buf(offset,1):uint(), 0x3F)
         
         if (debug == 1 ) then
           print("   offset: " .. offset .. " LEN: " .. LEN)
@@ -171,7 +200,7 @@ function simplemux.dissector(buf, pkt, tree)
         --  second byte: LEN2
         --  third byte: protocol
         if (debug == 1 ) then
-          print("  packet " .. packetNumber .. "  the length field is 14 bits long")
+          print("  packet " .. packetNumber .. "  the length field is 13 bits long")
         end
         
         -- the length field is 14 bits long
@@ -187,7 +216,9 @@ function simplemux.dissector(buf, pkt, tree)
         -- the length is between the first and the second bytes
         -- 6 bits come from the first byte (I remove the two most significant ones)
         -- 7 bits come from the second byte (I remove the most significant one)
-        LEN = ((buf(offset,1):uint() % 64 ) * 128 )+ (buf(offset + 1,1):uint() % 128)
+        -- LEN = ((buf(offset,1):uint() % 64 ) * 128 ) + (buf(offset + 1,1):uint() % 128)
+        LEN = (bit.band( buf(offset,1):uint(), 0x3F) * 128 ) + (bit.band( buf(offset + 1,1):uint(), 0x7F))
+
         if (debug == 1 ) then
           print("   offset: " .. offset .. " LEN: " .. LEN)
         end
@@ -195,12 +226,13 @@ function simplemux.dissector(buf, pkt, tree)
         -- first byte (including SPB, LXT and part of LEN)
         -- second byte (including LXT and the rest of LEN)
         -- add SPB
-        subtree:add(simplemux.fields.first_header_first_bit, buf(offset,1))
+        subtree:add(simplemux.fields.first_header_first_bit_16, buf(offset,2))
         -- add LXT
-        subtree:add(simplemux.fields.first_header_second_bit, buf(offset,1))
+        subtree:add(simplemux.fields.first_header_second_bit_16, buf(offset,2))
         -- add Length
         subtree:add(simplemux.fields.first_header_third_to_sixteenth_bits, buf(offset,2))
-
+        -- add second LXT
+        subtree:add(simplemux.fields.first_header_nineth_bit, buf(offset,2))
  
         offset = offset + 2
       
@@ -237,7 +269,9 @@ function simplemux.dissector(buf, pkt, tree)
       --   seven bits: part of the LENGTH
       
       -- this is a way to get the most significant bit
-      LXT = ( buf(offset,1):uint() - ( buf(offset,1):uint() % 128 ) ) / 128
+      -- LXT = ( buf(offset,1):uint() - ( buf(offset,1):uint() % 128 ) ) / 128
+
+      LXT = bit.rshift(bit.band( buf(offset,1):uint(), 0x80 ), 7)
 
       -- check if the length has 1 or 2 bytes (depending on LXT)
       if LXT == 0 then
@@ -246,8 +280,11 @@ function simplemux.dissector(buf, pkt, tree)
         --  OPTIONAL: second byte: protocol
         
         -- the length field is 7 bits long
-        LEN = buf(offset,1):uint() % 128
-        
+        -- LEN = buf(offset,1):uint() % 128
+        -- make a bitwise AND with 0x7F ( = 0111 1111)
+        LEN = bit.band( buf(offset,1):uint(), 0x7F)
+
+
         if (debug == 1 ) then
           print("  packet " .. packetNumber .. "  the length field is 7 bits long")  
           print("   offset: " .. offset .. " LEN: " .. LEN)
@@ -335,16 +372,19 @@ function simplemux.dissector(buf, pkt, tree)
         --  OPTIONAL: second byte: protocol  
     
         if (debug == 1 ) then
-          print("  packet " .. packetNumber .. "  the length field is 15 bits long")
+          print("  packet " .. packetNumber .. "  the length field is 14 bits long")
         end
         -- the length field is 15 bits long
         
         -- second byte (including LXT and the rest of LEN)
     
         -- the length is between the first and the second bytes
-        -- 6 bits come from the first byte (I remove the two most significant ones)
+        -- 7 bits come from the first byte (I remove the two most significant ones)
         -- 7 bits come from the second byte (I remove the most significant one)
-        LEN = ((buf(offset,1):uint() % 64 ) * 128 )+ (buf(offset + 1,1):uint() % 128)
+        --LEN = ((buf(offset,1):uint() % 128 ) * 128 )+ (buf(offset + 1,1):uint() % 128)
+        LEN = (bit.band( buf(offset,1):uint(), 0x7F) * 128 ) + (bit.band( buf(offset + 1,1):uint(), 0x7F))
+
+
         if (debug == 1 ) then
           print("   offset: " .. offset .. " LEN: " .. LEN)
         end
@@ -359,9 +399,11 @@ function simplemux.dissector(buf, pkt, tree)
       
           -- first and second bytes (including LXT and LEN)
           -- add LXT
-          subtree:add(simplemux.fields.non_first_header_first_bit, buf(offset,1))
+          subtree:add(simplemux.fields.non_first_header_first_bit_16, buf(offset,2))
           -- add length
-          subtree:add(simplemux.fields.non_first_header_second_to_sixteenth_bits, buf(offset,1))
+          subtree:add(simplemux.fields.non_first_header_second_to_sixteenth_bits, buf(offset,2))
+          -- add second LXT
+          subtree:add(simplemux.fields.first_header_nineth_bit, buf(offset,2))
 
           offset = offset + 2
         
@@ -399,9 +441,9 @@ function simplemux.dissector(buf, pkt, tree)
       
           -- first and second bytes (including LXT and LEN)
           -- add LXT
-          subtree:add(simplemux.fields.non_first_header_first_bit, buf(offset,1))
+          subtree:add(simplemux.fields.non_first_header_first_bit_16, buf(offset,2))
           -- add length
-          subtree:add(simplemux.fields.non_first_header_second_to_sixteenth_bits, buf(offset,1))
+          subtree:add(simplemux.fields.non_first_header_second_to_sixteenth_bits, buf(offset,2))
 
           offset = offset + 2
           
