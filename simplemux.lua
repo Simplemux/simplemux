@@ -22,23 +22,41 @@ simplemux.fields = { protocol_type }
 
 -- add more fields: SPB, LXT and LEN
 -- based on https://stackoverflow.com/questions/51248914/how-to-handle-bit-fields-in-wireshark-lua-dissector
--- this prints '1... ....' or '0... ....' depending on the value of the first bit
-simplemux.fields.first_header_first_bit = ProtoField.uint8("Single_Protocol_Bit", "Single Protocol Bit", base.DEC, null, 0x80)
 
+-- SPB
+local singleProtocolOptions = {
+    [0] = "Each multiplexed packet/frame has its protocol ID",
+    [1] = "All the multiplexed packets/frames belong to the same protocol"
+}
+-- this prints '1... ....' or '0... ....' depending on the value of the first bit
+simplemux.fields.first_header_first_bit = ProtoField.uint8("Single_Protocol_Bit", "Single Protocol Bit", base.DEC, singleProtocolOptions, 0x80)
+
+
+-- LXT
+local lengthExtensionOptionsFirstHeader = {
+    [0] = "Packet/frame length in 6 bits",
+    [1] = "Packet/frame length in 14 bits"
+}
 -- this prints '.1.. .....' or '.0.. ....' depending on the value of the second bit
-simplemux.fields.first_header_second_bit = ProtoField.uint8("Length_Extenxsion_First_Header", "Length extension", base.DEC, null, 0x40)
+simplemux.fields.first_header_second_bit = ProtoField.uint8("Length_Extenxsion_First_Header", "Length extension", base.DEC, lengthExtensionOptionsFirstHeader, 0x40)
 
+local lengthExtensionOptionsNonFirstHeader = {
+    [0] = "Packet/frame length in 7 bits",
+    [1] = "Packet/frame length in 15 bits"
+}
 -- this prints '1... ....' or '0... ....' depending on the value of the first bit
-simplemux.fields.non_first_header_first_bit = ProtoField.uint8("Length_Extension_non-First_header", "Length extension", base.DEC, null, 0x80)
+simplemux.fields.non_first_header_first_bit = ProtoField.uint8("Length_Extension_non-First_header", "Length extension", base.DEC, lengthExtensionOptionsNonFirstHeader, 0x80)
 
+
+-- Length
 -- this prints '..101010', i.e. the value of the six less-significant bits
 simplemux.fields.first_header_third_to_eighth_bits = ProtoField.uint8("Length_6bits", "Length", base.DEC, null, 0x3F)
 
--- this prints '.0101010', i.e. the value of the seven less-significant bits
-simplemux.fields.non_first_header_second_to_eighth_bits = ProtoField.uint8("Length_7bits", "Length", base.DEC, null, 0x7F)
-
 -- this prints '..101010 10101010', i.e. the value of the seven less-significant bits
 simplemux.fields.first_header_third_to_sixteenth_bits = ProtoField.uint16("Length_14bits", "Length", base.DEC, null, 0x3FFF)
+
+-- this prints '.0101010', i.e. the value of the seven less-significant bits
+simplemux.fields.non_first_header_second_to_eighth_bits = ProtoField.uint8("Length_7bits", "Length", base.DEC, null, 0x7F)
 
 -- this prints '.0101010 10101010', i.e. the value of the seven less-significant bits
 simplemux.fields.non_first_header_second_to_sixteenth_bits = ProtoField.uint16("Length_15bits", "Length", base.DEC, null, 0x7FFF)
