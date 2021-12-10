@@ -1942,7 +1942,7 @@ int main(int argc, char *argv[]) {
 										packet_length = packet_length + (buffer_from_net[position+1] % 128);
 	
 										if (debug ) {
-											do_debug(2, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
+											do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
 											PrintByte(2, 8, bits);
 											FromByte(buffer_from_net[position+1], bits);
 											do_debug(2, " 0x%02x ",buffer_from_net[position+1]);
@@ -3015,13 +3015,13 @@ int main(int argc, char *argv[]) {
 	
 							// print the Mux separator (only one byte)
 							if(debug) {
+								// convert the byte to bits
 								FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
-								//do_debug(2, " Mux separator of 1 byte: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
-								
-								do_debug(2, " Mux separator of 1 byte (plus Protocol): ");
+								do_debug(2, " Mux separator of 1 byte (plus Protocol): 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][0]);
+								//do_debug(2, " Mux separator of 1 byte (plus Protocol): ");
 								if (first_header_written == 0) {
 									PrintByte(2, 7, bits);			// first header
-									do_debug(2, "(SPB field not included)\n");
+									do_debug(2, ", SPB field not included)\n");
 								}
 								else {
 									PrintByte(2, 8, bits);			// non-first header
@@ -3073,12 +3073,12 @@ int main(int argc, char *argv[]) {
 							// print the two bytes of the separator
 							if(debug) {
 								// first byte
-								FromByte(separators_to_multiplex[0][num_pkts_stored_from_tun], bits);
-								//do_debug(2, " Mux separator of 2 bytes: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
-								do_debug(2, " Mux separator of 2 bytes (plus Protocol). First byte: ");
+								FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
+								do_debug(2, " Mux separator of 2 bytes (plus Protocol): 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][0]);
+								//do_debug(2, " Mux separator of 2 bytes (plus Protocol). First byte: ");
 								if (first_header_written == 0) {
 									PrintByte(2, 7, bits);			// first header
-									do_debug(2, " (SPB field not included). ");
+									do_debug(2, ", SPB field not included)");
 								}
 								else {
 									PrintByte(2, 8, bits);			// non-first header
@@ -3087,10 +3087,10 @@ int main(int argc, char *argv[]) {
 	
 								// second byte
 								FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
-								//do_debug(2, " (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
-								do_debug(2, "second byte: ");
+								do_debug(2, " 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][1]);
+								//do_debug(2, ". second byte: ");
 								PrintByte(2, 8, bits);
-								do_debug(2, "\n");
+								do_debug(2, ")\n");
 							}	
 						}
 	
@@ -3141,8 +3141,8 @@ int main(int argc, char *argv[]) {
 							// print the three bytes of the separator
 							if(debug) {
 								// first byte
-								FromByte(separators_to_multiplex[0][num_pkts_stored_from_tun], bits);
-								do_debug(2, " Mux separator of 2 bytes: (0x%02x) ", separators_to_multiplex[0][num_pkts_stored_from_tun]);
+								FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
+								do_debug(2, " Mux separator of 2 bytes: (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][0]);
 								if (first_header_written == 0) {
 									PrintByte(2, 7, bits);			// first header
 								}
