@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux2.c            version 2.0                                   *
+ * simplemux.c            version 2.0                                   *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress). It also sends ethernet frames.            *
