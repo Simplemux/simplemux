@@ -1919,9 +1919,10 @@ int main(int argc, char *argv[]) {
 									// I have to convert the six less significant bits to an integer, which means the length of the packet
 									// since the two most significant bits are 0, the length is the value of the char
 									packet_length = buffer_from_net[position] % maximum_packet_length;
-									do_debug(2, " Mux separator of 1 byte: 0x%02x ", buffer_from_net[position]);
+									do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
 									PrintByte(2, 8, bits);
-	
+									do_debug(2, ")");
+									
 									position ++;
 								}
 	
@@ -1965,7 +1966,7 @@ int main(int argc, char *argv[]) {
 										packet_length = packet_length + (buffer_from_net[position+2] % 128);
 	
 										if (debug ) {
-											do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
+											do_debug(2, " Mux separator of 3 bytes: 0x%02x (", buffer_from_net[position]);
 											PrintByte(2, 8, bits);
 											FromByte(buffer_from_net[position+1], bits);
 											do_debug(2, ") 0x%02x (",buffer_from_net[position+1]);
@@ -2061,8 +2062,12 @@ int main(int argc, char *argv[]) {
 										packet_length = packet_length + (buffer_from_net[position+1] % 128);
 	
 										if (debug ) {
+											// print the first byte
+											FromByte(buffer_from_net[position], bits);
 											do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
 											PrintByte(2, 8, bits);
+											
+											// print the second byte
 											FromByte(buffer_from_net[position+1], bits);
 											do_debug(2, ") 0x%02x (",buffer_from_net[position+1]);
 											PrintByte(2, 8, bits);
@@ -2085,11 +2090,17 @@ int main(int argc, char *argv[]) {
 										packet_length = packet_length + (buffer_from_net[position+2] % 128);
 	
 										if (debug ) {
+											// print the first byte
+											FromByte(buffer_from_net[position], bits);
 											do_debug(2, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
 											PrintByte(2, 8, bits);
+											
+											// print the second byte
 											FromByte(buffer_from_net[position+1], bits);
 											do_debug(2, " %02x ",buffer_from_net[position+1]);
 											PrintByte(2, 8, bits);	
+											
+											// print the third byte
 											FromByte(buffer_from_net[position+2], bits);
 											do_debug(2, " %02x ",buffer_from_net[position+2]);
 											PrintByte(2, 8, bits);
@@ -3025,7 +3036,7 @@ int main(int argc, char *argv[]) {
 								}
 								else {
 									PrintByte(2, 8, bits);			// non-first header
-									do_debug(2, "\n");
+									do_debug(2, ")\n");
 								}
 							}
 						}
@@ -3082,7 +3093,7 @@ int main(int argc, char *argv[]) {
 								}
 								else {
 									PrintByte(2, 8, bits);			// non-first header
-									do_debug(2, "");
+									do_debug(2, ")");
 								}
 	
 								// second byte
@@ -3142,7 +3153,7 @@ int main(int argc, char *argv[]) {
 							if(debug) {
 								// first byte
 								FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
-								do_debug(2, " Mux separator of 2 bytes: (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][0]);
+								do_debug(2, " Mux separator of 3 bytes: (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][0]);
 								if (first_header_written == 0) {
 									PrintByte(2, 7, bits);			// first header
 								}
@@ -3419,6 +3430,11 @@ int main(int argc, char *argv[]) {
 	
 							// restart the period: update the time of the last packet sent
 							time_last_sent_in_microsec = time_in_microsec;
+						}
+						else {
+							// a multiplexed packet does not have to be sent. I have just accumulated this one
+							// just add a linefeed
+							do_debug(2, "\n");
 						}
 					}
 				}
