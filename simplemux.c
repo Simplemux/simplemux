@@ -81,7 +81,9 @@
 #define BUFSIZE 2304          // buffer for reading from tun interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
 #define UDP_HEADER_SIZE 8
-#define TCP_HEADER_SIZE 20
+//#define TCP_HEADER_SIZE 20
+#define TCP_HEADER_SIZE 32    // in some cases, the TCP header is 32 byte long
+
 #define SIZE_PROTOCOL_FIELD 1    // 1: protocol field of one byte
                                 // 2: protocol field of two bytes
 #define NUMBER_OF_SOCKETS 3      // I am using 3 sockets in the program
@@ -2856,12 +2858,16 @@ int main(int argc, char *argv[]) {
                       do_debug(1, " Sending to the network a UDP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                     break;
                     case TCP_CLIENT_MODE:
-                      do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                      do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
+                      //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      do_debug(1, " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet);
                     break;
                     case TCP_SERVER_MODE:
-                      do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                      do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
+                      //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      do_debug(1, " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet);
                     break;
                     case NETWORK_MODE:
                       do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
@@ -2877,12 +2883,16 @@ int main(int argc, char *argv[]) {
                       do_debug(1, " Sending to the network a UDP packet without this Eth frame: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                     break;
                     case TCP_CLIENT_MODE:
-                      do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                      do_debug(1, " Sending to the network a TCP packet without this Eth frame: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
+                      //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet);
                     break;
                     case TCP_SERVER_MODE:
-                      do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                      do_debug(1, " Sending to the network a TCP packet without this Eth frame: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
+                      //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                      do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet);
                     break;
                     case NETWORK_MODE:
                       do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
@@ -3270,12 +3280,16 @@ int main(int argc, char *argv[]) {
                         do_debug(1, " Sending to the network a UDP packet containing %i native one(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                       break;
                       case TCP_CLIENT_MODE:
-                        do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                        do_debug(1, " Sending to the network a TCP packet containing %i native one(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
+                        //do_debug(1, " Sending to the network a TCP packet containing %i native one(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        do_debug(1, " Sending to the network a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet);
                       break;
                       case TCP_SERVER_MODE:
-                        do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                        do_debug(1, " Sending to the network a TCP packet containing %i native one(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
+                        //do_debug(1, " Sending to the network a TCP packet containing %i native one(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        do_debug(1, " Sending to the network a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet);
                       break;
                       case NETWORK_MODE:
                         do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
@@ -3291,12 +3305,16 @@ int main(int argc, char *argv[]) {
                         do_debug(1, " Sending to the network a UDP packet containing %i native Eth frame(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                       break;
                       case TCP_CLIENT_MODE:
-                        do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                        do_debug(1, " Sending to the network a TCP packet containing %i native Eth frame(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
+                        //do_debug(1, " Sending to the network a TCP packet containing %i native Eth frame(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet);
                       break;
                       case TCP_SERVER_MODE:
-                        do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                        do_debug(1, " Sending to the network a TCP packet containing %i native Eth frame(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
+                        //do_debug(1, " Sending to the network a TCP packet containing %i native Eth frame(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                        do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet);
                       break;
                       case NETWORK_MODE:
                         do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
