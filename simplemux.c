@@ -2277,13 +2277,14 @@ int main(int argc, char *argv[]) {
                     rohc_packet_d.len = packet_length;
               
                     // Copy the packet itself
-                    // FIXME: use memcpy instead
                     for (l = 0; l < packet_length ; l++) {
                       rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
                     }
-  
+                    // I try to use memcpy instead, but it does not work properly
+                    // memcpy(demuxed_packet, rohc_buf_data_at(rohc_packet_d, 0), packet_length);
+
                     // dump the ROHC packet on terminal
-                    if (debug == 1) {
+                    if (debug) {
                       do_debug(1, " ROHC. ");
                     }
                     if (debug == 2) {
@@ -2569,7 +2570,9 @@ int main(int argc, char *argv[]) {
             for (l = 0; l < nread_from_net ; l++) {
               rohc_buf_byte_at(rohc_packet_d, l) = buffer_from_net[l];
             }
-  
+            // I try to use memcpy instead, but it does not work properly
+            // memcpy(buffer_from_net, rohc_buf_byte_at(rohc_packet_d, 0), packet_length);
+
             // dump the ROHC packet on terminal
             if (debug) {
               do_debug(2, " ROHC feedback packet received\n   ");
@@ -2742,8 +2745,10 @@ int main(int argc, char *argv[]) {
                 for (l = 0; l < size_packets_to_multiplex[num_pkts_stored_from_tun] ; l++) {
                   packets_to_multiplex[num_pkts_stored_from_tun][l] = rohc_buf_byte_at(rohc_packet, l);
                 }
-  
-                /* dump the ROHC packet on terminal */
+                // I try to use memcpy instead, but it does not work properly
+                // memcpy(packets_to_multiplex[num_pkts_stored_from_tun], rohc_buf_byte_at(rohc_packet, 0), size_packets_to_multiplex[num_pkts_stored_from_tun]);
+
+                // dump the ROHC packet on terminal
                 if (debug >= 1 ) {
                   do_debug(1, " ROHC-compressed to %i bytes\n", rohc_packet.len);
                 }
@@ -3042,20 +3047,30 @@ int main(int argc, char *argv[]) {
   
               // I have emptied the buffer, so I have to
               //move the current packet to the first position of the 'packets_to_multiplex' array
+              /*
               for (l = 0; l < BUFSIZE; l++ ) {
-                packets_to_multiplex[0][l]=packets_to_multiplex[num_pkts_stored_from_tun][l];
-              }
-  
+                packets_to_multiplex[0][l] = packets_to_multiplex[num_pkts_stored_from_tun][l];
+              }*/
+              memcpy(packets_to_multiplex[0], packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
+
               // move the current separator to the first position of the array
+              /*
               for (l = 0; l < 2; l++ ) {
                 separators_to_multiplex[0][l]=separators_to_multiplex[num_pkts_stored_from_tun][l];
-              }
-  
-              // move the length to the first position of the array
+              }*/
+              memcpy(separators_to_multiplex[0], separators_to_multiplex[num_pkts_stored_from_tun], 2);
+
+              // move the size of the packet to the first position of the array
               size_packets_to_multiplex[0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
+
+              // set the rest of the values of the size to 0
+              // note: it starts with 1, not with 0
+              for (j=1; j < MAXPKTS; j++)
+                size_packets_to_multiplex [j] = 0;
+
+              // move the size of the separator to the first position of the array
               size_separators_to_multiplex[0] = size_separators_to_multiplex[num_pkts_stored_from_tun];
-              for (j=1; j < MAXPKTS; j++) size_packets_to_multiplex [j] = 0;
-  
+
               // I have sent a packet, so I set to 0 the "first_header_written" bit
               first_header_written = 0;
   
