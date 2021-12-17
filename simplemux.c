@@ -19,11 +19,14 @@
  *      bundle can be sent:                                               *
  *          - in an IPv4 packet belonging to protocol 253 (network mode)  *
  *          - in an IPv4/UDP packet (transport mode)                      *
+ *          - in an IPv4/TCP packet (transport mode - tunnel TAP)         *
  *                                                                        *
  * IPv6 is not supported in this implementation                           *
  *                                                                        *
+ * Jose Saldana (working at CIRCE Foundation), improved it in 2021-2022   *
  *                                                                        *
- * Jose Saldana wrote this program in 2015, published under GNU GENERAL   *
+ * Jose Saldana (working at University of Zaragoza) wrote this program    *
+ * in 2015, published under GNU GENERAL                                   *
  * PUBLIC LICENSE, Version 3, 29 June 2007                                *
  * Copyright (C) 2007 Free Software Foundation, Inc.                      *
  *                                                                        *
@@ -66,49 +69,50 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <stdarg.h>
-#include <inttypes.h>      // for printing uint_64 numbers
-#include <stdbool.h>      // for using the bool type
-#include <rohc/rohc.h>      // for using header compression
+#include <inttypes.h>           // for printing uint_64 numbers
+#include <stdbool.h>            // for using the bool type
+#include <rohc/rohc.h>          // for using header compression
 #include <rohc/rohc_comp.h>
 #include <rohc/rohc_decomp.h>
-#include <netinet/ip.h>      // for using iphdr type
-#include <ifaddrs.h>        // required for using getifaddrs()
-#include <netdb.h>          // required for using getifaddrs()
+#include <netinet/ip.h>         // for using iphdr type
+#include <ifaddrs.h>            // required for using getifaddrs()
+#include <netdb.h>              // required for using getifaddrs()
 #include <poll.h>
-#include <linux/tcp.h>      // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
+#include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
 
 
-#define BUFSIZE 2304          // buffer for reading from tun interface, must be >= MTU of the network
+#define BUFSIZE 2304            // buffer for reading from tun interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
 #define UDP_HEADER_SIZE 8
 //#define TCP_HEADER_SIZE 20
-#define TCP_HEADER_SIZE 32    // in some cases, the TCP header is 32 byte long
+#define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long
 
-#define SIZE_PROTOCOL_FIELD 1    // 1: protocol field of one byte
+#define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
                                 // 2: protocol field of two bytes
-#define NUMBER_OF_SOCKETS 3      // I am using 3 sockets in the program
+#define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program
 
 #define PORT 55555              // default port
-#define MAXPKTS 100              // maximum number of packets to store
+#define MAXPKTS 100             // maximum number of packets to store
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
 
+// Protocol IDs, according to IANA
+// see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 #define IPPROTO_IP_ON_IP 4      // IP on IP Protocol ID
-#define IPPROTO_SIMPLEMUX  253    // Simplemux Protocol ID (experimental number according to IANA)
+#define IPPROTO_SIMPLEMUX 253   // Simplemux Protocol ID (experimental number according to IANA)
 #define IPPROTO_ROHC 142        // ROHC Protocol ID
-#define IPPROTO_ETHERNET 143    // Ethernet Protocol ID (according to IANA)
-                                // see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
+#define IPPROTO_ETHERNET 143    // Ethernet Protocol ID
 
-#define NETWORK_MODE    'N'      // N: network mode
-#define UDP_MODE        'U'      // U: UDP mode
-#define TCP_CLIENT_MODE  'T'      // T: TCP client mode
-#define TCP_SERVER_MODE 'S'      // S: TCP server mode
+#define NETWORK_MODE    'N'     // N: network mode
+#define UDP_MODE        'U'     // U: UDP mode
+#define TCP_CLIENT_MODE 'T'     // T: TCP client mode
+#define TCP_SERVER_MODE 'S'     // S: TCP server mode
 
 #define TUN_MODE 'U'            // T: tun mode, i.e. IP packets will be tunneled inside Simplemux
 #define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
 
-#define Linux_TTL 64      // the initial value of the TTL IP field in Linux
+#define Linux_TTL 64            // the initial value of the TTL IP field in Linux
 
-#define DISABLE_NAGLE 1   // disable Nagle algorithm
+#define DISABLE_NAGLE 1         // disable Nagle algorithm
 
 
 /* global variables */
@@ -139,8 +143,7 @@ static bool rtp_detect(const unsigned char *const ip __attribute__((unused)),
   bool is_rtp = false;
   size_t i;
 
-  if(udp == NULL)
-  {
+  if (udp == NULL) {
     return false;
   }
 
@@ -149,10 +152,8 @@ static bool rtp_detect(const unsigned char *const ip __attribute__((unused)),
 
   /* is the UDP destination port in the list of ports reserved for RTP
    * traffic by default (for compatibility reasons) */
-  for(i = 0; i < default_rtp_ports_nr; i++)
-  {
-    if(ntohs(udp_dport) == default_rtp_ports[i])
-    {
+  for(i = 0; i < default_rtp_ports_nr; i++) {
+    if(ntohs(udp_dport) == default_rtp_ports[i]) {
       is_rtp = true;
       break;
     }
@@ -201,11 +202,11 @@ int tun_alloc(char *dev, int flags) {
  * cread: read routine that checks for errors and exits if an error is    *
  *        returned.                                                       *
  **************************************************************************/
-int cread(int fd, unsigned char *buf, int n){
+int cread(int fd, unsigned char *buf, int n) {
 
   int nread;
 
-  if((nread=read(fd, buf, n)) < 0){
+  if((nread=read(fd, buf, n)) < 0) {
     perror("Reading data");
     exit(1);
   }
@@ -216,7 +217,7 @@ int cread(int fd, unsigned char *buf, int n){
  * cwrite: write routine that checks for errors and exits if an error is  *
  *         returned.                                                      *
  **************************************************************************/
-int cwrite(int fd, unsigned char *buf, int n){
+int cwrite(int fd, unsigned char *buf, int n) {
 
   int nwritten;
 
@@ -249,7 +250,7 @@ int read_n(int fd, unsigned char *buf, int n) {
 /**************************************************************************
  * do_debug: prints debugging stuff (doh!)                                *
  **************************************************************************/
-void do_debug(int level, char *msg, ...){
+void do_debug(int level, char *msg, ...) {
 
   va_list argp;
 
@@ -285,6 +286,7 @@ void usage(void) {
   fprintf(stderr, "-c <peerIP>: specify peer destination IP address, i.e. the tunnel remote end (mandatory)\n");
   fprintf(stderr, "-M <mode>: Network (N), UDP (U), TCP (T) mode (mandatory)\n");
   fprintf(stderr, "-T <tunnel mode>: TUN (U, default) or TAP (A) mode\n");
+  fprintf(stderr, "-f: Fast mode (compression rate is lower, but it is faster). Compulsory for TCP mode\n");
   fprintf(stderr, "-p <port>: port to listen on, and to connect to (default 55555)\n");
   fprintf(stderr, "-d <debug_level>: Debug level. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
   fprintf(stderr, "-r <ROHC_option>: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
@@ -334,15 +336,6 @@ unsigned char ToByte(bool b[8]) {
  **************************************************************************/
 // stores in 'b' the value 'true' or 'false' depending on each bite of the byte c
 // b[0] is the less significant bit
-// example: print the byte corresponding to an asterisk
-/*bool bits2[8];
-FromByte('*', bits2);
-do_debug(1, "byte:%c%c%c%c%c%c%c%c\n", bits2[0], bits2[1], bits2[2], bits2[3], bits2[4], bits2[5], bits2[6], bits2[7]);
-if (bits2[4]) {
-  do_debug(1, "1\n");
-} else {
-  do_debug(1, "0\n");
-}*/
 void FromByte(unsigned char c, bool b[8]) {
   int i;
   for (i=0; i < 8; ++i)
@@ -376,22 +369,19 @@ void PrintByte(int debug_level, int num_bits, bool b[8]) {
 void dump_packet (int packet_size, unsigned char packet[BUFSIZE]) {
   int j;
 
-  for(j = 0; j < packet_size; j++)
-  {
+  for(j = 0; j < packet_size; j++) {
     do_debug(2, "%02x ", packet[j]);
-    if(j != 0 && ((j + 1) % 16) == 0)
-    {
+    if(j != 0 && ((j + 1) % 16) == 0) {
       do_debug(2, "\n");
       if ( j != (packet_size -1 )) do_debug(2,"   ");
     }
     // separate in groups of 8 bytes
-    else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0))
-    {
+    else if((j != 0 ) && ((j + 1) % 8 == 0 ) && (( j + 1 ) % 16 != 0)) {
       do_debug(2, "  ");
     }
   }
-  if(j != 0 && ((j ) % 16) != 0) /* be sure to go to the line */
-  {
+  if(j != 0 && ((j ) % 16) != 0) {
+    // be sure to go to the line
     do_debug(2, "\n");
   }
 }
@@ -409,6 +399,7 @@ int date_and_time(char buffer[25]) {
   strftime(buffer, 25, "%Y-%m-%d_%H.%M.%S", tm_info);
   return EXIT_SUCCESS;
 }
+
 
 /**************************************************************************
  *                   build the multiplexed packet                         *
@@ -482,8 +473,8 @@ uint16_t build_multiplexed_packet ( int num_packets,
 // it takes all the variables where packets are stored, and predicts the size of a multiplexed packet including all of them
 // the variables are:
 //  - prot[MAXPKTS][SIZE_PROTOCOL_FIELD]  the protocol byte of each packet
-//  - size_separators_to_mux[MAXPKTS]      the size of each separator (1 or 2 bytes). Protocol byte not included
-//  - separators_to_mux[MAXPKTS][2]        the separators
+//  - size_separators_to_mux[MAXPKTS]     the size of each separator (1 or 2 bytes). Protocol byte not included
+//  - separators_to_mux[MAXPKTS][2]       the separators
 //  - size_packets_to_mux[MAXPKTS]        the size of each packet to be multiplexed
 //  - packets_to_mux[MAXPKTS][BUFSIZE]    the packet to be multiplexed
 
@@ -545,7 +536,8 @@ static void print_rohc_traces(void *const priv_ctxt,
                 const rohc_trace_entity_t entity,
                 const int profile,
                 const char *const format,
-                ...) {
+                ...)
+{
   // Only prints ROHC messages if debug level is > 2
   if ( debug > 2 ) {
     va_list args;
@@ -659,61 +651,63 @@ int main(int argc, char *argv[]) {
 
   char mode[2] = "";                  // Network (N) or UDP (U) or TCP (T) mode
 
-  char tunnel_mode[2]= "U";            // TUN (U, default) or TAP (T) tunnel mode
+  char tunnel_mode[2]= "U";           // TUN (U, default) or TAP (T) tunnel mode
   
-  const int on = 1;                    // needed when creating a socket
+  bool fast_mode = false;             // fast mode is disabled by default
+
+  const int on = 1;                   // needed when creating a socket
 
   struct sockaddr_in local, remote, feedback, feedback_remote, received;  // these are structs for storing sockets
   struct sockaddr_in TCPpair;
 
   struct iphdr ipheader;              // IP header
-  struct ifreq iface;                  // network interface
+  struct ifreq iface;                 // network interface
 
   socklen_t slen = sizeof(remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
-  socklen_t slen_feedback = sizeof(feedback);    // size of the socket. The type is like an int, but adequate for the size of the socket
+  socklen_t slen_feedback = sizeof(feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
 
   char remote_ip[16] = "";                      // dotted quad IP string with the IP of the remote machine
-  char local_ip[16] = "";                        // dotted quad IP string with the IP of the local machine     
-  unsigned short int port = PORT;                // UDP port to be used for sending the multiplexed packets
+  char local_ip[16] = "";                       // dotted quad IP string with the IP of the local machine     
+  unsigned short int port = PORT;               // UDP port to be used for sending the multiplexed packets
   unsigned short int port_feedback = PORT + 1;  // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
 
   // variables for storing the packets to multiplex
   uint16_t total_length;                                  // total length of the built multiplexed packet
-  unsigned char protocol_rec;                              // protocol field of the received muxed packet
-  unsigned char protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];    // protocol field of each packet
-  uint16_t size_separators_to_multiplex[MAXPKTS];          // stores the size of the Simplemux separator. It does not include the "Protocol" field
+  unsigned char protocol_rec;                             // protocol field of the received muxed packet
+  unsigned char protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];   // protocol field of each packet
+  uint16_t size_separators_to_multiplex[MAXPKTS];         // stores the size of the Simplemux separator. It does not include the "Protocol" field
   unsigned char separators_to_multiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
   uint16_t size_packets_to_multiplex[MAXPKTS];            // stores the size of the received packet
-  unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];    // stores the packets received from tun, before storing it or sending it to the network
+  unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network
   unsigned char muxed_packet[BUFSIZE];                    // stores the multiplexed packet
   int is_multiplexed_packet;                              // To determine if a received packet have been multiplexed
   unsigned char full_ip_packet[BUFSIZE];                  // Full IP packet
 
   // variables for storing the packets to demultiplex
   uint16_t nread_from_net;                        // number of bytes read from network which will be demultiplexed
-  unsigned char buffer_from_net[BUFSIZE];          // stores the packet received from the network, before sending it to tun
-  unsigned char buffer_from_net_aux[BUFSIZE];      // stores the packet received from the network, before sending it to tun
+  unsigned char buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
+  unsigned char buffer_from_net_aux[BUFSIZE];     // stores the packet received from the network, before sending it to tun
   unsigned char demuxed_packet[BUFSIZE];          // stores each demultiplexed packet
 
   // variables for controlling the arrival and departure of packets
-  unsigned long int tun2net = 0, net2tun = 0;    // number of packets read from tun and from net
-  unsigned long int feedback_pkts = 0;          // number of ROHC feedback packets
-  int limit_numpackets_tun = 0;                  // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
+  unsigned long int tun2net = 0, net2tun = 0;     // number of packets read from tun and from net
+  unsigned long int feedback_pkts = 0;            // number of ROHC feedback packets
+  int limit_numpackets_tun = 0;                   // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
 
-  int size_threshold = 0;                        // if the number of bytes stored is higher than this, a muxed packet is sent
-  int size_max;                                  // maximum value of the packet size
+  int size_threshold = 0;                         // if the number of bytes stored is higher than this, a muxed packet is sent
+  int size_max;                                   // maximum value of the packet size
 
-  uint64_t timeout = MAXTIMEOUT;                // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
-                                                //previous sending), the sending is triggered. default 100 seconds
-  uint64_t period= MAXTIMEOUT;                  // (microseconds). If the 'period' expires, a packet is sent
-  uint64_t microseconds_left = period;          // the time until the period expires  
+  uint64_t timeout = MAXTIMEOUT;                  // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
+                                                  //previous sending), the sending is triggered. default 100 seconds
+  uint64_t period= MAXTIMEOUT;                    // (microseconds). If the 'period' expires, a packet is sent
+  uint64_t microseconds_left = period;            // the time until the period expires  
 
   // very long unsigned integers for storing the system clock in microseconds
-  uint64_t time_last_sent_in_microsec;          // moment when the last multiplexed packet was sent
-  uint64_t time_in_microsec;                    // current time
-  uint64_t time_difference;                      // difference between two timestamps
+  uint64_t time_last_sent_in_microsec;            // moment when the last multiplexed packet was sent
+  uint64_t time_in_microsec;                      // current time
+  uint64_t time_difference;                       // difference between two timestamps
 
-  int option;                              // command line options
+  int option;                             // command line options
   int l,j,k;
   int num_pkts_stored_from_tun = 0;       // number of packets received and not sent from tun (stored)
   int size_muxed_packet = 0;              // accumulated size of the multiplexed packet
@@ -732,31 +726,31 @@ int main(int argc, char *argv[]) {
   int limit_length_two_bytes;             // the maximum length of a packet in order to express it in 2 bytes. It may be 8192 or 16384 (non-first header)
   int first_header_written = 0;           // it indicates if the first header has been written or not
   int drop_packet = 0;
-  bool accepting_tcp_connections;         // it is set to '1' if this is a TCP server and no connections have started
+  bool accepting_tcp_connections = 0;     // it is set to '1' if this is a TCP server and no connections have started
 
   bool bits[8];                           // it is used for printing the bits of a byte in debug mode
 
-  /* ROHC header compression variables */
+  // ROHC header compression variables
   int ROHC_mode = 0;      // it is 0 if ROHC is not used
                           // it is 1 for ROHC Unidirectional mode (headers are to be compressed/decompressed)
                           // it is 2 for ROHC Bidirectional Optimistic mode
                           // it is 3 for ROHC Bidirectional Reliable mode (not implemented yet)
 
   struct rohc_comp *compressor;               // the ROHC compressor
-  unsigned char ip_buffer[BUFSIZE];            // the buffer that will contain the IPv4 packet to compress
+  unsigned char ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
   struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);  
-  unsigned char rohc_buffer[BUFSIZE];          // the buffer that will contain the resulting ROHC packet
+  unsigned char rohc_buffer[BUFSIZE];         // the buffer that will contain the resulting ROHC packet
   struct rohc_buf rohc_packet = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
   unsigned int seed;
   rohc_status_t status;
 
   struct rohc_decomp *decompressor;           // the ROHC decompressor
-  unsigned char ip_buffer_d[BUFSIZE];          // the buffer that will contain the resulting IP decompressed packet
+  unsigned char ip_buffer_d[BUFSIZE];         // the buffer that will contain the resulting IP decompressed packet
   struct rohc_buf ip_packet_d = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
-  unsigned char rohc_buffer_d[BUFSIZE];        // the buffer that will contain the ROHC packet to decompress
+  unsigned char rohc_buffer_d[BUFSIZE];       // the buffer that will contain the ROHC packet to decompress
   struct rohc_buf rohc_packet_d = rohc_buf_init_empty(rohc_buffer_d, BUFSIZE);
 
-  /* structures to handle ROHC feedback */
+  // structures to handle ROHC feedback
   unsigned char rcvd_feedback_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet received
   struct rohc_buf rcvd_feedback = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFSIZE);
 
@@ -764,14 +758,14 @@ int main(int argc, char *argv[]) {
   struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
 
 
-  /* variables for the log file */
+  // variables for the log file
   char log_file_name[100] = "";       // name of the log file  
   FILE *log_file = NULL;              // file descriptor of the log file
   int file_logging = 0;               // it is set to 1 if logging into a file is enabled
 
 
 
-  /************** Check command line options *********************/
+  /************** read command line options *********************/
   progname = argv[0];    // argument used when calling the program
 
   // no arguments specified by the user. Print usage and finish
@@ -779,7 +773,7 @@ int main(int argc, char *argv[]) {
     usage ();
   }
   else {
-    while((option = getopt(argc, argv, "i:e:M:T:c:p:n:b:t:P:l:d:r:m:hL")) > 0) {
+    while((option = getopt(argc, argv, "i:e:M:T:c:p:n:b:t:P:l:d:r:m:fhL")) > 0) {
 
       switch(option) {
         case 'd':
@@ -799,6 +793,9 @@ int main(int argc, char *argv[]) {
           break;
         case 'T':            /* TUN (U) or TAP (A) tunnel mode */
           strncpy(tunnel_mode, optarg, 1);
+          break;
+        case 'f':            /* fast mode */
+          fast_mode = true;
           break;
         case 'e':            /* the name of the network interface (e.g. "eth0") in "mux_if_name" */
           strncpy(mux_if_name, optarg, IFNAMSIZ-1);
@@ -843,28 +840,28 @@ int main(int argc, char *argv[]) {
     argv += optind;
     argc -= optind;
 
+
+    /************* check command line options **************/
     if(argc > 0) {
       my_err("Too many options\n");
       usage();
     }
 
-
     // check interface options
     if(*tun_if_name == '\0') {
-      my_err("Must specify a tun interface name for native packets ('-i' option)\n");
+      my_err("Must specify a tun/tap interface name for native packets ('-i' option)\n");
       usage();
     } else if(*remote_ip == '\0') {
-      my_err("Must specify the address of the peer\n");
+      my_err("Must specify the IP address of the peer\n");
       usage();
     } else if(*mux_if_name == '\0') {
       my_err("Must specify local interface name for multiplexed packets\n");
       usage();
     } 
 
-
     // check if NETWORK or TRANSPORT mode have been selected (mandatory)
     else if((*mode != NETWORK_MODE) && (*mode != UDP_MODE) && (*mode != TCP_CLIENT_MODE) && (*mode != TCP_SERVER_MODE)) {
-      my_err("Must specify a valid mode ('-M' option MUST be 'N' (network), 'U' (UDP) or 'T'(TCP))\n");
+      my_err("Must specify a valid mode ('-M' option MUST be 'N' (network), 'U' (UDP), 'S' (TCP server) or 'T'(TCP client))\n");
       usage();
     } 
   
@@ -874,7 +871,13 @@ int main(int argc, char *argv[]) {
       usage();
     } 
 
-    /* open the log file */
+    // TAP mode requires fast mode
+    else if(((*mode == TCP_SERVER_MODE) || (*mode == TCP_CLIENT_MODE)) && (fast_mode == false)) {
+      my_err("TCP server ('-M S') and TCP client mode ('-M T') require fast mode (option '-f')\n");
+      usage();
+    }
+
+    // open the log file
     if ( file_logging == 1 ) {
       if (strcmp(log_file_name, "stdout") == 0) {
         log_file = stdout;
@@ -896,10 +899,13 @@ int main(int argc, char *argv[]) {
     else if ( ROHC_mode > 2 ) { 
       ROHC_mode = 2;
     }
+    /************* end - check command line options **************/
 
+
+    /************* initialize the tun/tap **************/
     if (*tunnel_mode == TUN_MODE) {
       // tun tunnel mode (i.e. send IP packets)
-      /*** initialize tun interface for native packets ***/
+      // initialize tun interface for native packets
       if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
         my_err("Error connecting to tun interface for capturing native packets %s\n", tun_if_name);
         exit(1);
@@ -915,7 +921,7 @@ int main(int argc, char *argv[]) {
         exit(1);          
       }        
 
-      /*** initialize tap interface for native packets ***/
+      // initialize tap interface for native packets
       if ( (tun_fd = tun_alloc(tun_if_name, IFF_TAP | IFF_NO_PI)) < 0 ) {
         my_err("Error connecting to tap interface for capturing native Ethernet frames %s\n", tun_if_name);
         exit(1);
@@ -923,10 +929,9 @@ int main(int argc, char *argv[]) {
       do_debug(1, "Successfully connected to interface for Ethernet frames %s\n", tun_if_name);    
     }
     else exit(1); // this would be a failure
-    
-    // I will only set this to '1' if this is a TCP server
-    accepting_tcp_connections = 0;
-    
+    /************* end - initialize the tun/tap **************/
+
+
     /*** Request a socket for writing and receiving muxed packets in Network mode ***/
     if ( *mode == NETWORK_MODE ) {
       // initialize header IP to be used when receiving a packet in NETWORK mode
@@ -1277,10 +1282,10 @@ int main(int argc, char *argv[]) {
   
     // there are four possibilities for triggering the sending of the packets:
     // - a threshold of the accumulated packet size. Two different options apply:
-    //     -  the size of the multiplexed packet has exceeded the size threshold specified by the user,
+    //    - the size of the multiplexed packet has exceeded the size threshold specified by the user,
     //      but not the MTU. In this case, a packet is sent and a new period is started with the
     //      buffer empty.
-    //    -  the size of the multiplexed packet has exceeded the MTU (and the size threshold consequently).
+    //    - the size of the multiplexed packet has exceeded the MTU (and the size threshold consequently).
     //      In this case, a packet is sent without the last one. A new period is started, and the last 
     //      packet is stored as the first packet to be sent at the end of the next period.
     // - a number of packets
