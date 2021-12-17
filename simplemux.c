@@ -89,6 +89,8 @@
 
 #define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
                                 // 2: protocol field of two bytes
+#define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
+
 #define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program
 
 #define PORT 55555              // default port
@@ -480,6 +482,7 @@ uint16_t build_multiplexed_packet ( int num_packets,
 
 // the length of the multiplexed packet is returned by this function
 uint16_t predict_size_multiplexed_packet (int num_packets,
+                                          bool fast_mode,
                                           int single_prot,
                                           unsigned char prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
                                           uint16_t size_separators_to_mux[MAXPKTS],
@@ -487,29 +490,38 @@ uint16_t predict_size_multiplexed_packet (int num_packets,
                                           uint16_t size_packets_to_mux[MAXPKTS],
                                           unsigned char packets_to_mux[MAXPKTS][BUFSIZE])
 {
-  int k, l;
+  int k;
   int length = 0;
 
-  // for each packet, read the protocol field (if present), the separator and the packet itself
-  for (k = 0; k < num_packets ; k++) {
+  int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
 
-    // count the 'Protocol' field if necessary
-    if ( (k==0) || (single_prot == 0 ) ) {    // the protocol field is always present in the first separator (k=0), and maybe in the rest
-      for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
-        length ++;
+  if (!fast_mode) {
+    // for each packet, read the protocol field (if present), the separator and the packet itself
+    for (k = 0; k < num_packets ; k++) {
+
+      // count the 'Protocol' field if necessary
+      if ( (k==0) || (single_prot == 0 ) ) {    // the protocol field is always present in the first separator (k=0), and maybe in the rest
+        length = length + SIZE_PROTOCOL_FIELD;
       }
-    }
-  
-    // count the separator
-    for (l = 0; l < size_separators_to_mux[k] ; l++) {
-      length ++;
-    }
+    
+      // count the separator
+      length = length + size_separators_to_mux[k];
 
-    // count the bytes of the packet itself
-    for (l = 0; l < size_packets_to_mux[k] ; l++) {
-      length ++;
-    }
+      // count the bytes of the packet itself
+      length = length + size_packets_to_mux[k];
+    }    
   }
+  else { // fast mode
+    // count the separator and the protocol field
+    length = length + (num_packets * size_separator_fast_mode);
+
+    // for each packet, add the length of the packet itself
+    for (k = 0; k < num_packets ; k++) {
+      // count the bytes of the packet itself
+      length = length + size_packets_to_mux[k];
+    }       
+  }
+
   return length;
 }
 
@@ -2317,7 +2329,7 @@ int main(int argc, char *argv[]) {
         //else if ( FD_ISSET ( feedback_fd, &rd_set )) {    /* FD_ISSET tests to see if a file descriptor is part of the set */
         else if(fds_poll[1].revents & POLLIN) {
         
-            // a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
+          // a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
           nread_from_net = recvfrom ( feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&feedback_remote, &slen_feedback );
   
           if (nread_from_net == -1) perror ("recvfrom()");
@@ -2405,7 +2417,6 @@ int main(int argc, char *argv[]) {
           /* increase the counter of the number of packets read from tun*/
           tun2net++;
   
-          //if (debug > 1 ) do_debug (2,"\n");
           if (*tunnel_mode == TUN_MODE)
             do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
           else if (*tunnel_mode == TAP_MODE)
@@ -2605,24 +2616,29 @@ int main(int argc, char *argv[]) {
             // - I send the previously stored packets
             // - I store the present one
             // - I reset the period
-  
-            // calculate if all the packets belong to the same protocol (single_protocol = 1) 
-            //or they belong to different protocols (single_protocol = 0)
-            single_protocol = 1;
-            for (k = 1; k < num_pkts_stored_from_tun ; k++) {
-              for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-                if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
-              }
-            }
+
+            // in fast mode I will send the protocol in every packet
+            if (!fast_mode) {
+              // calculate if all the packets belong to the same protocol (single_protocol = 1) 
+              //or they belong to different protocols (single_protocol = 0)
+              single_protocol = 1;
+              for (k = 1; k < num_pkts_stored_from_tun ; k++) {
+                for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+                  if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+                }
+              }              
+            } 
+
   
             // calculate the size without the present packet
-            predicted_size_muxed_packet = predict_size_multiplexed_packet (num_pkts_stored_from_tun,
-                                                      single_protocol,
-                                                      protocol,
-                                                      size_separators_to_multiplex,
-                                                      separators_to_multiplex,
-                                                      size_packets_to_multiplex,
-                                                      packets_to_multiplex);
+            predicted_size_muxed_packet = predict_size_multiplexed_packet ( num_pkts_stored_from_tun,
+                                                                            fast_mode,
+                                                                            single_protocol,
+                                                                            protocol,
+                                                                            size_separators_to_multiplex,
+                                                                            separators_to_multiplex,
+                                                                            size_packets_to_multiplex,
+                                                                            packets_to_multiplex);
   
             // I add the length of the present packet:
   
