@@ -81,7 +81,7 @@
 #include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
 
 
-#define BUFSIZE 2304            // buffer for reading from tun interface, must be >= MTU of the network
+#define BUFSIZE 2304            // buffer for reading from tun/tap interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
 #define UDP_HEADER_SIZE 8
 //#define TCP_HEADER_SIZE 20
@@ -417,6 +417,7 @@ int date_and_time(char buffer[25]) {
 // the multiplexed packet is stored in mux_packet[BUFSIZE]
 // the length of the multiplexed packet is returned by this function
 uint16_t build_multiplexed_packet ( int num_packets,
+                                    bool fast_mode,
                                     int single_prot,
                                     unsigned char prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
                                     uint16_t size_separators_to_mux[MAXPKTS],
@@ -442,14 +443,26 @@ uint16_t build_multiplexed_packet ( int num_packets,
     
     // add the separator
     do_debug(2, "0x");
+
     for (l = 0; l < size_separators_to_mux[k] ; l++) {
       do_debug(2, "%02x", separators_to_mux[k][l]);
       mux_packet[length] = separators_to_mux[k][l];
       length ++;
     }
 
-    // add the 'Protocol' field if necessary
-    if ( (k==0) || (single_prot == 0 ) ) {    // the protocol field is always present in the first separator (k=0), and maybe in the rest
+    if (!fast_mode) {
+      // add the 'Protocol' field if necessary
+      if ( (k==0) || (single_prot == 0 ) ) {    // the protocol field is always present in the first separator (k=0), and maybe in the rest
+        for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
+          mux_packet[length] = prot[k][l];
+          length ++;
+        }
+        //do_debug(2, "Protocol field: %02x ", prot[k][0]);
+        do_debug(2, "%02x", prot[k][0]);
+      }      
+    }
+    else {  // fast mode
+      // in fast mode, I always add the protocol
       for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
         mux_packet[length] = prot[k][l];
         length ++;
@@ -679,7 +692,7 @@ int main(int argc, char *argv[]) {
   socklen_t slen_feedback = sizeof(feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
 
   char remote_ip[16] = "";                      // dotted quad IP string with the IP of the remote machine
-  char local_ip[16] = "";                       // dotted quad IP string with the IP of the local machine     
+  char local_ip[16] = "";                       // dotted quad IP string with the IP of the local machine
   unsigned short int port = PORT;               // UDP port to be used for sending the multiplexed packets
   unsigned short int port_feedback = PORT + 1;  // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
 
@@ -692,7 +705,7 @@ int main(int argc, char *argv[]) {
   uint16_t size_packets_to_multiplex[MAXPKTS];            // stores the size of the received packet
   unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network
   unsigned char muxed_packet[BUFSIZE];                    // stores the multiplexed packet
-  int is_multiplexed_packet;                              // To determine if a received packet have been multiplexed
+  int is_multiplexed_packet;                              // To determine if a received packet has been multiplexed
   unsigned char full_ip_packet[BUFSIZE];                  // Full IP packet
 
   // variables for storing the packets to demultiplex
@@ -700,6 +713,10 @@ int main(int argc, char *argv[]) {
   unsigned char buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
   unsigned char buffer_from_net_aux[BUFSIZE];     // stores the packet received from the network, before sending it to tun
   unsigned char demuxed_packet[BUFSIZE];          // stores each demultiplexed packet
+  uint16_t length_tcp_packet;                     // length of the next TCP packet
+  uint16_t pending_tcp_bytes = 0;                 // number of bytes that still have to be read (TCP, fast mode)
+  uint16_t read_tcp_bytes = 0;                    // number of bytes of the content that have been read (TCP, fast mode)
+  uint8_t read_tcp_bytes_separator = 0;           // number of bytes of the fast separator that have been read (TCP, fast mode)
 
   // variables for controlling the arrival and departure of packets
   unsigned long int tun2net = 0, net2tun = 0;     // number of packets read from tun and from net
@@ -739,6 +756,9 @@ int main(int argc, char *argv[]) {
   int first_header_written = 0;           // it indicates if the first header has been written or not
   int drop_packet = 0;
   bool accepting_tcp_connections = 0;     // it is set to '1' if this is a TCP server and no connections have started
+
+  // fixed size of the separator in fast mode
+  int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
 
   bool bits[8];                           // it is used for printing the bits of a byte in debug mode
 
@@ -1672,8 +1692,8 @@ int main(int argc, char *argv[]) {
         /***************** NET to tun. demux and decompress **************************/
         /*****************************************************************************/
   
-        // data arrived at the network interface: read, demux, decompress and forward it
-        // in TCP_SERVER_MODE, I will only enter here if the TCP connection is already started
+        // data arrived at the network interface: read, demux, decompress and forward it.
+        // In TCP_SERVER_MODE, I will only enter here if the TCP connection is already started
         // in the rest of modes, I will enter here if a muxed packet has arrived        
         else if ( (fds_poll[2].revents & POLLIN) && 
                   (((*mode == TCP_SERVER_MODE) && (accepting_tcp_connections == 0))  ||
@@ -1721,60 +1741,130 @@ int main(int argc, char *argv[]) {
               is_multiplexed_packet = 0;
           }
   
-          else if (*mode == TCP_CLIENT_MODE) {
-            // a packet has been received from the network, destined to the TCP socket
-  
-            /* Once the sockets are connected, client can read it
-             * through normal read call on the its socket descriptor.
+          else if ((*mode == TCP_SERVER_MODE) || (*mode == TCP_CLIENT_MODE)) {
+
+            // some bytes have been received from the network, destined to the TCP socket
+            
+            /* Once the sockets are connected, the client can read it
+             * through a normal 'read' call on the socket descriptor.
+             * Read 'buffer_from_net' bytes
+             * This call returns up to N bytes of data. If there are fewer 
+             *bytes available than requested, the call returns the number currently available.
              */
-            nread_from_net = read(tcp_client_fd, buffer_from_net, sizeof(buffer_from_net));
-          
-            if(nread_from_net < 0)  {
-              perror("read() error TCP mode");
-            }
-            else if(nread_from_net == 0) {
-              is_multiplexed_packet = -1;
+            //nread_from_net = read(tcp_server_fd, buffer_from_net, sizeof(buffer_from_net));
+            
+            // I only read one packet (at most) each time the program goes through this part
+            if (pending_tcp_bytes == 0) {
+              // I have to start reading a new TCP payload
+
+              // read a separator (3 or 4 bytes)
+              nread_from_net = read(tcp_client_fd, buffer_from_net, size_separator_fast_mode - read_tcp_bytes_separator);
+
+              if(nread_from_net < 0)  {
+                perror("read() error TCP mode");
+              }
+              else if(nread_from_net == 0) {
+                // I have not read a multiplexed packet yet
+                is_multiplexed_packet = -1;
+              }
+              else if (nread_from_net < size_separator_fast_mode - read_tcp_bytes_separator) {
+                // I have read part of the separator
+                read_tcp_bytes_separator = read_tcp_bytes_separator + nread_from_net;
+
+                // I have not read a multiplexed packet yet
+                is_multiplexed_packet = -1;
+              }
+              else if(nread_from_net == size_separator_fast_mode - read_tcp_bytes_separator) {
+                // I have read the complete separator, so I reset the counter
+                read_tcp_bytes_separator = 0;
+
+                // the first byte is the Most Significant Byte of the length
+                // the second byte is the Less Significant Byte of the length
+                length_tcp_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
+
+                // read the Protocol field
+                if ( SIZE_PROTOCOL_FIELD == 1 ) {
+                  protocol_rec = buffer_from_net[2];
+                  do_debug(2, ". Protocol 0x%02x", buffer_from_net[2]);
+                }
+                else {  // SIZE_PROTOCOL_FIELD == 2
+                  protocol_rec = (buffer_from_net[2] << 8) + buffer_from_net[3];  //FIXME use bit shift
+                  do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[2], buffer_from_net[3]);
+                }
+
+                // read the packet itself (without the separator)
+                // I only read the length of the packet
+                nread_from_net = read(tcp_client_fd, buffer_from_net, length_tcp_packet);
+                if(nread_from_net < 0)  {
+                  perror("read() error TCP server mode");
+                }
+                else if (nread_from_net < length_tcp_packet) {
+                  // I have not read the whole packet
+                  // next time I will have to keep on reading
+                  pending_tcp_bytes = length_tcp_packet - nread_from_net;
+                  read_tcp_bytes = read_tcp_bytes + nread_from_net;
+
+                  //do_debug(2,"Read %d bytes from the TCP socket. Total %d\n", nread_from_net, read_tcp_bytes); 
+                  // I have not finished reading a muxed packet
+                  is_multiplexed_packet = -1;
+                }
+                else {
+                  // I have read a complete packet
+                  //do_debug(2,"Read a packet of %d bytes from the TCP socket\n", nread_from_net);
+
+                  pending_tcp_bytes = 0;
+                  read_tcp_bytes = 0;
+
+                  // I have finished reading a muxed packet
+                  is_multiplexed_packet = 1;
+                }
+              }              
             }
             else {
-              do_debug(4,"Read %d bytes from the TCP socket\n", nread_from_net);          
-            
-              // as I am reading from the TCP socket, this is a multiplexed packet
-              is_multiplexed_packet = 1;
+              // I have to finish reading the TCP payload
+              // I try to read 'pending_tcp_bytes' and to put them at position 'read_tcp_bytes'
+              nread_from_net = read(tcp_client_fd, &buffer_from_net[read_tcp_bytes], pending_tcp_bytes);
+
+              if(nread_from_net < 0)  {
+                perror("read() error TCP mode");
+              }
+              else if(nread_from_net == 0) {
+                is_multiplexed_packet = -1;
+              }
+              else if(nread_from_net < pending_tcp_bytes) {
+                // I have not read the whole packet
+                // next time I will have to keep on reading
+                pending_tcp_bytes = length_tcp_packet - nread_from_net;
+                read_tcp_bytes = read_tcp_bytes + nread_from_net;
+
+                //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", nread_from_net, read_tcp_bytes, pending_tcp_bytes);
+
+                // I have not finishing read the pending bytes of this packet
+                is_multiplexed_packet = -1;
+              }
+              else if(nread_from_net == pending_tcp_bytes) {
+                // I have read the pending bytes of this packet
+                //do_debug(2,"Read a packet of %d bytes from the TCP socket\n", nread_from_net + read_tcp_bytes); 
+
+                is_multiplexed_packet = 1;
+              }
             }
-            
-            // now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
-            // I don't have the TCP headers
-          }
-  
-          else if (*mode == TCP_SERVER_MODE) {    
-            // a packet has been received from the network, destined to the TCP socket
-            
-            /* Once the sockets are connected, client can read it
-             * through normal read call on the its socket descriptor.
-             */
-            nread_from_net = read(tcp_server_fd, buffer_from_net, sizeof(buffer_from_net));
-          
-            if(nread_from_net < 0)  {
-              perror("read() error TCP server mode");
-            }
-            else if(nread_from_net == 0) {
-              is_multiplexed_packet = -1;
+            do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", nread_from_net, read_tcp_bytes, pending_tcp_bytes);
+            if (read_tcp_bytes == length_tcp_packet) {
+              read_tcp_bytes = 0;
+              pending_tcp_bytes = 0;
+              do_debug(2," (full packet)\n");
             }
             else {
-              do_debug(4,"Read %d bytes from the TCP socket\n", nread_from_net);      
-              // as I am reading from the TCP socket, this is a multiplexed packet
-              is_multiplexed_packet = 1;
+              do_debug(2,"\n");
             }
-            
-            // now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
-            // I don't have the TCP headers
-          }
-      
+          } 
           else {
-            // error: unknown mode        
+            perror("Unknown mode");        
           }
-  
-          // now buffer_from_net contains a full packet or frame.
+
+
+          // now buffer_from_net may contain a full packet or frame.
           // check if the packet is a multiplexed one
           if (is_multiplexed_packet == -1) {
             // I have read nothing
@@ -1796,7 +1886,7 @@ int main(int argc, char *argv[]) {
               break;
   
               case TCP_CLIENT_MODE:
-                do_debug(1, "MUXED PACKET #%lu: Read TCP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + TCP_HEADER_SIZE );        
+                do_debug(1, "MUXED PACKET #%lu: Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
   
                 // write the log file
                 if ( log_file != NULL ) {
@@ -1806,7 +1896,7 @@ int main(int argc, char *argv[]) {
               break;
   
               case TCP_SERVER_MODE:
-                do_debug(1, "MUXED PACKET #%lu: Read TCP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + TCP_HEADER_SIZE );        
+                do_debug(1, "MUXED PACKET #%lu: Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
   
                 // write the log file
                 if ( log_file != NULL ) {
@@ -1835,161 +1925,223 @@ int main(int argc, char *argv[]) {
   
             while (position < nread_from_net) {
   
-              // check if this is the first separator or not
-              if (first_header_read == 0) {
+              if (!fast_mode) {
+                // check if this is the first separator or not
+                if (first_header_read == 0) {
 
-                // this is a first header:
-                //  - SPB will be stored in the most significant bit (0x80)
-                //  - LXT will be stored in the 7th bit (0x40)
-                
-                // Read SPB (one bit)
-                // It only appears in the first Simplemux header 
-                //  - It is set to '0' if all the multiplexed
-                //    packets belong to the same protocol (in this case, the "protocol"
-                //    field will only appear in the first Simplemux header)
-                //  - It is set to '1' when each packet MAY belong to a different protocol.
+                  // this is a first header:
+                  //  - SPB will be stored in the most significant bit (0x80)
+                  //  - LXT will be stored in the 7th bit (0x40)
+                  
+                  // Read SPB (one bit)
+                  // It only appears in the first Simplemux header 
+                  //  - It is set to '0' if all the multiplexed
+                  //    packets belong to the same protocol (in this case, the "protocol"
+                  //    field will only appear in the first Simplemux header)
+                  //  - It is set to '1' when each packet MAY belong to a different protocol.
 
-                // check if the most significant bit (0x80) is '1'
-                if  ((0x80 & buffer_from_net[position] ) == 0x80 ) {
-                  single_protocol_rec = 1;
-                  //do_debug(2, "single protocol\n");
+                  // check if the most significant bit (0x80) is '1'
+                  if  ((0x80 & buffer_from_net[position] ) == 0x80 ) {
+                    single_protocol_rec = 1;
+                    //do_debug(2, "single protocol\n");
+                  }
+                  else {
+                    single_protocol_rec = 0;
+                    //do_debug(2, "multi protocol\n");
+                  }
+
+                  // Read LXT (one bit)
+                  // as this is a first header
+                  //  - LXT bit is the second one (0x40) 
+                  //  - the maximum length of a single-byte packet is 64 bytes                
+                  if ((0x40 & buffer_from_net[position]) == 0x00)
+                    LXT_first_byte = 0;
+                  else
+                    LXT_first_byte = 1;
+
+                  maximum_packet_length = 64;
                 }
-                else {
-                  single_protocol_rec = 0;
-                  //do_debug(2, "multi protocol\n");
-                }
 
-                // Read LXT (one bit)
-                // as this is a first header
-                //  - LXT bit is the second one (0x40) 
-                //  - the maximum length of a single-byte packet is 64 bytes                
-                if ((0x40 & buffer_from_net[position]) == 0x00)
-                  LXT_first_byte = 0;
-                else
-                  LXT_first_byte = 1;
+                else { 
+                  // this is a non-first header
+                  //  - There is no SPB bit
+                  //  - LXT will be stored in the most significant bit (0x80)
+                  //  - the maximum length of a single-byte packet is 128 bytes
+                  if ((0x80 & buffer_from_net[position]) == 0x00)
+                    LXT_first_byte = 0;
+                  else
+                    LXT_first_byte = 1;
+                  
+                  maximum_packet_length = 128;
+                }             
+                // I have demuxed another packet
+                num_demuxed_packets ++;
 
-                maximum_packet_length = 64;
+                do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
+                do_debug(2, ": ");
+              }
+              else {  // fast mode
+
+                // I have demuxed another packet
+                num_demuxed_packets ++;
+
+                do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
+                do_debug(2, ": ");   
               }
 
-              else { 
-                // this is a non-first header
-                //  - There is no SPB bit
-                //  - LXT will be stored in the most significant bit (0x80)
-                //  - the maximum length of a single-byte packet is 128 bytes
-                if ((0x80 & buffer_from_net[position]) == 0x00)
-                  LXT_first_byte = 0;
-                else
-                  LXT_first_byte = 1;
-                
-                maximum_packet_length = 128;
-              }
-
-              // I have demuxed another packet
-              num_demuxed_packets ++;
-
-              do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
-              do_debug(2, ": ");
 
               // read the length
-              if (LXT_first_byte == 0) {
-                // the LXT bit of the first byte is 0 => the separator is one-byte long
+              if (!fast_mode) {
+                if (LXT_first_byte == 0) {
+                  // the LXT bit of the first byte is 0 => the separator is one-byte long
 
-                // I have to convert the 6 (or 7) less significant bits to an integer, which means the length of the packet
-                // since the two most significant bits are 0, the length is the value of the char
-                packet_length = buffer_from_net[position] % maximum_packet_length;
-                //packet_length = buffer_from_net[position] & maximum_packet_length;
-
-                if (debug) {
-                  do_debug(2, "buffer from net: %d\n", buffer_from_net[position]);
-                  do_debug(2, "max packet length: %d\n", maximum_packet_length);
-                  FromByte(buffer_from_net[position], bits);
-                  do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
-                  PrintByte(2, 8, bits);
-                  do_debug(2, ")");
-                }
-                position ++;
-              }
-
-              else {
-                // the LXT bit of the first byte is 1 => the separator is NOT one-byte
-
-                // check whether this is a 2-byte or a 3-byte length
-                // check the bit 7 of the second byte
-
-                // If the LXT bit is 0, this is a two-byte length
-                if ((0x80 & buffer_from_net[position+1] ) == 0x00 ) {
-
-                  // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
-                  // I do the product by 128, because the next byte includes 7 bits of the length
-                  packet_length = ((buffer_from_net[position] % maximum_packet_length) * 128 );
-                  do_debug(2, "packet_length initial: %d\n", packet_length);
-                  /*
-                  uint8_t mask;
-                  if (maximum_packet_length == 64)
-                    mask = 0x3F;
-                  else
-                    mask = 0x7F;
-                  packet_length = ((buffer_from_net[position] & maximum_packet_length) << 7 );*/
-
-                  // I add the value of the 7 less significant bits of the second byte
-                  packet_length = packet_length + (buffer_from_net[position + 1] % 128);
-                  do_debug(2, "packet_length final: %d\n", packet_length);
-                  //packet_length = packet_length + (buffer_from_net[position+1] & 0x7F);
+                  // I have to convert the 6 (or 7) less significant bits to an integer, which means the length of the packet
+                  // since the two most significant bits are 0, the length is the value of the char
+                  packet_length = buffer_from_net[position] % maximum_packet_length;
+                  //packet_length = buffer_from_net[position] & maximum_packet_length;
 
                   if (debug) {
-                    // print the first byte
+                    do_debug(2, "buffer from net: %d\n", buffer_from_net[position]);
+                    do_debug(2, "max packet length: %d\n", maximum_packet_length);
                     FromByte(buffer_from_net[position], bits);
-                    do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
+                    do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
                     PrintByte(2, 8, bits);
-                    
-                    // print the second byte
-                    FromByte(buffer_from_net[position+1], bits);
-                    do_debug(2, ") 0x%02x (",buffer_from_net[position+1]);
-                    PrintByte(2, 8, bits);
-                    do_debug(2,")");
-                  }          
-                  position = position + 2;
+                    do_debug(2, ")");
+                  }
+                  position ++;
                 }
 
-                // If the LXT bit of the second byte is 1, this is a three-byte length
                 else {
-                  // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
-                  // I do the product by 16384 (2^14), because the next two bytes include 14 bits of the length
-                  //packet_length = ((buffer_from_net[position] % maximum_packet_length) * 16384 );
-                  packet_length = ((buffer_from_net[position] % maximum_packet_length) << 14 );
+                  // the LXT bit of the first byte is 1 => the separator is NOT one-byte
 
-                  // I get the 6 (or 7) less significant bits of the second byte by using modulo 128
-                  // I do the product by 128, because the next byte includes 7 bits of the length
-                  //packet_length = packet_length + ((buffer_from_net[position+1] % 128) * 128 );
-                  packet_length = packet_length + ((buffer_from_net[position+1] & 0x7F) << 7 );
+                  // check whether this is a 2-byte or a 3-byte length
+                  // check the bit 7 of the second byte
 
-                  // I add the value of the 7 less significant bits of the second byte
-                  //packet_length = packet_length + (buffer_from_net[position+2] % 128);
-                  packet_length = packet_length + (buffer_from_net[position+2] & 0x7F);
+                  // If the LXT bit is 0, this is a two-byte length
+                  if ((0x80 & buffer_from_net[position+1] ) == 0x00 ) {
 
-                  if (debug) {
-                    // print the first byte
-                    FromByte(buffer_from_net[position], bits);
-                    do_debug(2, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
-                    PrintByte(2, 8, bits);
-                    
-                    // print the second byte
-                    FromByte(buffer_from_net[position+1], bits);
-                    do_debug(2, " %02x ",buffer_from_net[position+1]);
-                    PrintByte(2, 8, bits);  
-                    
-                    // print the third byte
-                    FromByte(buffer_from_net[position+2], bits);
-                    do_debug(2, " %02x ",buffer_from_net[position+2]);
-                    PrintByte(2, 8, bits);
-                  }          
-                  position = position + 3;
+                    // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
+                    // I do the product by 128, because the next byte includes 7 bits of the length
+                    packet_length = ((buffer_from_net[position] % maximum_packet_length) * 128 );
+                    do_debug(2, "packet_length initial: %d\n", packet_length);
+                    /*
+                    uint8_t mask;
+                    if (maximum_packet_length == 64)
+                      mask = 0x3F;
+                    else
+                      mask = 0x7F;
+                    packet_length = ((buffer_from_net[position] & maximum_packet_length) << 7 );*/
+
+                    // I add the value of the 7 less significant bits of the second byte
+                    packet_length = packet_length + (buffer_from_net[position + 1] % 128);
+                    do_debug(2, "packet_length final: %d\n", packet_length);
+                    //packet_length = packet_length + (buffer_from_net[position+1] & 0x7F);
+
+                    if (debug) {
+                      // print the first byte
+                      FromByte(buffer_from_net[position], bits);
+                      do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
+                      PrintByte(2, 8, bits);
+                      
+                      // print the second byte
+                      FromByte(buffer_from_net[position+1], bits);
+                      do_debug(2, ") 0x%02x (",buffer_from_net[position+1]);
+                      PrintByte(2, 8, bits);
+                      do_debug(2,")");
+                    }          
+                    position = position + 2;
+                  }
+
+                  // If the LXT bit of the second byte is 1, this is a three-byte length
+                  else {
+                    // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
+                    // I do the product by 16384 (2^14), because the next two bytes include 14 bits of the length
+                    //packet_length = ((buffer_from_net[position] % maximum_packet_length) * 16384 );
+                    packet_length = ((buffer_from_net[position] % maximum_packet_length) << 14 );
+
+                    // I get the 6 (or 7) less significant bits of the second byte by using modulo 128
+                    // I do the product by 128, because the next byte includes 7 bits of the length
+                    //packet_length = packet_length + ((buffer_from_net[position+1] % 128) * 128 );
+                    packet_length = packet_length + ((buffer_from_net[position+1] & 0x7F) << 7 );
+
+                    // I add the value of the 7 less significant bits of the second byte
+                    //packet_length = packet_length + (buffer_from_net[position+2] % 128);
+                    packet_length = packet_length + (buffer_from_net[position+2] & 0x7F);
+
+                    if (debug) {
+                      // print the first byte
+                      FromByte(buffer_from_net[position], bits);
+                      do_debug(2, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
+                      PrintByte(2, 8, bits);
+                      
+                      // print the second byte
+                      FromByte(buffer_from_net[position+1], bits);
+                      do_debug(2, " %02x ",buffer_from_net[position+1]);
+                      PrintByte(2, 8, bits);  
+                      
+                      // print the third byte
+                      FromByte(buffer_from_net[position+2], bits);
+                      do_debug(2, " %02x ",buffer_from_net[position+2]);
+                      PrintByte(2, 8, bits);
+                    }          
+                    position = position + 3;
+                  }
                 }
               }
+              else {  // fast mode
+                // FIXME: Read the Length in fast mode
+                if ((*mode == TCP_SERVER_MODE) || (*mode == TCP_CLIENT_MODE)) {
+                  // do nothing, because I have already read the length
+                }
+                else {
+                  // I am in fast mode, but not in TCP mode, so I still have to read the length
+                  // It is in the two first bytes of the buffer
+                  packet_length = (buffer_from_net[position] << 8 ) + buffer_from_net[position+1];
 
-              // check if this is the first separator or not
-              if (first_header_read == 0) {    // this is the first separator. The protocol field will always be present
-                // the next thing I expect is a 'protocol' field
+                  position = position + 2;
+                }       
+              }
+
+              // read the 'Protocol'
+              if (!fast_mode) {
+                // check if this is the first separator or not
+                if (first_header_read == 0) {    // this is the first separator. The protocol field will always be present
+                  // the next thing I expect is a 'protocol' field
+                  if ( SIZE_PROTOCOL_FIELD == 1 ) {
+                    protocol_rec = buffer_from_net[position];
+                    do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+                    position ++;
+                  }
+                  else {  // SIZE_PROTOCOL_FIELD == 2
+                    protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+                    do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
+                    position = position + 2;
+                  }
+
+                  // if I am here, it means that I have read the first separator
+                  first_header_read = 1;
+
+                }
+                else {      // non-first separator. The protocol field may or may not be present
+                  if ( single_protocol_rec == 0 ) {
+                    // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
+                    if ( SIZE_PROTOCOL_FIELD == 1 ) {
+                      protocol_rec = buffer_from_net[position];
+                      if(single_protocol_rec == 0)
+                        do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+                      position ++;
+                    }
+                    else {  // SIZE_PROTOCOL_FIELD == 2
+                      protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+                      if(single_protocol_rec == 0)
+                        do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
+                      position = position + 2;
+                    }
+                  }
+                }
+              }
+              else {  // fast mode
+                // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
                 if ( SIZE_PROTOCOL_FIELD == 1 ) {
                   protocol_rec = buffer_from_net[position];
                   do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
@@ -1999,27 +2151,6 @@ int main(int argc, char *argv[]) {
                   protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
                   do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
                   position = position + 2;
-                }
-
-                // if I am here, it means that I have read the first separator
-                first_header_read = 1;
-
-              }
-              else {      // non-first separator. The protocol field may or may not be present
-                if ( single_protocol_rec == 0 ) {
-                  // each packet belongs to a different protocol, so the first thing is the 'Protocol' field
-                  if ( SIZE_PROTOCOL_FIELD == 1 ) {
-                    protocol_rec = buffer_from_net[position];
-                    if(single_protocol_rec == 0)
-                      do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
-                    position ++;
-                  }
-                  else {  // SIZE_PROTOCOL_FIELD == 2
-                    protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-                    if(single_protocol_rec == 0)
-                      do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
-                    position = position + 2;
-                  }
                 }
               }
               do_debug(1, ". Demuxed %i bytes\n", packet_length);
@@ -2628,7 +2759,11 @@ int main(int argc, char *argv[]) {
                 }
               }              
             } 
-
+            else {
+              // single_protocol does not make sense in fast mode because
+              //all the separators have a Protocol field
+              single_protocol = -1;
+            }
   
             // calculate the size without the present packet
             predicted_size_muxed_packet = predict_size_multiplexed_packet ( num_pkts_stored_from_tun,
@@ -2643,24 +2778,33 @@ int main(int argc, char *argv[]) {
             // I add the length of the present packet:
   
             // separator and length of the present packet
-            if (first_header_written == 0) {
-              // this is the first header, so the maximum length is 64
-              if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 64 ) {
-                predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
+            if (!fast_mode) {
+              if (first_header_written == 0) {
+                // this is the first header, so the maximum length to be expressed in 1 byte is 64
+                if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 64 ) {
+                  predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
+                }
+                else {
+                  predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
+                }
               }
               else {
-                predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
+                // this is not the first header, so the maximum length to be expressed in 1 byte is 128
+                if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 128 ) {
+                  predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
+                }
+                else {
+                  predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
+                }
               }
             }
-            else {
-              // this is not the first header, so the maximum length is 128
-              if (size_packets_to_multiplex[num_pkts_stored_from_tun] < 128 ) {
-                predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + size_packets_to_multiplex[num_pkts_stored_from_tun];
-              }
-              else {
-                predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + size_packets_to_multiplex[num_pkts_stored_from_tun];
-              }
+            else { // fast mode
+              // the header is always fixed: the size of the length field + the size of the protocol field 
+              predicted_size_muxed_packet = predicted_size_muxed_packet +
+                                            size_separator_fast_mode +
+                                            size_packets_to_multiplex[num_pkts_stored_from_tun];
             }
+
   
             if (predicted_size_muxed_packet > size_max ) {
               // if the present packet is muxed, the max size of the packet will be overriden. So I first empty the buffer
@@ -2678,18 +2822,25 @@ int main(int argc, char *argv[]) {
                 break;
               }
   
-              // add the Single Protocol Bit in the first header (the most significant bit)
-              // it is '1' if all the multiplexed packets belong to the same protocol
-              if (single_protocol == 1) {
-                separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;  // this puts a 1 in the most significant bit position
-                size_muxed_packet = size_muxed_packet + 1;                // one byte corresponding to the 'protocol' field of the first header
+              // add the length corresponding to the Protocol field
+              if (!fast_mode) {
+                // add the Single Protocol Bit in the first header (the most significant bit)
+                // it is '1' if all the multiplexed packets belong to the same protocol
+                if (single_protocol == 1) {
+                  separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 0x80;  // this puts a 1 in the most significant bit position
+                  size_muxed_packet = size_muxed_packet + 1;                // one byte corresponding to the 'protocol' field of the first header
+                }
+                else {
+                  size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;    // one byte per packet, corresponding to the 'protocol' field
+                }
               }
-              else {
-                size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;    // one byte per packet, corresponding to the 'protocol' field
+              else {  // fast mode
+                size_muxed_packet = size_muxed_packet + (num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD);
               }
-  
+
               // build the multiplexed packet without the current one
               total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
+                                                        fast_mode,
                                                         single_protocol,
                                                         protocol,
                                                         size_separators_to_multiplex,
@@ -2698,11 +2849,25 @@ int main(int argc, char *argv[]) {
                                                         packets_to_multiplex,
                                                         muxed_packet);
   
-              if (single_protocol) {
-                do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+              if (!fast_mode) {
+                if (single_protocol) {
+                  if (SIZE_PROTOCOL_FIELD == 1)
+                    do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+                  else
+                    do_debug(2, "   All packets belong to the same protocol. Added 2 Protocol bytes in the first separator\n");
+                }
+                else {
+                  if (SIZE_PROTOCOL_FIELD == 1)
+                    do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", num_pkts_stored_from_tun);
+                  else
+                    do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n", 2 * num_pkts_stored_from_tun);
+                }                
               }
               else {
-                do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+                if (SIZE_PROTOCOL_FIELD == 1)
+                  do_debug(2, "   Fast mode. Added 1 Protocol byte to each separator. Total %i bytes", num_pkts_stored_from_tun);
+                else
+                  do_debug(2, "   Fast mode. Added 2 Protocol bytes to each separator. Total %i bytes", 2 * num_pkts_stored_from_tun);
               }
               
               switch(*tunnel_mode) {
@@ -2761,8 +2926,6 @@ int main(int argc, char *argv[]) {
               // send the multiplexed packet without the current one
               switch (*mode) {
                 case UDP_MODE:
-                  // printf ("length: %i", total_length);
-  
                   // send the packet
                   if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
                     perror("sendto() in UDP mode failed");
@@ -2777,8 +2940,6 @@ int main(int argc, char *argv[]) {
                 break;
   
                 case TCP_CLIENT_MODE:
-                  // printf ("length: %i", total_length);
-  
                   // send the packet
                   if (write(tcp_client_fd, muxed_packet, total_length)==-1) {
                     perror("write() in TCP client mode failed");
@@ -2792,9 +2953,7 @@ int main(int argc, char *argv[]) {
                   }
                 break;
   
-                case TCP_SERVER_MODE:
-                  // printf ("length: %i", total_length);
-  
+                case TCP_SERVER_MODE:  
                   if(accepting_tcp_connections == 1) {
                     do_debug(1," The packet should be sent to the TCP socket. But no client has yet been connected to this server\n");
                   }
@@ -2814,7 +2973,6 @@ int main(int argc, char *argv[]) {
                 break;
                 
                 case NETWORK_MODE:
-  
                   // build the header
                   BuildIPHeader(&ipheader, total_length, local, remote);
   
@@ -2869,103 +3027,212 @@ int main(int argc, char *argv[]) {
   
             // update the size of the muxed packet, adding the size of the current one
             size_muxed_packet = size_muxed_packet + size_packets_to_multiplex[num_pkts_stored_from_tun];
-  
-            // I have to add the multiplexing separator.
-            //   - It is 1 byte if the length is smaller than 64 (or 128 for non-first separators) 
-            //   - It is 2 bytes if the length is 64 (or 128 for non-first separators) or more
-            //   - It is 3 bytes if the length is 8192 (or 16384 for non-first separators) or more
-            if (first_header_written == 0) {
-              // this is the first header
-              maximum_packet_length = 64;
-              limit_length_two_bytes = 8192;
-            }
-            else {
-              // this is a non-first header
-              maximum_packet_length = 128;
-              limit_length_two_bytes = 16384;
-            }
-  
-            // check if the length has to be one, two or three bytes
-            // I am assuming that a packet will never be bigger than 1048576 (2^20) bytes for a first header,
-            // or 2097152 (2^21) bytes for a non-first one)
-  
-            // one-byte separator
-            if (size_packets_to_multiplex[num_pkts_stored_from_tun] < maximum_packet_length ) {
-  
-              // the length can be written in the first byte of the separator
-              // it can be expressed in 
-              //  - 6 bits for the first separator
-              // - 7 bits for non-first separators
-              size_separators_to_multiplex[num_pkts_stored_from_tun] = 1;
-  
-              // add the 'length' field to the packet
-              // since the value is < maximum_packet_length, the most significant bits will always be 0:
-              // - first separator: the value will be expressed in 6 bits
-              // - non-first separator: the value will be expressed in 7 bits
-              separators_to_multiplex[num_pkts_stored_from_tun][0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
-  
-              // increase the size of the multiplexed packet
-              size_muxed_packet ++;
-  
-              // print the Mux separator (only one byte)
-              if(debug) {
-                // convert the byte to bits
-                FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
-                do_debug(2, " Mux separator of 1 byte (plus Protocol): 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][0]);
-                //do_debug(2, " Mux separator of 1 byte (plus Protocol): ");
+
+            if (!fast_mode) {
+              // I have to add the multiplexing separator.
+              //   - It is 1 byte if the length is smaller than 64 (or 128 for non-first separators) 
+              //   - It is 2 bytes if the length is 64 (or 128 for non-first separators) or more
+              //   - It is 3 bytes if the length is 8192 (or 16384 for non-first separators) or more
+              if (first_header_written == 0) {
+                // this is the first header
+                maximum_packet_length = 64;
+                limit_length_two_bytes = 8192;
+              }
+              else {
+                // this is a non-first header
+                maximum_packet_length = 128;
+                limit_length_two_bytes = 16384;
+              }
+    
+              // check if the length has to be one, two or three bytes
+              // I am assuming that a packet will never be bigger than 1048576 (2^20) bytes for a first header,
+              // or 2097152 (2^21) bytes for a non-first one)
+    
+              // one-byte separator
+              if (size_packets_to_multiplex[num_pkts_stored_from_tun] < maximum_packet_length ) {
+    
+                // the length can be written in the first byte of the separator
+                // it can be expressed in 
+                //  - 6 bits for the first separator
+                // - 7 bits for non-first separators
+                size_separators_to_multiplex[num_pkts_stored_from_tun] = 1;
+    
+                // add the 'length' field to the packet
+                // since the value is < maximum_packet_length, the most significant bits will always be 0:
+                // - first separator: the value will be expressed in 6 bits
+                // - non-first separator: the value will be expressed in 7 bits
+                separators_to_multiplex[num_pkts_stored_from_tun][0] = size_packets_to_multiplex[num_pkts_stored_from_tun];
+    
+                // increase the size of the multiplexed packet
+                size_muxed_packet ++;
+    
+                // print the Mux separator (only one byte)
+                if(debug) {
+                  // convert the byte to bits
+                  FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
+                  do_debug(2, " Mux separator of 1 byte (plus Protocol): 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][0]);
+                  //do_debug(2, " Mux separator of 1 byte (plus Protocol): ");
+                  if (first_header_written == 0) {
+                    PrintByte(2, 7, bits);      // first header
+                    do_debug(2, ", SPB field not included)\n");
+                  }
+                  else {
+                    PrintByte(2, 8, bits);      // non-first header
+                    do_debug(2, ")\n");
+                  }
+                }
+              }
+              
+              // two-byte separator
+              else if (size_packets_to_multiplex[num_pkts_stored_from_tun] < limit_length_two_bytes ) {
+    
+                // the length requires a two-byte separator (length expressed in 13 or 14 bits)
+                size_separators_to_multiplex[num_pkts_stored_from_tun] = 2;
+    
+                // first byte of the Mux separator
+                // It can be:
+                // - first-header: SPB bit, LXT=1 and 6 bits with the most significant bits of the length
+                // - non-first-header: LXT=1 and 7 bits with the most significant bits of the length
+                // get the most significant bits by dividing by 128 (the 7 less significant bits will go in the second byte)
+                // add 64 (or 128) in order to put a '1' in the second (or first) bit
+                
+                // fill the LXT field of the first byte
+                // first header
                 if (first_header_written == 0) {
-                  PrintByte(2, 7, bits);      // first header
-                  do_debug(2, ", SPB field not included)\n");
+                  // add 64 (0100 0000) to the header, i.e., set the value of LXT to '1' (7th bit)
+                  separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 128 ) + 64;  // first header
+                }
+                // non-first header
+                else {
+                  // add 128 (1000 0000) to the header, i.e., set the value of LXT to '1' (8th bit)
+                  separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 128 ) + 128;  // non-first header
+                  //do_debug(2, "num_pkts_stored_from_tun: %i\n", num_pkts_stored_from_tun);
+                  //do_debug(2, "size_packets_to_multiplex[num_pkts_stored_from_tun]: %i\n", size_packets_to_multiplex[num_pkts_stored_from_tun]);
+                  //do_debug(2, "size_packets_to_multiplex[num_pkts_stored_from_tun] / 128: %i\n", size_packets_to_multiplex[num_pkts_stored_from_tun] / 128);
+                  //do_debug(2, "size_packets_to_multiplex[num_pkts_stored_from_tun] / 128 + 128: %i\n", (size_packets_to_multiplex[num_pkts_stored_from_tun] / 128) + 128);
+                  //do_debug(2, "separators_to_multiplex[num_pkts_stored_from_tun][0]: %i\n", separators_to_multiplex[num_pkts_stored_from_tun][0]);
+                }
+    
+    
+                // second byte of the Mux separator
+    
+                // Length: the 7 less significant bytes of the length. Use modulo 128
+                separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 128;
+    
+                // fill the LXT field of the second byte
+                // LXT bit has to be set to 0, because this is the last byte of the length
+                // if I do nothing, it will be 0, since I have used modulo 128
+    
+                // SPB field will be filled later
+                
+                // increase the size of the multiplexed packet
+                size_muxed_packet = size_muxed_packet + 2;
+    
+                // print the two bytes of the separator
+                if(debug) {
+                  // first byte
+                  FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
+                  do_debug(2, " Mux separator of 2 bytes (plus Protocol): 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][0]);
+                  //do_debug(2, " Mux separator of 2 bytes (plus Protocol). First byte: ");
+                  if (first_header_written == 0) {
+                    PrintByte(2, 7, bits);      // first header
+                    do_debug(2, ", SPB field not included)");
+                  }
+                  else {
+                    PrintByte(2, 8, bits);      // non-first header
+                    do_debug(2, ")");
+                  }
+    
+                  // second byte
+                  FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
+                  do_debug(2, " 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][1]);
+                  //do_debug(2, ". second byte: ");
+                  PrintByte(2, 8, bits);
+                  do_debug(2, ")\n");
+                }  
+              }
+    
+              // three-byte separator
+              else {
+    
+                // the length requires a three-byte separator (length expressed in 20 or 21 bits)
+                size_separators_to_multiplex[num_pkts_stored_from_tun] = 3;
+    
+                //FIXME. I have just copied the case of two-byte separator
+                // first byte of the Mux separator
+                // It can be:
+                // - first-header: SPB bit, LXT=1 and 6 bits with the most significant bits of the length
+                // - non-first-header: LXT=1 and 7 bits with the most significant bits of the length
+                // get the most significant bits by dividing by 128 (the 7 less significant bits will go in the second byte)
+                // add 64 (or 128) in order to put a '1' in the second (or first) bit
+    
+                if (first_header_written == 0) {
+                  // first header
+                  separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 16384 ) + 64;
+    
                 }
                 else {
-                  PrintByte(2, 8, bits);      // non-first header
-                  do_debug(2, ")\n");
+                  // non-first header
+                  separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 16384 ) + 128;  
+                }
+    
+    
+                // second byte of the Mux separator
+                // Length: the 7 second significant bytes of the length. Use modulo 16384
+                separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 16384;
+    
+                // LXT bit has to be set to 1, because this is not the last byte of the length
+                separators_to_multiplex[num_pkts_stored_from_tun][0] = separators_to_multiplex[num_pkts_stored_from_tun][0] + 128;
+    
+    
+                // third byte of the Mux separator
+                // Length: the 7 less significant bytes of the length. Use modulo 128
+                separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 128;
+    
+                // LXT bit has to be set to 0, because this is the last byte of the length
+                // if I do nothing, it will be 0, since I have used modulo 128
+    
+    
+                // increase the size of the multiplexed packet
+                size_muxed_packet = size_muxed_packet + 3;
+    
+                // print the three bytes of the separator
+                if(debug) {
+                  // first byte
+                  FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
+                  do_debug(2, " Mux separator of 3 bytes: (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][0]);
+                  if (first_header_written == 0) {
+                    PrintByte(2, 7, bits);      // first header
+                  }
+                  else {
+                    PrintByte(2, 8, bits);      // non-first header
+                  }
+    
+                  // second byte
+                  FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
+                  do_debug(2, " (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
+                  PrintByte(2, 8, bits);
+                  do_debug(2, "\n");
+    
+                  // third byte
+                  FromByte(separators_to_multiplex[num_pkts_stored_from_tun][2], bits);
+                  do_debug(2, " (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][2]);
+                  PrintByte(2, 8, bits);
+                  do_debug(2, "\n");
                 }
               }
             }
-            
-            // two-byte separator
-            else if (size_packets_to_multiplex[num_pkts_stored_from_tun] < limit_length_two_bytes ) {
-  
-              // the length requires a two-byte separator (length expressed in 13 or 14 bits)
+            else {  // fast mode
+   
+              // the length requires a two-byte separator (length expressed in 16 bits)
               size_separators_to_multiplex[num_pkts_stored_from_tun] = 2;
-  
-              // first byte of the Mux separator
-              // It can be:
-              // - first-header: SPB bit, LXT=1 and 6 bits with the most significant bits of the length
-              // - non-first-header: LXT=1 and 7 bits with the most significant bits of the length
-              // get the most significant bits by dividing by 128 (the 7 less significant bits will go in the second byte)
-              // add 64 (or 128) in order to put a '1' in the second (or first) bit
-              
-              // fill the LXT field of the first byte
-              // first header
-              if (first_header_written == 0) {
-                // add 64 (0100 0000) to the header, i.e., set the value of LXT to '1' (7th bit)
-                separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 128 ) + 64;  // first header
-              }
-              // non-first header
-              else {
-                // add 128 (1000 0000) to the header, i.e., set the value of LXT to '1' (8th bit)
-                separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 128 ) + 128;  // non-first header
-                do_debug(2, "num_pkts_stored_from_tun: %i\n", num_pkts_stored_from_tun);
-                do_debug(2, "size_packets_to_multiplex[num_pkts_stored_from_tun]: %i\n", size_packets_to_multiplex[num_pkts_stored_from_tun]);
-                do_debug(2, "size_packets_to_multiplex[num_pkts_stored_from_tun] / 128: %i\n", size_packets_to_multiplex[num_pkts_stored_from_tun] / 128);
-                do_debug(2, "size_packets_to_multiplex[num_pkts_stored_from_tun] / 128 + 128: %i\n", (size_packets_to_multiplex[num_pkts_stored_from_tun] / 128) + 128);
-                do_debug(2, "separators_to_multiplex[num_pkts_stored_from_tun][0]: %i\n", separators_to_multiplex[num_pkts_stored_from_tun][0]);
-              }
-  
-  
-              // second byte of the Mux separator
-  
-              // Length: the 7 less significant bytes of the length. Use modulo 128
-              separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 128;
-  
-              // fill the LXT field of the second byte
-              // LXT bit has to be set to 0, because this is the last byte of the length
-              // if I do nothing, it will be 0, since I have used modulo 128
-  
-              // SPB field will be filled later
-              
+
+              // add first byte of the separator (most significant bits)
+              separators_to_multiplex[num_pkts_stored_from_tun][0] = size_packets_to_multiplex[num_pkts_stored_from_tun] / 256;
+ 
+              // second byte of the Mux separator (less significant bits)
+              separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 256;
+             
               // increase the size of the multiplexed packet
               size_muxed_packet = size_muxed_packet + 2;
   
@@ -2974,101 +3241,30 @@ int main(int argc, char *argv[]) {
                 // first byte
                 FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
                 do_debug(2, " Mux separator of 2 bytes (plus Protocol): 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][0]);
-                //do_debug(2, " Mux separator of 2 bytes (plus Protocol). First byte: ");
-                if (first_header_written == 0) {
-                  PrintByte(2, 7, bits);      // first header
-                  do_debug(2, ", SPB field not included)");
-                }
-                else {
-                  PrintByte(2, 8, bits);      // non-first header
-                  do_debug(2, ")");
-                }
+                PrintByte(2, 8, bits);
+                do_debug(2, ")");
   
                 // second byte
                 FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
                 do_debug(2, " 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][1]);
-                //do_debug(2, ". second byte: ");
                 PrintByte(2, 8, bits);
                 do_debug(2, ")\n");
-              }  
-            }
-  
-            // three-byte separator
-            else {
-  
-              // the length requires a three-byte separator (length expressed in 20 or 21 bits)
-              size_separators_to_multiplex[num_pkts_stored_from_tun] = 3;
-  
-              //FIXME. I have just copied the case of two-byte separator
-              // first byte of the Mux separator
-              // It can be:
-              // - first-header: SPB bit, LXT=1 and 6 bits with the most significant bits of the length
-              // - non-first-header: LXT=1 and 7 bits with the most significant bits of the length
-              // get the most significant bits by dividing by 128 (the 7 less significant bits will go in the second byte)
-              // add 64 (or 128) in order to put a '1' in the second (or first) bit
-  
-              if (first_header_written == 0) {
-                // first header
-                separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 16384 ) + 64;
-  
-              }
-              else {
-                // non-first header
-                separators_to_multiplex[num_pkts_stored_from_tun][0] = (size_packets_to_multiplex[num_pkts_stored_from_tun] / 16384 ) + 128;  
-              }
-  
-  
-              // second byte of the Mux separator
-              // Length: the 7 second significant bytes of the length. Use modulo 16384
-              separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 16384;
-  
-              // LXT bit has to be set to 1, because this is not the last byte of the length
-              separators_to_multiplex[num_pkts_stored_from_tun][0] = separators_to_multiplex[num_pkts_stored_from_tun][0] + 128;
-  
-  
-              // third byte of the Mux separator
-              // Length: the 7 less significant bytes of the length. Use modulo 128
-              separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 128;
-  
-              // LXT bit has to be set to 0, because this is the last byte of the length
-              // if I do nothing, it will be 0, since I have used modulo 128
-  
-  
-              // increase the size of the multiplexed packet
-              size_muxed_packet = size_muxed_packet + 3;
-  
-              // print the three bytes of the separator
-              if(debug) {
-                // first byte
-                FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
-                do_debug(2, " Mux separator of 3 bytes: (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][0]);
-                if (first_header_written == 0) {
-                  PrintByte(2, 7, bits);      // first header
-                }
-                else {
-                  PrintByte(2, 8, bits);      // non-first header
-                }
-  
-                // second byte
-                FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
-                do_debug(2, " (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][1]);
-                PrintByte(2, 8, bits);
-                do_debug(2, "\n");
-  
-                // third byte
-                FromByte(separators_to_multiplex[num_pkts_stored_from_tun][2], bits);
-                do_debug(2, " (0x%02x) ", separators_to_multiplex[num_pkts_stored_from_tun][2]);
-                PrintByte(2, 8, bits);
-                do_debug(2, "\n");
+
+                // FIXME voy por aquí
+                //NO se imprimen bien los tres separadores
+                //Se calcula bien la longitud: 28 + 3 * (3 +84) = 289
+
               }
             }
-  
   
             // I have finished storing the packet, so I increase the number of stored packets
             num_pkts_stored_from_tun ++;
-  
-            // I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
-            if (first_header_written == 0) first_header_written = 1;
+
+            if (!fast_mode) {
+              // I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
+              if (first_header_written == 0) first_header_written = 1;              
+            }  
+
   
             //do_debug (1,"\n");
             do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes.", num_pkts_stored_from_tun , size_muxed_packet);
@@ -3084,26 +3280,33 @@ int main(int argc, char *argv[]) {
             if ((num_pkts_stored_from_tun == limit_numpackets_tun) || (size_muxed_packet > size_threshold) || (time_difference > timeout )) {
   
               // a multiplexed packet has to be sent
-  
-              // fill the SPB field (Single Protocol Bit)
-              
-              // calculate if all the packets belong to the same protocol
-              single_protocol = 1;
-              for (k = 1; k < num_pkts_stored_from_tun ; k++) {
-                for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-                  if (protocol[k][l] != protocol[k-1][l])
-                    single_protocol = 0;
+              if (!fast_mode) {
+                // fill the SPB field (Single Protocol Bit)
+                
+                // calculate if all the packets belong to the same protocol
+                single_protocol = 1;
+                for (k = 1; k < num_pkts_stored_from_tun ; k++) {
+                  for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+                    if (protocol[k][l] != protocol[k-1][l])
+                      single_protocol = 0;
+                  }
                 }
-              }
-  
-              // Add the Single Protocol Bit in the first header (the most significant bit)
-              // It is 1 if all the multiplexed packets belong to the same protocol
-              if (single_protocol == 1) {
-                separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;  // this puts a 1 in the most significant bit position
-                size_muxed_packet = size_muxed_packet + 1;                // one byte corresponding to the 'protocol' field of the first header
+    
+                // Add the Single Protocol Bit in the first header (the most significant bit)
+                // It is 1 if all the multiplexed packets belong to the same protocol
+                if (single_protocol == 1) {
+                  separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;  // this puts a 1 in the most significant bit position
+                  // one or two bytes corresponding to the 'protocol' field of the first header
+                  size_muxed_packet = size_muxed_packet + SIZE_PROTOCOL_FIELD;
+                }
+                else {
+                  // add the size that corresponds to the Protocol field of all the separators
+                  size_muxed_packet = size_muxed_packet + ( SIZE_PROTOCOL_FIELD * num_pkts_stored_from_tun);
+                }               
               }
               else {
-                size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;  // one byte per packet, corresponding to the 'protocol' field
+                // add the size that corresponds to the Protocol field of all the separators
+                size_muxed_packet = size_muxed_packet + ( SIZE_PROTOCOL_FIELD * num_pkts_stored_from_tun);                
               }
   
               // write the debug information
@@ -3118,19 +3321,29 @@ int main(int argc, char *argv[]) {
                   do_debug(1, "timeout reached\n");
   
                 if ( SIZE_PROTOCOL_FIELD == 1 ) {
-                  if (single_protocol) {
-                    do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", protocol[0][0]);
+                  if (!fast_mode) {
+                    if (single_protocol) {
+                      do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", protocol[0][0]);
+                    }
+                    else {
+                      do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", num_pkts_stored_from_tun);
+                    }
                   }
                   else {
-                    do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+                    do_debug(2, "   Fast mode. Added 1 Protocol byte in each separator. Total %i bytes", num_pkts_stored_from_tun);
                   }
                 }
                 else {  // SIZE_PROTOCOL_FIELD == 2
-                  if (single_protocol) {
-                    do_debug(2, "   All packets belong to the same protocol. Added 2 Protocol bytes (0x%02x%02x) in the first separator\n", protocol[0][0], protocol[0][1]);
+                  if (!fast_mode) {
+                    if (single_protocol) {
+                      do_debug(2, "   All packets belong to the same protocol. Added 2 Protocol bytes (0x%02x%02x) in the first separator\n", protocol[0][0], protocol[0][1]);
+                    }
+                    else {
+                      do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n", 2 * num_pkts_stored_from_tun);
+                    }
                   }
                   else {
-                    do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+                    do_debug(2, "   Fast mode. Added 2 Protocol byte in each separator. Total %i bytes", 2 * num_pkts_stored_from_tun);
                   }
                 }
                 
@@ -3189,13 +3402,14 @@ int main(int argc, char *argv[]) {
   
               // build the multiplexed packet including the current one
               total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
-                                          single_protocol,
-                                          protocol,
-                                          size_separators_to_multiplex,
-                                          separators_to_multiplex,
-                                          size_packets_to_multiplex,
-                                          packets_to_multiplex,
-                                          muxed_packet);
+                                                        fast_mode,
+                                                        single_protocol,
+                                                        protocol,
+                                                        size_separators_to_multiplex,
+                                                        separators_to_multiplex,
+                                                        size_packets_to_multiplex,
+                                                        packets_to_multiplex,
+                                                        muxed_packet);
   
               // send the multiplexed packet
               switch (*mode) {
@@ -3400,13 +3614,14 @@ int main(int argc, char *argv[]) {
 
           // build the multiplexed packet
           total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
-                                      single_protocol,
-                                      protocol,
-                                      size_separators_to_multiplex,
-                                      separators_to_multiplex,
-                                      size_packets_to_multiplex,
-                                      packets_to_multiplex,
-                                      muxed_packet);
+                                                    fast_mode,
+                                                    single_protocol,
+                                                    protocol,
+                                                    size_separators_to_multiplex,
+                                                    separators_to_multiplex,
+                                                    size_packets_to_multiplex,
+                                                    packets_to_multiplex,
+                                                    muxed_packet);
 
           // send the multiplexed packet
           switch (*mode) {
