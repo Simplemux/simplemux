@@ -1758,7 +1758,10 @@ int main(int argc, char *argv[]) {
               // I have to start reading a new TCP payload
 
               // read a separator (3 or 4 bytes)
-              nread_from_net = read(tcp_client_fd, buffer_from_net, size_separator_fast_mode - read_tcp_bytes_separator);
+              if (*mode == TCP_SERVER_MODE)
+                nread_from_net = read(tcp_server_fd, buffer_from_net, size_separator_fast_mode - read_tcp_bytes_separator);
+              else
+                nread_from_net = read(tcp_client_fd, buffer_from_net, size_separator_fast_mode - read_tcp_bytes_separator);
 
               if(nread_from_net < 0)  {
                 perror("read() error TCP mode");
@@ -1781,37 +1784,46 @@ int main(int argc, char *argv[]) {
                 // the first byte is the Most Significant Byte of the length
                 // the second byte is the Less Significant Byte of the length
                 length_tcp_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
+                pending_tcp_bytes = length_tcp_packet;
+
+                do_debug(2, " Read header: Length %i (0x%02x%02x)", length_tcp_packet, buffer_from_net[0], buffer_from_net[1]);
 
                 // read the Protocol field
                 if ( SIZE_PROTOCOL_FIELD == 1 ) {
                   protocol_rec = buffer_from_net[2];
-                  do_debug(2, ". Protocol 0x%02x", buffer_from_net[2]);
+                  do_debug(2, ". Protocol %i (0x%02x)\n", protocol_rec, buffer_from_net[2]);
                 }
                 else {  // SIZE_PROTOCOL_FIELD == 2
                   protocol_rec = (buffer_from_net[2] << 8) + buffer_from_net[3];  //FIXME use bit shift
-                  do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[2], buffer_from_net[3]);
+                  do_debug(2, ". Protocol %i (0x%02x%02x)\n", protocol_rec, buffer_from_net[2], buffer_from_net[3]);
                 }
 
                 // read the packet itself (without the separator)
                 // I only read the length of the packet
-                nread_from_net = read(tcp_client_fd, buffer_from_net, length_tcp_packet);
+                if (*mode == TCP_SERVER_MODE)
+                  nread_from_net = read(tcp_server_fd, buffer_from_net, pending_tcp_bytes);
+                else
+                  nread_from_net = read(tcp_client_fd, buffer_from_net, pending_tcp_bytes);
+
                 if(nread_from_net < 0)  {
                   perror("read() error TCP server mode");
                 }
-                else if (nread_from_net < length_tcp_packet) {
+                else if (nread_from_net < pending_tcp_bytes) {
+                  do_debug(2, " Read %d bytes (part of a packet) from the TCP socket\n", nread_from_net);
                   // I have not read the whole packet
                   // next time I will have to keep on reading
-                  pending_tcp_bytes = length_tcp_packet - nread_from_net;
+                  pending_tcp_bytes = pending_tcp_bytes - nread_from_net;
                   read_tcp_bytes = read_tcp_bytes + nread_from_net;
 
                   //do_debug(2,"Read %d bytes from the TCP socket. Total %d\n", nread_from_net, read_tcp_bytes); 
                   // I have not finished reading a muxed packet
                   is_multiplexed_packet = -1;
                 }
-                else {
+                else if (nread_from_net == pending_tcp_bytes) {
                   // I have read a complete packet
                   //do_debug(2,"Read a packet of %d bytes from the TCP socket\n", nread_from_net);
-
+                  packet_length = read_tcp_bytes + nread_from_net;
+                  do_debug(2, " Read %d bytes (packet complete) from the TCP socket\n", packet_length);
                   pending_tcp_bytes = 0;
                   read_tcp_bytes = 0;
 
@@ -1823,7 +1835,10 @@ int main(int argc, char *argv[]) {
             else {
               // I have to finish reading the TCP payload
               // I try to read 'pending_tcp_bytes' and to put them at position 'read_tcp_bytes'
-              nread_from_net = read(tcp_client_fd, &buffer_from_net[read_tcp_bytes], pending_tcp_bytes);
+              if (*mode == TCP_SERVER_MODE)
+                nread_from_net = read(tcp_server_fd, &buffer_from_net[read_tcp_bytes], pending_tcp_bytes);
+              else
+                nread_from_net = read(tcp_client_fd, &buffer_from_net[read_tcp_bytes], pending_tcp_bytes);
 
               if(nread_from_net < 0)  {
                 perror("read() error TCP mode");
@@ -1845,19 +1860,21 @@ int main(int argc, char *argv[]) {
               else if(nread_from_net == pending_tcp_bytes) {
                 // I have read the pending bytes of this packet
                 //do_debug(2,"Read a packet of %d bytes from the TCP socket\n", nread_from_net + read_tcp_bytes); 
+                pending_tcp_bytes = length_tcp_packet - nread_from_net;
+                read_tcp_bytes = read_tcp_bytes + nread_from_net;
 
                 is_multiplexed_packet = 1;
               }
             }
-            do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", nread_from_net, read_tcp_bytes, pending_tcp_bytes);
+            /*
+            do_debug(2," Read %d bytes from the TCP socket. Accum %d. Pending %d\n", nread_from_net, read_tcp_bytes, pending_tcp_bytes);
             if (read_tcp_bytes == length_tcp_packet) {
-              read_tcp_bytes = 0;
-              pending_tcp_bytes = 0;
               do_debug(2," (full packet)\n");
             }
             else {
               do_debug(2,"\n");
             }
+            */
           } 
           else {
             perror("Unknown mode");        
@@ -2089,7 +2106,7 @@ int main(int argc, char *argv[]) {
                 }
               }
               else {  // fast mode
-                // FIXME: Read the Length in fast mode
+
                 if ((*mode == TCP_SERVER_MODE) || (*mode == TCP_CLIENT_MODE)) {
                   // do nothing, because I have already read the length
                 }
@@ -2139,21 +2156,28 @@ int main(int argc, char *argv[]) {
                     }
                   }
                 }
+                do_debug(1, ". Length %i bytes\n", packet_length);
               }
               else {  // fast mode
-                // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
-                if ( SIZE_PROTOCOL_FIELD == 1 ) {
-                  protocol_rec = buffer_from_net[position];
-                  do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
-                  position ++;
+                if ((*mode == TCP_SERVER_MODE) || (*mode == TCP_CLIENT_MODE)) {
+                  // do nothing, because I have already read the Protocol
+                  do_debug(1, " Length %i bytes\n", packet_length);
                 }
-                else {  // SIZE_PROTOCOL_FIELD == 2
-                  protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-                  do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
-                  position = position + 2;
+                else {                
+                  // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
+                  if ( SIZE_PROTOCOL_FIELD == 1 ) {
+                    protocol_rec = buffer_from_net[position];
+                    do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+                    position ++;
+                  }
+                  else {  // SIZE_PROTOCOL_FIELD == 2
+                    protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+                    do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
+                    position = position + 2;
+                  }
+                  do_debug(1, ". Length %i bytes\n", packet_length);
                 }
               }
-              do_debug(1, ". Demuxed %i bytes\n", packet_length);
   
               // copy the packet to a new string 'demuxed_packet'
               memcpy (demuxed_packet, &buffer_from_net[position], packet_length);
