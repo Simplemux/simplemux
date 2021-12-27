@@ -94,6 +94,9 @@
 #define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program
 
 #define PORT 55555              // default port
+#define PORT_FEEDBACK 55556     // port for sending ROHC feedback
+#define PORT_FAST 55557         // port for sending Simplemux fast
+
 #define MAXPKTS 100             // maximum number of packets to store
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
 
@@ -133,9 +136,9 @@ char *progname;
  * @param payload_size The size of the UDP payload (in bytes)
  * @return             true if the packet is an RTP packet, false otherwise
  */
-static bool rtp_detect(const unsigned char *const ip __attribute__((unused)),
-                      const unsigned char *const udp,
-                      const unsigned char *const payload __attribute__((unused)),
+static bool rtp_detect(const uint8_t *const ip __attribute__((unused)),
+                      const uint8_t *const udp,
+                      const uint8_t *const payload __attribute__((unused)),
                       const unsigned int payload_size __attribute__((unused)),
                       void *const rtp_private __attribute__((unused)))
 {
@@ -204,7 +207,7 @@ int tun_alloc(char *dev, int flags) {
  * cread: read routine that checks for errors and exits if an error is    *
  *        returned.                                                       *
  **************************************************************************/
-int cread(int fd, unsigned char *buf, int n) {
+int cread(int fd, uint8_t *buf, int n) {
 
   int nread;
 
@@ -219,7 +222,7 @@ int cread(int fd, unsigned char *buf, int n) {
  * cwrite: write routine that checks for errors and exits if an error is  *
  *         returned.                                                      *
  **************************************************************************/
-int cwrite(int fd, unsigned char *buf, int n) {
+int cwrite(int fd, uint8_t *buf, int n) {
 
   int nwritten;
 
@@ -234,7 +237,7 @@ int cwrite(int fd, unsigned char *buf, int n) {
  * read_n: ensures we read exactly n bytes, and puts them into "buf".     *
  *         (unless EOF, of course)                                        *
  **************************************************************************/
-int read_n(int fd, unsigned char *buf, int n) {
+int read_n(int fd, uint8_t *buf, int n) {
 
   int nread, left = n;
 
@@ -323,9 +326,9 @@ bool bits[8]={false, true, false, true, false, true, false, false}; is character
 c = ToByte(bits);
 do_debug(1, "%c\n",c );
 // prints an asterisk*/
-unsigned char ToByte(bool b[8]) {
+uint8_t ToByte(bool b[8]) {
   int i;
-  unsigned char c = 0;
+  uint8_t c = 0;
   
   for (i=0; i < 8; ++i)
     if (b[i])
@@ -338,7 +341,7 @@ unsigned char ToByte(bool b[8]) {
  **************************************************************************/
 // stores in 'b' the value 'true' or 'false' depending on each bite of the byte c
 // b[0] is the less significant bit
-void FromByte(unsigned char c, bool b[8]) {
+void FromByte(uint8_t c, bool b[8]) {
   int i;
   for (i=0; i < 8; ++i)
     b[i] = (c & (1<<i)) != 0;
@@ -368,7 +371,7 @@ void PrintByte(int debug_level, int num_bits, bool b[8]) {
 /**************************************************************************
 ************ dump a packet ************************************************
 **************************************************************************/
-void dump_packet (int packet_size, unsigned char packet[BUFSIZE]) {
+void dump_packet (int packet_size, uint8_t packet[BUFSIZE]) {
   int j;
 
   for(j = 0; j < packet_size; j++) {
@@ -419,12 +422,12 @@ int date_and_time(char buffer[25]) {
 uint16_t build_multiplexed_packet ( int num_packets,
                                     bool fast_mode,
                                     int single_prot,
-                                    unsigned char prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
+                                    uint8_t prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
                                     uint16_t size_separators_to_mux[MAXPKTS],
-                                    unsigned char separators_to_mux[MAXPKTS][3],
+                                    uint8_t separators_to_mux[MAXPKTS][3],
                                     uint16_t size_packets_to_mux[MAXPKTS],
-                                    unsigned char packets_to_mux[MAXPKTS][BUFSIZE],
-                                    unsigned char mux_packet[BUFSIZE])
+                                    uint8_t packets_to_mux[MAXPKTS][BUFSIZE],
+                                    uint8_t mux_packet[BUFSIZE])
 {
   int k, l;
   int length = 0;
@@ -497,11 +500,11 @@ uint16_t build_multiplexed_packet ( int num_packets,
 uint16_t predict_size_multiplexed_packet (int num_packets,
                                           bool fast_mode,
                                           int single_prot,
-                                          unsigned char prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
+                                          uint8_t prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
                                           uint16_t size_separators_to_mux[MAXPKTS],
-                                          unsigned char separators_to_mux[MAXPKTS][3],
+                                          uint8_t separators_to_mux[MAXPKTS][3],
                                           uint16_t size_packets_to_mux[MAXPKTS],
-                                          unsigned char packets_to_mux[MAXPKTS][BUFSIZE])
+                                          uint8_t packets_to_mux[MAXPKTS][BUFSIZE])
 {
   int k;
   int length = 0;
@@ -634,7 +637,7 @@ void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local
 
 
 // Buid a Full IP Packet
-void BuildFullIPPacket(struct iphdr iph, unsigned char *data_packet, uint16_t len_data, unsigned char *full_ip_packet) {
+void BuildFullIPPacket(struct iphdr iph, uint8_t *data_packet, uint16_t len_data, uint8_t *full_ip_packet) {
   memset(full_ip_packet, 0, BUFSIZE);
   memcpy((struct iphdr*)full_ip_packet, &iph, sizeof(struct iphdr));
   memcpy((struct iphdr*)(full_ip_packet + sizeof(struct iphdr)), data_packet, len_data);
@@ -642,12 +645,12 @@ void BuildFullIPPacket(struct iphdr iph, unsigned char *data_packet, uint16_t le
 
 
 //Get IP header from IP packet
-void GetIpHeader(struct iphdr *iph, unsigned char *ip_packet) {  
+void GetIpHeader(struct iphdr *iph, uint8_t *ip_packet) {  
   memcpy(iph,(struct iphdr*)ip_packet,sizeof(struct iphdr));
 }
 
 //Set IP header in IP Packet
-void SetIpHeader(struct iphdr iph, unsigned char *ip_packet) {
+void SetIpHeader(struct iphdr iph, uint8_t *ip_packet) {
   memcpy((struct iphdr*)ip_packet,&iph,sizeof(struct iphdr));
 }
 
@@ -691,32 +694,33 @@ int main(int argc, char *argv[]) {
   socklen_t slen = sizeof(remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
   socklen_t slen_feedback = sizeof(feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
 
-  char remote_ip[16] = "";                      // dotted quad IP string with the IP of the remote machine
-  char local_ip[16] = "";                       // dotted quad IP string with the IP of the local machine
-  unsigned short int port = PORT;               // UDP port to be used for sending the multiplexed packets
-  unsigned short int port_feedback = PORT + 1;  // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
+  char remote_ip[16] = "";                  // dotted quad IP string with the IP of the remote machine
+  char local_ip[16] = "";                   // dotted quad IP string with the IP of the local machine
+  uint16_t port;                            // UDP/TCP port to be used for sending the multiplexed packets
+  uint16_t port_feedback = PORT_FEEDBACK;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
+
 
   // variables for storing the packets to multiplex
-  uint16_t total_length;                                  // total length of the built multiplexed packet
-  unsigned char protocol_rec;                             // protocol field of the received muxed packet
-  unsigned char protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];   // protocol field of each packet
-  uint16_t size_separators_to_multiplex[MAXPKTS];         // stores the size of the Simplemux separator. It does not include the "Protocol" field
-  unsigned char separators_to_multiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
-  uint16_t size_packets_to_multiplex[MAXPKTS];            // stores the size of the received packet
-  unsigned char packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network
-  unsigned char muxed_packet[BUFSIZE];                    // stores the multiplexed packet
-  int is_multiplexed_packet;                              // To determine if a received packet has been multiplexed
-  unsigned char full_ip_packet[BUFSIZE];                  // Full IP packet
+  uint16_t total_length;                            // total length of the built multiplexed packet
+  uint8_t protocol_rec;                             // protocol field of the received muxed packet
+  uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];   // protocol field of each packet
+  uint16_t size_separators_to_multiplex[MAXPKTS];   // stores the size of the Simplemux separator. It does not include the "Protocol" field
+  uint8_t separators_to_multiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
+  uint16_t size_packets_to_multiplex[MAXPKTS];      // stores the size of the received packet
+  uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network
+  uint8_t muxed_packet[BUFSIZE];                    // stores the multiplexed packet
+  int is_multiplexed_packet;                        // To determine if a received packet has been multiplexed
+  uint8_t full_ip_packet[BUFSIZE];                  // Full IP packet
 
   // variables for storing the packets to demultiplex
-  uint16_t nread_from_net;                        // number of bytes read from network which will be demultiplexed
-  unsigned char buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
-  unsigned char buffer_from_net_aux[BUFSIZE];     // stores the packet received from the network, before sending it to tun
-  unsigned char demuxed_packet[BUFSIZE];          // stores each demultiplexed packet
-  uint16_t length_tcp_packet;                     // length of the next TCP packet
-  uint16_t pending_tcp_bytes = 0;                 // number of bytes that still have to be read (TCP, fast mode)
-  uint16_t read_tcp_bytes = 0;                    // number of bytes of the content that have been read (TCP, fast mode)
-  uint8_t read_tcp_bytes_separator = 0;           // number of bytes of the fast separator that have been read (TCP, fast mode)
+  uint16_t nread_from_net;                  // number of bytes read from network which will be demultiplexed
+  uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
+  uint8_t buffer_from_net_aux[BUFSIZE];     // stores the packet received from the network, before sending it to tun
+  uint8_t demuxed_packet[BUFSIZE];          // stores each demultiplexed packet
+  uint16_t length_tcp_packet;               // length of the next TCP packet
+  uint16_t pending_tcp_bytes = 0;           // number of bytes that still have to be read (TCP, fast mode)
+  uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast mode)
+  uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast mode)
 
   // variables for controlling the arrival and departure of packets
   unsigned long int tun2net = 0, net2tun = 0;     // number of packets read from tun and from net
@@ -769,24 +773,24 @@ int main(int argc, char *argv[]) {
                           // it is 3 for ROHC Bidirectional Reliable mode (not implemented yet)
 
   struct rohc_comp *compressor;               // the ROHC compressor
-  unsigned char ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
+  uint8_t ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
   struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);  
-  unsigned char rohc_buffer[BUFSIZE];         // the buffer that will contain the resulting ROHC packet
+  uint8_t rohc_buffer[BUFSIZE];         // the buffer that will contain the resulting ROHC packet
   struct rohc_buf rohc_packet = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
   unsigned int seed;
   rohc_status_t status;
 
   struct rohc_decomp *decompressor;           // the ROHC decompressor
-  unsigned char ip_buffer_d[BUFSIZE];         // the buffer that will contain the resulting IP decompressed packet
+  uint8_t ip_buffer_d[BUFSIZE];         // the buffer that will contain the resulting IP decompressed packet
   struct rohc_buf ip_packet_d = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
-  unsigned char rohc_buffer_d[BUFSIZE];       // the buffer that will contain the ROHC packet to decompress
+  uint8_t rohc_buffer_d[BUFSIZE];       // the buffer that will contain the ROHC packet to decompress
   struct rohc_buf rohc_packet_d = rohc_buf_init_empty(rohc_buffer_d, BUFSIZE);
 
   // structures to handle ROHC feedback
-  unsigned char rcvd_feedback_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet received
+  uint8_t rcvd_feedback_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet received
   struct rohc_buf rcvd_feedback = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFSIZE);
 
-  unsigned char feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet to be sent
+  uint8_t feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet to be sent
   struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
 
 
@@ -828,6 +832,7 @@ int main(int argc, char *argv[]) {
           break;
         case 'f':            /* fast mode */
           fast_mode = true;
+          port = PORT_FAST;   // by default, port = PORT. In fast mode, it is PORT_FAST
           break;
         case 'e':            /* the name of the network interface (e.g. "eth0") in "mux_if_name" */
           strncpy(mux_if_name, optarg, IFNAMSIZ-1);
@@ -1212,6 +1217,7 @@ int main(int argc, char *argv[]) {
        * of the remote host
        */
       if( connect(tcp_client_fd, (struct sockaddr *)&remote, sizeof(remote)) < 0) {
+        do_debug(1, "Trying to connect to the TCP server at %s:%i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port));
         perror("connect() error: TCP connect Failed. The TCP server did not accept the connection");
         return 1;
       }
