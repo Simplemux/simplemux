@@ -3277,7 +3277,7 @@ int main(int argc, char *argv[]) {
               if(debug) {
                 // first byte
                 FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
-                do_debug(2, " Mux separator of 2 bytes (plus Protocol): 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][0]);
+                do_debug(2, " Mux separator of 3 bytes. Length: 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][0]);
                 PrintByte(2, 8, bits);
                 do_debug(2, ")");
   
@@ -3285,12 +3285,13 @@ int main(int argc, char *argv[]) {
                 FromByte(separators_to_multiplex[num_pkts_stored_from_tun][1], bits);
                 do_debug(2, " 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][1]);
                 PrintByte(2, 8, bits);
+                do_debug(2, ")");
+
+                // third byte: protocol
+                FromByte(protocol[num_pkts_stored_from_tun][0], bits);
+                do_debug(2, ". Protocol: 0x%02x (", protocol[num_pkts_stored_from_tun][0]);
+                PrintByte(2, 8, bits);
                 do_debug(2, ")\n");
-
-                // FIXME voy por aquí
-                //NO se imprimen bien los tres separadores
-                //Se calcula bien la longitud: 28 + 3 * (3 +84) = 289
-
               }
             }
   
@@ -3303,8 +3304,13 @@ int main(int argc, char *argv[]) {
             }  
 
   
-            //do_debug (1,"\n");
-            do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes.", num_pkts_stored_from_tun , size_muxed_packet);
+            if (!fast_mode) {
+              do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Protocol not included).", num_pkts_stored_from_tun , size_muxed_packet);
+            }
+            else { // fast mode
+              do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Separator(s) included).", num_pkts_stored_from_tun , size_muxed_packet + (num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD));
+            }
+            
             time_in_microsec = GetTimeStamp();
             time_difference = time_in_microsec - time_last_sent_in_microsec;    
             do_debug(1, " Time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
