@@ -102,10 +102,11 @@
 
 // Protocol IDs, according to IANA
 // see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
-#define IPPROTO_IP_ON_IP 4      // IP on IP Protocol ID
-#define IPPROTO_SIMPLEMUX 253   // Simplemux Protocol ID (experimental number according to IANA)
-#define IPPROTO_ROHC 142        // ROHC Protocol ID
-#define IPPROTO_ETHERNET 143    // Ethernet Protocol ID
+#define IPPROTO_IP_ON_IP 4        // IP on IP Protocol ID
+#define IPPROTO_SIMPLEMUX 253     // Simplemux Protocol ID (experimental number according to IANA)
+#define IPPROTO_SIMPLEMUX_FAST 254// Simplemux Protocol ID (experimental number according to IANA)
+#define IPPROTO_ROHC 142          // ROHC Protocol ID
+#define IPPROTO_ETHERNET 143      // Ethernet Protocol ID
 
 #define NETWORK_MODE    'N'     // N: network mode
 #define UDP_MODE        'U'     // U: UDP mode
@@ -610,7 +611,11 @@ unsigned short in_cksum(unsigned short *addr, int len) {
 
 
 // Buid an IPv4 Header
-void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local, struct sockaddr_in remote) {
+void BuildIPHeader( struct iphdr *iph,
+                    uint16_t len_data,
+                    uint8_t ipprotocol,
+                    struct sockaddr_in local,
+                    struct sockaddr_in remote ) {
   static uint16_t counter = 0;
 
   // clean the variable
@@ -623,7 +628,7 @@ void BuildIPHeader(struct iphdr *iph, uint16_t len_data,struct sockaddr_in local
   iph->id = htons(1234 + counter);
   iph->frag_off = 0;  // fragment is allowed
   iph->ttl = Linux_TTL;
-  iph->protocol = IPPROTO_SIMPLEMUX;
+  iph->protocol = ipprotocol;
   iph->saddr = inet_addr(inet_ntoa(local.sin_addr));
   //iph->saddr = inet_addr("192.168.137.1");
   iph->daddr = inet_addr(inet_ntoa(remote.sin_addr));
@@ -698,6 +703,7 @@ int main(int argc, char *argv[]) {
   char local_ip[16] = "";                   // dotted quad IP string with the IP of the local machine
   uint16_t port;                            // UDP/TCP port to be used for sending the multiplexed packets
   uint16_t port_feedback = PORT_FEEDBACK;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
+  uint8_t ipprotocol = IPPROTO_SIMPLEMUX;
 
 
   // variables for storing the packets to multiplex
@@ -833,6 +839,7 @@ int main(int argc, char *argv[]) {
         case 'f':            /* fast mode */
           fast_mode = true;
           port = PORT_FAST;   // by default, port = PORT. In fast mode, it is PORT_FAST
+          ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast mode, use 254
           break;
         case 'e':            /* the name of the network interface (e.g. "eth0") in "mux_if_name" */
           strncpy(mux_if_name, optarg, IFNAMSIZ-1);
@@ -1000,7 +1007,7 @@ int main(int argc, char *argv[]) {
           }
           //printf("\tInterface : <%s>\n",ifa->ifa_name );
           //printf("\t  Address : <%s>\n", host);
-          do_debug(1,"Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, IPPROTO_SIMPLEMUX);
+          do_debug(1,"Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, ipprotocol);
           break;
         }
       }
@@ -1022,7 +1029,7 @@ int main(int argc, char *argv[]) {
       // network_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
       // create a raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
       // Submit request for a raw socket descriptor
-      if ((network_mode_fd = socket (AF_INET, SOCK_RAW, IPPROTO_SIMPLEMUX)) < 0) {
+      if ((network_mode_fd = socket (AF_INET, SOCK_RAW, ipprotocol)) < 0) {
         perror ("Raw socket for sending muxed packets failed ");
         exit (EXIT_FAILURE);
       }
@@ -1741,7 +1748,7 @@ int main(int argc, char *argv[]) {
   
             // Get IP Header of received packet
             GetIpHeader(&ipheader,buffer_from_net_aux);
-            if (ipheader.protocol == IPPROTO_SIMPLEMUX )
+            if (ipheader.protocol == ipprotocol )
               is_multiplexed_packet = 1;
             else
               is_multiplexed_packet = 0;
@@ -1800,7 +1807,7 @@ int main(int argc, char *argv[]) {
                   do_debug(2, ". Protocol %i (0x%02x)\n", protocol_rec, buffer_from_net[2]);
                 }
                 else {  // SIZE_PROTOCOL_FIELD == 2
-                  protocol_rec = (buffer_from_net[2] << 8) + buffer_from_net[3];  //FIXME use bit shift
+                  protocol_rec = (buffer_from_net[2] << 8) + buffer_from_net[3];
                   do_debug(2, ". Protocol %i (0x%02x%02x)\n", protocol_rec, buffer_from_net[2], buffer_from_net[3]);
                 }
 
@@ -3004,7 +3011,7 @@ int main(int argc, char *argv[]) {
                 
                 case NETWORK_MODE:
                   // build the header
-                  BuildIPHeader(&ipheader, total_length, local, remote);
+                  BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
   
                   // build the full IP multiplexed packet
                   BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
@@ -3188,7 +3195,7 @@ int main(int argc, char *argv[]) {
                 // the length requires a three-byte separator (length expressed in 20 or 21 bits)
                 size_separators_to_multiplex[num_pkts_stored_from_tun] = 3;
     
-                //FIXME. I have just copied the case of two-byte separator
+                //FIXME. NOT TESTED. I have just copied the case of two-byte separator
                 // first byte of the Mux separator
                 // It can be:
                 // - first-header: SPB bit, LXT=1 and 6 bits with the most significant bits of the length
@@ -3465,7 +3472,7 @@ int main(int argc, char *argv[]) {
                 
                 case NETWORK_MODE:
                   // build the header
-                  BuildIPHeader(&ipheader, total_length, local,remote);
+                  BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
   
                   // build full IP multiplexed packet
                   BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
@@ -3658,7 +3665,7 @@ int main(int argc, char *argv[]) {
             
             case NETWORK_MODE:
               // build the header
-              BuildIPHeader(&ipheader, total_length, local,remote);
+              BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
 
               // build the full IP multiplexed packet
               BuildFullIPPacket(ipheader,muxed_packet,total_length, full_ip_packet);
