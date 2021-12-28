@@ -284,14 +284,14 @@ void my_err(char *msg, ...) {
  **************************************************************************/
 void usage(void) {
   fprintf(stderr, "Usage:\n");
-  fprintf(stderr, "%s -i <ifacename> -e <ifacename> -c <peerIP> -M <N or U or S or T> [-T <U or A>] [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-m <MTU>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
+  fprintf(stderr, "%s -i <ifacename> -e <ifacename> -c <peerIP> -M <'network' or 'udp' or 'tcpclient' or 'tcpserver'> [-T 'tun' or 'tap'] [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-m <MTU>] [-b <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L]\n\n" , progname);
   fprintf(stderr, "%s -h\n", progname);
   fprintf(stderr, "\n");
   fprintf(stderr, "-i <ifacename>: Name of tun/tap interface to be used for capturing native packets (mandatory)\n");
   fprintf(stderr, "-e <ifacename>: Name of local interface which IP will be used for reception of muxed packets, i.e., the tunnel local end (mandatory)\n");
   fprintf(stderr, "-c <peerIP>: specify peer destination IP address, i.e. the tunnel remote end (mandatory)\n");
-  fprintf(stderr, "-M <mode>: Network (N), UDP (U), TCP (T) mode (mandatory)\n");
-  fprintf(stderr, "-T <tunnel mode>: TUN (U, default) or TAP (A) mode\n");
+  fprintf(stderr, "-M <mode>: 'network' or 'udp' or 'tcpclient' or 'tcpserver' mode (mandatory)\n");
+  fprintf(stderr, "-T <tunnel mode>: 'tun' (default) or 'tap' mode\n");
   fprintf(stderr, "-f: Fast mode (compression rate is lower, but it is faster). Compulsory for TCP mode\n");
   fprintf(stderr, "-p <port>: port to listen on, and to connect to (default 55555)\n");
   fprintf(stderr, "-d <debug_level>: Debug level. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
@@ -682,10 +682,15 @@ int main(int argc, char *argv[]) {
   char tun_if_name[IFNAMSIZ] = "";    // name of the tun interface (e.g. "tun0")
   char mux_if_name[IFNAMSIZ] = "";    // name of the network interface (e.g. "eth0")
 
-  char mode[2] = "";                  // Network (N) or UDP (U) or TCP (T) mode
+  //char mode[2] = "";                  // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode
+  char mode ='U';
 
-  char tunnel_mode[2]= "U";           // TUN (U, default) or TAP (T) tunnel mode
-  
+  //char tunnel_mode[2]= "U";           // TUN (U, default) or TAP (T) tunnel mode
+  char tunnel_mode = 'U';
+
+  char mode_string[10];
+  char tunnel_mode_string[4];
+
   bool fast_mode = false;             // fast mode is disabled by default
 
   const int on = 1;                   // needed when creating a socket
@@ -701,7 +706,7 @@ int main(int argc, char *argv[]) {
 
   char remote_ip[16] = "";                  // dotted quad IP string with the IP of the remote machine
   char local_ip[16] = "";                   // dotted quad IP string with the IP of the local machine
-  uint16_t port;                            // UDP/TCP port to be used for sending the multiplexed packets
+  uint16_t port = PORT;                            // UDP/TCP port to be used for sending the multiplexed packets
   uint16_t port_feedback = PORT_FEEDBACK;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
   uint8_t ipprotocol = IPPROTO_SIMPLEMUX;
 
@@ -806,7 +811,6 @@ int main(int argc, char *argv[]) {
   int file_logging = 0;               // it is set to 1 if logging into a file is enabled
 
 
-
   /************** read command line options *********************/
   progname = argv[0];    // argument used when calling the program
 
@@ -830,11 +834,13 @@ int main(int argc, char *argv[]) {
         case 'i':            /* put the name of the tun interface (e.g. "tun0") in "tun_if_name" */
           strncpy(tun_if_name, optarg, IFNAMSIZ-1);
           break;
-        case 'M':            /* Network (N) or UDP (U) or TCP client (T) or TCP server (S) mode */
-          strncpy(mode, optarg, 1);
+        case 'M':            /* network (N) or udp (U) or tcpclient (T) or tcpserver (S) mode */
+          //strncpy(mode, optarg, 1);
+          strcpy(mode_string, optarg);
           break;
         case 'T':            /* TUN (U) or TAP (A) tunnel mode */
-          strncpy(tunnel_mode, optarg, 1);
+          //strncpy(tunnel_mode, optarg, 1);
+          strcpy(tunnel_mode_string, optarg);
           break;
         case 'f':            /* fast mode */
           fast_mode = true;
@@ -891,6 +897,44 @@ int main(int argc, char *argv[]) {
       usage();
     }
 
+    // check the 'mode' string and fill 'mode'
+    if (strcmp(mode_string, "network") == 0) {
+      do_debug(3, "the mode string is network\n");
+      mode = 'N';
+    }
+    else if (strcmp(mode_string, "udp") == 0){
+      do_debug(3, "the mode string is udp\n");
+      mode = 'U';
+    }
+    else if (strcmp(mode_string, "tcpserver") == 0){
+      do_debug(3, "the mode string is tcpserver\n");
+      mode = 'S';
+    }
+    else if (strcmp(mode_string, "tcpclient") == 0){
+      do_debug(3, "the mode string is tcpclient\n");
+      mode = 'T';
+    }
+    else {
+      do_debug(3, "the mode string is not valid\n");
+    }
+    do_debug(3, "mode_string: %s\n", mode_string);
+
+
+    // check the 'tunnel_mode' string and fill 'tunnel_mode'
+    if (strcmp(tunnel_mode_string, "tun") == 0) {
+      do_debug(3, "the tunnel mode string is tun\n");
+      tunnel_mode = 'U';
+    }
+    else if (strcmp(tunnel_mode_string, "tap") == 0){
+      do_debug(3, "the tunnel mode string is tap\n");
+      tunnel_mode = 'A';
+    }
+    else {
+      do_debug(3, "the tunnel mode string is not valid\n");
+    }
+    do_debug(3, "tunnel_mode_string: %s\n", tunnel_mode_string);
+
+
     // check interface options
     if(*tun_if_name == '\0') {
       my_err("Must specify a tun/tap interface name for native packets ('-i' option)\n");
@@ -903,21 +947,22 @@ int main(int argc, char *argv[]) {
       usage();
     } 
 
+
     // check if NETWORK or TRANSPORT mode have been selected (mandatory)
-    else if((*mode != NETWORK_MODE) && (*mode != UDP_MODE) && (*mode != TCP_CLIENT_MODE) && (*mode != TCP_SERVER_MODE)) {
-      my_err("Must specify a valid mode ('-M' option MUST be 'N' (network), 'U' (UDP), 'S' (TCP server) or 'T'(TCP client))\n");
+    else if((mode != NETWORK_MODE) && (mode != UDP_MODE) && (mode != TCP_CLIENT_MODE) && (mode != TCP_SERVER_MODE)) {
+      my_err("Must specify a valid mode ('-M' option MUST be 'network', 'udp', 'tcpserver' or 'tcpclient')\n");
       usage();
     } 
   
     // check if TUN or TAP mode have been selected (mandatory)
-    else if((*tunnel_mode != TUN_MODE) && (*tunnel_mode != TAP_MODE)) {
-      my_err("Must specify a valid tunnel mode ('-T' option MUST be 'U' (tun) or 'A' (tap))\n");
+    else if((tunnel_mode != TUN_MODE) && (tunnel_mode != TAP_MODE)) {
+      my_err("Must specify a valid tunnel mode ('-T' option MUST be 'tun' or 'tap')\n");
       usage();
     } 
 
     // TAP mode requires fast mode
-    else if(((*mode == TCP_SERVER_MODE) || (*mode == TCP_CLIENT_MODE)) && (fast_mode == false)) {
-      my_err("TCP server ('-M S') and TCP client mode ('-M T') require fast mode (option '-f')\n");
+    else if(((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) && (fast_mode == false)) {
+      my_err("TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient') require fast mode (option '-f')\n");
       usage();
     }
 
@@ -947,7 +992,7 @@ int main(int argc, char *argv[]) {
 
 
     /************* initialize the tun/tap **************/
-    if (*tunnel_mode == TUN_MODE) {
+    if (tunnel_mode == TUN_MODE) {
       // tun tunnel mode (i.e. send IP packets)
       // initialize tun interface for native packets
       if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
@@ -956,12 +1001,12 @@ int main(int argc, char *argv[]) {
       }
       do_debug(1, "Successfully connected to interface for native packets %s\n", tun_if_name);    
     }
-    else if (*tunnel_mode == TAP_MODE) {
+    else if (tunnel_mode == TAP_MODE) {
       // tap tunnel mode (i.e. send Ethernet frames)
       
       // ROHC mode cannot be used in tunnel mode TAP, because Ethernet headers cannot be compressed
       if (ROHC_mode != 0) {
-        my_err("Error ROHC cannot be used in TAP mode (Ethernet headers cannot be compressed)\n");
+        my_err("Error ROHC cannot be used in 'tap' mode (Ethernet headers cannot be compressed)\n");
         exit(1);          
       }        
 
@@ -977,7 +1022,7 @@ int main(int argc, char *argv[]) {
 
 
     /*** Request a socket for writing and receiving muxed packets in Network mode ***/
-    if ( *mode == NETWORK_MODE ) {
+    if ( mode == NETWORK_MODE ) {
       // initialize header IP to be used when receiving a packet in NETWORK mode
       memset(&ipheader, 0, sizeof(struct iphdr));      
       memset (&iface, 0, sizeof (iface));
@@ -1053,7 +1098,7 @@ int main(int argc, char *argv[]) {
     }
     
     // UDP mode
-    else if ( *mode == UDP_MODE ) {
+    else if ( mode == UDP_MODE ) {
       /*** Request a socket for writing and receiving muxed packets in UDP mode ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
@@ -1110,7 +1155,7 @@ int main(int argc, char *argv[]) {
     }
 
     // TCP server mode
-    else if (*mode == TCP_SERVER_MODE ) {
+    else if (mode == TCP_SERVER_MODE ) {
       /*** Request a socket for writing and receiving muxed packets in TCP mode ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
@@ -1174,7 +1219,7 @@ int main(int argc, char *argv[]) {
     }
 
     // TCP client mode
-    else if (*mode == TCP_CLIENT_MODE ) {
+    else if ( mode == TCP_CLIENT_MODE ) {
       /*** Request a socket for writing and receiving muxed packets in TCP mode ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
@@ -1240,22 +1285,22 @@ int main(int argc, char *argv[]) {
     }
 
     /*** get the MTU of the local interface ***/
-    if (*mode == UDP_MODE)  {
+    if ( mode == UDP_MODE)  {
       if (ioctl(udp_mode_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
-    else if (*mode == NETWORK_MODE) {
+    else if ( mode == NETWORK_MODE) {
       if (ioctl(network_mode_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
-    else if (*mode == TCP_SERVER_MODE ) {
+    else if ( mode == TCP_SERVER_MODE ) {
       if (ioctl(tcp_welcoming_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
-    else if (*mode == TCP_CLIENT_MODE ) {
+    else if ( mode == TCP_CLIENT_MODE ) {
       if (ioctl(tcp_client_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
@@ -1293,7 +1338,7 @@ int main(int argc, char *argv[]) {
     }
 
     // define the maximum size threshold
-    switch (*mode) {
+    switch ( mode ) {
       case NETWORK_MODE:
         size_max = selected_mtu - IPv4_HEADER_SIZE ;
       break;
@@ -1606,11 +1651,11 @@ int main(int argc, char *argv[]) {
   
     fds_poll[0].fd = tun_fd;
     fds_poll[1].fd = feedback_fd;
-    if (*mode == NETWORK_MODE)
+    if ( mode == NETWORK_MODE )
       fds_poll[2].fd = network_mode_fd;
-    else if (*mode == UDP_MODE)
+    else if ( mode == UDP_MODE )
       fds_poll[2].fd = udp_mode_fd;
-    else if (*mode==TCP_SERVER_MODE)
+    else if ( mode==TCP_SERVER_MODE )
       fds_poll[2].fd = tcp_welcoming_fd;
     else
       fds_poll[2].fd = tcp_client_fd;
@@ -1666,13 +1711,13 @@ int main(int argc, char *argv[]) {
       /*******************************************/
       // a frame has arrived to one of the sockets in 'fds_poll'
       else if (fd2read > 0) {
-        //do_debug(0,"fd2read: %d; mode: %c; accepting_tcp_connections: %i\n", fd2read, *mode, accepting_tcp_connections);
+        //do_debug(0,"fd2read: %d; mode: %c; accepting_tcp_connections: %i\n", fd2read, mode, accepting_tcp_connections);
 
         /******************************************************************/
         /*************** TCP connection request from a client *************/
         /******************************************************************/
         // a connection request has arrived to the welcoming socket
-        if ((fds_poll[2].revents & POLLIN) && (*mode==TCP_SERVER_MODE) && (accepting_tcp_connections == 1) ) {
+        if ((fds_poll[2].revents & POLLIN) && (mode==TCP_SERVER_MODE) && (accepting_tcp_connections == 1) ) {
 
           // accept the connection
           unsigned int len = sizeof(struct sockaddr);
@@ -1709,14 +1754,14 @@ int main(int argc, char *argv[]) {
         // In TCP_SERVER_MODE, I will only enter here if the TCP connection is already started
         // in the rest of modes, I will enter here if a muxed packet has arrived        
         else if ( (fds_poll[2].revents & POLLIN) && 
-                  (((*mode == TCP_SERVER_MODE) && (accepting_tcp_connections == 0))  ||
-                  (*mode == NETWORK_MODE) || 
-                  (*mode == UDP_MODE) ||
-                  (*mode == TCP_CLIENT_MODE) ) )
+                  (((mode == TCP_SERVER_MODE) && (accepting_tcp_connections == 0))  ||
+                  (mode == NETWORK_MODE) || 
+                  (mode == UDP_MODE) ||
+                  (mode == TCP_CLIENT_MODE) ) )
         {
           is_multiplexed_packet = -1;
   
-          if (*mode == UDP_MODE) {
+          if (mode == UDP_MODE) {
             // a packet has been received from the network, destined to the multiplexing port
             // 'slen' is the length of the IP address
             // I cannot use 'remote' because it would replace the IP address and port. I use 'received'
@@ -1734,7 +1779,7 @@ int main(int argc, char *argv[]) {
               is_multiplexed_packet = 0;
           }
   
-          else if (*mode == NETWORK_MODE) {
+          else if (mode == NETWORK_MODE) {
             // a packet has been received from the network, destined to the local interface for muxed packets
             nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
   
@@ -1754,7 +1799,7 @@ int main(int argc, char *argv[]) {
               is_multiplexed_packet = 0;
           }
   
-          else if ((*mode == TCP_SERVER_MODE) || (*mode == TCP_CLIENT_MODE)) {
+          else if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
 
             // some bytes have been received from the network, destined to the TCP socket
             
@@ -1771,7 +1816,7 @@ int main(int argc, char *argv[]) {
               // I have to start reading a new TCP payload
 
               // read a separator (3 or 4 bytes)
-              if (*mode == TCP_SERVER_MODE)
+              if (mode == TCP_SERVER_MODE)
                 nread_from_net = read(tcp_server_fd, buffer_from_net, size_separator_fast_mode - read_tcp_bytes_separator);
               else
                 nread_from_net = read(tcp_client_fd, buffer_from_net, size_separator_fast_mode - read_tcp_bytes_separator);
@@ -1813,7 +1858,7 @@ int main(int argc, char *argv[]) {
 
                 // read the packet itself (without the separator)
                 // I only read the length of the packet
-                if (*mode == TCP_SERVER_MODE)
+                if (mode == TCP_SERVER_MODE)
                   nread_from_net = read(tcp_server_fd, buffer_from_net, pending_tcp_bytes);
                 else
                   nread_from_net = read(tcp_client_fd, buffer_from_net, pending_tcp_bytes);
@@ -1848,7 +1893,7 @@ int main(int argc, char *argv[]) {
             else {
               // I have to finish reading the TCP payload
               // I try to read 'pending_tcp_bytes' and to put them at position 'read_tcp_bytes'
-              if (*mode == TCP_SERVER_MODE)
+              if (mode == TCP_SERVER_MODE)
                 nread_from_net = read(tcp_server_fd, &buffer_from_net[read_tcp_bytes], pending_tcp_bytes);
               else
                 nread_from_net = read(tcp_client_fd, &buffer_from_net[read_tcp_bytes], pending_tcp_bytes);
@@ -1904,7 +1949,7 @@ int main(int argc, char *argv[]) {
   
             /* increase the counter of the number of packets read from the network */
             net2tun++;
-            switch (*mode) {
+            switch (mode) {
               case UDP_MODE:
                 do_debug(1, "MUXED PACKET #%lu: Read UDP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
   
@@ -2120,7 +2165,7 @@ int main(int argc, char *argv[]) {
               }
               else {  // fast mode
 
-                if ((*mode == TCP_SERVER_MODE) || (*mode == TCP_CLIENT_MODE)) {
+                if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
                   // do nothing, because I have already read the length
                 }
                 else {
@@ -2172,7 +2217,7 @@ int main(int argc, char *argv[]) {
                 do_debug(1, ". Length %i bytes\n", packet_length);
               }
               else {  // fast mode
-                if ((*mode == TCP_SERVER_MODE) || (*mode == TCP_CLIENT_MODE)) {
+                if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
                   // do nothing, because I have already read the Protocol
                   do_debug(1, " Length %i bytes\n", packet_length);
                 }
@@ -2435,13 +2480,13 @@ int main(int argc, char *argv[]) {
                 if ( ( protocol_rec != IPPROTO_ROHC ) || ((protocol_rec == IPPROTO_ROHC) && ( status == ROHC_STATUS_OK))) {
    
                   // tun mode
-                  if(*tunnel_mode == TUN_MODE) {
+                  if(tunnel_mode == TUN_MODE) {
                      // write the demuxed packet to the tun interface
                     do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
                     cwrite ( tun_fd, demuxed_packet, packet_length );
                   }
                   // tap mode
-                  else if(*tunnel_mode == TAP_MODE) {
+                  else if(tunnel_mode == TAP_MODE) {
                     if (protocol_rec!= IPPROTO_ETHERNET) {
                       do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);              
                     }
@@ -2585,9 +2630,9 @@ int main(int argc, char *argv[]) {
           /* increase the counter of the number of packets read from tun*/
           tun2net++;
   
-          if (*tunnel_mode == TUN_MODE)
+          if (tunnel_mode == TUN_MODE)
             do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
-          else if (*tunnel_mode == TAP_MODE)
+          else if (tunnel_mode == TAP_MODE)
             do_debug(1, "NATIVE PACKET #%lu: Read packet from tap: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
             
           // print the native packet/frame received
@@ -2606,7 +2651,7 @@ int main(int argc, char *argv[]) {
   
           // check if this packet (plus the tunnel and simplemux headers ) is bigger than the MTU. Drop it in that case
           drop_packet = 0;
-          if (*mode == UDP_MODE) {
+          if (mode == UDP_MODE) {
             
             if ( size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3 > selected_mtu ) {
               drop_packet = 1;
@@ -2622,7 +2667,7 @@ int main(int argc, char *argv[]) {
           }
           
           // TCP client mode or TCP server mode
-          else if ((*mode == TCP_CLIENT_MODE) || (*mode == TCP_SERVER_MODE)) {
+          else if ((mode == TCP_CLIENT_MODE) || (mode == TCP_SERVER_MODE)) {
             
             if ( size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + TCP_HEADER_SIZE + 3 > selected_mtu ) {
               drop_packet = 1;
@@ -2746,7 +2791,7 @@ int main(int argc, char *argv[]) {
             else {
               // header compression has not been selected by the user
   
-              if (*tunnel_mode == TAP_MODE) {
+              if (tunnel_mode == TAP_MODE) {
                 // tap mode
                 
                 // since this frame CANNOT be compressed, its protocol number has to be 143: 'Ethernet on IP' 
@@ -2759,7 +2804,7 @@ int main(int argc, char *argv[]) {
                   protocol[num_pkts_stored_from_tun][1] = IPPROTO_ETHERNET;
                 }
               }
-              else if (*tunnel_mode == TUN_MODE) {
+              else if (tunnel_mode == TUN_MODE) {
                 // tun mode
                 
                 // since this IP packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
@@ -2849,7 +2894,7 @@ int main(int argc, char *argv[]) {
   
               do_debug(2, "\n");
   
-              switch (*mode) {
+              switch (mode) {
                 case UDP_MODE:
                   do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predicted_size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
                 case TCP_CLIENT_MODE:
@@ -2907,9 +2952,9 @@ int main(int argc, char *argv[]) {
                   do_debug(2, "   Fast mode. Added 2 Protocol bytes to each separator. Total %i bytes", 2 * num_pkts_stored_from_tun);
               }
               
-              switch(*tunnel_mode) {
+              switch(tunnel_mode) {
                 case TUN_MODE:
-                  switch (*mode) {
+                  switch (mode) {
                     case UDP_MODE:
                       do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                       do_debug(1, " Sending to the network a UDP muxed packet without this one: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
@@ -2934,7 +2979,7 @@ int main(int argc, char *argv[]) {
                 break;
   
                 case TAP_MODE:
-                  switch (*mode) {
+                  switch (mode) {
                     case UDP_MODE:
                       do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                       do_debug(1, " Sending to the network a UDP packet without this Eth frame: %i bytes\n", size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
@@ -2961,7 +3006,7 @@ int main(int argc, char *argv[]) {
   
   
               // send the multiplexed packet without the current one
-              switch (*mode) {
+              switch (mode) {
                 case UDP_MODE:
                   // send the packet
                   if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
@@ -3390,9 +3435,9 @@ int main(int argc, char *argv[]) {
                   }
                 }
                 
-                switch(*tunnel_mode) {
+                switch(tunnel_mode) {
                   case TUN_MODE:
-                    switch (*mode) {
+                    switch (mode) {
                       case UDP_MODE:
                         do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                         do_debug(1, " Sending to the network a UDP packet containing %i native one(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
@@ -3417,7 +3462,7 @@ int main(int argc, char *argv[]) {
                   break;
                   
                   case TAP_MODE:
-                    switch (*mode) {
+                    switch (mode) {
                       case UDP_MODE:
                         do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                         do_debug(1, " Sending to the network a UDP packet containing %i native Eth frame(s): %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
@@ -3455,7 +3500,7 @@ int main(int argc, char *argv[]) {
                                                         muxed_packet);
   
               // send the multiplexed packet
-              switch (*mode) {
+              switch (mode) {
                 case UDP_MODE:
                   // send the packet. I don't need to build the header, because I have a UDP socket
                   if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
@@ -3463,10 +3508,10 @@ int main(int argc, char *argv[]) {
                     exit (EXIT_FAILURE);                
                   }
                   else {
-                    if(*tunnel_mode == TUN_MODE) {
+                    if(tunnel_mode == TUN_MODE) {
                       do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
                     }
-                    else if(*tunnel_mode == TAP_MODE) {
+                    else if(tunnel_mode == TAP_MODE) {
                       do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);                    
                     }
                     else {
@@ -3489,10 +3534,10 @@ int main(int argc, char *argv[]) {
                     exit (EXIT_FAILURE);
                   }
                   else {
-                    if(*tunnel_mode == TUN_MODE) {
+                    if(tunnel_mode == TUN_MODE) {
                       do_debug(2, "Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
                     }
-                    else if(*tunnel_mode == TAP_MODE) {
+                    else if(tunnel_mode == TAP_MODE) {
                       do_debug(2, "Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);
                     }
                     else {
@@ -3510,10 +3555,10 @@ int main(int argc, char *argv[]) {
                     exit (EXIT_FAILURE);
                   }
                   else {
-                    if(*tunnel_mode == TUN_MODE) {
+                    if(tunnel_mode == TUN_MODE) {
                       do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
                     }
-                    else if(*tunnel_mode == TAP_MODE) {
+                    else if(tunnel_mode == TAP_MODE) {
                       do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);                    
                     }
                     else {
@@ -3536,10 +3581,10 @@ int main(int argc, char *argv[]) {
                       exit (EXIT_FAILURE);
                     }
                     else {
-                      if(*tunnel_mode == TUN_MODE) {
+                      if(tunnel_mode == TUN_MODE) {
                         do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", num_pkts_stored_from_tun);
                       }
-                      else if(*tunnel_mode == TAP_MODE) {
+                      else if(tunnel_mode == TAP_MODE) {
                         do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", num_pkts_stored_from_tun);                    
                       }
                       else {
@@ -3553,7 +3598,7 @@ int main(int argc, char *argv[]) {
   
               // write the log file
               if ( log_file != NULL ) {
-                switch (*mode) {
+                switch (mode) {
                   case UDP_MODE:
                     fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
                   break;
@@ -3621,7 +3666,7 @@ int main(int argc, char *argv[]) {
             else {
               do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
             }
-            switch (*mode) {
+            switch (mode) {
               case UDP_MODE:
                 do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                 do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
@@ -3667,7 +3712,7 @@ int main(int argc, char *argv[]) {
                                                     muxed_packet);
 
           // send the multiplexed packet
-          switch (*mode) {
+          switch (mode) {
             
             case NETWORK_MODE:
               // build the header
