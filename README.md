@@ -9,9 +9,20 @@ The specification of Simplemux is here: http://datatracker.ietf.org/doc/draft-sa
 
 The size of the multiplexing headers is kept very low (it may be a single byte when multiplexing small packets) in order to reduce the overhead.
 
-This page includes an implementation of Simplemux written in C for Linux. It uses simplemux as the multiplexing protocol, and IP and ROHC as multiplexed protocols. Two options are considered for the tunneling protocol:
- - Network mode: IP is used for tunneling (with Protocol Number 253)
- - Transport mode: IP/UDP is used for tunneling (with a common UDP port)
+This page includes an implementation of Simplemux written in C for Linux. It uses simplemux as the multiplexing protocol, and IP and ROHC as multiplexed protocols.
+
+Simplemux can run in four modes:
+- **Network mode**: the multiplexed packet is sent in an IP datagram using Protocol Number 253 or 254 (according to IANA, these numbers can be used for experimentation and testing ).
+- **UDP mode**: the multiplexed packet is sent in an UDP/IP datagram. In this case, the protocol number in the outer IP header is that of UDP (17) and both ends must agree on a UDP port (the implementation uses 55555 or 55557 by default).
+- **TCP server mode**: the multiplexed packet is sent in a TCP/IP datagram. In this case, the protocol number in the outer IP header is that of TCP (4) and both ends must agree on a TCP port (the implementation uses 55555 or 55557 by default).
+- **TCP client mode**: same as TCP server mode, but it is the TCP client.
+
+
+Simplemux has two *flavors*:
+
+- **Normal**: it tries to compress the separators as much as possible. For that aim, some single-bit fields are used.
+- **Fast**: it sacrifices some compression on behalf or speed. In this case, all the separators are 3-byte long, and all have the same structure.
+Simplemux *fast* must be used in TCP *mode*.
 
 ROCH feedback messages are always sent in IP/UDP packets.
 
@@ -52,6 +63,14 @@ cd simplemux
 gcc -o simplemux -g -Wall $(pkg-config rohc --cflags) simplemux.c $(pkg-config rohc --libs )
 ```
 
+Usage examples:
+```
+./simplemux -i tun0 -e wlan0 -M network -T tun -c 10.1.10.4
+./simplemux -i tun1 -e wlan0 -M network -T tun -c 10.1.10.6
+./simplemux/simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.172 -d 2
+./simplemux/simplemux -i tap3 -e eth1 -M tcpserver -T tap -c 192.168.3.172 -d 3 -n 1 -f
+./simplemux/simplemux -i tap3 -e eth1 -M tcpclient -T tap -c 192.168.3.171 -d 2 -n 1 -f
+```
 ACKNOWLEDGEMENTS
 ----------------
 This work has been partially financed by the **EU H2020 Wi-5 project** (G.A. no: 644262, see http://www.wi5.eu/ and https://github.com/Wi5), and the Spanish Ministry of Economy and Competitiveness project TIN2015-64770-R, in cooperation with the European Regional Development Fund.
