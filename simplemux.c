@@ -17,9 +17,9 @@
  *      - Simplemux, which is used for multiplexing                       *
  *      - a tunneling protocol. In this implementation, the multiplexed   *
  *      bundle can be sent:                                               *
- *          - in an IPv4 packet belonging to protocol 253 (network mode)  *
- *          - in an IPv4/UDP packet (transport mode)                      *
- *          - in an IPv4/TCP packet (transport mode - tunnel TAP)         *
+ *          - in an IPv4 packet with protocol 253 or 254 (network mode)   *
+ *          - in an IPv4/UDP packet (transport mode). Port 55555 or 55557 *
+ *          - in an IPv4/TCP packet (transport mode). Port 55555 or 55557 *
  *                                                                        *
  * IPv6 is not supported in this implementation                           *
  *                                                                        *
@@ -615,7 +615,8 @@ void BuildIPHeader( struct iphdr *iph,
                     uint16_t len_data,
                     uint8_t ipprotocol,
                     struct sockaddr_in local,
-                    struct sockaddr_in remote ) {
+                    struct sockaddr_in remote )
+{
   static uint16_t counter = 0;
 
   // clean the variable
@@ -667,14 +668,14 @@ void SetIpHeader(struct iphdr iph, uint8_t *ip_packet) {
 int main(int argc, char *argv[]) {
 
   // variables for managing the network interfaces
-  int tun_fd;                          // file descriptor of the tun interface(no mux packet)
+  int tun_fd;                     // file descriptor of the tun interface(no mux packet)
   int udp_mode_fd;                // file descriptor of the socket in UDP mode
   int network_mode_fd;            // file descriptor of the socket in Network mode
   int feedback_fd;                // file descriptor of the socket of the feedback received from the network interface
-  int tcp_welcoming_fd;            // file descriptor of the TCP welcoming socket
+  int tcp_welcoming_fd;           // file descriptor of the TCP welcoming socket
   int tcp_client_fd;              // file descriptor of the TCP socket
   int tcp_server_fd;
-  //int maxfd;                          // maximum number of file descriptors
+  //int maxfd;                    // maximum number of file descriptors
 
 
   int fd2read;
@@ -682,11 +683,8 @@ int main(int argc, char *argv[]) {
   char tun_if_name[IFNAMSIZ] = "";    // name of the tun interface (e.g. "tun0")
   char mux_if_name[IFNAMSIZ] = "";    // name of the network interface (e.g. "eth0")
 
-  //char mode[2] = "";                  // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode
-  char mode ='U';
-
-  //char tunnel_mode[2]= "U";           // TUN (U, default) or TAP (T) tunnel mode
-  char tunnel_mode = 'U';
+  char mode ='U';               // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode          
+  char tunnel_mode = 'U';       // TUN (U, default) or TAP (T) tunnel mode
 
   char mode_string[10];
   char tunnel_mode_string[4];
@@ -695,7 +693,7 @@ int main(int argc, char *argv[]) {
 
   const int on = 1;                   // needed when creating a socket
 
-  struct sockaddr_in local, remote, feedback, feedback_remote, received;  // these are structs for storing sockets
+  struct sockaddr_in local, remote, feedback, feedback_remote, received;  // structs for storing sockets
   struct sockaddr_in TCPpair;
 
   struct iphdr ipheader;              // IP header
@@ -706,7 +704,7 @@ int main(int argc, char *argv[]) {
 
   char remote_ip[16] = "";                  // dotted quad IP string with the IP of the remote machine
   char local_ip[16] = "";                   // dotted quad IP string with the IP of the local machine
-  uint16_t port = PORT;                            // UDP/TCP port to be used for sending the multiplexed packets
+  uint16_t port = PORT;                     // UDP/TCP port to be used for sending the multiplexed packets
   uint16_t port_feedback = PORT_FEEDBACK;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
   uint8_t ipprotocol = IPPROTO_SIMPLEMUX;
 
@@ -775,7 +773,7 @@ int main(int argc, char *argv[]) {
   // fixed size of the separator in fast mode
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
 
-  bool bits[8];                           // it is used for printing the bits of a byte in debug mode
+  bool bits[8];   // used for printing the bits of a byte in debug mode
 
   // ROHC header compression variables
   int ROHC_mode = 0;      // it is 0 if ROHC is not used
@@ -783,7 +781,7 @@ int main(int argc, char *argv[]) {
                           // it is 2 for ROHC Bidirectional Optimistic mode
                           // it is 3 for ROHC Bidirectional Reliable mode (not implemented yet)
 
-  struct rohc_comp *compressor;               // the ROHC compressor
+  struct rohc_comp *compressor;         // the ROHC compressor
   uint8_t ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
   struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);  
   uint8_t rohc_buffer[BUFSIZE];         // the buffer that will contain the resulting ROHC packet
@@ -791,7 +789,7 @@ int main(int argc, char *argv[]) {
   unsigned int seed;
   rohc_status_t status;
 
-  struct rohc_decomp *decompressor;           // the ROHC decompressor
+  struct rohc_decomp *decompressor;     // the ROHC decompressor
   uint8_t ip_buffer_d[BUFSIZE];         // the buffer that will contain the resulting IP decompressed packet
   struct rohc_buf ip_packet_d = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
   uint8_t rohc_buffer_d[BUFSIZE];       // the buffer that will contain the ROHC packet to decompress
