@@ -683,8 +683,8 @@ int main(int argc, char *argv[]) {
   char tun_if_name[IFNAMSIZ] = "";    // name of the tun interface (e.g. "tun0")
   char mux_if_name[IFNAMSIZ] = "";    // name of the network interface (e.g. "eth0")
 
-  char mode ='U';               // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode          
-  char tunnel_mode = 'U';       // TUN (U, default) or TAP (T) tunnel mode
+  char mode;                // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode          
+  char tunnel_mode;         // TUN (U, default) or TAP (T) tunnel mode
 
   char mode_string[10];
   char tunnel_mode_string[4];
@@ -835,10 +835,48 @@ int main(int argc, char *argv[]) {
         case 'M':            /* network (N) or udp (U) or tcpclient (T) or tcpserver (S) mode */
           //strncpy(mode, optarg, 1);
           strcpy(mode_string, optarg);
+
+          // check the 'mode' string and fill 'mode'
+          if (strcmp(mode_string, "network") == 0) {
+            do_debug(3, "the mode string is network\n");
+            mode = 'N';
+          }
+          else if (strcmp(mode_string, "udp") == 0){
+            do_debug(3, "the mode string is udp\n");
+            mode = 'U';
+          }
+          else if (strcmp(mode_string, "tcpserver") == 0){
+            do_debug(3, "the mode string is tcpserver\n");
+            mode = 'S';
+          }
+          else if (strcmp(mode_string, "tcpclient") == 0){
+            do_debug(3, "the mode string is tcpclient\n");
+            mode = 'T';
+          }
+          else {
+            do_debug(3, "the mode string is not valid\n");
+          }
+          do_debug(3, "mode_string: %s\n", mode_string);
+
           break;
         case 'T':            /* TUN (U) or TAP (A) tunnel mode */
           //strncpy(tunnel_mode, optarg, 1);
           strcpy(tunnel_mode_string, optarg);
+
+          // check the 'tunnel_mode' string and fill 'tunnel_mode'
+          if (strcmp(tunnel_mode_string, "tun") == 0) {
+            do_debug(3, "the tunnel mode string is tun\n");
+            tunnel_mode = 'U';
+          }
+          else if (strcmp(tunnel_mode_string, "tap") == 0){
+            do_debug(3, "the tunnel mode string is tap\n");
+            tunnel_mode = 'A';
+          }
+          else {
+            do_debug(3, "the tunnel mode string is not valid\n");
+          }
+          do_debug(3, "tunnel_mode_string: %s\n", tunnel_mode_string);
+
           break;
         case 'f':            /* fast mode */
           fast_mode = true;
@@ -895,42 +933,9 @@ int main(int argc, char *argv[]) {
       usage();
     }
 
-    // check the 'mode' string and fill 'mode'
-    if (strcmp(mode_string, "network") == 0) {
-      do_debug(3, "the mode string is network\n");
-      mode = 'N';
-    }
-    else if (strcmp(mode_string, "udp") == 0){
-      do_debug(3, "the mode string is udp\n");
-      mode = 'U';
-    }
-    else if (strcmp(mode_string, "tcpserver") == 0){
-      do_debug(3, "the mode string is tcpserver\n");
-      mode = 'S';
-    }
-    else if (strcmp(mode_string, "tcpclient") == 0){
-      do_debug(3, "the mode string is tcpclient\n");
-      mode = 'T';
-    }
-    else {
-      do_debug(3, "the mode string is not valid\n");
-    }
-    do_debug(3, "mode_string: %s\n", mode_string);
 
 
-    // check the 'tunnel_mode' string and fill 'tunnel_mode'
-    if (strcmp(tunnel_mode_string, "tun") == 0) {
-      do_debug(3, "the tunnel mode string is tun\n");
-      tunnel_mode = 'U';
-    }
-    else if (strcmp(tunnel_mode_string, "tap") == 0){
-      do_debug(3, "the tunnel mode string is tap\n");
-      tunnel_mode = 'A';
-    }
-    else {
-      do_debug(3, "the tunnel mode string is not valid\n");
-    }
-    do_debug(3, "tunnel_mode_string: %s\n", tunnel_mode_string);
+
 
 
     // check interface options
