@@ -22,7 +22,7 @@ Simplemux has two *flavors*:
 
 - **Normal**: it tries to compress the separators as much as possible. For that aim, some single-bit fields are used.
 - **Fast**: it sacrifices some compression on behalf or speed. In this case, all the separators are 3-byte long, and all have the same structure.
-Simplemux *fast* must be used in TCP *mode*.
+Simplemux *fast* must be used in TCP *mode*. This is the reason: TCP is a "stream", i.e. it is no longer valid the concept "a set of multiplexed packets goes inside a muxed packet". Now, a TCP packet may carry part of a packet, or 2 or 3 packets. Therefore, the structure of all the headers MUST be the same. The "single protocol bit" does not make sense any more.
 
 ROCH feedback messages are always sent in IP/UDP packets.
 
