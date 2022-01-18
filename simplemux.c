@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 2.0                                   *
+ * simplemux.c            version 2.1                                   *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress). It also sends ethernet frames.            *
@@ -119,6 +119,7 @@
 #define Linux_TTL 64            // the initial value of the TTL IP field in Linux
 
 #define DISABLE_NAGLE 1         // disable Nagle algorithm
+#define QUICKACK 1              // enable quick ACKs (non delayed)
 
 
 /* global variables */
@@ -166,42 +167,6 @@ static bool rtp_detect(const uint8_t *const ip __attribute__((unused)),
   }
 
   return is_rtp;
-}
-
-
-/**************************************************************************
- * tun_alloc: allocates or reconnects to a tun/tap device. The caller     *
- *            must reserve enough space in *dev.                          *
- *          flags can be IFF_TUN (1) or IFF_TAP (2)                       *
- **************************************************************************/
-int tun_alloc(char *dev, int flags) {
-
-  struct ifreq ifr;
-  int fd, err;
-  char *clonedev = "/dev/net/tun";
-
-  if( (fd = open(clonedev , O_RDWR)) < 0 ) {
-    perror("Opening /dev/net/tun");
-    return fd;
-  }
-
-  memset(&ifr, 0, sizeof(ifr));
-
-  ifr.ifr_flags = flags;
-
-  if (*dev) {
-    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
-  }
-
-  if( (err = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0 ) {
-    perror("ioctl(TUNSETIFF)");
-    close(fd);
-    return err;
-  }
-
-  strcpy(dev, ifr.ifr_name);
-
-  return fd;
 }
 
 /**************************************************************************
@@ -307,6 +272,53 @@ void usage(void) {
   exit(1);
 }
 
+/**************************************************************************
+ * tun_alloc: allocates or reconnects to a tun/tap device. The caller     *
+ *            must reserve enough space in *dev.                          *
+ *          flags can be IFF_TUN (1) or IFF_TAP (2)                       *
+ **************************************************************************/
+// explained here https://www.fatalerrors.org/a/tun-tap-interface-usage-guidance.html
+int tun_alloc(char *dev,    // the name of an interface (or '\0')
+              int flags)
+{
+  struct ifreq ifr;
+  int fd, err;
+  char *clonedev = "/dev/net/tun";
+
+  // open the clone device
+  // it is used as a starting point for creating any tun/tap virtual interface
+  if( (fd = open(clonedev , O_RDWR)) < 0 ) { // Open with Read-Write
+    do_debug(0, "[tun_alloc] Could not open the Clone device ");
+    perror("Opening /dev/net/tun");
+    return fd;
+  }
+  // if I am here, then the clone device has been opened for read/write
+  do_debug(3, "[tun_alloc] Clone device open correctly\n");
+
+  // preparation of the struct ifr, of type "struct ifreq"
+  memset(&ifr, 0, sizeof(ifr));
+
+  ifr.ifr_flags = flags;
+
+  if (*dev) {
+    // if a device name was specified, put it in the structure; otherwise,
+    //the kernel will try to allocate the "next" device of the
+    //specified type
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+  }
+
+  // try to create the device
+  if( (err = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0 ) {
+    perror("ioctl(TUNSETIFF)");
+    close(fd);
+    return err;
+  }
+
+  strcpy(dev, ifr.ifr_name);
+
+  // return the file descriptor of the created device
+  return fd;
+}
 
 /**************************************************************************
  * GetTimeStamp: Get a timestamp in microseconds from the OS              *
@@ -1283,6 +1295,11 @@ int main(int argc, char *argv[]) {
           // disable NAGLE algorigthm, see https://holmeshe.me/network-essentials-setsockopt-TCP_NODELAY/
           int flags =1;
           setsockopt(tcp_client_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags));          
+        }
+        if ( QUICKACK == 1 ) {
+          // enable quick ACK, i.e. avoid delayed ACKs
+          int flags =1;
+          setsockopt(tcp_client_fd, IPPROTO_TCP, TCP_QUICKACK, (void *)&flags, sizeof(flags));          
         }
       }
     }
