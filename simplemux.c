@@ -1834,12 +1834,16 @@ int main(int argc, char *argv[]) {
             // I only read one packet (at most) each time the program goes through this part
             if (pending_tcp_bytes == 0) {
               // I have to start reading a new TCP payload
+              do_debug(3, " Reading TCP. No pending TCP bytes. Start reading a new TCP payload\n");
 
               // read a separator (3 or 4 bytes)
-              if (mode == TCP_SERVER_MODE)
+              if (mode == TCP_SERVER_MODE) {
                 nread_from_net = read(tcp_server_fd, buffer_from_net, size_separator_fast_mode - read_tcp_bytes_separator);
-              else
+              }
+              else {
                 nread_from_net = read(tcp_client_fd, buffer_from_net, size_separator_fast_mode - read_tcp_bytes_separator);
+              }
+              do_debug(3, "  %d bytes read from the TCP socket\n", nread_from_net);
 
               if(nread_from_net < 0)  {
                 perror("read() error TCP mode");
@@ -1849,6 +1853,7 @@ int main(int argc, char *argv[]) {
                 is_multiplexed_packet = -1;
               }
               else if (nread_from_net < size_separator_fast_mode - read_tcp_bytes_separator) {
+                do_debug(3, "  I have read part of the separator\n");
                 // I have read part of the separator
                 read_tcp_bytes_separator = read_tcp_bytes_separator + nread_from_net;
 
@@ -1856,6 +1861,7 @@ int main(int argc, char *argv[]) {
                 is_multiplexed_packet = -1;
               }
               else if(nread_from_net == size_separator_fast_mode - read_tcp_bytes_separator) {
+                do_debug(3, "  I have read the complete separator\n");
                 // I have read the complete separator, so I reset the counter
                 read_tcp_bytes_separator = 0;
 
@@ -1878,16 +1884,19 @@ int main(int argc, char *argv[]) {
 
                 // read the packet itself (without the separator)
                 // I only read the length of the packet
-                if (mode == TCP_SERVER_MODE)
+                if (mode == TCP_SERVER_MODE) {
                   nread_from_net = read(tcp_server_fd, buffer_from_net, pending_tcp_bytes);
-                else
+                }
+                else {
                   nread_from_net = read(tcp_client_fd, buffer_from_net, pending_tcp_bytes);
+                }
+                do_debug(3, "  %d bytes of the packet itself read from the TCP socket\n", nread_from_net);
 
                 if(nread_from_net < 0)  {
                   perror("read() error TCP server mode");
                 }
                 else if (nread_from_net < pending_tcp_bytes) {
-                  do_debug(2, " Read %d bytes (part of a packet) from the TCP socket\n", nread_from_net);
+                  do_debug(3, " Read %d bytes (part of a packet) from the TCP socket\n", nread_from_net);
                   // I have not read the whole packet
                   // next time I will have to keep on reading
                   pending_tcp_bytes = pending_tcp_bytes - nread_from_net;
@@ -1901,7 +1910,7 @@ int main(int argc, char *argv[]) {
                   // I have read a complete packet
                   //do_debug(2,"Read a packet of %d bytes from the TCP socket\n", nread_from_net);
                   packet_length = read_tcp_bytes + nread_from_net;
-                  do_debug(2, " Read %d bytes (packet complete) from the TCP socket\n", packet_length);
+                  do_debug(3, " Read %d bytes (packet complete) from the TCP socket\n", packet_length);
                   pending_tcp_bytes = 0;
                   read_tcp_bytes = 0;
 
@@ -1913,18 +1922,25 @@ int main(int argc, char *argv[]) {
             else {
               // I have to finish reading the TCP payload
               // I try to read 'pending_tcp_bytes' and to put them at position 'read_tcp_bytes'
-              if (mode == TCP_SERVER_MODE)
+              do_debug(3, " Reading TCP. %d TCP bytes pending of the previous payload\n", pending_tcp_bytes);
+
+              if (mode == TCP_SERVER_MODE) {
                 nread_from_net = read(tcp_server_fd, &buffer_from_net[read_tcp_bytes], pending_tcp_bytes);
-              else
+              }
+              else {
                 nread_from_net = read(tcp_client_fd, &buffer_from_net[read_tcp_bytes], pending_tcp_bytes);
+              }
+              do_debug(3, "  %d bytes read from the TCP socket\n", nread_from_net);
 
               if(nread_from_net < 0)  {
                 perror("read() error TCP mode");
               }
               else if(nread_from_net == 0) {
+                do_debug(3, "  I have read 0 bytes\n");
                 is_multiplexed_packet = -1;
               }
               else if(nread_from_net < pending_tcp_bytes) {
+                do_debug(3, "  I have not yet read the whole packet\n");
                 // I have not read the whole packet
                 // next time I will have to keep on reading
                 pending_tcp_bytes = length_tcp_packet - nread_from_net;
@@ -1936,13 +1952,21 @@ int main(int argc, char *argv[]) {
                 is_multiplexed_packet = -1;
               }
               else if(nread_from_net == pending_tcp_bytes) {
+                do_debug(3, "  I have read all the pending bytes (%d) of this packet\n", nread_from_net);
                 // I have read the pending bytes of this packet
-                //do_debug(2,"Read a packet of %d bytes from the TCP socket\n", nread_from_net + read_tcp_bytes); 
-                pending_tcp_bytes = length_tcp_packet - nread_from_net;
-                read_tcp_bytes = read_tcp_bytes + nread_from_net;
+                pending_tcp_bytes = 0;
+                //read_tcp_bytes = read_tcp_bytes + nread_from_net;
 
+                nread_from_net = read_tcp_bytes + nread_from_net;
+                read_tcp_bytes = 0;
                 is_multiplexed_packet = 1;
               }
+              else /*if(nread_from_net > pending_tcp_bytes) */ {
+                do_debug(1, "  I have read all the pending bytes (%d) of this packet, and some more. Abort\n", pending_tcp_bytes, nread_from_net - pending_tcp_bytes);
+                // I have read the pending bytes of this packet, plus some more bytes
+                // it doesn't make sense, because I have only read 'pending_tcp_bytes'
+                return(-1);
+              }              
             }
             /*
             do_debug(2," Read %d bytes from the TCP socket. Accum %d. Pending %d\n", nread_from_net, read_tcp_bytes, pending_tcp_bytes);
@@ -2264,8 +2288,15 @@ int main(int argc, char *argv[]) {
               // Check if the position has gone beyond the size of the packet (wrong packet)
               if (position > nread_from_net) {
                 // The last length read from the separator goes beyond the end of the packet
-                do_debug (1, "  The length of the packet does not fit. Packet discarded\n");
+                do_debug (1, "  ERROR: The length of the packet does not fit. Packet discarded\n");
   
+                // this means that reception is desynchronized
+                // in TCP mode, this will never recover, so abort
+                if ((mode == TCP_CLIENT_MODE) || (mode == TCP_CLIENT_MODE)) {
+                  do_debug (1, "ERROR: Length problem in TCP mode. Abort\n");
+                  return 0;
+                }
+
                 // write the log file
                 if ( log_file != NULL ) {
                   // the packet is bad so I add a line
