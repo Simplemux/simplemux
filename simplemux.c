@@ -738,8 +738,8 @@ int main(int argc, char *argv[]) {
   uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
   uint8_t buffer_from_net_aux[BUFSIZE];     // stores the packet received from the network, before sending it to tun
   uint8_t demuxed_packet[BUFSIZE];          // stores each demultiplexed packet
-  uint16_t length_tcp_packet;               // length of the next TCP packet
-  uint16_t pending_tcp_bytes = 0;           // number of bytes that still have to be read (TCP, fast mode)
+  uint16_t length_muxed_packet;               // length of the next TCP packet
+  uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast mode)
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast mode)
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast mode)
 
@@ -1832,45 +1832,49 @@ int main(int argc, char *argv[]) {
             //nread_from_net = read(tcp_server_fd, buffer_from_net, sizeof(buffer_from_net));
             
             // I only read one packet (at most) each time the program goes through this part
-            if (pending_tcp_bytes == 0) {
-              // I have to start reading a new TCP payload
-              do_debug(3, " Reading TCP. No pending TCP bytes. Start reading a new TCP payload\n");
 
-              // read a separator (3 or 4 bytes)
+            if (pending_bytes_muxed_packet == 0) {
+              // I have to start reading a new muxed packet: separator and payload
+              do_debug(3, " Reading TCP. No pending bytes of the muxed packet. Start reading a new separator\n");
+
+              // read a separator (3 or 4 bytes), or a part of it
               if (mode == TCP_SERVER_MODE) {
                 nread_from_net = read(tcp_server_fd, buffer_from_net, size_separator_fast_mode - read_tcp_bytes_separator);
               }
               else {
                 nread_from_net = read(tcp_client_fd, buffer_from_net, size_separator_fast_mode - read_tcp_bytes_separator);
               }
-              do_debug(3, "  %d bytes read from the TCP socket\n", nread_from_net);
+              do_debug(3, "  %i bytes of the separator read from the TCP socket", nread_from_net);
 
               if(nread_from_net < 0)  {
                 perror("read() error TCP mode");
               }
+
               else if(nread_from_net == 0) {
                 // I have not read a multiplexed packet yet
                 is_multiplexed_packet = -1;
               }
+
               else if (nread_from_net < size_separator_fast_mode - read_tcp_bytes_separator) {
-                do_debug(3, "  I have read part of the separator\n");
+                do_debug(3, " (part of the separator. Still %i bytes missing)\n", size_separator_fast_mode - read_tcp_bytes_separator - nread_from_net);
                 // I have read part of the separator
                 read_tcp_bytes_separator = read_tcp_bytes_separator + nread_from_net;
 
                 // I have not read a multiplexed packet yet
                 is_multiplexed_packet = -1;
               }
-              else if(nread_from_net == size_separator_fast_mode - read_tcp_bytes_separator) {
-                do_debug(3, "  I have read the complete separator\n");
-                // I have read the complete separator, so I reset the counter
-                read_tcp_bytes_separator = 0;
 
+              else if(nread_from_net == size_separator_fast_mode - read_tcp_bytes_separator) {
+                do_debug(3, " (the complete separator of %i bytes)\n", size_separator_fast_mode);
+                // I have read the complete separator
+
+                // I can now obtain the length of the packet
                 // the first byte is the Most Significant Byte of the length
                 // the second byte is the Less Significant Byte of the length
-                length_tcp_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
-                pending_tcp_bytes = length_tcp_packet;
+                length_muxed_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
+                pending_bytes_muxed_packet = length_muxed_packet;
 
-                do_debug(2, " Read header: Length %i (0x%02x%02x)", length_tcp_packet, buffer_from_net[0], buffer_from_net[1]);
+                do_debug(2, " Read separator: Length %i (0x%02x%02x)", length_muxed_packet, buffer_from_net[0], buffer_from_net[1]);
 
                 // read the Protocol field
                 if ( SIZE_PROTOCOL_FIELD == 1 ) {
@@ -1885,33 +1889,36 @@ int main(int argc, char *argv[]) {
                 // read the packet itself (without the separator)
                 // I only read the length of the packet
                 if (mode == TCP_SERVER_MODE) {
-                  nread_from_net = read(tcp_server_fd, buffer_from_net, pending_tcp_bytes);
+                  nread_from_net = read(tcp_server_fd, buffer_from_net, pending_bytes_muxed_packet);
                 }
                 else {
-                  nread_from_net = read(tcp_client_fd, buffer_from_net, pending_tcp_bytes);
+                  nread_from_net = read(tcp_client_fd, buffer_from_net, pending_bytes_muxed_packet);
                 }
-                do_debug(3, "  %d bytes of the packet itself read from the TCP socket\n", nread_from_net);
+                do_debug(3, "  %i bytes of the muxed packet read from the TCP socket", nread_from_net);
 
                 if(nread_from_net < 0)  {
                   perror("read() error TCP server mode");
                 }
-                else if (nread_from_net < pending_tcp_bytes) {
-                  do_debug(3, " Read %d bytes (part of a packet) from the TCP socket\n", nread_from_net);
+
+                else if (nread_from_net < pending_bytes_muxed_packet) {
+                  do_debug(3, "  (part of a muxed packet). Pending %i bytes\n", pending_bytes_muxed_packet - nread_from_net);
                   // I have not read the whole packet
                   // next time I will have to keep on reading
-                  pending_tcp_bytes = pending_tcp_bytes - nread_from_net;
+                  pending_bytes_muxed_packet = pending_bytes_muxed_packet - nread_from_net;
                   read_tcp_bytes = read_tcp_bytes + nread_from_net;
 
                   //do_debug(2,"Read %d bytes from the TCP socket. Total %d\n", nread_from_net, read_tcp_bytes); 
                   // I have not finished reading a muxed packet
                   is_multiplexed_packet = -1;
                 }
-                else if (nread_from_net == pending_tcp_bytes) {
+                else if (nread_from_net == pending_bytes_muxed_packet) {
                   // I have read a complete packet
-                  //do_debug(2,"Read a packet of %d bytes from the TCP socket\n", nread_from_net);
                   packet_length = read_tcp_bytes + nread_from_net;
-                  do_debug(3, " Read %d bytes (packet complete) from the TCP socket\n", packet_length);
-                  pending_tcp_bytes = 0;
+                  do_debug(3, " (complete muxed packet of %i bytes)\n", packet_length);
+
+                  // reset the variables
+                  read_tcp_bytes_separator = 0;
+                  pending_bytes_muxed_packet = 0;
                   read_tcp_bytes = 0;
 
                   // I have finished reading a muxed packet
@@ -1919,67 +1926,65 @@ int main(int argc, char *argv[]) {
                 }
               }              
             }
-            else {
+            else { // pending_bytes_muxed_packet > 0
               // I have to finish reading the TCP payload
-              // I try to read 'pending_tcp_bytes' and to put them at position 'read_tcp_bytes'
-              do_debug(3, " Reading TCP. %d TCP bytes pending of the previous payload\n", pending_tcp_bytes);
+              // I try to read 'pending_bytes_muxed_packet' and to put them at position 'read_tcp_bytes'
+              do_debug(3, " Reading TCP. %i TCP bytes pending of the previous payload\n", pending_bytes_muxed_packet);
 
               if (mode == TCP_SERVER_MODE) {
-                nread_from_net = read(tcp_server_fd, &buffer_from_net[read_tcp_bytes], pending_tcp_bytes);
+                nread_from_net = read(tcp_server_fd, &buffer_from_net[read_tcp_bytes], pending_bytes_muxed_packet);
               }
               else {
-                nread_from_net = read(tcp_client_fd, &buffer_from_net[read_tcp_bytes], pending_tcp_bytes);
+                nread_from_net = read(tcp_client_fd, &buffer_from_net[read_tcp_bytes], pending_bytes_muxed_packet);
               }
-              do_debug(3, "  %d bytes read from the TCP socket\n", nread_from_net);
+              do_debug(3, "  %i bytes read from the TCP socket ", nread_from_net);
 
               if(nread_from_net < 0)  {
                 perror("read() error TCP mode");
               }
+
               else if(nread_from_net == 0) {
-                do_debug(3, "  I have read 0 bytes\n");
+                do_debug(3, " (I have read 0 bytes)\n");
                 is_multiplexed_packet = -1;
               }
-              else if(nread_from_net < pending_tcp_bytes) {
-                do_debug(3, "  I have not yet read the whole packet\n");
+
+              else if(nread_from_net < pending_bytes_muxed_packet) {
+                do_debug(3, " (I have not yet read the whole muxed packet: pending %i bytes)\n", length_muxed_packet - nread_from_net);
                 // I have not read the whole packet
                 // next time I will have to keep on reading
-                pending_tcp_bytes = length_tcp_packet - nread_from_net;
+                pending_bytes_muxed_packet = length_muxed_packet - nread_from_net;
                 read_tcp_bytes = read_tcp_bytes + nread_from_net;
 
-                //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", nread_from_net, read_tcp_bytes, pending_tcp_bytes);
+                //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", nread_from_net, read_tcp_bytes, pending_bytes_muxed_packet);
 
                 // I have not finishing read the pending bytes of this packet
                 is_multiplexed_packet = -1;
               }
-              else if(nread_from_net == pending_tcp_bytes) {
-                do_debug(3, "  I have read all the pending bytes (%d) of this packet\n", nread_from_net);
+              else if(nread_from_net == pending_bytes_muxed_packet) {
+                do_debug(3, "  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n", nread_from_net, length_muxed_packet);
                 // I have read the pending bytes of this packet
-                pending_tcp_bytes = 0;
+                pending_bytes_muxed_packet = 0;
                 //read_tcp_bytes = read_tcp_bytes + nread_from_net;
 
                 nread_from_net = read_tcp_bytes + nread_from_net;
+
+                // reset the variables
+                read_tcp_bytes_separator = 0;
                 read_tcp_bytes = 0;
                 is_multiplexed_packet = 1;
               }
-              else /*if(nread_from_net > pending_tcp_bytes) */ {
-                do_debug(1, "  I have read all the pending bytes (%d) of this packet, and some more. Abort\n", pending_tcp_bytes, nread_from_net - pending_tcp_bytes);
+              
+              else /*if(nread_from_net > pending_bytes_muxed_packet) */ {
+                do_debug(1, "ERROR: I have read all the pending bytes (%i) of this muxed packet, and some more. Abort\n", pending_bytes_muxed_packet, nread_from_net - pending_bytes_muxed_packet);
                 // I have read the pending bytes of this packet, plus some more bytes
-                // it doesn't make sense, because I have only read 'pending_tcp_bytes'
+                // it doesn't make sense, because I have only read 'pending_bytes_muxed_packet'
                 return(-1);
               }              
             }
-            /*
-            do_debug(2," Read %d bytes from the TCP socket. Accum %d. Pending %d\n", nread_from_net, read_tcp_bytes, pending_tcp_bytes);
-            if (read_tcp_bytes == length_tcp_packet) {
-              do_debug(2," (full packet)\n");
-            }
-            else {
-              do_debug(2,"\n");
-            }
-            */
           } 
           else {
-            perror("Unknown mode");        
+            perror("Unknown mode");
+            return(-1);      
           }
 
 
@@ -2105,7 +2110,7 @@ int main(int argc, char *argv[]) {
                 num_demuxed_packets ++;
 
                 do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
-                do_debug(2, ": ");   
+                do_debug(2, ":");   
               }
 
 
@@ -2120,7 +2125,7 @@ int main(int argc, char *argv[]) {
                   //packet_length = buffer_from_net[position] & maximum_packet_length;
 
                   if (debug) {
-                    do_debug(2, "buffer from net: %d\n", buffer_from_net[position]);
+                    do_debug(2, " buffer from net: %d\n", buffer_from_net[position]);
                     do_debug(2, "max packet length: %d\n", maximum_packet_length);
                     FromByte(buffer_from_net[position], bits);
                     do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
@@ -2142,7 +2147,7 @@ int main(int argc, char *argv[]) {
                     // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
                     // I do the product by 128, because the next byte includes 7 bits of the length
                     packet_length = ((buffer_from_net[position] % maximum_packet_length) * 128 );
-                    do_debug(2, "packet_length initial: %d\n", packet_length);
+                    do_debug(3, "packet_length initial: %d\n", packet_length);
                     /*
                     uint8_t mask;
                     if (maximum_packet_length == 64)
@@ -2153,7 +2158,7 @@ int main(int argc, char *argv[]) {
 
                     // I add the value of the 7 less significant bits of the second byte
                     packet_length = packet_length + (buffer_from_net[position + 1] % 128);
-                    do_debug(2, "packet_length final: %d\n", packet_length);
+                    do_debug(3, "packet_length final: %d\n", packet_length);
                     //packet_length = packet_length + (buffer_from_net[position+1] & 0x7F);
 
                     if (debug) {
