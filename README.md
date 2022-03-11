@@ -24,6 +24,10 @@ Simplemux has two *flavors*:
 - **Fast**: it sacrifices some compression on behalf or speed. In this case, all the separators are 3-byte long, and all have the same structure.
 Simplemux *fast* must be used in TCP *mode*. This is the reason: TCP is a "stream", i.e. it is no longer valid the concept "a set of multiplexed packets goes inside a muxed packet". Now, a TCP packet may carry part of a packet, or 2 or 3 packets. Therefore, the structure of all the headers MUST be the same. The "single protocol bit" does not make sense any more.
 
+Simplemux has two tunneling modes, depending on the use of Linux TUN/TAP virtual interfaces:
+- **TUN tunneling mode**: IP packets are multiplexed between the two endpoints.
+- **TAP tunneling mode**: Ethernet frames are multiplexed between the two endpoints.
+
 ROCH feedback messages are always sent in IP/UDP packets.
 
 A research paper about Simplemux can be found here: http://diec.unizar.es/~jsaldana/personal/chicago_CIT2015_in_proc.pdf
