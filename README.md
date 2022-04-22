@@ -126,6 +126,23 @@ Run this command at the machine with IP address `192.168.129.129`
 ~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M network -T tun -c 192.168.129.134 -d 2
 ```
 
+Now, you can ping the other machine:
+```
+~$ ping 192.168.100.2
+PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
+64 bytes from 192.168.100.2: icmp_seq=1 ttl=64 time=1.20 ms
+64 bytes from 192.168.100.2: icmp_seq=2 ttl=64 time=1.37 ms
+```
+
+In this case, the tunneled traffic goes directly over IP, using Protocol ID 253:
+```
+~$ sudo tcpdump -i ens33 -nn | grep 253
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
+17:51:36.113847 IP 192.168.129.134 > 192.168.129.129:  ip-proto-253 87
+17:51:36.116082 IP 192.168.129.129 > 192.168.129.134:  ip-proto-253 87
+```
+
 ### Run Simplemux in tun tunneling mode (`-T tun` option) and UDP mode (`-M UDP`):
 Run this command at the machine with IP address `192.168.129.134`
 ```
