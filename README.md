@@ -134,7 +134,7 @@ PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
 64 bytes from 192.168.100.2: icmp_seq=2 ttl=64 time=1.37 ms
 ```
 
-In this case, the tunneled traffic goes directly over IP, using Protocol ID 253:
+In this case, the tunneled IP packets travel over IP, using Protocol ID 253:
 ```
 ~$ sudo tcpdump -i ens33 -nn | grep 253
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
@@ -162,7 +162,7 @@ PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
 64 bytes from 192.168.100.2: icmp_seq=2 ttl=64 time=4.91 ms
 ```
 
-In this case, the tunneled traffic goes over UDP, using port 55555:
+In this case, the tunneled IP packets travel over UDP, using port 55555:
 ```
 ~$ sudo tcpdump -i ens33 -nn udp
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
@@ -192,7 +192,7 @@ PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
 64 bytes from 192.168.100.2: icmp_seq=2 ttl=64 time=1.34 ms
 ```
 
-In this case, the tunneled traffic goes over TCP, using port 55555:
+In this case, the tunneled IP packets travel over TCP, using port 55555:
 ```
 ~$ sudo tcpdump -i ens33 -nn tcp port 55557
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
@@ -211,24 +211,95 @@ In this case, it can be observed that ACKs are sent after each packet.
 
 To create a tap, run these commands as root:
 ```
-~/simplemux$ sudo ip tuntap add dev tap0 mode tap user root
-~/simplemux$ sudo ip link set tap0 up
-```
-
-Note: ROHC cannot be used in TAP mode (use `-r 0` option).
-
-Run Simplemux in tap tunneling mode (`-T tap` option) and UDP mode:
-```
-~/simplemux$ sudo ./simplemux -i tap0 -e ens33 -M udp -T tap -c 192.168.129.129 -d 2 -r 0
+~$ sudo ip tuntap add dev tap0 mode tap user root
+~$ sudo ip link set tap0 up
 ```
 
 Create a bridge connecting `tap0` and the ethernet card, so the frames will be sent to the other side of the tunnel:
 ```
-~/simplemux$ sudo ip link add br0 type bridge
-~/simplemux$ sudo ip link set br0 up
-~/simplemux$ sudo ip link set tap0 master br0
-~/simplemux$ sudo ip link set ens33 master br0
+~$ sudo ip link add br0 type bridge
+~$ sudo ip link set br0 up
+~$ sudo ip link set tap0 master br0
+~$ sudo ip link set ens33 master br0
 ```
+
+Note: ROHC cannot be used in TAP mode (use `-r 0` option).
+
+### Run Simplemux in tap tunneling mode (`-T tap` option) and Network mode (`-M network`)
+Run this command at the machine with IP address `192.168.129.134`
+```
+~/simplemux$ sudo ./simplemux -i tap0 -e ens33 -M network -T tap -c 192.168.129.129 -d 2
+```
+
+Run this command at the machine with IP address `192.168.129.129`
+```
+~/simplemux$ sudo ./simplemux -i tap0 -e ens33 -M network -T tap -c 192.168.129.134 -d 2
+```
+
+Now, you can ping the other tun interface:
+```
+~$ ping 192.168.100.2
+
+```
+
+In this case, the tunneled IP packets travel over IP, using Protocol ID 253:
+```
+~$ sudo tcpdump -i ens33 -nn | grep 253
+
+```
+
+### Run Simplemux in tun tunneling mode (`-T tap` option) and UDP mode (`-M udp`)
+Run this command at the machine with IP address `192.168.129.134`
+```
+~/simplemux$ sudo ./simplemux -i tap0 -e ens33 -M udp -T tap -c 192.168.129.129 -d 2
+```
+
+Run this command at the machine with IP address `192.168.129.129`
+```
+~/simplemux$ sudo ./simplemux -i tap0 -e ens33 -M udp -T tap -c 192.168.129.134 -d 2
+```
+
+Now, you can ping the other tun interface:
+```
+~$ ping 192.168.100.2
+
+```
+
+In this case, the tunneled eth frames travel over UDP, using port 55555:
+```
+~$ sudo tcpdump -i ens33 -nn udp
+
+```
+
+### Run Simplemux in tun tunneling mode (`-T tap` option), TCP mode (`-M tcpserver` or `-M tcpclient`) and `fast` flavor (`-f`)
+Note: Fast flavor is mandatory when using TCP.
+
+First, run the server at the machine with IP address `192.168.129.134`
+```
+~/simplemux$ sudo ./simplemux -i tap0 -e ens33 -M tcpserver -T tap -c 192.168.129.129 -d 2 -f
+```
+
+Then, run the client at the machine with IP address `192.168.129.129`
+```
+~/simplemux$ sudo ./simplemux -i tap0 -e ens33 -M tcpclient -T tap -c 192.168.129.134 -d 2 -f
+```
+
+Now, you can ping the other tun interface:
+```
+~$ ping 192.168.100.2
+
+```
+
+In this case, the tunneled eth frames travel over TCP, using port 55555:
+```
+~$ sudo tcpdump -i ens33 -nn tcp port 55557
+
+
+```
+
+In this case, it can be observed that ACKs are sent after each packet.
+
+
 
 ACKNOWLEDGEMENTS
 ----------------
