@@ -80,19 +80,40 @@ And now, you can download and compile simplemux:
 
 ## Example: running Simplemux in tun tunneling mode (`-T tun` option), i.e. send tunneled IP packets
 
-To create a tun device, run these commands as root:
+We have two machines, which belong to the same network: `192.168.129.134` and `192.168.129.129`.
+
+To create a tun device, run these commands as root, in both machines:
 ```
 $ sudo ip tuntap add dev tun0 mode tun user root
 $ sudo ip link set tun0 up
 ```
 
-To test, you can add an IP address to `tun0`:
+For testing purposes, you can add an IP address to `tun0`:
+
+Do this in the machine with IP address `192.168.129.134`:
 ```
 $ sudo ip addr add 192.168.100.1/24 dev tun0
-$ route -nn
 ```
 
-Do the same in the other machine, but using another IP address, e.g. `192.168.100.2`
+Do this in the machine with IP address `192.168.129.129`:
+```
+$ sudo ip addr add 192.168.100.2/24 dev tun0
+```
+
+To check if everything is correct, run the `route` command:
+```
+$ sudo route -nn
+Kernel IP routing table
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         192.168.129.2   0.0.0.0         UG    100    0        0 ens33
+192.168.100.0   0.0.0.0         255.255.255.0   U     0      0        0 tun0
+192.168.129.0   0.0.0.0         255.255.255.0   U     100    0        0 ens33
+```
+
+Currenlty:
+- You should be able to ping from 192.168.129.134 to `192.168.129.129` and vice-versa.
+- You should not be able to ping between the `192.168.100.0` machines.
+
 
 ### Run Simplemux in tun tunneling mode (`-T tun` option) and Network mode (`-M network`):
 Run this command at the machine with IP address `192.168.129.134`
