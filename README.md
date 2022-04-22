@@ -209,19 +209,32 @@ In this case, it can be observed that ACKs are sent after each packet.
 
 ## Example: running Simplemux in tap tunneling mode, i.e. send tunneled frames (including eth header)
 
-To create a tap, run these commands as root:
+To create a tap, run these commands as root in both machines:
 ```
 ~$ sudo ip tuntap add dev tap0 mode tap user root
 ~$ sudo ip link set tap0 up
 ```
 
-Create a bridge connecting `tap0` and the ethernet card, so the frames will be sent to the other side of the tunnel:
+Create a bridge connecting `tap0` and the ethernet card `ens33`, so the frames will be sent to the other side of the tunnel:
 ```
 ~$ sudo ip link add br0 type bridge
 ~$ sudo ip link set br0 up
 ~$ sudo ip link set tap0 master br0
 ~$ sudo ip link set ens33 master br0
 ```
+
+For testing purposes, you can add an IP address to `tap0`:
+
+Do this in the machine with IP address `192.168.129.134`:
+```
+$ sudo ip addr add 192.168.200.1/24 dev br0
+```
+
+Do this in the machine with IP address `192.168.129.129`:
+```
+$ sudo ip addr add 192.168.200.2/24 dev br0
+```
+
 
 Note: ROHC cannot be used in TAP mode (use `-r 0` option).
 
