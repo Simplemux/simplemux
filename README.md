@@ -10,6 +10,12 @@ The size of the multiplexing headers is kept very low (it may be a single byte w
 
 This page includes an implementation of Simplemux written in C for Linux. It uses simplemux as the multiplexing protocol, and IP and ROHC as multiplexed protocols.
 
+
+Simplemux has two tunneling modes, depending on the use of Linux TUN/TAP virtual interfaces:
+- **TUN tunneling mode**: IP packets are multiplexed between the two endpoints.
+- **TAP tunneling mode**: Ethernet frames are multiplexed between the two endpoints.
+
+
 Simplemux can run in four modes:
 - **Network mode**: the multiplexed packet is sent in an IP datagram using Protocol Number 253 or 254 (according to IANA, these numbers can be used for experimentation and testing ).
 - **UDP mode**: the multiplexed packet is sent in an UDP/IP datagram. In this case, the protocol number in the outer IP header is that of UDP (17) and both ends must agree on a UDP port (the implementation uses 55555 or 55557 by default).
@@ -21,11 +27,8 @@ Simplemux has two *flavors*:
 
 - **Normal**: it tries to compress the separators as much as possible. For that aim, some single-bit fields are used.
 - **Fast**: it sacrifices some compression on behalf or speed. In this case, all the separators are 3-byte long, and all have the same structure.
-Simplemux *fast* must be used in TCP *mode*. This is the reason: TCP is a "stream", i.e. it is no longer valid the concept "a set of multiplexed packets goes inside a muxed packet". Now, a TCP packet may carry part of a packet, or 2 or 3 packets. Therefore, the structure of all the headers MUST be the same. The "single protocol bit" does not make sense any more.
+Simplemux *fast* must be used in TCP *mode*. This is the reason: TCP is a "stream", i.e. it is no longer valid the concept "a set of multiplexed packets goes inside a muxed packet". Now, a TCP packet may carry part of a packet, or 2 or 3 packets. Therefore, the structure of all the headers MUST be the same. The "single protocol bit" does not make sense in this case.
 
-Simplemux has two tunneling modes, depending on the use of Linux TUN/TAP virtual interfaces:
-- **TUN tunneling mode**: IP packets are multiplexed between the two endpoints.
-- **TAP tunneling mode**: Ethernet frames are multiplexed between the two endpoints.
 
 ROCH feedback messages are always sent in IP/UDP packets.
 
@@ -75,7 +78,7 @@ And now, you can download and compile simplemux:
 ~/simplemux$ ./simplemux -i tap3 -e eth1 -M tcpclient -T tap -c 192.168.3.171 -d 2 -n 1 -f
 ```
 
-## Example: running Simplemux in tun mode (`-T tun` option), i.e. send tunneled IP packets
+## Example: running Simplemux in tun tunneling mode (`-T tun` option), i.e. send tunneled IP packets
 
 To create a tun device, run these commands as root:
 ```
@@ -91,15 +94,40 @@ $ route -nn
 
 Do the same in the other machine, but using another IP address, e.g. `192.168.100.2`
 
-Run Simplemux in tun mode and Network mode (`-T tun` option):
+### Run Simplemux in tun tunneling mode (`-T tun` option) and Network mode (`-M network`):
+Run this command at the machine with IP address `192.168.129.134`
 ```
 ~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M network -T tun -c 192.168.129.129 -d 2
 ```
-(192.168.129.129 is the ip address of the other machine)
 
-If you use Transport mode (`-M udp`):
-Ping will work, i.e. it sends traffic to the other machine
+Run this command at the machine with IP address `192.168.129.129`
+```
+~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M network -T tun -c 192.168.129.134 -d 2
+```
 
+### Run Simplemux in tun tunneling mode (`-T tun` option) and UDP mode (`-M UDP`):
+Run this command at the machine with IP address `192.168.129.134`
+```
+~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M UDP -T tun -c 192.168.129.129 -d 2
+```
+
+Run this command at the machine with IP address `192.168.129.129`
+```
+~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M UDP -T tun -c 192.168.129.134 -d 2
+```
+
+### Run Simplemux in tun tunneling mode (`-T tun` option), TCP mode (`-M tcpserver` or `-M tcpclient`) and `fast` flavor (`-f`):
+First, run the server at the machine with IP address `192.168.129.134`
+```
+~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M tcpserver -T tun -c 192.168.129.129 -d 2
+```
+
+Then, run the client at the machine with IP address `192.168.129.129`
+```
+~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M tcpclient -T tun -c 192.168.129.134 -d 2
+```
+
+In these cases, ping should work, i.e. it should send traffic to the other machine
 ```
 ~/simplemux$ ping 192.168.100.2
 PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
@@ -110,7 +138,7 @@ PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
 64 bytes from 192.168.100.2: icmp_seq=5 ttl=64 time=1.09 ms
 ```
 
-If you use Network mode ('-M N'):
+If you use Network mode (`-M network`) you should see this:
 ~/simplemux$ tcpdump -i ens33 -nn
 tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
 listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
@@ -120,7 +148,7 @@ listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
 07:48:31.761670 IP 192.168.129.129 > 192.168.129.133:  ip-proto-253 87
 
 
-## Example: running Simplemux in tap mode, i.e. send tunneled frames (including eth header)
+## Example: running Simplemux in tap tunneling mode, i.e. send tunneled frames (including eth header)
 
 To create a tap, run these commands as root:
 ```
@@ -130,7 +158,7 @@ To create a tap, run these commands as root:
 
 Note: ROHC cannot be used in TAP mode (use `-r 0` option).
 
-Run Simplemux in tap mode (`-T tap` option):
+Run Simplemux in tap tunneling mode (`-T tap` option) and UDP mode:
 ```
 ~/simplemux$ sudo ./simplemux -i tap0 -e ens33 -M udp -T tap -c 192.168.129.129 -d 2 -r 0
 ```
