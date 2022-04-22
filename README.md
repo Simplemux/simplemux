@@ -115,7 +115,7 @@ Currenlty:
 - You should not be able to ping between the `192.168.100.0` interfaces.
 
 
-### Run Simplemux in tun tunneling mode (`-T tun` option) and Network mode (`-M network`):
+### Run Simplemux in tun tunneling mode (`-T tun` option) and Network mode (`-M network`)
 Run this command at the machine with IP address `192.168.129.134`
 ```
 ~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M network -T tun -c 192.168.129.129 -d 2
@@ -143,7 +143,7 @@ listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
 17:51:36.116082 IP 192.168.129.129 > 192.168.129.134:  ip-proto-253 87
 ```
 
-### Run Simplemux in tun tunneling mode (`-T tun` option) and UDP mode (`-M udp`):
+### Run Simplemux in tun tunneling mode (`-T tun` option) and UDP mode (`-M udp`)
 Run this command at the machine with IP address `192.168.129.134`
 ```
 ~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M udp -T tun -c 192.168.129.129 -d 2
@@ -171,18 +171,39 @@ listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
 17:57:48.526930 IP 192.168.129.129.55555 > 192.168.129.134.55555: UDP, length 87
 ```
 
-### Run Simplemux in tun tunneling mode (`-T tun` option), TCP mode (`-M tcpserver` or `-M tcpclient`) and `fast` flavor (`-f`):
+### Run Simplemux in tun tunneling mode (`-T tun` option), TCP mode (`-M tcpserver` or `-M tcpclient`) and `fast` flavor (`-f`)
+Note: Fast flavor is mandatory when using TCP.
+
 First, run the server at the machine with IP address `192.168.129.134`
 ```
-~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M tcpserver -T tun -c 192.168.129.129 -d 2
+~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M tcpserver -T tun -c 192.168.129.129 -d 2 -f
 ```
 
 Then, run the client at the machine with IP address `192.168.129.129`
 ```
-~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M tcpclient -T tun -c 192.168.129.134 -d 2
+~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M tcpclient -T tun -c 192.168.129.134 -d 2 -f
 ```
 
+Now, you can ping the other tun interface:
+```
+~$ ping 192.168.100.2
+PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
+64 bytes from 192.168.100.2: icmp_seq=1 ttl=64 time=1.70 ms
+64 bytes from 192.168.100.2: icmp_seq=2 ttl=64 time=1.34 ms
+```
 
+In this case, the tunneled traffic goes over TCP, using port 55555:
+```
+~$ sudo tcpdump -i ens33 -nn tcp port 55557
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
+18:03:29.161129 IP 192.168.129.134.55557 > 192.168.129.129.58636: Flags [P.], seq 1826175521:1826175608, ack 566825010, win 510, options [nop,nop,TS val 3173953300 ecr 3649196], length 87
+18:03:29.161559 IP 192.168.129.129.58636 > 192.168.129.134.55557: Flags [.], ack 87, win 502, options [nop,nop,TS val 3676620 ecr 3173953300], length 0
+18:03:29.161877 IP 192.168.129.129.58636 > 192.168.129.134.55557: Flags [P.], seq 1:88, ack 87, win 502, options [nop,nop,TS val 3676620 ecr 3173953300], length 87
+18:03:29.161909 IP 192.168.129.134.55557 > 192.168.129.129.58636: Flags [.], ack 88, win 510, options [nop,nop,TS val 3173953300 ecr 3676620], length 0
+```
+
+In this case, it can be observed that ACKs are sent after each packet.
 
 
 
