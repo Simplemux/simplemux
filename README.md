@@ -1,5 +1,4 @@
-simplemux
-=========
+# simplemux
 
 There are some situations in which multiplexing a number of small packets into a bigger one is desirable. For example, a number of small packets can be sent together between a pair of machines if they share a common network path. Thus, the traffic profile can be shifted from small to larger packets, reducing the network overhead and the number of packets per second to be managed by intermediate routers.
 
@@ -35,8 +34,8 @@ A research paper about Simplemux can be found here: http://diec.unizar.es/~jsald
 A presentation about Simplemux can be found here: http://es.slideshare.net/josemariasaldana/simplemux-traffic-optimization
 
 
-How to install ROHC and compile Simplemux
------------------------------------------
+## How to install ROHC and compile Simplemux
+
 In Debian, you will need these packages:
 ```
 sudo apt-get install git
@@ -50,7 +49,7 @@ wget https://rohc-lib.org/download/rohc-1.7.x/1.7.0/rohc-1.7.0.tar.xz --no-check
 tar -xvf rohc-1.7.0.tar.xz
 ```
 
-Go go the ROHC folder and make:
+Go go the ROHC folder and do this:
 ```
 cd rohc-1.7.0/
 ./configure --prefix=/usr
@@ -62,19 +61,88 @@ cd ..
 
 And now, you can download and compile simplemux:
 ```
-git clone https://github.com/Simplemux/simplemux.git
-cd simplemux
-gcc -o simplemux -g -Wall $(pkg-config rohc --cflags) simplemux.c $(pkg-config rohc --libs )
+~/$ git clone https://github.com/Simplemux/simplemux.git
+~/$ cd simplemux
+~/simplemux$ gcc -o simplemux -g -Wall $(pkg-config rohc --cflags) simplemux.c $(pkg-config rohc --libs )
 ```
 
-Usage examples:
+## Usage examples
 ```
-./simplemux -i tun0 -e wlan0 -M network -T tun -c 10.1.10.4
-./simplemux -i tun1 -e wlan0 -M network -T tun -c 10.1.10.6
-./simplemux/simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.172 -d 2
-./simplemux/simplemux -i tap3 -e eth1 -M tcpserver -T tap -c 192.168.3.172 -d 3 -n 1 -f
-./simplemux/simplemux -i tap3 -e eth1 -M tcpclient -T tap -c 192.168.3.171 -d 2 -n 1 -f
+~/simplemux$ ./simplemux -i tun0 -e wlan0 -M network -T tun -c 10.1.10.4
+~/simplemux$ ./simplemux -i tun1 -e wlan0 -M network -T tun -c 10.1.10.6
+~/simplemux$ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.172 -d 2
+~/simplemux$ ./simplemux -i tap3 -e eth1 -M tcpserver -T tap -c 192.168.3.172 -d 3 -n 1 -f
+~/simplemux$ ./simplemux -i tap3 -e eth1 -M tcpclient -T tap -c 192.168.3.171 -d 2 -n 1 -f
 ```
+
+## Example: running Simplemux in tun mode (`-T tun` option), i.e. send tunneled IP packets
+
+To create a tun device, run these commands as root:
+```
+$ sudo ip tuntap add dev tun0 mode tun user root
+$ sudo ip link set tun0 up
+```
+
+To test, you can add an IP address to `tun0`:
+```
+$ sudo ip addr add 192.168.100.1/24 dev tun0
+$ route -nn
+```
+
+Do the same in the other machine, but using another IP address, e.g. `192.168.100.2`
+
+Run Simplemux in tun mode and Network mode (`-T tun` option):
+```
+~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M network -T tun -c 192.168.129.129 -d 2
+```
+(192.168.129.129 is the ip address of the other machine)
+
+If you use Transport mode (`-M udp`):
+Ping will work, i.e. it sends traffic to the other machine
+
+```
+~/simplemux$ ping 192.168.100.2
+PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
+64 bytes from 192.168.100.2: icmp_seq=1 ttl=64 time=2.83 ms
+64 bytes from 192.168.100.2: icmp_seq=2 ttl=64 time=2.24 ms
+64 bytes from 192.168.100.2: icmp_seq=3 ttl=64 time=2.64 ms
+64 bytes from 192.168.100.2: icmp_seq=4 ttl=64 time=3.93 ms
+64 bytes from 192.168.100.2: icmp_seq=5 ttl=64 time=1.09 ms
+```
+
+If you use Network mode ('-M N'):
+~/simplemux$ tcpdump -i ens33 -nn
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
+07:48:30.755359 IP 192.168.129.133 > 192.168.129.129:  ip-proto-253 87
+07:48:30.756616 IP 192.168.129.129 > 192.168.129.133:  ip-proto-253 87
+07:48:31.760115 IP 192.168.129.133 > 192.168.129.129:  ip-proto-253 87
+07:48:31.761670 IP 192.168.129.129 > 192.168.129.133:  ip-proto-253 87
+
+
+## Example: running Simplemux in tap mode, i.e. send tunneled frames (including eth header)
+
+To create a tap, run these commands as root:
+```
+~/simplemux$ sudo ip tuntap add dev tap0 mode tap user root
+~/simplemux$ sudo ip link set tap0 up
+```
+
+Note: ROHC cannot be used in TAP mode (use `-r 0` option).
+
+Run Simplemux in tap mode (`-T tap` option):
+```
+~/simplemux$ sudo ./simplemux -i tap0 -e ens33 -M udp -T tap -c 192.168.129.129 -d 2 -r 0
+```
+
+Create a bridge connecting `tap0` and the ethernet card, so the frames will be sent to the other side of the tunnel:
+```
+~/simplemux$ sudo ip link add br0 type bridge
+~/simplemux$ sudo ip link set br0 up
+~/simplemux$ sudo ip link set tap0 master br0
+~/simplemux$ sudo ip link set ens33 master br0
+```
+
 ACKNOWLEDGEMENTS
 ----------------
 This work has been partially financed by the **EU H2020 Wi-5 project** (G.A. no: 644262, see http://www.wi5.eu/ and https://github.com/Wi5), and the Spanish Ministry of Economy and Competitiveness project TIN2015-64770-R, in cooperation with the European Regional Development Fund.
