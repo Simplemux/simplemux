@@ -112,7 +112,7 @@ Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
 
 Currenlty:
 - You should be able to ping from 192.168.129.134 to `192.168.129.129` and vice-versa.
-- You should not be able to ping between the `192.168.100.0` machines.
+- You should not be able to ping between the `192.168.100.0` interfaces.
 
 
 ### Run Simplemux in tun tunneling mode (`-T tun` option) and Network mode (`-M network`):
@@ -126,7 +126,7 @@ Run this command at the machine with IP address `192.168.129.129`
 ~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M network -T tun -c 192.168.129.134 -d 2
 ```
 
-Now, you can ping the other machine:
+Now, you can ping the other tun interface:
 ```
 ~$ ping 192.168.100.2
 PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
@@ -143,15 +143,32 @@ listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
 17:51:36.116082 IP 192.168.129.129 > 192.168.129.134:  ip-proto-253 87
 ```
 
-### Run Simplemux in tun tunneling mode (`-T tun` option) and UDP mode (`-M UDP`):
+### Run Simplemux in tun tunneling mode (`-T tun` option) and UDP mode (`-M udp`):
 Run this command at the machine with IP address `192.168.129.134`
 ```
-~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M UDP -T tun -c 192.168.129.129 -d 2
+~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M udp -T tun -c 192.168.129.129 -d 2
 ```
 
 Run this command at the machine with IP address `192.168.129.129`
 ```
-~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M UDP -T tun -c 192.168.129.134 -d 2
+~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M udp -T tun -c 192.168.129.134 -d 2
+```
+
+Now, you can ping the other tun interface:
+```
+~$ ping 192.168.100.2
+PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
+64 bytes from 192.168.100.2: icmp_seq=1 ttl=64 time=1.83 ms
+64 bytes from 192.168.100.2: icmp_seq=2 ttl=64 time=4.91 ms
+```
+
+In this case, the tunneled traffic goes over UDP, using port 55555:
+```
+~$ sudo tcpdump -i ens33 -nn udp
+tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
+17:57:48.525528 IP 192.168.129.134.55555 > 192.168.129.129.55555: UDP, length 87
+17:57:48.526930 IP 192.168.129.129.55555 > 192.168.129.134.55555: UDP, length 87
 ```
 
 ### Run Simplemux in tun tunneling mode (`-T tun` option), TCP mode (`-M tcpserver` or `-M tcpclient`) and `fast` flavor (`-f`):
@@ -165,25 +182,8 @@ Then, run the client at the machine with IP address `192.168.129.129`
 ~/simplemux$ sudo ./simplemux -i tun0 -e ens33 -M tcpclient -T tun -c 192.168.129.134 -d 2
 ```
 
-In these cases, ping should work, i.e. it should send traffic to the other machine
-```
-~/simplemux$ ping 192.168.100.2
-PING 192.168.100.2 (192.168.100.2) 56(84) bytes of data.
-64 bytes from 192.168.100.2: icmp_seq=1 ttl=64 time=2.83 ms
-64 bytes from 192.168.100.2: icmp_seq=2 ttl=64 time=2.24 ms
-64 bytes from 192.168.100.2: icmp_seq=3 ttl=64 time=2.64 ms
-64 bytes from 192.168.100.2: icmp_seq=4 ttl=64 time=3.93 ms
-64 bytes from 192.168.100.2: icmp_seq=5 ttl=64 time=1.09 ms
-```
 
-If you use Network mode (`-M network`) you should see this:
-~/simplemux$ tcpdump -i ens33 -nn
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on ens33, link-type EN10MB (Ethernet), capture size 262144 bytes
-07:48:30.755359 IP 192.168.129.133 > 192.168.129.129:  ip-proto-253 87
-07:48:30.756616 IP 192.168.129.129 > 192.168.129.133:  ip-proto-253 87
-07:48:31.760115 IP 192.168.129.133 > 192.168.129.129:  ip-proto-253 87
-07:48:31.761670 IP 192.168.129.129 > 192.168.129.133:  ip-proto-253 87
+
 
 
 ## Example: running Simplemux in tap tunneling mode, i.e. send tunneled frames (including eth header)
