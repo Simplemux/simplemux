@@ -79,9 +79,9 @@
 #include <netdb.h>              // required for using getifaddrs()
 #include <poll.h>
 #include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
+#include "packetsToSend.h"
 
-
-#define BUFSIZE 2304            // buffer for reading from tun/tap interface, must be >= MTU of the network
+//#define BUFSIZE 2304            // buffer for reading from tun/tap interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
 #define UDP_HEADER_SIZE 8
 //#define TCP_HEADER_SIZE 20
@@ -118,9 +118,10 @@
 
 #define Linux_TTL 64            // the initial value of the TTL IP field in Linux
 
-#define DISABLE_NAGLE 1         // disable Nagle algorithm
-#define QUICKACK 1              // enable quick ACKs (non delayed)
+#define DISABLE_NAGLE 1         // disable TCP Nagle algorithm
+#define QUICKACK 1              // enable TCP quick ACKs (non delayed)
 
+//#define linkedList
 
 /* global variables */
 int debug;            // 0:no debug; 1:minimum debug; 2:maximum debug 
@@ -728,7 +729,12 @@ int main(int argc, char *argv[]) {
   uint16_t size_separators_to_multiplex[MAXPKTS];   // stores the size of the Simplemux separator. It does not include the "Protocol" field
   uint8_t separators_to_multiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
   uint16_t size_packets_to_multiplex[MAXPKTS];      // stores the size of the received packet
+
+#ifdef linkedList
+  struct packet *packetsToSend = NULL;
+#else
   uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network
+#endif
   uint8_t muxed_packet[BUFSIZE];                    // stores the multiplexed packet
   int is_multiplexed_packet;                        // To determine if a received packet has been multiplexed
   uint8_t full_ip_packet[BUFSIZE];                  // Full IP packet
@@ -2680,12 +2686,39 @@ int main(int argc, char *argv[]) {
         /* FD_ISSET tests if a file descriptor is part of the set */
         //else if(FD_ISSET(tun_fd, &rd_set)) {
         else if(fds_poll[0].revents & POLLIN) {
-          /* read the packet from tun, store it in the array, and store its size */
+          
+#ifdef linkedList
+          // read the packet from tun_fd
+          uint8_t packetReceived[BUFSIZE]
+          uint16_t size = cread (tun_fd, packetReceived, BUFSIZE);
+          uint16_t identifier = ntohs(packetReceived[4]); // FIXME: the ID should be in bytes 4 and 5
+          insertLast(&head,identifier,size,packetReceived);
+#else
+          /* read the packet from tun_fd, store it in the array, and store its size */
           size_packets_to_multiplex[num_pkts_stored_from_tun] = cread (tun_fd, packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
-      
+#endif     
           /* increase the counter of the number of packets read from tun*/
           tun2net++;
+
+#ifdef linkedList
+          if (tunnel_mode == TUN_MODE)
+            do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size);
+          else if (tunnel_mode == TAP_MODE)
+            do_debug(1, "NATIVE PACKET #%lu: Read packet from tap: %i bytes\n", tun2net, size);
+            
+          // print the native packet/frame received
+          if (debug) {
+            do_debug(2, "   ");
+            // dump the newly-created IP packet on terminal
+            dump_packet ( size, packetReceived );
+          }
   
+          // write in the log file
+          if ( log_file != NULL ) {
+            fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%lu\n", GetTimeStamp(), size, tun2net);
+            fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+          }
+#else  
           if (tunnel_mode == TUN_MODE)
             do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
           else if (tunnel_mode == TAP_MODE)
@@ -2703,20 +2736,31 @@ int main(int argc, char *argv[]) {
             fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%lu\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun], tun2net);
             fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
           }
-  
+#endif  
   
           // check if this packet (plus the tunnel and simplemux headers ) is bigger than the MTU. Drop it in that case
           drop_packet = 0;
           if (mode == UDP_MODE) {
-            
+
+#ifdef linkedList
+            if ( size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3 > selected_mtu ) {
+#else            
             if ( size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3 > selected_mtu ) {
+#endif
               drop_packet = 1;
-  
+
+#ifdef linkedList
+              do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, selected_mtu);
+#else  
               do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, selected_mtu);
-  
+#endif
               // write the log file
               if ( log_file != NULL ) {
+#ifdef linkedList
+                fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%lu\tto\t%s\t%d\t%i\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+#else         
                 fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%lu\tto\t%s\t%d\t%i\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+#endif
                 fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
               }
             }
@@ -3399,19 +3443,39 @@ int main(int argc, char *argv[]) {
             // I have finished storing the packet, so I increase the number of stored packets
             num_pkts_stored_from_tun ++;
 
+#ifdef linkedList
+            // the value of 'num_pkts_stored_from_tun'
+            if (!blastMode) {
+              assert(num_pkts_stored_from_tun == length(packetsToSend));
+            }
+            else {
+              // if blastMode is active, the number of packets stored from tun
+              //may not be the same as the length of packetsToSend, because
+              //packets are stored until an ACK is received
+            }
+#endif
+
             if (!fast_mode) {
               // I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
               if (first_header_written == 0) first_header_written = 1;              
             }  
 
-  
+
+#ifdef linkedList
+            if (!fast_mode) {
+              do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Protocol not included).", length(packetsToSend), size_muxed_packet);
+            }
+            else { // fast mode
+              do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Separator(s) included).", length(packetsToSend), size_muxed_packet + (num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD));
+            }
+#else  
             if (!fast_mode) {
               do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Protocol not included).", num_pkts_stored_from_tun , size_muxed_packet);
             }
             else { // fast mode
               do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Separator(s) included).", num_pkts_stored_from_tun , size_muxed_packet + (num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD));
             }
-            
+#endif            
             time_in_microsec = GetTimeStamp();
             time_difference = time_in_microsec - time_last_sent_in_microsec;    
             do_debug(1, " Time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
@@ -3694,7 +3758,7 @@ int main(int argc, char *argv[]) {
         }
   
 
-        }  
+      }  
       /*************************************************************************************/  
       /******************** Period expired: multiplex **************************************/
       /*************************************************************************************/  
