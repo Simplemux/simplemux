@@ -59,18 +59,21 @@ struct packet* findLast(struct packet** head_ref) {
 
 //insert link at the last location
 void insertLast(struct packet** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload) {
-   //create a link
+
+   // create a link
    struct packet *link = (struct packet*) malloc(sizeof(struct packet));
-  
+
+   // fill the content of the link  
    link->identifier = identifier;
    link->packetSize = size;
    memcpy(link->packetPayload,payload,link->packetSize);
-  
-   //point it to old first node
-   link->next = *head_ref;
-  
-   //point first to new first node
-   *head_ref = link;
+   link->next = NULL;
+
+   // find the last packet of the list
+   struct packet *last = findLast(head_ref);
+
+   // insert the new link
+   last->next = link;
 }
 
 //delete first item
@@ -132,7 +135,7 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
 }
 
 
-//delete a link with given identifier
+//delete a link with a given identifier
 bool delete(struct packet** head_ref, uint16_t identifier) {
 
    //start from the first link
@@ -178,7 +181,6 @@ bool delete(struct packet** head_ref, uint16_t identifier) {
 }
 
 
-
 void reverse(struct packet** head_ref) {
    struct packet* prev   = NULL;
    struct packet* current = *head_ref;
@@ -211,9 +213,14 @@ void main() {
    insertFirst(&head,3,packetSize1,packet1);
    insertFirst(&head,4,packetSize2,packet2);
    insertFirst(&head,5,packetSize1,packet1);
-   insertFirst(&head,6,packetSize2,packet2); 
-
+   insertFirst(&head,6,packetSize2,packet2);
    printf("Original List: "); 
+   //print list
+   printList(&head);
+
+   insertLast(&head,7,packetSize2,packet2); 
+
+   printf("List with 7 elements: "); 
   
    //print list
    printList(&head);
