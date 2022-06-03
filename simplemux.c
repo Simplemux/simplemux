@@ -52,76 +52,7 @@
  * explicit. See the file LICENSE for further details.                    *
  *************************************************************************/ 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <net/if.h>
-#include <linux/if_tun.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <arpa/inet.h> 
-#include <sys/select.h>
-#include <time.h>
-#include <sys/time.h>
-#include <errno.h>
-#include <stdarg.h>
-#include <inttypes.h>           // for printing uint_64 numbers
-#include <stdbool.h>            // for using the bool type
-#include <rohc/rohc.h>          // for using header compression
-#include <rohc/rohc_comp.h>
-#include <rohc/rohc_decomp.h>
-#include <netinet/ip.h>         // for using iphdr type
-#include <ifaddrs.h>            // required for using getifaddrs()
-#include <netdb.h>              // required for using getifaddrs()
-#include <poll.h>
-#include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
-#include "packetsToSend.h"
-
-//#define BUFSIZE 2304            // buffer for reading from tun/tap interface, must be >= MTU of the network
-#define IPv4_HEADER_SIZE 20
-#define UDP_HEADER_SIZE 8
-//#define TCP_HEADER_SIZE 20
-#define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long
-
-#define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
-                                // 2: protocol field of two bytes
-#define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
-
-#define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program
-
-#define PORT 55555              // default port
-#define PORT_FEEDBACK 55556     // port for sending ROHC feedback
-#define PORT_FAST 55557         // port for sending Simplemux fast
-
-#define MAXPKTS 100             // maximum number of packets to store
-#define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
-
-// Protocol IDs, according to IANA
-// see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
-#define IPPROTO_IP_ON_IP 4        // IP on IP Protocol ID
-#define IPPROTO_SIMPLEMUX 253     // Simplemux Protocol ID (experimental number according to IANA)
-#define IPPROTO_SIMPLEMUX_FAST 254// Simplemux Protocol ID (experimental number according to IANA)
-#define IPPROTO_ROHC 142          // ROHC Protocol ID
-#define IPPROTO_ETHERNET 143      // Ethernet Protocol ID
-
-#define NETWORK_MODE    'N'     // N: network mode
-#define UDP_MODE        'U'     // U: UDP mode
-#define TCP_CLIENT_MODE 'T'     // T: TCP client mode
-#define TCP_SERVER_MODE 'S'     // S: TCP server mode
-
-#define TUN_MODE 'U'            // T: tun mode, i.e. IP packets will be tunneled inside Simplemux
-#define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
-
-#define Linux_TTL 64            // the initial value of the TTL IP field in Linux
-
-#define DISABLE_NAGLE 1         // disable TCP Nagle algorithm
-#define QUICKACK 1              // enable TCP quick ACKs (non delayed)
-
-//#define linkedList
+#include "simplemux.h"
 
 /* global variables */
 int debug;            // 0:no debug; 1:minimum debug; 2:maximum debug 
@@ -703,6 +634,7 @@ int main(int argc, char *argv[]) {
   char tunnel_mode_string[4];
 
   bool fast_mode = false;             // fast mode is disabled by default
+  bool blastMode = false;             // blast mode is disabled by default
 
   const int on = 1;                   // needed when creating a socket
 
@@ -750,8 +682,8 @@ int main(int argc, char *argv[]) {
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast mode)
 
   // variables for controlling the arrival and departure of packets
-  unsigned long int tun2net = 0, net2tun = 0;     // number of packets read from tun and from net
-  unsigned long int feedback_pkts = 0;            // number of ROHC feedback packets
+  uint32_t tun2net = 0, net2tun = 0;     // number of packets read from tun and from net
+  uint32_t feedback_pkts = 0;            // number of ROHC feedback packets
   int limit_numpackets_tun = 0;                   // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
 
   int size_threshold = 0;                         // if the number of bytes stored is higher than this, a muxed packet is sent
@@ -2006,41 +1938,41 @@ int main(int argc, char *argv[]) {
             net2tun++;
             switch (mode) {
               case UDP_MODE:
-                do_debug(1, "MUXED PACKET #%lu: Read UDP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
+                do_debug(1, "MUXED PACKET #%"PRIu32": Read UDP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
   
                 // write the log file
                 if ( log_file != NULL ) {
-                  fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+                  fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
                   fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
                 }
               break;
   
               case TCP_CLIENT_MODE:
-                do_debug(1, "MUXED PACKET #%lu: Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
+                do_debug(1, "MUXED PACKET #%"PRIu32": Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
   
                 // write the log file
                 if ( log_file != NULL ) {
-                  fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+                  fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
                   fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
                 }
               break;
   
               case TCP_SERVER_MODE:
-                do_debug(1, "MUXED PACKET #%lu: Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
+                do_debug(1, "MUXED PACKET #%"PRIu32": Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
   
                 // write the log file
                 if ( log_file != NULL ) {
-                  fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+                  fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
                   fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
                 }
               break;
   
               case NETWORK_MODE:
-                do_debug(1, "MUXED PACKET #%lu: Read IP muxed packet from %s: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
+                do_debug(1, "MUXED PACKET #%"PRIu32": Read IP muxed packet from %s: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
   
                 // write the log file
                 if ( log_file != NULL ) {
-                  fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%lu\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr));
+                  fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, net2tun, inet_ntoa(remote.sin_addr));
                   fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
                 }
               break;
@@ -2311,7 +2243,7 @@ int main(int argc, char *argv[]) {
                 // write the log file
                 if ( log_file != NULL ) {
                   // the packet is bad so I add a line
-                  fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun );  
+                  fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun );  
                   fflush(log_file);
                 }            
               }
@@ -2339,7 +2271,7 @@ int main(int argc, char *argv[]) {
   
                     // write the log file
                     if ( log_file != NULL ) {
-                      fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
+                      fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
                       fflush(log_file);
                     }
                   }
@@ -2458,7 +2390,7 @@ int main(int argc, char *argv[]) {
   
                         // write the log file
                         if ( log_file != NULL ) {
-                          fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));  // the packet is bad so I add a line
+                          fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));  // the packet is bad so I add a line
                           fflush(log_file);
                         }
                       }
@@ -2473,7 +2405,7 @@ int main(int argc, char *argv[]) {
                       // write the log file
                       if ( log_file != NULL ) {
                         // the packet is bad
-                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);  
+                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
                         fflush(log_file);
                       }
                     }
@@ -2487,7 +2419,7 @@ int main(int argc, char *argv[]) {
                       // write the log file
                       if ( log_file != NULL ) {
                         // the packet is bad
-                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);  
+                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
                         fflush(log_file);
                       }
                     }
@@ -2501,7 +2433,7 @@ int main(int argc, char *argv[]) {
                       // write the log file
                       if ( log_file != NULL ) {
                         // the packet is bad
-                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);  
+                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
                         fflush(log_file);
                       }
                     }
@@ -2515,7 +2447,7 @@ int main(int argc, char *argv[]) {
                       // write the log file
                       if ( log_file != NULL ) {
                         // the packet is bad
-                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);  
+                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
                         fflush(log_file);
                       }
                     }
@@ -2529,7 +2461,7 @@ int main(int argc, char *argv[]) {
                       // write the log file
                       if ( log_file != NULL ) {
                         // the packet is bad
-                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%lu\n", GetTimeStamp(), nread_from_net, net2tun);  
+                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
                         fflush(log_file);
                       }
                     }
@@ -2568,7 +2500,7 @@ int main(int argc, char *argv[]) {
   
                   // write the log file
                   if ( log_file != NULL ) {
-                    fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%lu\n", GetTimeStamp(), packet_length, net2tun);  // the packet is good
+                    fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, net2tun);  // the packet is good
                     fflush(log_file);
                   }
                 }
@@ -2579,13 +2511,13 @@ int main(int argc, char *argv[]) {
           else {
             // packet with destination port 55555, but a source port different from the multiplexing one
             // if the packet does not come from the multiplexing port, write it directly into the tun interface
-            do_debug(1, "NON-MUXED PACKET #%lu: Non-multiplexed packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
+            do_debug(1, "NON-MUXED PACKET #%"PRIu32": Non-multiplexed packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
             cwrite ( tun_fd, buffer_from_net, nread_from_net);
   
             // write the log file
             if ( log_file != NULL ) {
               // the packet is good
-              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
               fflush(log_file);
             }
           }
@@ -2621,7 +2553,7 @@ int main(int argc, char *argv[]) {
   
             // write the log file
             if ( log_file != NULL ) {
-              fprintf (log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, feedback_pkts, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+              fprintf (log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, feedback_pkts, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
               fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
             }
   
@@ -2663,13 +2595,13 @@ int main(int argc, char *argv[]) {
   
             // packet with destination port 55556, but a source port different from the feedback one
             // if the packet does not come from the feedback port, write it directly into the tun interface
-            do_debug(1, "NON-FEEDBACK PACKET %lu: Non-feedback packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
+            do_debug(1, "NON-FEEDBACK PACKET %"PRIu32": Non-feedback packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
             cwrite ( tun_fd, buffer_from_net, nread_from_net);
   
             // write the log file
             if ( log_file != NULL ) {
               // the packet is good
-              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%lu\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
               fflush(log_file);
             }
           }
@@ -2682,101 +2614,76 @@ int main(int argc, char *argv[]) {
         /**************************************************************************************/
   
         /*** data arrived at tun: read it, and check if the stored packets should be written to the network ***/
+        /*** a local packet has arrived to tun/tap, and it has to be multiplexed and sent to the destination***/
   
         /* FD_ISSET tests if a file descriptor is part of the set */
         //else if(FD_ISSET(tun_fd, &rd_set)) {
         else if(fds_poll[0].revents & POLLIN) {
           
 #ifdef linkedList
+          // add a new empty packet to the list
+          struct packet* thisPacket = insertLast(&packetsToSend,0,0,NULL);
           // read the packet from tun_fd
-          uint8_t packetReceived[BUFSIZE]
-          uint16_t size = cread (tun_fd, packetReceived, BUFSIZE);
-          uint16_t identifier = ntohs(packetReceived[4]); // FIXME: the ID should be in bytes 4 and 5
-          insertLast(&head,identifier,size,packetReceived);
+          thisPacket->packetSize = cread (tun_fd, thisPacket->packetPayload, BUFSIZE);
+          thisPacket->identifier = (uint16_t)tun2net; // the ID is the 16 LSBs of 'tun2net'
+          // FIXME: 'size' could be removed and replaced by 'thisPacket->packetSize'
+          uint16_t size = thisPacket->packetSize;
 #else
           /* read the packet from tun_fd, store it in the array, and store its size */
           size_packets_to_multiplex[num_pkts_stored_from_tun] = cread (tun_fd, packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
+          uint16_t size = size_packets_to_multiplex[num_pkts_stored_from_tun];
 #endif     
           /* increase the counter of the number of packets read from tun*/
           tun2net++;
+      
+          // print the native packet/frame received
+          if (debug) {
+            if (tunnel_mode == TUN_MODE)
+              do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tun: %i bytes\n", tun2net, size);
+            else if (tunnel_mode == TAP_MODE)
+              do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tap: %i bytes\n", tun2net, size);
 
+            do_debug(2, "   ");
+            // dump the newly-created IP packet on terminal
 #ifdef linkedList
-          if (tunnel_mode == TUN_MODE)
-            do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size);
-          else if (tunnel_mode == TAP_MODE)
-            do_debug(1, "NATIVE PACKET #%lu: Read packet from tap: %i bytes\n", tun2net, size);
-            
-          // print the native packet/frame received
-          if (debug) {
-            do_debug(2, "   ");
-            // dump the newly-created IP packet on terminal
-            dump_packet ( size, packetReceived );
-          }
-  
-          // write in the log file
-          if ( log_file != NULL ) {
-            fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%lu\n", GetTimeStamp(), size, tun2net);
-            fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-          }
-#else  
-          if (tunnel_mode == TUN_MODE)
-            do_debug(1, "NATIVE PACKET #%lu: Read packet from tun: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
-          else if (tunnel_mode == TAP_MODE)
-            do_debug(1, "NATIVE PACKET #%lu: Read packet from tap: %i bytes\n", tun2net, size_packets_to_multiplex[num_pkts_stored_from_tun]);
-            
-          // print the native packet/frame received
-          if (debug) {
-            do_debug(2, "   ");
-            // dump the newly-created IP packet on terminal
+            dump_packet ( thisPacket->packetSize, thisPacket->packetPayload );
+#else 
             dump_packet ( size_packets_to_multiplex[num_pkts_stored_from_tun], packets_to_multiplex[num_pkts_stored_from_tun] );
+#endif 
           }
   
           // write in the log file
           if ( log_file != NULL ) {
-            fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%lu\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun], tun2net);
+            fprintf (log_file, "%"PRIu64"\trec\tnative\t%i\t%"PRIu32"\n", GetTimeStamp(), size, tun2net);
             fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
           }
-#endif  
+ 
   
           // check if this packet (plus the tunnel and simplemux headers ) is bigger than the MTU. Drop it in that case
           drop_packet = 0;
           if (mode == UDP_MODE) {
 
-#ifdef linkedList
             if ( size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3 > selected_mtu ) {
-#else            
-            if ( size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3 > selected_mtu ) {
-#endif
               drop_packet = 1;
-
-#ifdef linkedList
               do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, selected_mtu);
-#else  
-              do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, selected_mtu);
-#endif
+
               // write the log file
               if ( log_file != NULL ) {
-#ifdef linkedList
-                fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%lu\tto\t%s\t%d\t%i\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
-#else         
-                fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%lu\tto\t%s\t%d\t%i\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
-#endif
+                fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
                 fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
               }
             }
           }
           
           // TCP client mode or TCP server mode
-          else if ((mode == TCP_CLIENT_MODE) || (mode == TCP_SERVER_MODE)) {
-            
-            if ( size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + TCP_HEADER_SIZE + 3 > selected_mtu ) {
+          else if ((mode == TCP_CLIENT_MODE) || (mode == TCP_SERVER_MODE)) {          
+            if ( size + IPv4_HEADER_SIZE + TCP_HEADER_SIZE + 3 > selected_mtu ) {
               drop_packet = 1;
-  
-              do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, selected_mtu);
-  
+              do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, selected_mtu);
+
               // write the log file
               if ( log_file != NULL ) {
-                fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%lu\tto\t%s\t%d\t%i\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+                fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
                 fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
               }
             }
@@ -2784,14 +2691,14 @@ int main(int argc, char *argv[]) {
           
           // network mode
            else {
-            if ( size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + 3 > selected_mtu ) {
+            if ( size + IPv4_HEADER_SIZE + 3 > selected_mtu ) {
               drop_packet = 1;
-  
-              do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + 3, selected_mtu);
-  
+              do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + 3, selected_mtu);
+
               // write the log file
               if ( log_file != NULL ) {
-                fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%lu\tto\t%s\t%d\t%i\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun] + IPv4_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+                // FIXME: remove 'nun_packets_stored_from_tun' from the expression
+                fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
                 fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
               }
             }
@@ -2800,17 +2707,20 @@ int main(int argc, char *argv[]) {
           // the length of the packet is adequate
           if ( drop_packet == 0 ) {
   
-  
             /******************** compress the headers if the ROHC option has been set ****************/
             if ( ROHC_mode > 0 ) {
               // header compression has been selected by the user
   
               // copy the length read from tun to the buffer where the packet to be compressed is stored
-              ip_packet.len = size_packets_to_multiplex[num_pkts_stored_from_tun];
+              ip_packet.len = size;
   
               // copy the packet
-              memcpy(rohc_buf_data_at(ip_packet, 0), packets_to_multiplex[num_pkts_stored_from_tun], size_packets_to_multiplex[num_pkts_stored_from_tun]);
-  
+#ifdef linkedList
+              memcpy(rohc_buf_data_at(ip_packet, 0), thisPacket->packetPayload, thisPacket->packetSize);
+#else
+              memcpy(rohc_buf_data_at(ip_packet, 0), packets_to_multiplex[num_pkts_stored_from_tun], size);
+#endif
+
               // reset the buffer where the rohc packet is to be stored
               rohc_buf_reset (&rohc_packet);
   
@@ -2843,13 +2753,19 @@ int main(int argc, char *argv[]) {
                 }
   
                 // Copy the compressed length and the compressed packet over the packet read from tun
+#ifdef linkedList
+                thisPacket->packetSize = rohc_packet.len;
+                for (l = 0; l < thisPacket->packetSize ; l++) {
+                  (thisPacket->packetPayload)[l] = rohc_buf_byte_at(rohc_packet, l);
+                }                
+#else
                 size_packets_to_multiplex[num_pkts_stored_from_tun] = rohc_packet.len;
                 for (l = 0; l < size_packets_to_multiplex[num_pkts_stored_from_tun] ; l++) {
                   packets_to_multiplex[num_pkts_stored_from_tun][l] = rohc_buf_byte_at(rohc_packet, l);
                 }
                 // I try to use memcpy instead, but it does not work properly
                 // memcpy(packets_to_multiplex[num_pkts_stored_from_tun], rohc_buf_byte_at(rohc_packet, 0), size_packets_to_multiplex[num_pkts_stored_from_tun]);
-
+#endif
                 // dump the ROHC packet on terminal
                 if (debug >= 1 ) {
                   do_debug(1, " ROHC-compressed to %i bytes\n", rohc_packet.len);
@@ -2869,6 +2785,14 @@ int main(int argc, char *argv[]) {
   
                 // since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP'
                 // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+#ifdef linkedList
+                if ( SIZE_PROTOCOL_FIELD == 1 ) {
+                  thisPacket->protocolID = IPPROTO_IP_ON_IP;
+                }
+                else {  // SIZE_PROTOCOL_FIELD == 2 
+                  thisPacket->protocolID = IPPROTO_IP_ON_IP;
+                }
+#else
                 if ( SIZE_PROTOCOL_FIELD == 1 ) {
                   protocol[num_pkts_stored_from_tun][0] = IPPROTO_IP_ON_IP;
                 }
@@ -2876,15 +2800,16 @@ int main(int argc, char *argv[]) {
                   protocol[num_pkts_stored_from_tun][0] = 0;
                   protocol[num_pkts_stored_from_tun][1] = IPPROTO_IP_ON_IP;
                 }
+#endif
                 fprintf(stderr, "compression of IP packet failed\n");
   
                 // print in the log file
                 if ( log_file != NULL ) {
-                  fprintf (log_file, "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%lu\\n", GetTimeStamp(), size_packets_to_multiplex[num_pkts_stored_from_tun], tun2net);
+                  fprintf (log_file, "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%"PRIu32"\\n", GetTimeStamp(), size, tun2net);
                   fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
                 }
   
-                do_debug(2, "  ROHC did not work. Native packet sent: %i bytes:\n   ", size_packets_to_multiplex[num_pkts_stored_from_tun]);
+                do_debug(2, "  ROHC did not work. Native packet sent: %i bytes:\n   ", size);
                 //goto release_compressor;
               }
             }
@@ -2896,6 +2821,14 @@ int main(int argc, char *argv[]) {
                 
                 // since this frame CANNOT be compressed, its protocol number has to be 143: 'Ethernet on IP' 
                 // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+#ifdef linkedList
+                if ( SIZE_PROTOCOL_FIELD == 1 ) {
+                  thisPacket->protocolID = IPPROTO_ETHERNET;
+                }
+                else {  // SIZE_PROTOCOL_FIELD == 2 
+                  thisPacket->protocolID = IPPROTO_ETHERNET;
+                }
+#else
                 if ( SIZE_PROTOCOL_FIELD == 1 ) {
                   protocol[num_pkts_stored_from_tun][0] = IPPROTO_ETHERNET;
                 }
@@ -2903,12 +2836,21 @@ int main(int argc, char *argv[]) {
                   protocol[num_pkts_stored_from_tun][0] = 0;
                   protocol[num_pkts_stored_from_tun][1] = IPPROTO_ETHERNET;
                 }
+#endif                
               }
               else if (tunnel_mode == TUN_MODE) {
                 // tun mode
-                
+              
                 // since this IP packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
                 // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
+#ifdef linkedList
+                if ( SIZE_PROTOCOL_FIELD == 1 ) {
+                  thisPacket->protocolID = IPPROTO_IP_ON_IP;
+                }
+                else {  // SIZE_PROTOCOL_FIELD == 2 
+                  thisPacket->protocolID = IPPROTO_IP_ON_IP;
+                }
+#else
                 if ( SIZE_PROTOCOL_FIELD == 1 ) {
                   protocol[num_pkts_stored_from_tun][0] = IPPROTO_IP_ON_IP;
                 }
@@ -2916,7 +2858,9 @@ int main(int argc, char *argv[]) {
                   protocol[num_pkts_stored_from_tun][0] = 0;
                   protocol[num_pkts_stored_from_tun][1] = IPPROTO_IP_ON_IP;
                 }
+#endif
               }
+
               else {
                 perror ("wrong value of 'tunnel_mode'");
                 exit (EXIT_FAILURE);
@@ -3116,7 +3060,7 @@ int main(int argc, char *argv[]) {
                   
                   // write in the log file
                   if ( log_file != NULL ) {
-                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
                     fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
                   }
                 break;
@@ -3130,7 +3074,7 @@ int main(int argc, char *argv[]) {
                   
                   // write in the log file
                   if ( log_file != NULL ) {
-                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
                     fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
                   }
                 break;
@@ -3148,7 +3092,7 @@ int main(int argc, char *argv[]) {
                     }
                     // write in the log file
                     if ( log_file != NULL ) {
-                      fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+                      fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
                       fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
                     }              
                   }
@@ -3168,7 +3112,7 @@ int main(int argc, char *argv[]) {
                   }
                   // write in the log file
                   if ( log_file != NULL ) {
-                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
+                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
                     fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
                   }
                 break;
@@ -3446,7 +3390,7 @@ int main(int argc, char *argv[]) {
 #ifdef linkedList
             // the value of 'num_pkts_stored_from_tun'
             if (!blastMode) {
-              assert(num_pkts_stored_from_tun == length(packetsToSend));
+              assert(num_pkts_stored_from_tun == length(&packetsToSend));
             }
             else {
               // if blastMode is active, the number of packets stored from tun
@@ -3463,10 +3407,10 @@ int main(int argc, char *argv[]) {
 
 #ifdef linkedList
             if (!fast_mode) {
-              do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Protocol not included).", length(packetsToSend), size_muxed_packet);
+              do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Protocol not included).", length(&packetsToSend), size_muxed_packet);
             }
             else { // fast mode
-              do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Separator(s) included).", length(packetsToSend), size_muxed_packet + (num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD));
+              do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Separator(s) included).", length(&packetsToSend), size_muxed_packet + (num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD));
             }
 #else  
             if (!fast_mode) {
@@ -3720,13 +3664,13 @@ int main(int argc, char *argv[]) {
               if ( log_file != NULL ) {
                 switch (mode) {
                   case UDP_MODE:
-                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
                   break;
                   case TCP_CLIENT_MODE:
-                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
                   break;
                   case NETWORK_MODE:
-                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
+                    fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
                   break;
                 }
                 if (num_pkts_stored_from_tun == limit_numpackets_tun)
@@ -3848,7 +3792,7 @@ int main(int argc, char *argv[]) {
               }
               // write the log file
               if ( log_file != NULL ) {
-                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
+                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
               }
             break;
             
@@ -3860,7 +3804,7 @@ int main(int argc, char *argv[]) {
               }
               // write the log file
               if ( log_file != NULL ) {
-                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
+                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
               }
             break;
 
@@ -3872,7 +3816,7 @@ int main(int argc, char *argv[]) {
               }
               // write the log file
               if ( log_file != NULL ) {
-                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
+                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
               }
             break;
 
@@ -3884,7 +3828,7 @@ int main(int argc, char *argv[]) {
               }
               // write the log file
               if ( log_file != NULL ) {
-                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%lu\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
+                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
               }
             break;
           }

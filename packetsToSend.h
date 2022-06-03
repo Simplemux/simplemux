@@ -10,6 +10,7 @@
 
 struct packet {
    uint16_t identifier;
+   uint16_t protocolID;
    uint16_t packetSize;
    uint8_t packetPayload[BUFSIZE];
    struct packet *next;
@@ -26,7 +27,7 @@ void insertFirst(struct packet** head_ref, uint16_t identifier, uint16_t size, u
 
 struct packet* findLast(struct packet** head_ref);
 
-void insertLast(struct packet** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload);
+struct packet* insertLast(struct packet** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload);
 
 //delete first item
 struct packet* deleteFirst(struct packet** head_ref);

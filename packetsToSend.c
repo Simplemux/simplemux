@@ -58,7 +58,7 @@ struct packet* findLast(struct packet** head_ref) {
 }
 
 //insert link at the last location
-void insertLast(struct packet** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload) {
+struct packet* insertLast(struct packet** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload) {
 
    // create a link
    struct packet *link = (struct packet*) malloc(sizeof(struct packet));
@@ -74,6 +74,8 @@ void insertLast(struct packet** head_ref, uint16_t identifier, uint16_t size, ui
 
    // insert the new link
    last->next = link;
+
+   return link;
 }
 
 //delete first item
