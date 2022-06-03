@@ -27,6 +27,7 @@
 #include <assert.h>
 #include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
 #include "packetsToSend.h"
+#include "buildMuxedPacket.c"   // FIXME: Why not .h ¿?
 
 //#define BUFSIZE 2304            // buffer for reading from tun/tap interface, must be >= MTU of the network
 #define IPv4_HEADER_SIZE 20
@@ -34,9 +35,7 @@
 //#define TCP_HEADER_SIZE 20
 #define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long
 
-#define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
-                                // 2: protocol field of two bytes
-#define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
+
 
 #define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program
 
@@ -44,7 +43,7 @@
 #define PORT_FEEDBACK 55556     // port for sending ROHC feedback
 #define PORT_FAST 55557         // port for sending Simplemux fast
 
-#define MAXPKTS 100             // maximum number of packets to store
+
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
 
 // Protocol IDs, according to IANA
@@ -68,4 +67,4 @@
 #define DISABLE_NAGLE 1         // disable TCP Nagle algorithm
 #define QUICKACK 1              // enable TCP quick ACKs (non delayed)
 
-#define linkedList
+//#define linkedList
