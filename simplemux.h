@@ -26,7 +26,7 @@
 #include <poll.h>
 #include <assert.h>
 #include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
-#include "packetsToSend.h"
+#include "packetsToSend.c"      // FIXME: Why not .h ¿?
 #include "buildMuxedPacket.c"   // FIXME: Why not .h ¿?
 
 //#define BUFSIZE 2304            // buffer for reading from tun/tap interface, must be >= MTU of the network
@@ -36,21 +36,23 @@
 #define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long
 
 
-
 #define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program
 
 #define PORT 55555              // default port
 #define PORT_FEEDBACK 55556     // port for sending ROHC feedback
 #define PORT_FAST 55557         // port for sending Simplemux fast
+#define PORT_BLAST 55558         // port for sending Simplemux fast
 
 
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
 
 // Protocol IDs, according to IANA
 // see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
-#define IPPROTO_IP_ON_IP 4        // IP on IP Protocol ID
-#define IPPROTO_SIMPLEMUX 253     // Simplemux Protocol ID (experimental number according to IANA)
-#define IPPROTO_SIMPLEMUX_FAST 254// Simplemux Protocol ID (experimental number according to IANA)
+#define IPPROTO_IP_ON_IP 4          // IP on IP Protocol ID
+#define IPPROTO_SIMPLEMUX 253       // Simplemux Protocol ID (experimental number according to IANA)
+#define IPPROTO_SIMPLEMUX_FAST 254  // Simplemux Protocol ID (experimental number according to IANA)
+#define IPPROTO_SIMPLEMUX_BLAST 252
+
 #define IPPROTO_ROHC 142          // ROHC Protocol ID
 #define IPPROTO_ETHERNET 143      // Ethernet Protocol ID
 

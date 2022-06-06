@@ -55,23 +55,3 @@ uint16_t predict_size_multiplexed_packet (int num_packets,
 
   return length;
 }
-
-// this version only works in blast mode
-uint16_t predictSizeMultiplexedPacket (struct packet* storedPackets)
-{
-  uint16_t acumSize = 0;
-
-  struct packet *current;
-
-  for(current = storedPackets; current != NULL; current = current->next) {
-    // the size of the packet to be sent will include:
-    // - length: 2 bytes (sizeof(current->packetSize))
-    // - protocol: 1 or 2 bytes (SIZE_PROTOCOL_FIELD)
-    // - ACK: 1 byte
-    // - ID: 2 bytes (sizeof(current->protocolID))
-    // - payload: current->packetSize 
-    acumSize = acumSize + sizeof(current->packetSize) + SIZE_PROTOCOL_FIELD + 1 + sizeof(current->protocolID) + current->packetSize;
-  }
-
-  return acumSize;
-}

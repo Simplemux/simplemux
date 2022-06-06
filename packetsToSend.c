@@ -198,7 +198,7 @@ void reverse(struct packet** head_ref) {
    *head_ref = prev;
 }
 
-void main() {
+void test() {
    struct packet *head = NULL;
 
    uint8_t packet1[BUFSIZE]= "Hello World";
