@@ -69,11 +69,17 @@ struct packet* insertLast(struct packet** head_ref, uint16_t identifier, uint16_
    memcpy(link->packetPayload,payload,link->packetSize);
    link->next = NULL;
 
-   // find the last packet of the list
-   struct packet *last = findLast(head_ref);
+   if(isEmpty(head_ref)) {
+      head_ref = &link;
+   }
+   else {
+      // find the last packet of the list
+      struct packet *last = findLast(head_ref);
 
-   // insert the new link
-   last->next = link;
+      // insert the new link
+      last->next = link;      
+   }
+
 
    return link;
 }

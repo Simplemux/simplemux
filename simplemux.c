@@ -2620,12 +2620,12 @@ int main(int argc, char *argv[]) {
             else if (tunnel_mode == TUN_MODE) {
               thisPacket->protocolID = IPPROTO_IP_ON_IP;
             }
-            do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts", length(&packetsToSend)); 
+            do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts\n", length(&packetsToSend)); 
           }
 
           else {
             // not in blast mode
-            
+
             /* read the packet from tun_fd, store it in the array, and store its size */
             size_packets_to_multiplex[num_pkts_stored_from_tun] = cread (tun_fd, packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
             uint16_t size = size_packets_to_multiplex[num_pkts_stored_from_tun];  
