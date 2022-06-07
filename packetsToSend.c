@@ -113,8 +113,10 @@ int length(struct packet** head_ref) {
 
    if(current==NULL)
       return 0;
-   else
+   else {
       length++;
+      printf("[length] packet %d size %d bytes\n", length, current->packetSize);
+   }
 
    while(current->next!=NULL) {
       length++;
@@ -123,6 +125,7 @@ int length(struct packet** head_ref) {
    }
    return length;
 }
+
 
 //find a link with given identifier
 struct packet* find(struct packet** head_ref, uint16_t identifier) {
@@ -151,6 +154,7 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
    //if data found, return the current Link
    return current;
 }
+
 
 
 //delete a link with a given identifier

@@ -13,6 +13,7 @@ struct packet {
    uint16_t protocolID;
    uint16_t packetSize;
    uint8_t packetPayload[BUFSIZE];
+   uint64_t nextSendingTimestamp;
    struct packet *next;
 };
 

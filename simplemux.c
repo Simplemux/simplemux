@@ -320,6 +320,7 @@ void PrintByte(int debug_level, int num_bits, bool b[8]) {
 void dump_packet (int packet_size, uint8_t packet[BUFSIZE]) {
   int j;
 
+  do_debug(2,"   ");
   for(j = 0; j < packet_size; j++) {
     do_debug(2, "%02x ", packet[j]);
     if(j != 0 && ((j + 1) % 16) == 0) {
@@ -1612,12 +1613,19 @@ int main(int argc, char *argv[]) {
     
       /* Initialize the timeout data structure. */
       time_in_microsec = GetTimeStamp();
-      if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
-        microseconds_left = (period - (time_in_microsec - time_last_sent_in_microsec));      
+
+      if(blastMode) {
+        // FIXME add here 'findNextPacket' Find the next timestamp, and obtain the value of 'milliseconds_left'
       }
       else {
-        microseconds_left = 0;
+        if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
+          microseconds_left = (period - (time_in_microsec - time_last_sent_in_microsec));      
+        }
+        else {
+          microseconds_left = 0;
+        }        
       }
+
       //do_debug (1, "microseconds_left: %i\n", microseconds_left);
 
       //if (microseconds_left > 0) do_debug(0,"%"PRIu64"\n", microseconds_left);
@@ -2239,7 +2247,7 @@ int main(int argc, char *argv[]) {
                   // dump the received packet on terminal
                   if (debug) {
                     //do_debug(1, " Received ");
-                    do_debug(2, "   ");
+                    //do_debug(2, "   ");
                     dump_packet ( packet_length, demuxed_packet );
                   }
                 }
@@ -2279,7 +2287,7 @@ int main(int argc, char *argv[]) {
                     }
                     if (debug == 2) {
                       do_debug(2, " ");
-                      do_debug(2, " ROHC packet\n   ");
+                      do_debug(2, " ROHC packet\n");
                       dump_packet (packet_length, demuxed_packet);
                     }
   
@@ -2294,7 +2302,7 @@ int main(int argc, char *argv[]) {
                         do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
                         // dump the feedback packet on terminal
                         if (debug) {
-                          do_debug(2, "  ROHC feedback packet received\n   ");
+                          do_debug(2, "  ROHC feedback packet received\n");
   
                           dump_packet (rcvd_feedback.len, rcvd_feedback.data );
                         }
@@ -2318,7 +2326,7 @@ int main(int argc, char *argv[]) {
   
                         // dump the ROHC packet on terminal
                         if (debug) {
-                          do_debug(2, "  ROHC feedback packet generated\n   ");
+                          do_debug(2, "  ROHC feedback packet generated\n");
                           dump_packet (feedback_send.len, feedback_send.data );
                         }
   
@@ -2352,7 +2360,7 @@ int main(int argc, char *argv[]) {
                         //dump the IP packet on the standard output
                         do_debug(2, "  ");
                         do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
-                        do_debug(2, "   ");
+                        //do_debug(2, "   ");
   
                         if (debug) {
                           // dump the decompressed IP packet on terminal
@@ -2553,7 +2561,7 @@ int main(int argc, char *argv[]) {
 
             // dump the ROHC packet on terminal
             if (debug) {
-              do_debug(2, " ROHC feedback packet received\n   ");
+              do_debug(2, " ROHC feedback packet received\n");
               dump_packet ( rohc_packet_d.len, rohc_packet_d.data );
             }
   
@@ -2609,8 +2617,8 @@ int main(int argc, char *argv[]) {
             thisPacket->identifier = (uint16_t)tun2net; // the ID is the 16 LSBs of 'tun2net'
             // FIXME: 'size' could be removed and replaced by 'thisPacket->packetSize'
             uint16_t size = thisPacket->packetSize;
-
-            dump_packet ( thisPacket->packetSize, thisPacket->packetPayload );
+            uint64_t now = GetTimeStamp();
+            thisPacket->nextSendingTimestamp =  now + period;
 
             assert ( SIZE_PROTOCOL_FIELD == 1 );
 
@@ -2620,7 +2628,10 @@ int main(int argc, char *argv[]) {
             else if (tunnel_mode == TUN_MODE) {
               thisPacket->protocolID = IPPROTO_IP_ON_IP;
             }
-            do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts\n", length(&packetsToSend)); 
+            do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts\n", length(&packetsToSend));
+            do_debug(1, " Timestamp %"PRIu64"us. Next sending of this packet: %"PRIu64"us\n", now, thisPacket->nextSendingTimestamp);
+            if(debug > 1)
+              dump_packet ( thisPacket->packetSize, thisPacket->packetPayload );
           }
 
           else {
@@ -2639,7 +2650,7 @@ int main(int argc, char *argv[]) {
               else if (tunnel_mode == TAP_MODE)
                 do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tap: %i bytes\n", tun2net, size);
 
-              do_debug(2, "   ");
+              //do_debug(2, "   ");
               // dump the newly-created IP packet on terminal
               dump_packet ( size_packets_to_multiplex[num_pkts_stored_from_tun], packets_to_multiplex[num_pkts_stored_from_tun] );
             }
@@ -2753,7 +2764,7 @@ int main(int argc, char *argv[]) {
                     do_debug(1, " ROHC-compressed to %i bytes\n", rohc_packet.len);
                   }
                   if (debug == 2) {
-                    do_debug(2, "   ");
+                    //do_debug(2, "   ");
                     dump_packet ( rohc_packet.len, rohc_packet.data );
                   }
     
