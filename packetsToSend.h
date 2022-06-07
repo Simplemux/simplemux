@@ -33,7 +33,7 @@ struct packet* insertLast(struct packet** head_ref, uint16_t identifier, uint16_
 struct packet* deleteFirst(struct packet** head_ref);
 
 //is list empty
-bool isEmpty(struct packet** head_ref);
+bool isEmpty(struct packet* head_ref);
 
 int length(struct packet** head_ref);
 

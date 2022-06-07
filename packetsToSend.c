@@ -40,8 +40,8 @@ void insertFirst(struct packet** head_ref, uint16_t identifier, uint16_t size, u
 
 struct packet* findLast(struct packet** head_ref) {
 
-   if(isEmpty(head_ref)) {
-      printf("[findLast] Empty list\n");
+   if(isEmpty(*head_ref)) {
+      //printf("[findLast] Empty list\n");
       return NULL;
    }
    else {
@@ -52,7 +52,7 @@ struct packet* findLast(struct packet** head_ref) {
          current = current->next;
          length ++;
       }
-      printf("[findLast] Number of elements of the list: %d\n", length);
+      //printf("[findLast] Number of elements of the list: %d\n", length);
       return current;      
    }
 }
@@ -69,8 +69,9 @@ struct packet* insertLast(struct packet** head_ref, uint16_t identifier, uint16_
    memcpy(link->packetPayload,payload,link->packetSize);
    link->next = NULL;
 
-   if(isEmpty(head_ref)) {
-      head_ref = &link;
+   if(isEmpty(*head_ref)) {
+      *head_ref = link;
+      //printf("[insertLast] New link inserted in the first position\n");
    }
    else {
       // find the last packet of the list
@@ -78,8 +79,8 @@ struct packet* insertLast(struct packet** head_ref, uint16_t identifier, uint16_
 
       // insert the new link
       last->next = link;      
+      //printf("[insertLast] New link inserted\n");
    }
-
 
    return link;
 }
@@ -98,19 +99,28 @@ struct packet* deleteFirst(struct packet** head_ref) {
 }
 
 //is list empty
-bool isEmpty(struct packet** head_ref) {
-   return *head_ref == NULL;
+bool isEmpty(struct packet* head_ref) {
+   if(head_ref == NULL)
+      return true;
+   else
+      return false;
 }
 
 
 int length(struct packet** head_ref) {
    int length = 0;
-   struct packet *current;
-  
-   for(current = *head_ref; current != NULL; current = current->next) {
+   struct packet *current = *head_ref;
+
+   if(current==NULL)
+      return 0;
+   else
       length++;
+
+   while(current->next!=NULL) {
+      length++;
+      current=current->next;
+      printf("[length] packet %d size %d bytes\n", length, current->packetSize);
    }
-  
    return length;
 }
 
@@ -237,7 +247,7 @@ void test() {
    printf("Last element of the list: ");
    printList(&last);
 
-   while(!isEmpty(&head)) {            
+   while(!isEmpty(head)) {            
       struct packet *temp = deleteFirst(&head);
       printf("\nDeleted value:");
       printf("(%d) ",temp->identifier);
