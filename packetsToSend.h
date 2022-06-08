@@ -13,7 +13,7 @@ struct packet {
    uint16_t protocolID;
    uint16_t packetSize;
    uint8_t packetPayload[BUFSIZE];
-   uint64_t nextSendingTimestamp;
+   uint64_t sentTimestamp; // last moment when this packet was sent
    struct packet *next;
 };
 
@@ -21,8 +21,6 @@ struct packet {
 //display the list
 void printList(struct packet** head_ref);
 
-
-// PENDING: insertLast instead of insertFirst
 //insert link at the first location
 void insertFirst(struct packet** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload);
 
@@ -41,7 +39,11 @@ int length(struct packet** head_ref);
 //find a link with given identifier
 struct packet* find(struct packet** head_ref, uint16_t identifier);
 
+uint64_t findLastSentTimestamp(struct packet* head_ref);
+
 //delete a link with given identifier
 bool delete(struct packet** head_ref, uint16_t identifier);
 
 void reverse(struct packet** head_ref);
+
+uint64_t findLastSentTimestamp(struct packet* head_ref);

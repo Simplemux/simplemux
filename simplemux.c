@@ -1615,16 +1615,19 @@ int main(int argc, char *argv[]) {
       time_in_microsec = GetTimeStamp();
 
       if(blastMode) {
-        // FIXME add here 'findNextPacket' Find the next timestamp, and obtain the value of 'milliseconds_left'
+        // FIXME add here 'findNextTimestamp' Find the next timestamp, and obtain the value of 'milliseconds_left'
+        time_last_sent_in_microsec = findLastSentTimestamp(packetsToSend);
+        printf("Time last sent: %"PRIu64" us\n", time_last_sent_in_microsec);
+
+      }
+//printf("'time_in_microsec - time_last_sent_in_microsec': %"PRIu64" us\n", time_in_microsec - time_last_sent_in_microsec);
+      if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
+        microseconds_left = (period - (time_in_microsec - time_last_sent_in_microsec));
       }
       else {
-        if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
-          microseconds_left = (period - (time_in_microsec - time_last_sent_in_microsec));      
-        }
-        else {
-          microseconds_left = 0;
-        }        
-      }
+        microseconds_left = 0;
+      }        
+printf("The next packet will be sent in %"PRIu64" us\n", microseconds_left);
 
       //do_debug (1, "microseconds_left: %i\n", microseconds_left);
 
@@ -2617,8 +2620,6 @@ int main(int argc, char *argv[]) {
             thisPacket->identifier = (uint16_t)tun2net; // the ID is the 16 LSBs of 'tun2net'
             // FIXME: 'size' could be removed and replaced by 'thisPacket->packetSize'
             uint16_t size = thisPacket->packetSize;
-            uint64_t now = GetTimeStamp();
-            thisPacket->nextSendingTimestamp =  now + period;
 
             assert ( SIZE_PROTOCOL_FIELD == 1 );
 
@@ -2628,8 +2629,17 @@ int main(int argc, char *argv[]) {
             else if (tunnel_mode == TUN_MODE) {
               thisPacket->protocolID = IPPROTO_IP_ON_IP;
             }
-            do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts\n", length(&packetsToSend));
-            do_debug(1, " Timestamp %"PRIu64"us. Next sending of this packet: %"PRIu64"us\n", now, thisPacket->nextSendingTimestamp);
+
+            // send the packet
+
+            // FIXME Pending
+
+            // the packet has been sent. Store the timestamp
+            uint64_t now = GetTimeStamp();
+            thisPacket->sentTimestamp = now;
+
+            do_debug(1, " Packet sent and accumulated. Total %i pkts stored\n", length(&packetsToSend));
+            do_debug(1, " Timestamp %"PRIu64"us. Next sending of this packet: %"PRIu64"us\n", now, thisPacket->sentTimestamp);
             if(debug > 1)
               dump_packet ( thisPacket->packetSize, thisPacket->packetPayload );
           }
@@ -3664,140 +3674,150 @@ int main(int argc, char *argv[]) {
       else {  // fd2read == 0
         //do_debug(2, "Period expired\n");
         time_in_microsec = GetTimeStamp();
-        if ( num_pkts_stored_from_tun > 0 ) {
 
-          // There are some packets stored
+        if(blastMode) {
 
-          // calculate the time difference
-          time_difference = time_in_microsec - time_last_sent_in_microsec;    
+          // FIXME: go through the list and send all the packets with time_in_microsec > sentTimestamp + period
 
-          if (debug) {
-            do_debug(2, "\n");
-            do_debug(1, "SENDING TRIGGERED. Period expired. Time since last trigger: %" PRIu64 " usec\n", time_difference);
-            if (single_protocol) {
-              do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
-            }
-            else {
-              do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
-            }
-            switch (mode) {
-              case UDP_MODE:
-                do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-                do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
-              break;
-              case TCP_CLIENT_MODE:
-                do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
-              break;
-              case NETWORK_MODE:
-                do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-                do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
-              break;
-            }
-          }
-
-          // calculate if all the packets belong to the same protocol
-          single_protocol = 1;
-          for (k = 1; k < num_pkts_stored_from_tun ; k++) {
-            for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-              if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
-            }
-          }
-
-          // Add the Single Protocol Bit in the first header (the most significant bit)
-          // It is 1 if all the multiplexed packets belong to the same protocol
-          if (single_protocol == 1) {
-            separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;  // this puts a 1 in the most significant bit position
-            size_muxed_packet = size_muxed_packet + 1;                // one byte corresponding to the 'protocol' field of the first header
-          }
-          else {
-            size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;    // one byte per packet, corresponding to the 'protocol' field
-          }
-
-          // build the multiplexed packet
-          total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
-                                                    fast_mode,
-                                                    single_protocol,
-                                                    protocol,
-                                                    size_separators_to_multiplex,
-                                                    separators_to_multiplex,
-                                                    size_packets_to_multiplex,
-                                                    packets_to_multiplex,
-                                                    muxed_packet);
-
-          // send the multiplexed packet
-          switch (mode) {
-            
-            case NETWORK_MODE:
-              // build the header
-              BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
-
-              // build the full IP multiplexed packet
-              BuildFullIPPacket(ipheader,muxed_packet,total_length, full_ip_packet);
-
-              // send the packet
-              if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &remote, sizeof (struct sockaddr)) < 0)  {
-                perror ("sendto() failed ");
-                exit (EXIT_FAILURE);
-              }
-              // write the log file
-              if ( log_file != NULL ) {
-                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
-              }
-            break;
-            
-            case UDP_MODE:
-              // send the packet. I don't need to build the header, because I have a UDP socket  
-              if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
-                perror("sendto()");
-                exit (EXIT_FAILURE);
-              }
-              // write the log file
-              if ( log_file != NULL ) {
-                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
-              }
-            break;
-
-            case TCP_SERVER_MODE:
-              // send the packet. I don't need to build the header, because I have a TCP socket              
-              if (write(tcp_welcoming_fd, muxed_packet, total_length)==-1) {
-                perror("write() in TCP server mode failed");
-                exit (EXIT_FAILURE);  
-              }
-              // write the log file
-              if ( log_file != NULL ) {
-                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
-              }
-            break;
-
-            case TCP_CLIENT_MODE:
-              // send the packet. I don't need to build the header, because I have a TCP socket  
-              if (write(tcp_client_fd, muxed_packet, total_length)==-1) {
-                perror("write() in TCP client mode failed");
-                exit (EXIT_FAILURE);  
-              }
-              // write the log file
-              if ( log_file != NULL ) {
-                fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
-              }
-            break;
-          }
-      
-          // I have sent a packet, so I set to 0 the "first_header_written" bit
-          first_header_written = 0;
-
-          // reset the length and the number of packets
-          size_muxed_packet = 0 ;
-          num_pkts_stored_from_tun = 0;
 
         }
         else {
-          // No packet arrived
-          //do_debug(2, "Period expired. Nothing to be sent\n");
+          if ( num_pkts_stored_from_tun > 0 ) {
+
+            // There are some packets stored
+
+            // calculate the time difference
+            time_difference = time_in_microsec - time_last_sent_in_microsec;    
+
+            if (debug) {
+              do_debug(2, "\n");
+              do_debug(1, "SENDING TRIGGERED. Period expired. Time since last trigger: %" PRIu64 " usec\n", time_difference);
+              if (single_protocol) {
+                do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+              }
+              else {
+                do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+              }
+              switch (mode) {
+                case UDP_MODE:
+                  do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+                  do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
+                break;
+                case TCP_CLIENT_MODE:
+                  do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                  do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+                break;
+                case NETWORK_MODE:
+                  do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+                  do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
+                break;
+              }
+            }
+
+            // calculate if all the packets belong to the same protocol
+            single_protocol = 1;
+            for (k = 1; k < num_pkts_stored_from_tun ; k++) {
+              for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+                if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+              }
+            }
+
+            // Add the Single Protocol Bit in the first header (the most significant bit)
+            // It is 1 if all the multiplexed packets belong to the same protocol
+            if (single_protocol == 1) {
+              separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;  // this puts a 1 in the most significant bit position
+              size_muxed_packet = size_muxed_packet + 1;                // one byte corresponding to the 'protocol' field of the first header
+            }
+            else {
+              size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;    // one byte per packet, corresponding to the 'protocol' field
+            }
+
+            // build the multiplexed packet
+            total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
+                                                      fast_mode,
+                                                      single_protocol,
+                                                      protocol,
+                                                      size_separators_to_multiplex,
+                                                      separators_to_multiplex,
+                                                      size_packets_to_multiplex,
+                                                      packets_to_multiplex,
+                                                      muxed_packet);
+
+            // send the multiplexed packet
+            switch (mode) {
+              
+              case NETWORK_MODE:
+                // build the header
+                BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
+
+                // build the full IP multiplexed packet
+                BuildFullIPPacket(ipheader,muxed_packet,total_length, full_ip_packet);
+
+                // send the packet
+                if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &remote, sizeof (struct sockaddr)) < 0)  {
+                  perror ("sendto() failed ");
+                  exit (EXIT_FAILURE);
+                }
+                // write the log file
+                if ( log_file != NULL ) {
+                  fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
+                }
+              break;
+              
+              case UDP_MODE:
+                // send the packet. I don't need to build the header, because I have a UDP socket  
+                if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+                  perror("sendto()");
+                  exit (EXIT_FAILURE);
+                }
+                // write the log file
+                if ( log_file != NULL ) {
+                  fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
+                }
+              break;
+
+              case TCP_SERVER_MODE:
+                // send the packet. I don't need to build the header, because I have a TCP socket              
+                if (write(tcp_welcoming_fd, muxed_packet, total_length)==-1) {
+                  perror("write() in TCP server mode failed");
+                  exit (EXIT_FAILURE);  
+                }
+                // write the log file
+                if ( log_file != NULL ) {
+                  fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
+                }
+              break;
+
+              case TCP_CLIENT_MODE:
+                // send the packet. I don't need to build the header, because I have a TCP socket  
+                if (write(tcp_client_fd, muxed_packet, total_length)==-1) {
+                  perror("write() in TCP client mode failed");
+                  exit (EXIT_FAILURE);  
+                }
+                // write the log file
+                if ( log_file != NULL ) {
+                  fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);  
+                }
+              break;
+            }
+        
+            // I have sent a packet, so I set to 0 the "first_header_written" bit
+            first_header_written = 0;
+
+            // reset the length and the number of packets
+            size_muxed_packet = 0 ;
+            num_pkts_stored_from_tun = 0;
+
+          }
+          else {
+            // No packet arrived
+            //do_debug(2, "Period expired. Nothing to be sent\n");
+          }
+
+          // restart the period
+          time_last_sent_in_microsec = time_in_microsec;          
         }
 
-        // restart the period
-        time_last_sent_in_microsec = time_in_microsec;
 
       }
     }  // end while(1)

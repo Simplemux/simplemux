@@ -115,13 +115,13 @@ int length(struct packet** head_ref) {
       return 0;
    else {
       length++;
-      printf("[length] packet %d size %d bytes\n", length, current->packetSize);
+      printf("[length] packet %d, %d bytes, last sent: %"PRIu64" us\n", length, current->packetSize, current->sentTimestamp);
    }
 
    while(current->next!=NULL) {
       length++;
       current=current->next;
-      printf("[length] packet %d size %d bytes\n", length, current->packetSize);
+      printf("[length] packet %d, %d bytes, last sent: %"PRIu64" us\n", length, current->packetSize, current->sentTimestamp);
    }
    return length;
 }
@@ -156,6 +156,32 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
 }
 
 
+uint64_t findLastSentTimestamp(struct packet* head_ref) {
+   //start from the first link
+   struct packet* current = head_ref;
+
+   //if list is empty
+   if(head_ref == NULL) {
+      return 1;
+   }
+
+   // initialize with the first packet
+   uint64_t lastSentTimestamp = current->sentTimestamp;
+   assert(current->sentTimestamp!=0);
+
+   //navigate through the list
+   while(current->next!=NULL) {
+      if(current->sentTimestamp < lastSentTimestamp) {
+         // this packet has been sent even before
+         lastSentTimestamp = current->sentTimestamp;
+      }
+
+      current=current->next;
+   }
+   //printf("[findLastSentTimestamp] Oldest timestamp: packet %d. Timestamp: %"PRIu64" us\n", current->identifier, current->sentTimestamp);
+
+   return lastSentTimestamp;
+}
 
 //delete a link with a given identifier
 bool delete(struct packet** head_ref, uint16_t identifier) {
