@@ -1613,23 +1613,29 @@ int main(int argc, char *argv[]) {
     
       /* Initialize the timeout data structure. */
       time_in_microsec = GetTimeStamp();
-
+      /*
       if(blastMode) {
-        // FIXME add here 'findNextTimestamp' Find the next timestamp, and obtain the value of 'milliseconds_left'
         time_last_sent_in_microsec = findLastSentTimestamp(packetsToSend);
-        printf("Time last sent: %"PRIu64" us\n", time_last_sent_in_microsec);
+        if (time_last_sent_in_microsec == 1) {
+          time_last_sent_in_microsec = time_in_microsec;
+          do_debug(1, "No packet has been sent yet %"PRIu64"\n", time_in_microsec);
+        }
+      }*/
 
-      }
-//printf("'time_in_microsec - time_last_sent_in_microsec': %"PRIu64" us\n", time_in_microsec - time_last_sent_in_microsec);
+
       if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
+        // the period is not expired
         microseconds_left = (period - (time_in_microsec - time_last_sent_in_microsec));
       }
       else {
+        // the period is expired
+        printf("HELLO\n");
         microseconds_left = 0;
       }        
-printf("The next packet will be sent in %"PRIu64" us\n", microseconds_left);
 
-      //do_debug (1, "microseconds_left: %i\n", microseconds_left);
+      do_debug(1, " time_last_sent_in_microsec: %"PRIu64"\n", time_last_sent_in_microsec);
+      do_debug(1, " The next packet will be sent in %"PRIu64" us\n", microseconds_left);
+
 
       //if (microseconds_left > 0) do_debug(0,"%"PRIu64"\n", microseconds_left);
       int milliseconds_left = (int)(microseconds_left / 1000.0);
@@ -2638,10 +2644,11 @@ printf("The next packet will be sent in %"PRIu64" us\n", microseconds_left);
             uint64_t now = GetTimeStamp();
             thisPacket->sentTimestamp = now;
 
-            do_debug(1, " Packet sent and accumulated. Total %i pkts stored\n", length(&packetsToSend));
-            do_debug(1, " Timestamp %"PRIu64"us. Next sending of this packet: %"PRIu64"us\n", now, thisPacket->sentTimestamp);
+            do_debug(1, " %"PRIu64"us: Packet sent and accumulated. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
             if(debug > 1)
               dump_packet ( thisPacket->header.packetSize, thisPacket->packetPayload );
+
+            time_last_sent_in_microsec = now;
           }
 
           else {
@@ -3678,7 +3685,7 @@ printf("The next packet will be sent in %"PRIu64" us\n", microseconds_left);
         if(blastMode) {
 
           // FIXME: go through the list and send all the packets with time_in_microsec > sentTimestamp + period
-
+          sendExpiredPackects(packetsToSend, time_in_microsec, period);
 
         }
         else {
@@ -3814,11 +3821,10 @@ printf("The next packet will be sent in %"PRIu64" us\n", microseconds_left);
             //do_debug(2, "Period expired. Nothing to be sent\n");
           }
 
-          // restart the period
-          time_last_sent_in_microsec = time_in_microsec;          
         }
-
-
+        // restart the period
+        time_last_sent_in_microsec = time_in_microsec; 
+        do_debug(1, "Period expired: packet sent at %"PRIu64" us\n", time_last_sent_in_microsec);
       }
     }  // end while(1)
 

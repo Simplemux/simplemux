@@ -13,7 +13,7 @@ struct packetHeader {
    uint16_t packetSize;
    uint8_t protocolID;
    uint16_t identifier;
-   uint8_t ACK;
+   uint8_t ACK; // 0: do nothing; 1: this is a packet that requires an ACK; 2: this is an ACK
 };
 
 // include the payload and also other parameters that are not sent through the network
@@ -45,6 +45,8 @@ int length(struct packet** head_ref);
 
 //find a link with given identifier
 struct packet* find(struct packet** head_ref, uint16_t identifier);
+
+int sendExpiredPackects(struct packet* head_ref, uint64_t now, uint64_t period);
 
 uint64_t findLastSentTimestamp(struct packet* head_ref);
 
