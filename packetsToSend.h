@@ -8,10 +8,17 @@
 
 #define BUFSIZE 2304
 
-struct packet {
-   uint16_t identifier;
-   uint16_t protocolID;
+// header of the packet to be sent
+struct packetHeader {
    uint16_t packetSize;
+   uint8_t protocolID;
+   uint16_t identifier;
+   uint8_t ACK;
+};
+
+// include the payload and also other parameters that are not sent through the network
+struct packet {
+   struct packetHeader header;
    uint8_t packetPayload[BUFSIZE];
    uint64_t sentTimestamp; // last moment when this packet was sent
    struct packet *next;

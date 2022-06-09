@@ -2616,18 +2616,18 @@ printf("The next packet will be sent in %"PRIu64" us\n", microseconds_left);
             // add a new empty packet to the list
             struct packet* thisPacket = insertLast(&packetsToSend,0,0,NULL);
             // read the packet from tun_fd
-            thisPacket->packetSize = cread (tun_fd, thisPacket->packetPayload, BUFSIZE);
-            thisPacket->identifier = (uint16_t)tun2net; // the ID is the 16 LSBs of 'tun2net'
-            // FIXME: 'size' could be removed and replaced by 'thisPacket->packetSize'
-            uint16_t size = thisPacket->packetSize;
+            thisPacket->header.packetSize = cread (tun_fd, thisPacket->packetPayload, BUFSIZE);
+            thisPacket->header.identifier = (uint16_t)tun2net; // the ID is the 16 LSBs of 'tun2net'
+            // FIXME: 'size' could be removed and replaced by 'thisPacket->header.packetSize'
+            uint16_t size = thisPacket->header.packetSize;
 
             assert ( SIZE_PROTOCOL_FIELD == 1 );
 
             if (tunnel_mode == TAP_MODE) {
-              thisPacket->protocolID = IPPROTO_ETHERNET;
+              thisPacket->header.protocolID = IPPROTO_ETHERNET;
             }
             else if (tunnel_mode == TUN_MODE) {
-              thisPacket->protocolID = IPPROTO_IP_ON_IP;
+              thisPacket->header.protocolID = IPPROTO_IP_ON_IP;
             }
 
             // send the packet
@@ -2641,7 +2641,7 @@ printf("The next packet will be sent in %"PRIu64" us\n", microseconds_left);
             do_debug(1, " Packet sent and accumulated. Total %i pkts stored\n", length(&packetsToSend));
             do_debug(1, " Timestamp %"PRIu64"us. Next sending of this packet: %"PRIu64"us\n", now, thisPacket->sentTimestamp);
             if(debug > 1)
-              dump_packet ( thisPacket->packetSize, thisPacket->packetPayload );
+              dump_packet ( thisPacket->header.packetSize, thisPacket->packetPayload );
           }
 
           else {

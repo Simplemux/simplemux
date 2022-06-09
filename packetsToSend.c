@@ -9,8 +9,8 @@ void printList(struct packet** head_ref) {
   
    //start from the beginning
    while(ptr != NULL) {
-      printf("(%d,",ptr->identifier);
-      for (int i = 0; i < ptr->packetSize; ++i) {
+      printf("(%d,",ptr->header.identifier);
+      for (int i = 0; i < ptr->header.packetSize; ++i) {
         printf("%c", ptr->packetPayload[i]);
       }
       printf(")");
@@ -27,9 +27,9 @@ void insertFirst(struct packet** head_ref, uint16_t identifier, uint16_t size, u
    //create a link
    struct packet *link = (struct packet*) malloc(sizeof(struct packet));
   
-   link->identifier = identifier;
-   link->packetSize = size;
-   memcpy(link->packetPayload,payload,link->packetSize);
+   link->header.identifier = identifier;
+   link->header.packetSize = size;
+   memcpy(link->packetPayload,payload,link->header.packetSize);
   
    //point it to old first node
    link->next = *head_ref;
@@ -64,9 +64,9 @@ struct packet* insertLast(struct packet** head_ref, uint16_t identifier, uint16_
    struct packet *link = (struct packet*) malloc(sizeof(struct packet));
 
    // fill the content of the link  
-   link->identifier = identifier;
-   link->packetSize = size;
-   memcpy(link->packetPayload,payload,link->packetSize);
+   link->header.identifier = identifier;
+   link->header.packetSize = size;
+   memcpy(link->packetPayload,payload,link->header.packetSize);
    link->next = NULL;
 
    if(isEmpty(*head_ref)) {
@@ -115,13 +115,13 @@ int length(struct packet** head_ref) {
       return 0;
    else {
       length++;
-      printf("[length] packet %d, %d bytes, last sent: %"PRIu64" us\n", length, current->packetSize, current->sentTimestamp);
+      printf("[length] packet %d, %d bytes, last sent: %"PRIu64" us\n", length, current->header.packetSize, current->sentTimestamp);
    }
 
    while(current->next!=NULL) {
       length++;
       current=current->next;
-      printf("[length] packet %d, %d bytes, last sent: %"PRIu64" us\n", length, current->packetSize, current->sentTimestamp);
+      printf("[length] packet %d, %d bytes, last sent: %"PRIu64" us\n", length, current->header.packetSize, current->sentTimestamp);
    }
    return length;
 }
@@ -139,7 +139,7 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
    }
 
    //navigate through list
-   while(current->identifier != identifier) {
+   while(current->header.identifier != identifier) {
   
       //if it is last node
       if(current->next == NULL) {
@@ -178,7 +178,7 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
 
       current=current->next;
    }
-   //printf("[findLastSentTimestamp] Oldest timestamp: packet %d. Timestamp: %"PRIu64" us\n", current->identifier, current->sentTimestamp);
+   //printf("[findLastSentTimestamp] Oldest timestamp: packet %d. Timestamp: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
 
    return lastSentTimestamp;
 }
@@ -196,7 +196,7 @@ bool delete(struct packet** head_ref, uint16_t identifier) {
    }
 
    //navigate through the list
-   while(current->identifier != identifier) {
+   while(current->header.identifier != identifier) {
 
       //if it is last node
       if(current->next == NULL) {
@@ -280,7 +280,7 @@ void test() {
    while(!isEmpty(head)) {            
       struct packet *temp = deleteFirst(&head);
       printf("\nDeleted value:");
-      printf("(%d) ",temp->identifier);
+      printf("(%d) ",temp->header.identifier);
    }  
   
    printf("\nList after deleting all items: ");
@@ -309,7 +309,7 @@ void test() {
   
    if(foundLink != NULL) {
       printf("Element found: ");
-      printf("(%d) ",foundLink->identifier);
+      printf("(%d) ",foundLink->header.identifier);
       printf("\n");  
    }
    else {
@@ -326,7 +326,7 @@ void test() {
   
    if(foundLink != NULL) {
       printf("Element found: ");
-      printf("(%d) ",foundLink->identifier);
+      printf("(%d) ",foundLink->header.identifier);
       printf("\n");
    }
    else {
