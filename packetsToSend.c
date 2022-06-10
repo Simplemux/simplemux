@@ -158,11 +158,13 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
 // send again the packets which sentTimestamp + period >= now
 int sendExpiredPackects(struct packet* head_ref, uint64_t now, uint64_t period) {
 
+   printf("[sendExpiredPackects] 1\n");
    //if list is empty
    if(head_ref == NULL) {
       return 0;
    }
 
+   printf("[sendExpiredPackects] 2\n");
    //start from the first link
    struct packet* current = head_ref;
 
@@ -170,8 +172,15 @@ int sendExpiredPackects(struct packet* head_ref, uint64_t now, uint64_t period) 
 
    assert(current->sentTimestamp!=0);
 
+   printf("[sendExpiredPackects] Sending packet %d. Timestamp: %"PRIu64" us\n", current->header.identifier, now);
+
+   // this packet has to be sent
+   current->sentTimestamp = now;
+   sentPackets++;
+         
    //navigate through the list
    while(current->next!=NULL) {
+      printf("[sendExpiredPackects] 3\n");
       if(current->sentTimestamp + period >= now) {
 
          printf("[sendExpiredPackects] Sending packet %d. Timestamp: %"PRIu64" us\n", current->header.identifier, now);
