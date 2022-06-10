@@ -643,7 +643,7 @@ int main(int argc, char *argv[]) {
 
   // very long unsigned integers for storing the system clock in microseconds
   uint64_t time_last_sent_in_microsec;            // moment when the last multiplexed packet was sent
-  uint64_t time_in_microsec;                      // current time
+  uint64_t now_microsec;                          // current time
   uint64_t time_difference;                       // difference between two timestamps
 
   int option;                             // command line options
@@ -1334,9 +1334,6 @@ int main(int argc, char *argv[]) {
       limit_numpackets_tun = 1;
   
 
-    // I calculate 'now' as the moment of the last sending
-    time_last_sent_in_microsec = GetTimeStamp() ; 
-
     do_debug (1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %"PRIu64"us. period: %"PRIu64"us\n",
               size_threshold, limit_numpackets_tun, timeout, period);
     
@@ -1605,36 +1602,57 @@ int main(int argc, char *argv[]) {
     fds_poll[2].events = POLLIN;
     /** END prepare POLL structure **/  
       
+    // I calculate 'now' as the moment of the last sending
+    time_last_sent_in_microsec = GetTimeStamp();
+
     
+
+
     /*****************************************/
     /************** Main loop ****************/
     /*****************************************/
     while(1) {
     
       /* Initialize the timeout data structure. */
-      time_in_microsec = GetTimeStamp();
-      /*
+      now_microsec = GetTimeStamp();
+
       if(blastMode) {
+        do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);
         time_last_sent_in_microsec = findLastSentTimestamp(packetsToSend);
-        if (time_last_sent_in_microsec == 1) {
-          time_last_sent_in_microsec = time_in_microsec;
-          do_debug(1, "No packet has been sent yet %"PRIu64"\n", time_in_microsec);
+
+        if (time_last_sent_in_microsec == 0) {
+          time_last_sent_in_microsec = now_microsec;
+          do_debug(1, "No packet has been sent yet %"PRIu64"\n", now_microsec);
         }
-      }*/
 
-
-      if ( period > (time_in_microsec - time_last_sent_in_microsec)) {
-        // the period is not expired
-        microseconds_left = (period - (time_in_microsec - time_last_sent_in_microsec));
+        if(time_last_sent_in_microsec + period > now_microsec) {
+          microseconds_left = time_last_sent_in_microsec + period - now_microsec;
+          do_debug(1, " %"PRIu64": The next packet will be sent in %"PRIu64" us\n", now_microsec, microseconds_left);         
+        }
+        else {
+          // the period is already expired
+          do_debug(1, " %"PRIu64": Call the poll with limit 0 \n", now_microsec);
+          microseconds_left = 0;
+        }        
       }
-      else {
-        // the period is expired
-        printf("HELLO\n");
-        microseconds_left = 0;
-      }        
 
-      do_debug(1, " time_last_sent_in_microsec: %"PRIu64"\n", time_last_sent_in_microsec);
-      do_debug(1, " The next packet will be sent in %"PRIu64" us\n", microseconds_left);
+      else {
+        // not in blast mode
+        if ( period > (now_microsec - time_last_sent_in_microsec)) {
+          // the period is not expired
+          microseconds_left = (period - (now_microsec - time_last_sent_in_microsec));
+        }
+        else {
+          // the period is expired
+          printf("HELLO\n");
+          microseconds_left = 0;
+        }        
+
+        do_debug(1, " time_last_sent_in_microsec: %"PRIu64"\n", time_last_sent_in_microsec);
+        do_debug(1, " The next packet will be sent in %"PRIu64" us\n", microseconds_left);        
+      }
+
+
 
 
       //if (microseconds_left > 0) do_debug(0,"%"PRIu64"\n", microseconds_left);
@@ -2641,14 +2659,14 @@ int main(int argc, char *argv[]) {
             // FIXME Pending
 
             // the packet has been sent. Store the timestamp
-            uint64_t now = GetTimeStamp();
-            thisPacket->sentTimestamp = now;
+            now_microsec = GetTimeStamp();
+            thisPacket->sentTimestamp = now_microsec;
 
             do_debug(1, " %"PRIu64"us: Packet sent and accumulated. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
             if(debug > 1)
               dump_packet ( thisPacket->header.packetSize, thisPacket->packetPayload );
 
-            time_last_sent_in_microsec = now;
+            //time_last_sent_in_microsec = now_microsec;
           }
 
           else {
@@ -3105,8 +3123,8 @@ int main(int argc, char *argv[]) {
     
     
                 // I have sent a packet, so I restart the period: update the time of the last packet sent
-                time_in_microsec = GetTimeStamp();
-                time_last_sent_in_microsec = time_in_microsec;
+                now_microsec = GetTimeStamp();
+                time_last_sent_in_microsec = now_microsec;
     
                 // I have emptied the buffer, so I have to
                 //move the current packet to the first position of the 'packets_to_multiplex' array
@@ -3386,8 +3404,8 @@ int main(int argc, char *argv[]) {
                 do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Separator(s) included).", num_pkts_stored_from_tun , size_muxed_packet + (num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD));
               }
              
-              time_in_microsec = GetTimeStamp();
-              time_difference = time_in_microsec - time_last_sent_in_microsec;    
+              now_microsec = GetTimeStamp();
+              time_difference = now_microsec - time_last_sent_in_microsec;    
               do_debug(1, " Time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
     
     
@@ -3657,7 +3675,7 @@ int main(int argc, char *argv[]) {
                 num_pkts_stored_from_tun = 0;
     
                 // restart the period: update the time of the last packet sent
-                time_last_sent_in_microsec = time_in_microsec;
+                time_last_sent_in_microsec = now_microsec;
               }
               else {
                 // a multiplexed packet does not have to be sent. I have just accumulated this one
@@ -3680,12 +3698,12 @@ int main(int argc, char *argv[]) {
 
       else {  // fd2read == 0
         //do_debug(2, "Period expired\n");
-        time_in_microsec = GetTimeStamp();
+        now_microsec = GetTimeStamp();
 
         if(blastMode) {
 
-          // FIXME: go through the list and send all the packets with time_in_microsec > sentTimestamp + period
-          sendExpiredPackects(packetsToSend, time_in_microsec, period);
+          // FIXME: go through the list and send all the packets with now_microsec > sentTimestamp + period
+          sendExpiredPackects(packetsToSend, now_microsec, period);
 
         }
         else {
@@ -3694,7 +3712,7 @@ int main(int argc, char *argv[]) {
             // There are some packets stored
 
             // calculate the time difference
-            time_difference = time_in_microsec - time_last_sent_in_microsec;    
+            time_difference = now_microsec - time_last_sent_in_microsec;    
 
             if (debug) {
               do_debug(2, "\n");
@@ -3820,11 +3838,10 @@ int main(int argc, char *argv[]) {
             // No packet arrived
             //do_debug(2, "Period expired. Nothing to be sent\n");
           }
-
+          // restart the period
+          time_last_sent_in_microsec = now_microsec; 
+          do_debug(1, "Period expired: packet sent at %"PRIu64" us\n", time_last_sent_in_microsec);
         }
-        // restart the period
-        time_last_sent_in_microsec = time_in_microsec; 
-        do_debug(1, "Period expired: packet sent at %"PRIu64" us\n", time_last_sent_in_microsec);
       }
     }  // end while(1)
 

@@ -196,7 +196,7 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
 
    //if list is empty
    if(head_ref == NULL) {
-      return 1;
+      return 0;
    }
 
    // initialize with the first packet
