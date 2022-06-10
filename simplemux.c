@@ -1620,9 +1620,11 @@ int main(int argc, char *argv[]) {
         do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);
         time_last_sent_in_microsec = findLastSentTimestamp(packetsToSend);
 
+        printList(&packetsToSend);
+
         if (time_last_sent_in_microsec == 0) {
           time_last_sent_in_microsec = now_microsec;
-          do_debug(1, "No packet has been sent yet %"PRIu64"\n", now_microsec);
+          do_debug(1, "%"PRIu64": No packet has been sent yet \n", now_microsec);
         }
 
         if(time_last_sent_in_microsec + period > now_microsec) {
@@ -1657,6 +1659,7 @@ int main(int argc, char *argv[]) {
 
       //if (microseconds_left > 0) do_debug(0,"%"PRIu64"\n", microseconds_left);
       int milliseconds_left = (int)(microseconds_left / 1000.0);
+      //printf("milliseconds_left: %d", milliseconds_left);
       
       /** POLL **/
       // check if a frame has arrived to any of the file descriptors
@@ -2635,10 +2638,12 @@ int main(int argc, char *argv[]) {
         /* FD_ISSET tests if a file descriptor is part of the set */
         //else if(FD_ISSET(tun_fd, &rd_set)) {
         else if(fds_poll[0].revents & POLLIN) {
-          
+          /* increase the counter of the number of packets read from tun*/
+          tun2net++;
+
           if (blastMode) {
             // add a new empty packet to the list
-            struct packet* thisPacket = insertLast(&packetsToSend,0,0,NULL);
+            struct packet* thisPacket = insertLast(&packetsToSend,tun2net,0,NULL);
             // read the packet from tun_fd
             thisPacket->header.packetSize = cread (tun_fd, thisPacket->packetPayload, BUFSIZE);
             thisPacket->header.identifier = (uint16_t)tun2net; // the ID is the 16 LSBs of 'tun2net'
@@ -2662,7 +2667,7 @@ int main(int argc, char *argv[]) {
             now_microsec = GetTimeStamp();
             thisPacket->sentTimestamp = now_microsec;
 
-            do_debug(1, " %"PRIu64"us: Packet sent and accumulated. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
+            do_debug(1, " %"PRIu64": Arrived packet has been sent and stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
             if(debug > 1)
               dump_packet ( thisPacket->header.packetSize, thisPacket->packetPayload );
 
@@ -2675,8 +2680,6 @@ int main(int argc, char *argv[]) {
             /* read the packet from tun_fd, store it in the array, and store its size */
             size_packets_to_multiplex[num_pkts_stored_from_tun] = cread (tun_fd, packets_to_multiplex[num_pkts_stored_from_tun], BUFSIZE);
             uint16_t size = size_packets_to_multiplex[num_pkts_stored_from_tun];  
-            /* increase the counter of the number of packets read from tun*/
-            tun2net++;
         
             // print the native packet/frame received
             if (debug) {
@@ -3703,7 +3706,8 @@ int main(int argc, char *argv[]) {
         if(blastMode) {
 
           // FIXME: go through the list and send all the packets with now_microsec > sentTimestamp + period
-          sendExpiredPackects(packetsToSend, now_microsec, period);
+          int n = sendExpiredPackects(packetsToSend, now_microsec, period);
+          do_debug(2, "Period expired: Sent %d packets at the end of the period\n", n);
 
         }
         else {
