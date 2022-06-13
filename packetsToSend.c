@@ -57,22 +57,29 @@ struct packet* findLast(struct packet** head_ref) {
 }
 
 //insert link at the last location
-struct packet* insertLast(struct packet** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload) {
+struct packet* insertLast(struct packet** head_ref, /*uint16_t identifier,*/ uint16_t size, uint8_t* payload) {
 
    // create a link
    struct packet *link = (struct packet*) malloc(sizeof(struct packet));
 
    // fill the content of the link  
-   link->header.identifier = identifier;
-   link->header.packetSize = size;
-   memcpy(link->packetPayload,payload,link->header.packetSize);
+   //link->header.identifier = identifier;
+   if(size!=0)
+      link->header.packetSize = size;
+   
+   if(payload!=NULL)
+      memcpy(link->packetPayload,payload,link->header.packetSize);
+   
    link->next = NULL;
 
+   // check if this is the first packet
    if(isEmpty(*head_ref)) {
       *head_ref = link;
       //printf("[insertLast] New link inserted in the first position\n");
    }
    else {
+      // this is not the first packet
+
       // find the last packet of the list
       struct packet *last = findLast(head_ref);
 
@@ -175,17 +182,18 @@ int sendExpiredPackects(struct packet* head_ref, uint64_t now, uint64_t period) 
 
    
    while(current != NULL) {
-
+      printf("   [sendExpiredPackects] Packet %d. Stored timestamp: %"PRIu64" us\n", current->header.identifier,current->sentTimestamp);
+         
       if(current->sentTimestamp + period < now) {
 
          // this packet has to be sent
          current->sentTimestamp = now;
          sentPackets++;
 
-         printf("   [sendExpiredPackects] Sending packet %d. New timestamp: %"PRIu64" us\n", current->header.identifier, now);
+         printf("   [sendExpiredPackects]  Sending packet %d. Updated timestamp: %"PRIu64" us\n", current->header.identifier, now);
       }
       else {
-         printf("   [sendExpiredPackects] Not sending packet %d at timestamp: %"PRIu64" us\n", current->header.identifier, now);
+         printf("   [sendExpiredPackects]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
       }
 
       current = current->next;
@@ -243,26 +251,40 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
 
    printList(&head_ref);
 
+   if(head_ref == NULL) {
+      return 0;
+   }
 
-   /*
-   // initialize with the first packet
-   uint64_t lastSentTimestamp;
-   uint16_t lastSentIdentifier;
+   // I take the first packet of the list as the initial value of 'lastSentTimestamp'
 
-   //navigate through the list
+   // first packet: it has been sent for sure
+   printf("[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
+
+   // this packet has been sent before
+   uint64_t lastSentTimestamp = current->sentTimestamp;
+   uint16_t lastSentIdentifier = current->header.identifier;
+
+   printf("[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+
+   // move to the second packet
+   current=current->next;
+
+   // navigate through the rest of the list
    while(current!=NULL) {
+      printf("[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
       if(current->sentTimestamp < lastSentTimestamp) {
          // this packet has been sent even before
          lastSentTimestamp = current->sentTimestamp;
          lastSentIdentifier = current->header.identifier;
       }
+      printf("[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
 
       current=current->next;
-   }*/
+   }
 
 
 
-   
+   /*
    //if the list is empty
    if(head_ref == NULL) {
       return 0;
@@ -276,15 +298,17 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
 
    //navigate through the list
    while(current->next!=NULL) {
+      printf("[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
       if(current->sentTimestamp < lastSentTimestamp) {
          // this packet has been sent even before
          lastSentTimestamp = current->sentTimestamp;
          lastSentIdentifier = current->header.identifier;
       }
+      printf("[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
 
       current=current->next;
    }
-
+*/
 
 
 
@@ -376,7 +400,8 @@ void test() {
    //print list
    printList(&head);
 
-   insertLast(&head,7,packetSize2,packet2); 
+   struct packet *current = insertLast(&head,7,/*packetSize2,*/packet2); 
+   current->header.packetSize=packetSize2;
 
    printf("List with 7 elements: "); 
   

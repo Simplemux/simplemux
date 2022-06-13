@@ -2642,11 +2642,14 @@ int main(int argc, char *argv[]) {
           tun2net++;
 
           if (blastMode) {
+
             // add a new empty packet to the list
-            struct packet* thisPacket = insertLast(&packetsToSend,tun2net,0,NULL);
-            // read the packet from tun_fd
+            struct packet* thisPacket = insertLast(&packetsToSend,0,NULL);
+
+            // read the packet from tun_fd and add the data
             thisPacket->header.packetSize = cread (tun_fd, thisPacket->packetPayload, BUFSIZE);
             thisPacket->header.identifier = (uint16_t)tun2net; // the ID is the 16 LSBs of 'tun2net'
+
             // FIXME: 'size' could be removed and replaced by 'thisPacket->header.packetSize'
             uint16_t size = thisPacket->header.packetSize;
 
@@ -2658,6 +2661,9 @@ int main(int argc, char *argv[]) {
             else if (tunnel_mode == TUN_MODE) {
               thisPacket->header.protocolID = IPPROTO_IP_ON_IP;
             }
+
+            // this packet will require an ACK
+            thisPacket->header.ACK = 1;
 
             // send the packet
 
