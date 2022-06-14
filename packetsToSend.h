@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>  // required for using uint8_t, uint16_t, etc.
+#include "commonFunctions.h"
 
-#define BUFSIZE 2304
 
 // header of the packet to be sent
 struct packetHeader {
@@ -19,7 +19,7 @@ struct packetHeader {
 // include the payload and also other parameters that are not sent through the network
 struct packet {
    struct packetHeader header;
-   uint8_t packetPayload[BUFSIZE];
+   uint8_t tunneledPacket[BUFSIZE];
    uint64_t sentTimestamp; // last moment when this packet was sent
    struct packet *next;
 } __attribute__ ((__packed__));

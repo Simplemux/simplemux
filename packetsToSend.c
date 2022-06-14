@@ -10,7 +10,7 @@ void printList(struct packet** head_ref) {
    while(ptr != NULL) {
       printf("(%d,%"PRIu64"",ptr->header.identifier,ptr->sentTimestamp);
       //for (int i = 0; i < ptr->header.packetSize; ++i) {
-      //  printf("%c", ptr->packetPayload[i]);
+      //  printf("%c", ptr->tunneledPacket[i]);
       //}
       printf(")");
 
@@ -28,7 +28,7 @@ void insertFirst(struct packet** head_ref, uint16_t identifier, uint16_t size, u
   
    link->header.identifier = identifier;
    link->header.packetSize = size;
-   memcpy(link->packetPayload,payload,link->header.packetSize);
+   memcpy(link->tunneledPacket,payload,link->header.packetSize);
   
    //point it to old first node
    link->next = *head_ref;
@@ -68,7 +68,7 @@ struct packet* insertLast(struct packet** head_ref, /*uint16_t identifier,*/ uin
       link->header.packetSize = size;
    
    if(payload!=NULL)
-      memcpy(link->packetPayload,payload,link->header.packetSize);
+      memcpy(link->tunneledPacket,payload,link->header.packetSize);
    
    link->next = NULL;
 
@@ -170,19 +170,78 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
    return current;
 }
 
+
+void sendPacketBlastMode(  int fd,
+                           int mode,
+                           struct packet* packetToSend,
+                           struct sockaddr_in remote,
+                           struct sockaddr_in local) {
+   
+   // send the tunneled packet
+   // fd is the file descriptor of the socket
+   // 'mode' is UDP_MODE or NETWORK_MODE
+   // 'packetToSend' is a pointer to the packet
+
+   // calculate the length of the Simplemux header + the tunneled packet
+   int total_length = sizeof(struct packetHeader) + packetToSend->header.packetSize;
+
+   switch (mode) {
+      case UDP_MODE:
+         do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+         do_debug(1, " Sending to the network a UDP blast packet: %i bytes\n", total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+
+        // send the packet
+        if (sendto(fd, &(packetToSend->header), total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+          perror("sendto() in UDP mode failed");
+          exit (EXIT_FAILURE);
+        }
+        /*
+        // write in the log file
+        if ( log_file != NULL ) {
+          fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+          fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        }*/
+      break;
+
+      case NETWORK_MODE:
+         do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+         do_debug(1, " Sending to the network an IP blast packet: %i bytes\n", total_length + IPv4_HEADER_SIZE );
+
+        // build the header
+        struct iphdr ipheader;  
+        uint8_t ipprotocol = IPPROTO_SIMPLEMUX;
+        BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
+
+        // build the full IP multiplexed packet
+        uint8_t full_ip_packet[BUFSIZE]; // the full IP packet will be stored here
+        BuildFullIPPacket(ipheader, (uint8_t *)&(packetToSend->header), total_length, full_ip_packet);
+
+        // send the packet
+        if (sendto (fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+          perror ("sendto() in Network mode failed");
+          exit (EXIT_FAILURE);
+        }
+        /*
+        // write in the log file
+        if ( log_file != NULL ) {
+          fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
+          fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        }*/
+      break;
+   }
+}
+
+
 // send again the packets which sentTimestamp + period >= now
 int sendExpiredPackects(struct packet* head_ref, uint64_t now, uint64_t period) {
 
-   printf("   [sendExpiredPackects] starting\n");
+   //printf("   [sendExpiredPackects] starting\n");
    
    int sentPackets = 0; // number of packets sent
    struct packet *current = head_ref;
-
-
-
    
    while(current != NULL) {
-      printf("   [sendExpiredPackects] Packet %d. Stored timestamp: %"PRIu64" us\n", current->header.identifier,current->sentTimestamp);
+      //printf("   [sendExpiredPackects] Packet %d. Stored timestamp: %"PRIu64" us\n", current->header.identifier,current->sentTimestamp);
          
       if(current->sentTimestamp + period < now) {
 
@@ -258,26 +317,26 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
    // I take the first packet of the list as the initial value of 'lastSentTimestamp'
 
    // first packet: it has been sent for sure
-   printf("[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
+   //printf("[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
 
    // this packet has been sent before
    uint64_t lastSentTimestamp = current->sentTimestamp;
    uint16_t lastSentIdentifier = current->header.identifier;
 
-   printf("[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+   //printf("[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
 
    // move to the second packet
    current=current->next;
 
    // navigate through the rest of the list
    while(current!=NULL) {
-      printf("[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
+      //printf("[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
       if(current->sentTimestamp < lastSentTimestamp) {
          // this packet has been sent even before
          lastSentTimestamp = current->sentTimestamp;
          lastSentIdentifier = current->header.identifier;
       }
-      printf("[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+      //printf("[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
 
       current=current->next;
    }
@@ -308,7 +367,7 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
 
       current=current->next;
    }
-*/
+   */
 
 
 
@@ -316,6 +375,7 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
 
    return lastSentTimestamp;
 }
+
 
 //delete a link with a given identifier
 bool delete(struct packet** head_ref, uint16_t identifier) {

@@ -150,19 +150,7 @@ int read_n(int fd, uint8_t *buf, int n) {
   return n;
 }
 
-/**************************************************************************
- * do_debug: prints debugging stuff (doh!)                                *
- **************************************************************************/
-void do_debug(int level, char *msg, ...) {
 
-  va_list argp;
-
-  if( debug >= level ) {
-    va_start(argp, msg);
-    vfprintf(stderr, msg, argp);
-    va_end(argp);
-  }
-}
 
 /**************************************************************************
  * my_err: prints custom error messages on stderr.                        *
@@ -469,39 +457,10 @@ static void print_rohc_traces(void *const priv_ctxt,
 }
 
 
-/**************************************************************************
- * Functions to work with IP Header *
- **************************************************************************/
-
-// Calculate IPv4 checksum
-unsigned short in_cksum(unsigned short *addr, int len) {
-  register int sum = 0;
-  u_short answer = 0;
-  register u_short *w = addr;
-  register int nleft = len;
-  /*
-  * Our algorithm is simple, using a 32 bit accumulator (sum), we add
-  * sequential 16 bit words to it, and at the end, fold back all the
-  * carry bits from the top 16 bits into the lower 16 bits.
-  */
-  while (nleft > 1) {
-    sum += *w++;
-    nleft -= 2;
-  }
-  /* mop up an odd byte, if necessary */
-  if (nleft == 1) {
-    *(u_char *) (&answer) = *(u_char *) w;
-    sum += answer;
-  }
-  /* add back carry outs from top 16 bits to low 16 bits */
-  sum = (sum >> 16) + (sum & 0xffff); /* add hi 16 to low 16 */
-  sum += (sum >> 16); /* add carry */
-  answer = ~sum; /* truncate to 16 bits */
-  return (answer);
-}
 
 
 
+/*
 // Buid an IPv4 Header
 void BuildIPHeader( struct iphdr *iph,
                     uint16_t len_data,
@@ -531,9 +490,9 @@ void BuildIPHeader( struct iphdr *iph,
   //do_debug(1, "Checksum: %i\n", iph->check);
 
   counter ++;
-}
+}*/
 
-
+/*
 // Buid a Full IP Packet
 void BuildFullIPPacket(struct iphdr iph, uint8_t *data_packet, uint16_t len_data, uint8_t *full_ip_packet) {
   memset(full_ip_packet, 0, BUFSIZE);
@@ -551,7 +510,7 @@ void GetIpHeader(struct iphdr *iph, uint8_t *ip_packet) {
 void SetIpHeader(struct iphdr iph, uint8_t *ip_packet) {
   memcpy((struct iphdr*)ip_packet,&iph,sizeof(struct iphdr));
 }
-
+*/
 
 
 /**************************************************************************
@@ -1646,15 +1605,13 @@ int main(int argc, char *argv[]) {
         }
         else {
           // the period is expired
-          printf("HELLO\n");
+          //printf("the period is expired\n");
           microseconds_left = 0;
         }        
 
         do_debug(1, " time_last_sent_in_microsec: %"PRIu64"\n", time_last_sent_in_microsec);
         do_debug(1, " The next packet will be sent in %"PRIu64" us\n", microseconds_left);        
       }
-
-
 
 
       //if (microseconds_left > 0) do_debug(0,"%"PRIu64"\n", microseconds_left);
@@ -2647,7 +2604,7 @@ int main(int argc, char *argv[]) {
             struct packet* thisPacket = insertLast(&packetsToSend,0,NULL);
 
             // read the packet from tun_fd and add the data
-            thisPacket->header.packetSize = cread (tun_fd, thisPacket->packetPayload, BUFSIZE);
+            thisPacket->header.packetSize = cread (tun_fd, thisPacket->tunneledPacket, BUFSIZE);
             thisPacket->header.identifier = (uint16_t)tun2net; // the ID is the 16 LSBs of 'tun2net'
 
             // FIXME: 'size' could be removed and replaced by 'thisPacket->header.packetSize'
@@ -2675,7 +2632,7 @@ int main(int argc, char *argv[]) {
 
             do_debug(1, " %"PRIu64": Arrived packet has been sent and stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
             if(debug > 1)
-              dump_packet ( thisPacket->header.packetSize, thisPacket->packetPayload );
+              dump_packet ( thisPacket->header.packetSize, thisPacket->tunneledPacket );
 
             //time_last_sent_in_microsec = now_microsec;
           }

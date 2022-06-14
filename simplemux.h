@@ -20,7 +20,7 @@
 #include <rohc/rohc.h>          // for using header compression
 #include <rohc/rohc_comp.h>
 #include <rohc/rohc_decomp.h>
-#include <netinet/ip.h>         // for using iphdr type
+//#include <netinet/ip.h>         // for using iphdr type
 #include <ifaddrs.h>            // required for using getifaddrs()
 #include <netdb.h>              // required for using getifaddrs()
 #include <poll.h>
@@ -28,12 +28,13 @@
 #include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
 #include "packetsToSend.c"      // FIXME: Why not .h ¿?
 #include "buildMuxedPacket.c"   // FIXME: Why not .h ¿?
+#include "commonFunctions.c"
 
 //#define BUFSIZE 2304            // buffer for reading from tun/tap interface, must be >= MTU of the network
-#define IPv4_HEADER_SIZE 20
-#define UDP_HEADER_SIZE 8
+//#define IPv4_HEADER_SIZE 20
+//#define UDP_HEADER_SIZE 8
 //#define TCP_HEADER_SIZE 20
-#define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long
+//#define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long
 
 
 #define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program
@@ -46,6 +47,7 @@
 
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
 
+/*
 // Protocol IDs, according to IANA
 // see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 #define IPPROTO_IP_ON_IP 4          // IP on IP Protocol ID
@@ -55,16 +57,16 @@
 
 #define IPPROTO_ROHC 142          // ROHC Protocol ID
 #define IPPROTO_ETHERNET 143      // Ethernet Protocol ID
-
-#define NETWORK_MODE    'N'     // N: network mode
-#define UDP_MODE        'U'     // U: UDP mode
-#define TCP_CLIENT_MODE 'T'     // T: TCP client mode
-#define TCP_SERVER_MODE 'S'     // S: TCP server mode
+*/
+//#define NETWORK_MODE    'N'     // N: network mode
+//#define UDP_MODE        'U'     // U: UDP mode
+//#define TCP_CLIENT_MODE 'T'     // T: TCP client mode
+//#define TCP_SERVER_MODE 'S'     // S: TCP server mode
 
 #define TUN_MODE 'U'            // T: tun mode, i.e. IP packets will be tunneled inside Simplemux
 #define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
 
-#define Linux_TTL 64            // the initial value of the TTL IP field in Linux
+//#define Linux_TTL 64            // the initial value of the TTL IP field in Linux
 
 #define DISABLE_NAGLE 1         // disable TCP Nagle algorithm
 #define QUICKACK 1              // enable TCP quick ACKs (non delayed)
