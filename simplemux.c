@@ -3671,7 +3671,7 @@ int main(int argc, char *argv[]) {
           int fd;
           if(mode==UDP_MODE)
             fd = udp_mode_fd;
-          else if(mode==UDP_MODE)
+          else if(mode==NETWORK_MODE)
             fd = network_mode_fd;
           int n = sendExpiredPackects(packetsToSend, now_microsec, period, fd, mode, remote, local);
           do_debug(2, "Period expired: Sent %d packets at the end of the period\n", n);
