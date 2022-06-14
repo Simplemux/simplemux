@@ -1714,7 +1714,6 @@ int main(int argc, char *argv[]) {
           }
   
           else if (mode == NETWORK_MODE) {
-            printf("HELLO from network mode**************\n");
             // a packet has been received from the network, destined to the local interface for muxed packets
             nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
   
@@ -1960,11 +1959,48 @@ int main(int argc, char *argv[]) {
               // there should be a single packet
 
               // apply the structure of a blast mode packet
-              //uint8_t* packetIterator = 0;
               struct simplemuxBlastHeader* blastHeader = (struct simplemuxBlastHeader*) (buffer_from_net);
 
               int length = ntohs(blastHeader->packetSize);
-              printf("************** arrived blast packet. Length %d\n", length);
+
+              // check if this is an ACK or not
+              if((blastHeader->ACK & THISISANACK ) == THISISANACK) {
+
+                printf("************** arrived blast ACK packet. Length %i. ACK %i\n", length, blastHeader->ACK);
+
+                // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
+                printf("************** removing packet with ID %d from the list\n", ntohs(blastHeader->identifier));
+                if(delete(&packetsToSend,blastHeader->identifier)==false) {
+                  printf("PROBLEM\n");
+                }
+                else {
+                  printf("******** packet removed from the list\n");
+                }
+              }
+              else {
+
+                printf("************** arrived blast packet. Length %i. ACK %i\n", length, blastHeader->ACK);
+                // this packet requires an ACK
+                // send the ACK as soon as the packet arrives
+                // send an ACK per arrived packet. Do not check if this is the first time it has arrived
+                struct packet ACK;
+                ACK.header.packetSize = htons(sizeof(struct simplemuxBlastHeader));
+                ACK.header.protocolID = blastHeader->protocolID;
+                ACK.header.identifier = blastHeader->identifier;
+                ACK.header.ACK = THISISANACK;
+
+                int fd;
+                if(mode==UDP_MODE)
+                  fd = udp_mode_fd;
+                else if(mode==NETWORK_MODE)
+                  fd = network_mode_fd;
+                sendPacketBlastMode( fd, mode, &ACK, remote, local);
+                printf("************** sent blast ACK. Length %i\n", ntohs(ACK.header.packetSize));
+
+                // FIXME if this packet has arrived for the first time, deliver it to the destination
+
+              }
+
 
             }
             else {
@@ -2634,7 +2670,7 @@ int main(int argc, char *argv[]) {
             }
 
             // this packet will require an ACK
-            thisPacket->header.ACK = 1;
+            thisPacket->header.ACK = ACKNEEDED;
 
             // send the packet
 
