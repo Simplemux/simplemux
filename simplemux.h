@@ -44,7 +44,6 @@
 #define PORT_FAST 55557         // port for sending Simplemux fast
 #define PORT_BLAST 55558         // port for sending Simplemux fast
 
-
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
 
 /*

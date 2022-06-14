@@ -587,6 +587,8 @@ int main(int argc, char *argv[]) {
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast mode)
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast mode)
 
+  uint64_t blastModeTimestamps[0xFFFF+1];   // I will store 65536 different timestamps: one for each possible identifier
+
   // variables for controlling the arrival and departure of packets
   uint32_t tun2net = 0, net2tun = 0;     // number of packets read from tun and from net
   uint32_t feedback_pkts = 0;            // number of ROHC feedback packets
@@ -1533,6 +1535,12 @@ int main(int argc, char *argv[]) {
     do_debug(1, "\n");
     
 
+    // in blast mode, fill the vector of timestamps with zeroes
+    if(blastMode) {
+      for(int i=0;i<0xFFFF+1;i++)
+        blastModeTimestamps[i] = 0;
+    }
+
     /** prepare POLL structure **/
     // it has size 3 (NUMBER_OF_SOCKETS), because it handles 3 sockets
     // - tun/tap socket where demuxed packets are sent/received
@@ -1998,7 +2006,55 @@ int main(int argc, char *argv[]) {
                 printf("************** sent blast ACK. Length %i\n", ntohs(ACK.header.packetSize));
 
                 // FIXME if this packet has arrived for the first time, deliver it to the destination
+                bool deliverThisPacket=false;
 
+                if(blastModeTimestamps[ntohs(blastHeader->identifier)] == 0){
+                  deliverThisPacket=true;
+                }
+                else {
+                  uint64_t now = GetTimeStamp();
+                  if (now - blastModeTimestamps[ntohs(blastHeader->identifier)] < 500000) {
+                    // the packet has been sent recently
+                    // do not send it again
+                  }
+                  else {
+                    deliverThisPacket=true;
+                  }
+                }
+                if(deliverThisPacket) {
+
+                  // I have demuxed another packet
+                  num_demuxed_packets ++;
+
+                  do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
+                  do_debug(2, ":");
+                  dump_packet (length, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);
+                  
+                  // tun mode
+                  if(tunnel_mode == TUN_MODE) {
+                     // write the demuxed packet to the tun interface
+                    do_debug (2, " Sending packet of %i bytes to the tun interface\n", length);
+                    cwrite ( tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length );
+                  }
+                  // tap mode
+                  else if(tunnel_mode == TAP_MODE) {
+                    if (protocol_rec!= IPPROTO_ETHERNET) {
+                      do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);              
+                    }
+                    else {
+                       // write the demuxed packet to the tap interface
+                      do_debug (2, " Sending frame of %i bytes to the tap interface\n", length);
+                      cwrite ( tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length );
+                    }
+                  }
+                  else {
+                    perror ("wrong value of 'tunnel_mode'");
+                    exit (EXIT_FAILURE);
+                  }
+                  
+                  do_debug(2, "\n");
+                  //do_debug(2, "packet length (without separator): %i\n", packet_length);
+                }
               }
 
 
