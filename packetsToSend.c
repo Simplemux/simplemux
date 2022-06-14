@@ -193,7 +193,7 @@ void sendPacketBlastMode(  int fd,
 
         // build the header
         struct iphdr ipheader;  
-        uint8_t ipprotocol = IPPROTO_SIMPLEMUX;
+        uint8_t ipprotocol = IPPROTO_SIMPLEMUX_BLAST;
         BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
 
         // build the full IP multiplexed packet

@@ -1714,6 +1714,7 @@ int main(int argc, char *argv[]) {
           }
   
           else if (mode == NETWORK_MODE) {
+            printf("HELLO from network mode**************\n");
             // a packet has been received from the network, destined to the local interface for muxed packets
             nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
   
@@ -1902,7 +1903,7 @@ int main(int argc, char *argv[]) {
           }
 
 
-          // now buffer_from_net may contain a full packet or frame.
+          // now 'buffer_from_net' may contain a full packet or frame.
           // check if the packet is a multiplexed one
           if (is_multiplexed_packet == -1) {
             // I have read nothing
@@ -1954,538 +1955,553 @@ int main(int argc, char *argv[]) {
               break;
             }
   
-            // if the packet comes from the multiplexing port, I have to demux 
-            //it and write each packet to the tun / tap interface
-            position = 0; //this is the index for reading the packet/frame
-            num_demuxed_packets = 0;
   
-            first_header_read = 0;
-  
-            while (position < nread_from_net) {
-  
-              if (!fast_mode) {
-                // check if this is the first separator or not
-                if (first_header_read == 0) {
+            if(blastMode) {
+              // there should be a single packet
 
-                  // this is a first header:
-                  //  - SPB will be stored in the most significant bit (0x80)
-                  //  - LXT will be stored in the 7th bit (0x40)
-                  
-                  // Read SPB (one bit)
-                  // It only appears in the first Simplemux header 
-                  //  - It is set to '0' if all the multiplexed
-                  //    packets belong to the same protocol (in this case, the "protocol"
-                  //    field will only appear in the first Simplemux header)
-                  //  - It is set to '1' when each packet MAY belong to a different protocol.
+              // apply the structure of a blast mode packet
+              //uint8_t* packetIterator = 0;
+              struct simplemuxBlastHeader* blastHeader = (struct simplemuxBlastHeader*) (buffer_from_net);
 
-                  // check if the most significant bit (0x80) is '1'
-                  if  ((0x80 & buffer_from_net[position] ) == 0x80 ) {
-                    single_protocol_rec = 1;
-                    //do_debug(2, "single protocol\n");
-                  }
-                  else {
-                    single_protocol_rec = 0;
-                    //do_debug(2, "multi protocol\n");
-                  }
+              int length = ntohs(blastHeader->packetSize);
+              printf("************** arrived blast packet. Length %d\n", length);
 
-                  // Read LXT (one bit)
-                  // as this is a first header
-                  //  - LXT bit is the second one (0x40) 
-                  //  - the maximum length of a single-byte packet is 64 bytes                
-                  if ((0x40 & buffer_from_net[position]) == 0x00)
-                    LXT_first_byte = 0;
-                  else
-                    LXT_first_byte = 1;
+            }
+            else {
+              // if the packet comes from the multiplexing port, I have to demux 
+              //it and write each packet to the tun / tap interface
+              position = 0; //this is the index for reading the packet/frame
+              num_demuxed_packets = 0;
+    
+              first_header_read = 0;
+    
+              while (position < nread_from_net) {
+    
+                if (!fast_mode) {
+                  // check if this is the first separator or not
+                  if (first_header_read == 0) {
 
-                  maximum_packet_length = 64;
-                }
+                    // this is a first header:
+                    //  - SPB will be stored in the most significant bit (0x80)
+                    //  - LXT will be stored in the 7th bit (0x40)
+                    
+                    // Read SPB (one bit)
+                    // It only appears in the first Simplemux header 
+                    //  - It is set to '0' if all the multiplexed
+                    //    packets belong to the same protocol (in this case, the "protocol"
+                    //    field will only appear in the first Simplemux header)
+                    //  - It is set to '1' when each packet MAY belong to a different protocol.
 
-                else { 
-                  // this is a non-first header
-                  //  - There is no SPB bit
-                  //  - LXT will be stored in the most significant bit (0x80)
-                  //  - the maximum length of a single-byte packet is 128 bytes
-                  if ((0x80 & buffer_from_net[position]) == 0x00)
-                    LXT_first_byte = 0;
-                  else
-                    LXT_first_byte = 1;
-                  
-                  maximum_packet_length = 128;
-                }             
-                // I have demuxed another packet
-                num_demuxed_packets ++;
+                    // check if the most significant bit (0x80) is '1'
+                    if  ((0x80 & buffer_from_net[position] ) == 0x80 ) {
+                      single_protocol_rec = 1;
+                      //do_debug(2, "single protocol\n");
+                    }
+                    else {
+                      single_protocol_rec = 0;
+                      //do_debug(2, "multi protocol\n");
+                    }
 
-                do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
-                do_debug(2, ": ");
-              }
-              else {  // fast mode
-
-                // I have demuxed another packet
-                num_demuxed_packets ++;
-
-                do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
-                do_debug(2, ":");   
-              }
-
-
-              // read the length
-              if (!fast_mode) {
-                if (LXT_first_byte == 0) {
-                  // the LXT bit of the first byte is 0 => the separator is one-byte long
-
-                  // I have to convert the 6 (or 7) less significant bits to an integer, which means the length of the packet
-                  // since the two most significant bits are 0, the length is the value of the char
-                  packet_length = buffer_from_net[position] % maximum_packet_length;
-                  //packet_length = buffer_from_net[position] & maximum_packet_length;
-
-                  if (debug) {
-                    do_debug(2, " buffer from net: %d\n", buffer_from_net[position]);
-                    do_debug(2, "max packet length: %d\n", maximum_packet_length);
-                    FromByte(buffer_from_net[position], bits);
-                    do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
-                    PrintByte(2, 8, bits);
-                    do_debug(2, ")");
-                  }
-                  position ++;
-                }
-
-                else {
-                  // the LXT bit of the first byte is 1 => the separator is NOT one-byte
-
-                  // check whether this is a 2-byte or a 3-byte length
-                  // check the bit 7 of the second byte
-
-                  // If the LXT bit is 0, this is a two-byte length
-                  if ((0x80 & buffer_from_net[position+1] ) == 0x00 ) {
-
-                    // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
-                    // I do the product by 128, because the next byte includes 7 bits of the length
-                    packet_length = ((buffer_from_net[position] % maximum_packet_length) * 128 );
-                    do_debug(3, "packet_length initial: %d\n", packet_length);
-                    /*
-                    uint8_t mask;
-                    if (maximum_packet_length == 64)
-                      mask = 0x3F;
+                    // Read LXT (one bit)
+                    // as this is a first header
+                    //  - LXT bit is the second one (0x40) 
+                    //  - the maximum length of a single-byte packet is 64 bytes                
+                    if ((0x40 & buffer_from_net[position]) == 0x00)
+                      LXT_first_byte = 0;
                     else
-                      mask = 0x7F;
-                    packet_length = ((buffer_from_net[position] & maximum_packet_length) << 7 );*/
+                      LXT_first_byte = 1;
 
-                    // I add the value of the 7 less significant bits of the second byte
-                    packet_length = packet_length + (buffer_from_net[position + 1] % 128);
-                    do_debug(3, "packet_length final: %d\n", packet_length);
-                    //packet_length = packet_length + (buffer_from_net[position+1] & 0x7F);
-
-                    if (debug) {
-                      // print the first byte
-                      FromByte(buffer_from_net[position], bits);
-                      do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
-                      PrintByte(2, 8, bits);
-                      
-                      // print the second byte
-                      FromByte(buffer_from_net[position+1], bits);
-                      do_debug(2, ") 0x%02x (",buffer_from_net[position+1]);
-                      PrintByte(2, 8, bits);
-                      do_debug(2,")");
-                    }          
-                    position = position + 2;
+                    maximum_packet_length = 64;
                   }
 
-                  // If the LXT bit of the second byte is 1, this is a three-byte length
-                  else {
-                    // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
-                    // I do the product by 16384 (2^14), because the next two bytes include 14 bits of the length
-                    //packet_length = ((buffer_from_net[position] % maximum_packet_length) * 16384 );
-                    packet_length = ((buffer_from_net[position] % maximum_packet_length) << 14 );
+                  else { 
+                    // this is a non-first header
+                    //  - There is no SPB bit
+                    //  - LXT will be stored in the most significant bit (0x80)
+                    //  - the maximum length of a single-byte packet is 128 bytes
+                    if ((0x80 & buffer_from_net[position]) == 0x00)
+                      LXT_first_byte = 0;
+                    else
+                      LXT_first_byte = 1;
+                    
+                    maximum_packet_length = 128;
+                  }             
+                  // I have demuxed another packet
+                  num_demuxed_packets ++;
 
-                    // I get the 6 (or 7) less significant bits of the second byte by using modulo 128
-                    // I do the product by 128, because the next byte includes 7 bits of the length
-                    //packet_length = packet_length + ((buffer_from_net[position+1] % 128) * 128 );
-                    packet_length = packet_length + ((buffer_from_net[position+1] & 0x7F) << 7 );
+                  do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
+                  do_debug(2, ": ");
+                }
+                else {  // fast mode
 
-                    // I add the value of the 7 less significant bits of the second byte
-                    //packet_length = packet_length + (buffer_from_net[position+2] % 128);
-                    packet_length = packet_length + (buffer_from_net[position+2] & 0x7F);
+                  // I have demuxed another packet
+                  num_demuxed_packets ++;
+
+                  do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
+                  do_debug(2, ":");   
+                }
+
+
+                // read the length
+                if (!fast_mode) {
+                  if (LXT_first_byte == 0) {
+                    // the LXT bit of the first byte is 0 => the separator is one-byte long
+
+                    // I have to convert the 6 (or 7) less significant bits to an integer, which means the length of the packet
+                    // since the two most significant bits are 0, the length is the value of the char
+                    packet_length = buffer_from_net[position] % maximum_packet_length;
+                    //packet_length = buffer_from_net[position] & maximum_packet_length;
 
                     if (debug) {
-                      // print the first byte
+                      do_debug(2, " buffer from net: %d\n", buffer_from_net[position]);
+                      do_debug(2, "max packet length: %d\n", maximum_packet_length);
                       FromByte(buffer_from_net[position], bits);
-                      do_debug(2, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
+                      do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
                       PrintByte(2, 8, bits);
-                      
-                      // print the second byte
-                      FromByte(buffer_from_net[position+1], bits);
-                      do_debug(2, " %02x ",buffer_from_net[position+1]);
-                      PrintByte(2, 8, bits);  
-                      
-                      // print the third byte
-                      FromByte(buffer_from_net[position+2], bits);
-                      do_debug(2, " %02x ",buffer_from_net[position+2]);
-                      PrintByte(2, 8, bits);
-                    }          
-                    position = position + 3;
-                  }
-                }
-              }
-              else {  // fast mode
-
-                if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
-                  // do nothing, because I have already read the length
-                }
-                else {
-                  // I am in fast mode, but not in TCP mode, so I still have to read the length
-                  // It is in the two first bytes of the buffer
-                  packet_length = (buffer_from_net[position] << 8 ) + buffer_from_net[position+1];
-
-                  position = position + 2;
-                }       
-              }
-
-              // read the 'Protocol'
-              if (!fast_mode) {
-                // check if this is the first separator or not
-                if (first_header_read == 0) {    // this is the first separator. The protocol field will always be present
-                  // the next thing I expect is a 'protocol' field
-                  if ( SIZE_PROTOCOL_FIELD == 1 ) {
-                    protocol_rec = buffer_from_net[position];
-                    do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+                      do_debug(2, ")");
+                    }
                     position ++;
                   }
-                  else {  // SIZE_PROTOCOL_FIELD == 2
-                    protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-                    do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
-                    position = position + 2;
+
+                  else {
+                    // the LXT bit of the first byte is 1 => the separator is NOT one-byte
+
+                    // check whether this is a 2-byte or a 3-byte length
+                    // check the bit 7 of the second byte
+
+                    // If the LXT bit is 0, this is a two-byte length
+                    if ((0x80 & buffer_from_net[position+1] ) == 0x00 ) {
+
+                      // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
+                      // I do the product by 128, because the next byte includes 7 bits of the length
+                      packet_length = ((buffer_from_net[position] % maximum_packet_length) * 128 );
+                      do_debug(3, "packet_length initial: %d\n", packet_length);
+                      /*
+                      uint8_t mask;
+                      if (maximum_packet_length == 64)
+                        mask = 0x3F;
+                      else
+                        mask = 0x7F;
+                      packet_length = ((buffer_from_net[position] & maximum_packet_length) << 7 );*/
+
+                      // I add the value of the 7 less significant bits of the second byte
+                      packet_length = packet_length + (buffer_from_net[position + 1] % 128);
+                      do_debug(3, "packet_length final: %d\n", packet_length);
+                      //packet_length = packet_length + (buffer_from_net[position+1] & 0x7F);
+
+                      if (debug) {
+                        // print the first byte
+                        FromByte(buffer_from_net[position], bits);
+                        do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
+                        PrintByte(2, 8, bits);
+                        
+                        // print the second byte
+                        FromByte(buffer_from_net[position+1], bits);
+                        do_debug(2, ") 0x%02x (",buffer_from_net[position+1]);
+                        PrintByte(2, 8, bits);
+                        do_debug(2,")");
+                      }          
+                      position = position + 2;
+                    }
+
+                    // If the LXT bit of the second byte is 1, this is a three-byte length
+                    else {
+                      // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
+                      // I do the product by 16384 (2^14), because the next two bytes include 14 bits of the length
+                      //packet_length = ((buffer_from_net[position] % maximum_packet_length) * 16384 );
+                      packet_length = ((buffer_from_net[position] % maximum_packet_length) << 14 );
+
+                      // I get the 6 (or 7) less significant bits of the second byte by using modulo 128
+                      // I do the product by 128, because the next byte includes 7 bits of the length
+                      //packet_length = packet_length + ((buffer_from_net[position+1] % 128) * 128 );
+                      packet_length = packet_length + ((buffer_from_net[position+1] & 0x7F) << 7 );
+
+                      // I add the value of the 7 less significant bits of the second byte
+                      //packet_length = packet_length + (buffer_from_net[position+2] % 128);
+                      packet_length = packet_length + (buffer_from_net[position+2] & 0x7F);
+
+                      if (debug) {
+                        // print the first byte
+                        FromByte(buffer_from_net[position], bits);
+                        do_debug(2, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
+                        PrintByte(2, 8, bits);
+                        
+                        // print the second byte
+                        FromByte(buffer_from_net[position+1], bits);
+                        do_debug(2, " %02x ",buffer_from_net[position+1]);
+                        PrintByte(2, 8, bits);  
+                        
+                        // print the third byte
+                        FromByte(buffer_from_net[position+2], bits);
+                        do_debug(2, " %02x ",buffer_from_net[position+2]);
+                        PrintByte(2, 8, bits);
+                      }          
+                      position = position + 3;
+                    }
                   }
-
-                  // if I am here, it means that I have read the first separator
-                  first_header_read = 1;
-
                 }
-                else {      // non-first separator. The protocol field may or may not be present
-                  if ( single_protocol_rec == 0 ) {
-                    // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
+                else {  // fast mode
+
+                  if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
+                    // do nothing, because I have already read the length
+                  }
+                  else {
+                    // I am in fast mode, but not in TCP mode, so I still have to read the length
+                    // It is in the two first bytes of the buffer
+                    packet_length = (buffer_from_net[position] << 8 ) + buffer_from_net[position+1];
+
+                    position = position + 2;
+                  }       
+                }
+
+                // read the 'Protocol'
+                if (!fast_mode) {
+                  // check if this is the first separator or not
+                  if (first_header_read == 0) {    // this is the first separator. The protocol field will always be present
+                    // the next thing I expect is a 'protocol' field
                     if ( SIZE_PROTOCOL_FIELD == 1 ) {
                       protocol_rec = buffer_from_net[position];
-                      if(single_protocol_rec == 0)
-                        do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+                      do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
                       position ++;
                     }
                     else {  // SIZE_PROTOCOL_FIELD == 2
                       protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-                      if(single_protocol_rec == 0)
-                        do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
+                      do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
                       position = position + 2;
                     }
+
+                    // if I am here, it means that I have read the first separator
+                    first_header_read = 1;
+
                   }
-                }
-                do_debug(1, ". Length %i bytes\n", packet_length);
-              }
-              else {  // fast mode
-                if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
-                  // do nothing, because I have already read the Protocol
-                  do_debug(1, " Length %i bytes\n", packet_length);
-                }
-                else {                
-                  // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
-                  if ( SIZE_PROTOCOL_FIELD == 1 ) {
-                    protocol_rec = buffer_from_net[position];
-                    do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
-                    position ++;
-                  }
-                  else {  // SIZE_PROTOCOL_FIELD == 2
-                    protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-                    do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
-                    position = position + 2;
+                  else {      // non-first separator. The protocol field may or may not be present
+                    if ( single_protocol_rec == 0 ) {
+                      // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
+                      if ( SIZE_PROTOCOL_FIELD == 1 ) {
+                        protocol_rec = buffer_from_net[position];
+                        if(single_protocol_rec == 0)
+                          do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+                        position ++;
+                      }
+                      else {  // SIZE_PROTOCOL_FIELD == 2
+                        protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+                        if(single_protocol_rec == 0)
+                          do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
+                        position = position + 2;
+                      }
+                    }
                   }
                   do_debug(1, ". Length %i bytes\n", packet_length);
                 }
-              }
-  
-              // copy the packet to a new string 'demuxed_packet'
-              memcpy (demuxed_packet, &buffer_from_net[position], packet_length);
-              position = position + packet_length;
-  
-              // Check if the position has gone beyond the size of the packet (wrong packet)
-              if (position > nread_from_net) {
-                // The last length read from the separator goes beyond the end of the packet
-                do_debug (1, "  ERROR: The length of the packet does not fit. Packet discarded\n");
-  
-                // this means that reception is desynchronized
-                // in TCP mode, this will never recover, so abort
-                if ((mode == TCP_CLIENT_MODE) || (mode == TCP_CLIENT_MODE)) {
-                  do_debug (1, "ERROR: Length problem in TCP mode. Abort\n");
-                  return 0;
-                }
-
-                // write the log file
-                if ( log_file != NULL ) {
-                  // the packet is bad so I add a line
-                  fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun );  
-                  fflush(log_file);
-                }            
-              }
-              
-              else {
-  
-                /************ decompress the packet if needed ***************/
-  
-                // if the number of the protocol is NOT 142 (ROHC) I do not decompress the packet
-                if ( protocol_rec != IPPROTO_ROHC ) {
-                  // non-compressed packet
-                  // dump the received packet on terminal
-                  if (debug) {
-                    //do_debug(1, " Received ");
-                    //do_debug(2, "   ");
-                    dump_packet ( packet_length, demuxed_packet );
+                else {  // fast mode
+                  if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
+                    // do nothing, because I have already read the Protocol
+                    do_debug(1, " Length %i bytes\n", packet_length);
+                  }
+                  else {                
+                    // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
+                    if ( SIZE_PROTOCOL_FIELD == 1 ) {
+                      protocol_rec = buffer_from_net[position];
+                      do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+                      position ++;
+                    }
+                    else {  // SIZE_PROTOCOL_FIELD == 2
+                      protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
+                      do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
+                      position = position + 2;
+                    }
+                    do_debug(1, ". Length %i bytes\n", packet_length);
                   }
                 }
+    
+                // copy the packet to a new string 'demuxed_packet'
+                memcpy (demuxed_packet, &buffer_from_net[position], packet_length);
+                position = position + packet_length;
+    
+                // Check if the position has gone beyond the size of the packet (wrong packet)
+                if (position > nread_from_net) {
+                  // The last length read from the separator goes beyond the end of the packet
+                  do_debug (1, "  ERROR: The length of the packet does not fit. Packet discarded\n");
+    
+                  // this means that reception is desynchronized
+                  // in TCP mode, this will never recover, so abort
+                  if ((mode == TCP_CLIENT_MODE) || (mode == TCP_CLIENT_MODE)) {
+                    do_debug (1, "ERROR: Length problem in TCP mode. Abort\n");
+                    return 0;
+                  }
+
+                  // write the log file
+                  if ( log_file != NULL ) {
+                    // the packet is bad so I add a line
+                    fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun );  
+                    fflush(log_file);
+                  }            
+                }
+                
                 else {
-                  // ROHC-compressed packet
-  
-                  // I cannot decompress the packet if I am not in ROHC mode
-                  if ( ROHC_mode == 0 ) {
-                    do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
-  
-                    // write the log file
-                    if ( log_file != NULL ) {
-                      fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
-                      fflush(log_file);
+    
+                  /************ decompress the packet if needed ***************/
+    
+                  // if the number of the protocol is NOT 142 (ROHC) I do not decompress the packet
+                  if ( protocol_rec != IPPROTO_ROHC ) {
+                    // non-compressed packet
+                    // dump the received packet on terminal
+                    if (debug) {
+                      //do_debug(1, " Received ");
+                      //do_debug(2, "   ");
+                      dump_packet ( packet_length, demuxed_packet );
                     }
                   }
                   else {
-                    // reset the buffers where the rohc packets, ip packets and feedback info are to be stored
-                    rohc_buf_reset (&ip_packet_d);
-                    rohc_buf_reset (&rohc_packet_d);
-                    rohc_buf_reset (&rcvd_feedback);
-                    rohc_buf_reset (&feedback_send);
-  
-                    // Copy the compressed length and the compressed packet
-                    rohc_packet_d.len = packet_length;
-              
-                    // Copy the packet itself
-                    for (l = 0; l < packet_length ; l++) {
-                      rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
+                    // ROHC-compressed packet
+    
+                    // I cannot decompress the packet if I am not in ROHC mode
+                    if ( ROHC_mode == 0 ) {
+                      do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
+    
+                      // write the log file
+                      if ( log_file != NULL ) {
+                        fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
+                        fflush(log_file);
+                      }
                     }
-                    // I try to use memcpy instead, but it does not work properly
-                    // memcpy(demuxed_packet, rohc_buf_data_at(rohc_packet_d, 0), packet_length);
+                    else {
+                      // reset the buffers where the rohc packets, ip packets and feedback info are to be stored
+                      rohc_buf_reset (&ip_packet_d);
+                      rohc_buf_reset (&rohc_packet_d);
+                      rohc_buf_reset (&rcvd_feedback);
+                      rohc_buf_reset (&feedback_send);
+    
+                      // Copy the compressed length and the compressed packet
+                      rohc_packet_d.len = packet_length;
+                
+                      // Copy the packet itself
+                      for (l = 0; l < packet_length ; l++) {
+                        rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
+                      }
+                      // I try to use memcpy instead, but it does not work properly
+                      // memcpy(demuxed_packet, rohc_buf_data_at(rohc_packet_d, 0), packet_length);
 
-                    // dump the ROHC packet on terminal
-                    if (debug) {
-                      do_debug(1, " ROHC. ");
-                    }
-                    if (debug == 2) {
-                      do_debug(2, " ");
-                      do_debug(2, " ROHC packet\n");
-                      dump_packet (packet_length, demuxed_packet);
-                    }
-  
-                    // decompress the packet
-                    status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
-  
-                    // if bidirectional mode has been set, check the feedback
-                    if ( ROHC_mode > 1 ) {
-  
-                      // check if the decompressor has received feedback, and it has to be delivered to the local compressor
-                      if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
-                        do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
-                        // dump the feedback packet on terminal
-                        if (debug) {
-                          do_debug(2, "  ROHC feedback packet received\n");
-  
-                          dump_packet (rcvd_feedback.len, rcvd_feedback.data );
-                        }
-  
-                        // deliver the feedback received to the local compressor
-                        //https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
-                        if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
-                          do_debug(3, "Error delivering feedback received from the remote compressor to the compressor\n");
+                      // dump the ROHC packet on terminal
+                      if (debug) {
+                        do_debug(1, " ROHC. ");
+                      }
+                      if (debug == 2) {
+                        do_debug(2, " ");
+                        do_debug(2, " ROHC packet\n");
+                        dump_packet (packet_length, demuxed_packet);
+                      }
+    
+                      // decompress the packet
+                      status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
+    
+                      // if bidirectional mode has been set, check the feedback
+                      if ( ROHC_mode > 1 ) {
+    
+                        // check if the decompressor has received feedback, and it has to be delivered to the local compressor
+                        if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
+                          do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
+                          // dump the feedback packet on terminal
+                          if (debug) {
+                            do_debug(2, "  ROHC feedback packet received\n");
+    
+                            dump_packet (rcvd_feedback.len, rcvd_feedback.data );
+                          }
+    
+                          // deliver the feedback received to the local compressor
+                          //https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
+                          if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
+                            do_debug(3, "Error delivering feedback received from the remote compressor to the compressor\n");
+                          }
+                          else {
+                            do_debug(3, "Feedback from the remote compressor delivered to the compressor: %i bytes\n", rcvd_feedback.len);
+                          }
                         }
                         else {
-                          do_debug(3, "Feedback from the remote compressor delivered to the compressor: %i bytes\n", rcvd_feedback.len);
+                          do_debug(3, "No feedback received by the decompressor from the remote compressor\n");
                         }
-                      }
-                      else {
-                        do_debug(3, "No feedback received by the decompressor from the remote compressor\n");
-                      }
-  
-                      // check if the decompressor has generated feedback to be sent by the feedback channel to the other peer
-                      if ( !rohc_buf_is_empty( feedback_send ) ) { 
-                        do_debug(3, "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n", feedback_send.len);
-  
-                        // dump the ROHC packet on terminal
-                        if (debug) {
-                          do_debug(2, "  ROHC feedback packet generated\n");
-                          dump_packet (feedback_send.len, feedback_send.data );
-                        }
-  
-  
-                        // send the feedback packet to the peer
-                        if (sendto(feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&feedback_remote, sizeof(feedback_remote))==-1) {
-                          perror("sendto() failed when sending a ROHC packet");
+    
+                        // check if the decompressor has generated feedback to be sent by the feedback channel to the other peer
+                        if ( !rohc_buf_is_empty( feedback_send ) ) { 
+                          do_debug(3, "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n", feedback_send.len);
+    
+                          // dump the ROHC packet on terminal
+                          if (debug) {
+                            do_debug(2, "  ROHC feedback packet generated\n");
+                            dump_packet (feedback_send.len, feedback_send.data );
+                          }
+    
+    
+                          // send the feedback packet to the peer
+                          if (sendto(feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&feedback_remote, sizeof(feedback_remote))==-1) {
+                            perror("sendto() failed when sending a ROHC packet");
+                          }
+                          else {
+                            do_debug(3, "Feedback generated by the decompressor (%i bytes), sent to the compressor\n", feedback_send.len);
+                          }
                         }
                         else {
-                          do_debug(3, "Feedback generated by the decompressor (%i bytes), sent to the compressor\n", feedback_send.len);
+                          do_debug(3, "No feedback generated by the decompressor\n");
                         }
                       }
-                      else {
-                        do_debug(3, "No feedback generated by the decompressor\n");
-                      }
-                    }
-  
-                    // check the result of the decompression
-  
-                    // decompression is successful
-                    if ( status == ROHC_STATUS_OK) {
-  
-                      if(!rohc_buf_is_empty(ip_packet_d))  {  // decompressed packet is not empty
-                  
-                        // ip_packet.len bytes of decompressed IP data available in ip_packet
-                        packet_length = ip_packet_d.len;
-  
-                        // copy the packet
-                        memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
-  
-                        //dump the IP packet on the standard output
-                        do_debug(2, "  ");
-                        do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
-                        //do_debug(2, "   ");
-  
-                        if (debug) {
-                          // dump the decompressed IP packet on terminal
-                          dump_packet (ip_packet_d.len, ip_packet_d.data );
+    
+                      // check the result of the decompression
+    
+                      // decompression is successful
+                      if ( status == ROHC_STATUS_OK) {
+    
+                        if(!rohc_buf_is_empty(ip_packet_d))  {  // decompressed packet is not empty
+                    
+                          // ip_packet.len bytes of decompressed IP data available in ip_packet
+                          packet_length = ip_packet_d.len;
+    
+                          // copy the packet
+                          memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
+    
+                          //dump the IP packet on the standard output
+                          do_debug(2, "  ");
+                          do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
+                          //do_debug(2, "   ");
+    
+                          if (debug) {
+                            // dump the decompressed IP packet on terminal
+                            dump_packet (ip_packet_d.len, ip_packet_d.data );
+                          }
+                        }
+                        else {
+                          /* no IP packet was decompressed because of ROHC segmentation or
+                           * feedback-only packet:
+                           *  - the ROHC packet was a non-final segment, so at least another
+                           *    ROHC segment is required to be able to decompress the full
+                           *    ROHC packet
+                           *  - the ROHC packet was a feedback-only packet, it contained only
+                           *    feedback information, so there was nothing to decompress */
+                          do_debug(1, "  no IP packet decompressed\n");
+    
+                          // write the log file
+                          if ( log_file != NULL ) {
+                            fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));  // the packet is bad so I add a line
+                            fflush(log_file);
+                          }
                         }
                       }
-                      else {
-                        /* no IP packet was decompressed because of ROHC segmentation or
-                         * feedback-only packet:
-                         *  - the ROHC packet was a non-final segment, so at least another
-                         *    ROHC segment is required to be able to decompress the full
-                         *    ROHC packet
-                         *  - the ROHC packet was a feedback-only packet, it contained only
-                         *    feedback information, so there was nothing to decompress */
-                        do_debug(1, "  no IP packet decompressed\n");
-  
+    
+                      else if ( status == ROHC_STATUS_NO_CONTEXT ) {
+    
+                        // failure: decompressor failed to decompress the ROHC packet 
+                        do_debug(1, "  decompression of ROHC packet failed. No context\n");
+                        //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+    
                         // write the log file
                         if ( log_file != NULL ) {
-                          fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));  // the packet is bad so I add a line
+                          // the packet is bad
+                          fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
+                          fflush(log_file);
+                        }
+                      }
+    
+                      else if ( status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {  // the output buffer is too small for the compressed packet
+    
+                        // failure: decompressor failed to decompress the ROHC packet 
+                        do_debug(1, "  decompression of ROHC packet failed. Output buffer is too small\n");
+                        //fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
+    
+                        // write the log file
+                        if ( log_file != NULL ) {
+                          // the packet is bad
+                          fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
+                          fflush(log_file);
+                        }
+                      }
+    
+                      else if ( status == ROHC_STATUS_MALFORMED ) {      // the decompression failed because the ROHC packet is malformed 
+    
+                        // failure: decompressor failed to decompress the ROHC packet 
+                        do_debug(1, "  decompression of ROHC packet failed. No context\n");
+                        //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+    
+                        // write the log file
+                        if ( log_file != NULL ) {
+                          // the packet is bad
+                          fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
+                          fflush(log_file);
+                        }
+                      }
+    
+                      else if ( status == ROHC_STATUS_BAD_CRC ) {      // the CRC detected a transmission or decompression problem
+    
+                        // failure: decompressor failed to decompress the ROHC packet 
+                        do_debug(1, "  decompression of ROHC packet failed. Bad CRC\n");
+                        //fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
+    
+                        // write the log file
+                        if ( log_file != NULL ) {
+                          // the packet is bad
+                          fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
+                          fflush(log_file);
+                        }
+                      }
+    
+                      else if ( status == ROHC_STATUS_ERROR ) {        // another problem occurred
+    
+                        // failure: decompressor failed to decompress the ROHC packet 
+                        do_debug(1, "  decompression of ROHC packet failed. Other error\n");
+                        //fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
+    
+                        // write the log file
+                        if ( log_file != NULL ) {
+                          // the packet is bad
+                          fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
                           fflush(log_file);
                         }
                       }
                     }
-  
-                    else if ( status == ROHC_STATUS_NO_CONTEXT ) {
-  
-                      // failure: decompressor failed to decompress the ROHC packet 
-                      do_debug(1, "  decompression of ROHC packet failed. No context\n");
-                      //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
-  
-                      // write the log file
-                      if ( log_file != NULL ) {
-                        // the packet is bad
-                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
-                        fflush(log_file);
-                      }
-                    }
-  
-                    else if ( status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {  // the output buffer is too small for the compressed packet
-  
-                      // failure: decompressor failed to decompress the ROHC packet 
-                      do_debug(1, "  decompression of ROHC packet failed. Output buffer is too small\n");
-                      //fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
-  
-                      // write the log file
-                      if ( log_file != NULL ) {
-                        // the packet is bad
-                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
-                        fflush(log_file);
-                      }
-                    }
-  
-                    else if ( status == ROHC_STATUS_MALFORMED ) {      // the decompression failed because the ROHC packet is malformed 
-  
-                      // failure: decompressor failed to decompress the ROHC packet 
-                      do_debug(1, "  decompression of ROHC packet failed. No context\n");
-                      //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
-  
-                      // write the log file
-                      if ( log_file != NULL ) {
-                        // the packet is bad
-                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
-                        fflush(log_file);
-                      }
-                    }
-  
-                    else if ( status == ROHC_STATUS_BAD_CRC ) {      // the CRC detected a transmission or decompression problem
-  
-                      // failure: decompressor failed to decompress the ROHC packet 
-                      do_debug(1, "  decompression of ROHC packet failed. Bad CRC\n");
-                      //fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
-  
-                      // write the log file
-                      if ( log_file != NULL ) {
-                        // the packet is bad
-                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
-                        fflush(log_file);
-                      }
-                    }
-  
-                    else if ( status == ROHC_STATUS_ERROR ) {        // another problem occurred
-  
-                      // failure: decompressor failed to decompress the ROHC packet 
-                      do_debug(1, "  decompression of ROHC packet failed. Other error\n");
-                      //fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
-  
-                      // write the log file
-                      if ( log_file != NULL ) {
-                        // the packet is bad
-                        fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, net2tun);  
-                        fflush(log_file);
-                      }
-                    }
                   }
-                }
-                /*********** end decompression **************/
-  
-                // write the demuxed (and perhaps decompressed) packet to the tun interface
-                // if compression is used, check that ROHC has decompressed correctly
-                if ( ( protocol_rec != IPPROTO_ROHC ) || ((protocol_rec == IPPROTO_ROHC) && ( status == ROHC_STATUS_OK))) {
-   
-                  // tun mode
-                  if(tunnel_mode == TUN_MODE) {
-                     // write the demuxed packet to the tun interface
-                    do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
-                    cwrite ( tun_fd, demuxed_packet, packet_length );
-                  }
-                  // tap mode
-                  else if(tunnel_mode == TAP_MODE) {
-                    if (protocol_rec!= IPPROTO_ETHERNET) {
-                      do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);              
-                    }
-                    else {
-                       // write the demuxed packet to the tap interface
-                      do_debug (2, " Sending frame of %i bytes to the tap interface\n", packet_length);
+                  /*********** end decompression **************/
+    
+                  // write the demuxed (and perhaps decompressed) packet to the tun interface
+                  // if compression is used, check that ROHC has decompressed correctly
+                  if ( ( protocol_rec != IPPROTO_ROHC ) || ((protocol_rec == IPPROTO_ROHC) && ( status == ROHC_STATUS_OK))) {
+     
+                    // tun mode
+                    if(tunnel_mode == TUN_MODE) {
+                       // write the demuxed packet to the tun interface
+                      do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
                       cwrite ( tun_fd, demuxed_packet, packet_length );
                     }
-                  }
-                  else {
-                    perror ("wrong value of 'tunnel_mode'");
-                    exit (EXIT_FAILURE);
-                  }
-                  
-                  do_debug(2, "\n");
-                  //do_debug(2, "packet length (without separator): %i\n", packet_length);
-  
-                  // write the log file
-                  if ( log_file != NULL ) {
-                    fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, net2tun);  // the packet is good
-                    fflush(log_file);
+                    // tap mode
+                    else if(tunnel_mode == TAP_MODE) {
+                      if (protocol_rec!= IPPROTO_ETHERNET) {
+                        do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);              
+                      }
+                      else {
+                         // write the demuxed packet to the tap interface
+                        do_debug (2, " Sending frame of %i bytes to the tap interface\n", packet_length);
+                        cwrite ( tun_fd, demuxed_packet, packet_length );
+                      }
+                    }
+                    else {
+                      perror ("wrong value of 'tunnel_mode'");
+                      exit (EXIT_FAILURE);
+                    }
+                    
+                    do_debug(2, "\n");
+                    //do_debug(2, "packet length (without separator): %i\n", packet_length);
+    
+                    // write the log file
+                    if ( log_file != NULL ) {
+                      fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, net2tun);  // the packet is good
+                      fflush(log_file);
+                    }
                   }
                 }
-              }
+              }              
             }
+
           }
   
           else {
-            // packet with destination port 55555, but a source port different from the multiplexing one
+            // packet with the correct destination port, but a source port different from the multiplexing one
             // if the packet does not come from the multiplexing port, write it directly into the tun interface
             do_debug(1, "NON-MUXED PACKET #%"PRIu32": Non-multiplexed packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
             cwrite ( tun_fd, buffer_from_net, nread_from_net);
