@@ -9,16 +9,18 @@
 
 
 // header of the packet to be sent
-struct packetHeader {
-   uint16_t packetSize;
+struct simplemuxBlastHeader {
+   uint16_t packetSize; // use 'htons()' when writing it because this field will be sent through the network
+                        // use 'ntohs()' when reading it from the network
    uint8_t protocolID;
-   uint16_t identifier;
+   uint16_t identifier; // use 'htons()' when writing it because this field will be sent through the network
+                        // use 'ntohs()' when reading it from the network
    uint8_t ACK; // 0:do nothing; 1:this is a packet that requires an ACK; 2:this is an ACK
 } __attribute__ ((__packed__));
 
 // include the payload and also other parameters that are not sent through the network
 struct packet {
-   struct packetHeader header;
+   struct simplemuxBlastHeader header;
    uint8_t tunneledPacket[BUFSIZE];
    uint64_t sentTimestamp; // last moment when this packet was sent
    struct packet *next;
@@ -46,7 +48,13 @@ int length(struct packet** head_ref);
 //find a link with given identifier
 struct packet* find(struct packet** head_ref, uint16_t identifier);
 
-int sendExpiredPackects(struct packet* head_ref, uint64_t now, uint64_t period);
+int sendExpiredPackects(struct packet* head_ref,
+                        uint64_t now,
+                        uint64_t period,
+                        int fd,
+                        int mode,
+                        struct sockaddr_in remote,
+                        struct sockaddr_in local);
 
 uint64_t findLastSentTimestamp(struct packet* head_ref);
 

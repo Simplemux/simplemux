@@ -26,9 +26,9 @@ void insertFirst(struct packet** head_ref, uint16_t identifier, uint16_t size, u
    //create a link
    struct packet *link = (struct packet*) malloc(sizeof(struct packet));
   
-   link->header.identifier = identifier;
-   link->header.packetSize = size;
-   memcpy(link->tunneledPacket,payload,link->header.packetSize);
+   link->header.identifier = htons(identifier);
+   link->header.packetSize = htons(size);
+   memcpy(link->tunneledPacket,payload,ntohs(link->header.packetSize));
   
    //point it to old first node
    link->next = *head_ref;
@@ -65,10 +65,10 @@ struct packet* insertLast(struct packet** head_ref, /*uint16_t identifier,*/ uin
    // fill the content of the link  
    //link->header.identifier = identifier;
    if(size!=0)
-      link->header.packetSize = size;
+      link->header.packetSize = htons(size);
    
    if(payload!=NULL)
-      memcpy(link->tunneledPacket,payload,link->header.packetSize);
+      memcpy(link->tunneledPacket,payload,ntohs(link->header.packetSize));
    
    link->next = NULL;
 
@@ -122,22 +122,6 @@ int length(struct packet** head_ref) {
       current=current->next;
    }
 
-   /*
-   if(current==NULL)
-      return 0;
-   else {
-      length++;
-      //printf("[length] packet %d, %d bytes, last sent: %"PRIu64" us\n", length, current->header.packetSize, current->sentTimestamp);
-   }
-
-   while(current->next!=NULL) {
-      length++;
-      current=current->next;
-      //printf("[length] packet %d, %d bytes, last sent: %"PRIu64" us\n", length, current->header.packetSize, current->sentTimestamp);
-   }*/
-
-
-
    return length;
 }
 
@@ -175,15 +159,15 @@ void sendPacketBlastMode(  int fd,
                            int mode,
                            struct packet* packetToSend,
                            struct sockaddr_in remote,
-                           struct sockaddr_in local) {
-   
+                           struct sockaddr_in local)
+{
    // send the tunneled packet
    // fd is the file descriptor of the socket
    // 'mode' is UDP_MODE or NETWORK_MODE
    // 'packetToSend' is a pointer to the packet
 
    // calculate the length of the Simplemux header + the tunneled packet
-   int total_length = sizeof(struct packetHeader) + packetToSend->header.packetSize;
+   int total_length = sizeof(struct simplemuxBlastHeader) + ntohs(packetToSend->header.packetSize);
 
    switch (mode) {
       case UDP_MODE:
@@ -233,7 +217,14 @@ void sendPacketBlastMode(  int fd,
 
 
 // send again the packets which sentTimestamp + period >= now
-int sendExpiredPackects(struct packet* head_ref, uint64_t now, uint64_t period) {
+int sendExpiredPackects(struct packet* head_ref,
+                        uint64_t now,
+                        uint64_t period,
+                        int fd,
+                        int mode,
+                        struct sockaddr_in remote,
+                        struct sockaddr_in local)
+{
 
    //printf("   [sendExpiredPackects] starting\n");
    
@@ -247,6 +238,10 @@ int sendExpiredPackects(struct packet* head_ref, uint64_t now, uint64_t period) 
 
          // this packet has to be sent
          current->sentTimestamp = now;
+
+         // send the packet
+         sendPacketBlastMode( fd, mode, current, remote, local);
+
          sentPackets++;
 
          printf("   [sendExpiredPackects]  Sending packet %d. Updated timestamp: %"PRIu64" us\n", current->header.identifier, now);

@@ -2604,11 +2604,9 @@ int main(int argc, char *argv[]) {
             struct packet* thisPacket = insertLast(&packetsToSend,0,NULL);
 
             // read the packet from tun_fd and add the data
-            thisPacket->header.packetSize = cread (tun_fd, thisPacket->tunneledPacket, BUFSIZE);
-            thisPacket->header.identifier = (uint16_t)tun2net; // the ID is the 16 LSBs of 'tun2net'
-
-            // FIXME: 'size' could be removed and replaced by 'thisPacket->header.packetSize'
-            uint16_t size = thisPacket->header.packetSize;
+            // use 'htons()' because these fields will be sent through the network
+            thisPacket->header.packetSize = htons(cread (tun_fd, thisPacket->tunneledPacket, BUFSIZE));
+            thisPacket->header.identifier = htons((uint16_t)tun2net); // the ID is the 16 LSBs of 'tun2net'
 
             assert ( SIZE_PROTOCOL_FIELD == 1 );
 
@@ -2632,7 +2630,7 @@ int main(int argc, char *argv[]) {
 
             do_debug(1, " %"PRIu64": Arrived packet has been sent and stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
             if(debug > 1)
-              dump_packet ( thisPacket->header.packetSize, thisPacket->tunneledPacket );
+              dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );
 
             //time_last_sent_in_microsec = now_microsec;
           }
@@ -3669,7 +3667,13 @@ int main(int argc, char *argv[]) {
         if(blastMode) {
 
           // FIXME: go through the list and send all the packets with now_microsec > sentTimestamp + period
-          int n = sendExpiredPackects(packetsToSend, now_microsec, period);
+
+          int fd;
+          if(mode==UDP_MODE)
+            fd = udp_mode_fd;
+          else if(mode==UDP_MODE)
+            fd = network_mode_fd;
+          int n = sendExpiredPackects(packetsToSend, now_microsec, period, fd, mode, remote, local);
           do_debug(2, "Period expired: Sent %d packets at the end of the period\n", n);
 
         }
