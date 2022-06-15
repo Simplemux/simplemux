@@ -37,6 +37,8 @@ void insertFirst(struct packet** head_ref, uint16_t identifier, uint16_t size, u
    *head_ref = link;
 }
 
+
+// find the last packet
 struct packet* findLast(struct packet** head_ref) {
 
    if(isEmpty(*head_ref)) {
@@ -56,7 +58,8 @@ struct packet* findLast(struct packet** head_ref) {
    }
 }
 
-//insert link at the last location
+
+//insert packet at the last location
 struct packet* insertLast(struct packet** head_ref, /*uint16_t identifier,*/ uint16_t size, uint8_t* payload) {
 
    // create a link
@@ -91,6 +94,7 @@ struct packet* insertLast(struct packet** head_ref, /*uint16_t identifier,*/ uin
    return link;
 }
 
+
 //delete first item
 struct packet* deleteFirst(struct packet** head_ref) {
 
@@ -104,7 +108,8 @@ struct packet* deleteFirst(struct packet** head_ref) {
    return tempLink;
 }
 
-//is list empty
+
+//is the list empty?
 bool isEmpty(struct packet* head_ref) {
    if(head_ref == NULL)
       return true;

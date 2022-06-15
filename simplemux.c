@@ -55,7 +55,11 @@
 #include "simplemux.h"
 
 /* global variables */
+
+// FIXME REMOVE THIS VARIABLE. Also in 'commonFunctions.c'
 int debug;            // 0:no debug; 1:minimum debug; 2:maximum debug 
+
+
 char *progname;
 
 
@@ -457,60 +461,6 @@ static void print_rohc_traces(void *const priv_ctxt,
 }
 
 
-
-
-
-/*
-// Buid an IPv4 Header
-void BuildIPHeader( struct iphdr *iph,
-                    uint16_t len_data,
-                    uint8_t ipprotocol,
-                    struct sockaddr_in local,
-                    struct sockaddr_in remote )
-{
-  static uint16_t counter = 0;
-
-  // clean the variable
-  memset (iph, 0, sizeof(struct iphdr));
-
-  iph->ihl = 5;
-  iph->version = 4;
-  iph->tos = 0;
-  iph->tot_len = htons(sizeof(struct iphdr) + len_data);
-  iph->id = htons(1234 + counter);
-  iph->frag_off = 0;  // fragment is allowed
-  iph->ttl = Linux_TTL;
-  iph->protocol = ipprotocol;
-  iph->saddr = inet_addr(inet_ntoa(local.sin_addr));
-  //iph->saddr = inet_addr("192.168.137.1");
-  iph->daddr = inet_addr(inet_ntoa(remote.sin_addr));
-
-  iph->check = in_cksum((unsigned short *)iph, sizeof(struct iphdr));
-  
-  //do_debug(1, "Checksum: %i\n", iph->check);
-
-  counter ++;
-}*/
-
-/*
-// Buid a Full IP Packet
-void BuildFullIPPacket(struct iphdr iph, uint8_t *data_packet, uint16_t len_data, uint8_t *full_ip_packet) {
-  memset(full_ip_packet, 0, BUFSIZE);
-  memcpy((struct iphdr*)full_ip_packet, &iph, sizeof(struct iphdr));
-  memcpy((struct iphdr*)(full_ip_packet + sizeof(struct iphdr)), data_packet, len_data);
-}
-
-
-//Get IP header from IP packet
-void GetIpHeader(struct iphdr *iph, uint8_t *ip_packet) {  
-  memcpy(iph,(struct iphdr*)ip_packet,sizeof(struct iphdr));
-}
-
-//Set IP header in IP Packet
-void SetIpHeader(struct iphdr iph, uint8_t *ip_packet) {
-  memcpy((struct iphdr*)ip_packet,&iph,sizeof(struct iphdr));
-}
-*/
 
 
 /**************************************************************************
@@ -2028,13 +1978,17 @@ int main(int argc, char *argv[]) {
 
                   do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
                   do_debug(2, ":");
-                  dump_packet (length, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);
+                  //dump_packet (length, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);
                   
                   // tun mode
                   if(tunnel_mode == TUN_MODE) {
                      // write the demuxed packet to the tun interface
                     do_debug (2, " Sending packet of %i bytes to the tun interface\n", length);
                     cwrite ( tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length );
+
+                    // update the timestamp when a packet with this identifier has been sent
+                    uint64_t now = GetTimeStamp();
+                    blastModeTimestamps[ntohs(blastHeader->identifier)] = now;
                   }
                   // tap mode
                   else if(tunnel_mode == TAP_MODE) {
@@ -2045,6 +1999,10 @@ int main(int argc, char *argv[]) {
                        // write the demuxed packet to the tap interface
                       do_debug (2, " Sending frame of %i bytes to the tap interface\n", length);
                       cwrite ( tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length );
+
+                      // update the timestamp when a packet with this identifier has been sent
+                      uint64_t now = GetTimeStamp();
+                      blastModeTimestamps[ntohs(blastHeader->identifier)] = now;
                     }
                   }
                   else {
