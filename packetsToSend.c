@@ -8,7 +8,7 @@ void printList(struct packet** head_ref) {
    printf("List of stored packets: [ ");
   
    while(ptr != NULL) {
-      printf("(%d,%"PRIu64"",ptr->header.identifier,ptr->sentTimestamp);
+      printf("(%d,%"PRIu64"",ntohs(ptr->header.identifier),ptr->sentTimestamp);
       //for (int i = 0; i < ptr->header.packetSize; ++i) {
       //  printf("%c", ptr->tunneledPacket[i]);
       //}
@@ -143,7 +143,7 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
    }
 
    //navigate through list
-   while(current->header.identifier != identifier) {
+   while(ntohs(current->header.identifier) != identifier) {
   
       //if it is last node
       if(current->next == NULL) {
@@ -177,7 +177,7 @@ void sendPacketBlastMode(  int fd,
    switch (mode) {
       case UDP_MODE:
          do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-         do_debug(1, " Sending to the network a UDP blast packet: %i bytes\n", total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+         do_debug(1, "   Sending to the network a UDP blast packet: %i bytes\n", total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
 
         // send the packet
         if (sendto(fd, &(packetToSend->header), total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
@@ -237,9 +237,12 @@ int sendExpiredPackects(struct packet* head_ref,
    struct packet *current = head_ref;
    
    while(current != NULL) {
-      //printf("   [sendExpiredPackects] Packet %d. Stored timestamp: %"PRIu64" us\n", current->header.identifier,current->sentTimestamp);
+      printf("   [sendExpiredPackects] Packet %d. Stored timestamp: %"PRIu64" us\n", ntohs(current->header.identifier),current->sentTimestamp);
          
       if(current->sentTimestamp + period < now) {
+
+         printf("   [sendExpiredPackects]  Sending packet %d. Updated timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), now); 
+         printf("                           Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") < now (%"PRIu64")\n", current->sentTimestamp, period, now);
 
          // this packet has to be sent
          current->sentTimestamp = now;
@@ -248,11 +251,10 @@ int sendExpiredPackects(struct packet* head_ref,
          sendPacketBlastMode( fd, mode, current, remote, local);
 
          sentPackets++;
-
-         printf("   [sendExpiredPackects]  Sending packet %d. Updated timestamp: %"PRIu64" us\n", current->header.identifier, now);
       }
       else {
-         printf("   [sendExpiredPackects]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
+         printf("   [sendExpiredPackects]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), current->sentTimestamp);
+         printf("                           Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") >= now (%"PRIu64")\n", current->sentTimestamp, period, now);
       }
 
       current = current->next;
@@ -301,10 +303,7 @@ int sendExpiredPackects(struct packet* head_ref,
 }
 
 uint64_t findLastSentTimestamp(struct packet* head_ref) {
-
-   // NOT WORKING PROPERLY
-   // IT DOES NOT FIND THE OLDEST TIMESTAMP
-   
+  
    //start from the first link
    struct packet* current = head_ref;
 
@@ -321,7 +320,7 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
 
    // this packet has been sent before
    uint64_t lastSentTimestamp = current->sentTimestamp;
-   uint16_t lastSentIdentifier = current->header.identifier;
+   uint16_t lastSentIdentifier = ntohs(current->header.identifier);
 
    //printf("[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
 
@@ -334,7 +333,7 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
       if(current->sentTimestamp < lastSentTimestamp) {
          // this packet has been sent even before
          lastSentTimestamp = current->sentTimestamp;
-         lastSentIdentifier = current->header.identifier;
+         lastSentIdentifier = ntohs(current->header.identifier);
       }
       //printf("[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
 
@@ -390,7 +389,7 @@ bool delete(struct packet** head_ref, uint16_t identifier) {
    }
 
    //navigate through the list
-   while(current->header.identifier != identifier) {
+   while(ntohs(current->header.identifier) != identifier) {
 
       //if it is last node
       if(current->next == NULL) {
