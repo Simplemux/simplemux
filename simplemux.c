@@ -58,7 +58,6 @@
 char *progname;
 
 
-
 /**
  * @brief The RTP detection callback which does detect RTP stream.
  * it assumes that UDP packets belonging to certain ports are RTP packets
@@ -99,8 +98,6 @@ static bool rtp_detect(const uint8_t *const ip __attribute__((unused)),
 
   return is_rtp;
 }
-
-
 
 /**************************************************************************
  * usage: prints usage and exits.                                         *
@@ -180,94 +177,9 @@ int tun_alloc(char *dev,    // the name of an interface (or '\0')
 }
 
 
-
-
-/**************************************************************************
- *                   build the multiplexed packet                         *
- **************************************************************************/
-// it takes all the variables where packets are stored, and builds a multiplexed packet
-// the variables are:
-//  - prot[MAXPKTS][SIZE_PROTOCOL_FIELD]  the protocol byte of each packet
-//  - size_separators_to_mux[MAXPKTS]    the size of each separator (1 or 2 bytes). Protocol byte not included
-//  - separators_to_mux[MAXPKTS][2]      the separators
-//  - size_packets_to_mux[MAXPKTS]      the size of each packet to be multiplexed
-//  - packets_to_mux[MAXPKTS][BUFSIZE]    the packet to be multiplexed
-
-// the multiplexed packet is stored in mux_packet[BUFSIZE]
-// the length of the multiplexed packet is returned by this function
-uint16_t build_multiplexed_packet ( int num_packets,
-                                    bool fast_mode,
-                                    int single_prot,
-                                    uint8_t prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
-                                    uint16_t size_separators_to_mux[MAXPKTS],
-                                    uint8_t separators_to_mux[MAXPKTS][3],
-                                    uint16_t size_packets_to_mux[MAXPKTS],
-                                    uint8_t packets_to_mux[MAXPKTS][BUFSIZE],
-                                    uint8_t mux_packet[BUFSIZE])
-{
-  int k, l;
-  int length = 0;
-
-  // for each packet, write the protocol field (if required), the separator and the packet itself
-  for (k = 0; k < num_packets ; k++) {
-
-    if (k == 0)
-      // add a tab before the first separator
-      do_debug(2, "   Separators: ");
-    else
-      // add a semicolon before the 2nd and subsequent separators
-      do_debug(2, "; ");
-      
-    do_debug(2, "#%d: ", k+1);
-    
-    // add the separator
-    do_debug(2, "0x");
-
-    for (l = 0; l < size_separators_to_mux[k] ; l++) {
-      do_debug(2, "%02x", separators_to_mux[k][l]);
-      mux_packet[length] = separators_to_mux[k][l];
-      length ++;
-    }
-
-    if (!fast_mode) {
-      // add the 'Protocol' field if necessary
-      if ( (k==0) || (single_prot == 0 ) ) {    // the protocol field is always present in the first separator (k=0), and maybe in the rest
-        for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
-          mux_packet[length] = prot[k][l];
-          length ++;
-        }
-        //do_debug(2, "Protocol field: %02x ", prot[k][0]);
-        do_debug(2, "%02x", prot[k][0]);
-      }      
-    }
-    else {  // fast mode
-      // in fast mode, I always add the protocol
-      for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
-        mux_packet[length] = prot[k][l];
-        length ++;
-      }
-      //do_debug(2, "Protocol field: %02x ", prot[k][0]);
-      do_debug(2, "%02x", prot[k][0]);
-    }
-    
-    // add the bytes of the packet itself
-    for (l = 0; l < size_packets_to_mux[k] ; l++) {
-      mux_packet[length] = packets_to_mux[k][l];
-      length ++;
-    }
-  }
-  do_debug(2,"\n");
-  return length;
-}
-
-
-
-
-
 /************ Prototypes of functions used in the program ****************/
 
 static int gen_random_num(const struct rohc_comp *const comp, void *const user_context);
-
 
 /**
  * @brief Callback to print traces of the ROHC library
@@ -298,14 +210,10 @@ static void print_rohc_traces(void *const priv_ctxt,
 }
 
 
-
-
 /**************************************************************************
  ************************ main program ************************************
  **************************************************************************/
 int main(int argc, char *argv[]) {
-
-  int debug;            // 0:no debug; 1:minimum debug; 2:maximum debug 
 
   // variables for managing the network interfaces
   int tun_fd;                     // file descriptor of the tun interface(no mux packet)
@@ -1375,23 +1283,24 @@ int main(int argc, char *argv[]) {
 
         time_last_sent_in_microsec = findLastSentTimestamp(packetsToSend);
 
-        printList(&packetsToSend);
+        if(debug>1)
+          printList(&packetsToSend);
 
         now_microsec = GetTimeStamp();
         //do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);
 
         if (time_last_sent_in_microsec == 0) {
           time_last_sent_in_microsec = now_microsec;
-          do_debug(1, "%"PRIu64" No packet is waiting to be sent to the network\n", now_microsec);
+          do_debug(2, "%"PRIu64" No packet is waiting to be sent to the network\n", now_microsec);
         }
 
         if(time_last_sent_in_microsec + period > now_microsec) {
           microseconds_left = time_last_sent_in_microsec + period - now_microsec;
-          do_debug(1, "%"PRIu64" The next packet will be sent in %"PRIu64" us\n", now_microsec, microseconds_left);         
+          do_debug(2, "%"PRIu64" The next packet will be sent in %"PRIu64" us\n", now_microsec, microseconds_left);         
         }
         else {
           // the period is already expired
-          do_debug(1, "%"PRIu64" Call the poll with limit 0\n", now_microsec);
+          do_debug(2, "%"PRIu64" Call the poll with limit 0\n", now_microsec);
           microseconds_left = 0;
         }        
       }
@@ -1715,7 +1624,7 @@ int main(int argc, char *argv[]) {
             net2tun++;
             switch (mode) {
               case UDP_MODE:
-                do_debug(1, "MUXED PACKET #%"PRIu32": Read UDP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
+                do_debug(1, "MUXED PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
   
                 // write the log file
                 if ( log_file != NULL ) {
@@ -1725,7 +1634,7 @@ int main(int argc, char *argv[]) {
               break;
   
               case TCP_CLIENT_MODE:
-                do_debug(1, "MUXED PACKET #%"PRIu32": Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
+                do_debug(1, "MUXED PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
   
                 // write the log file
                 if ( log_file != NULL ) {
@@ -1735,7 +1644,7 @@ int main(int argc, char *argv[]) {
               break;
   
               case TCP_SERVER_MODE:
-                do_debug(1, "MUXED PACKET #%"PRIu32": Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
+                do_debug(1, "MUXED PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
   
                 // write the log file
                 if ( log_file != NULL ) {
@@ -1745,7 +1654,7 @@ int main(int argc, char *argv[]) {
               break;
   
               case NETWORK_MODE:
-                do_debug(1, "MUXED PACKET #%"PRIu32": Read IP muxed packet from %s: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
+                do_debug(1, "MUXED PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
   
                 // write the log file
                 if ( log_file != NULL ) {
@@ -1772,20 +1681,20 @@ int main(int argc, char *argv[]) {
               // check if this is an ACK or not
               if((blastHeader->ACK & THISISANACK ) == THISISANACK) {
 
-                printf("************** arrived blast ACK packet. Length %i. ACK %i\n", length, blastHeader->ACK);
+                do_debug(1," Arrived blast ACK packet ID %i\n", ntohs(blastHeader->identifier));
 
                 // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
-                printf("************** removing packet with ID %d from the list\n", ntohs(blastHeader->identifier));
+                do_debug(2," Removing packet with ID %i from the list\n", ntohs(blastHeader->identifier));
                 if(delete(&packetsToSend,ntohs(blastHeader->identifier))==false) {
-                  printf("*********** PROBLEM: The packet was not found *********\n");
+                  do_debug(2,"*********** PROBLEM: The packet was not found *********\n");
                 }
                 else {
-                  printf("******** packet removed from the list\n");
+                  do_debug(2," Packet with ID %i removed from the list\n", ntohs(blastHeader->identifier));
                 }
               }
               else {
 
-                printf("************** arrived blast packet. Length %i. ACK %i\n", length, blastHeader->ACK);
+                do_debug(1," Arrived blast packet ID %i, Length %i\n", ntohs(blastHeader->identifier), length);
 
                 // if this packet has arrived for the first time, deliver it to the destination
                 bool deliverThisPacket=false;
@@ -1800,7 +1709,7 @@ int main(int argc, char *argv[]) {
                   if (now - blastModeTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
                     // the packet has been sent recently
                     // do not send it again
-                    do_debug(1,"The packet has been sent recently. Do not send it again\n");
+                    do_debug(1,"The packet with ID %i has been sent recently. Do not send it again\n", ntohs(blastHeader->identifier));
                     do_debug(2,"now (%"PRIu64") - blastModeTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
                       now,
                       ntohs(blastHeader->identifier),
@@ -1814,9 +1723,14 @@ int main(int argc, char *argv[]) {
 
                 if(deliverThisPacket) {
 
-                  do_debug(1, " DEMUXED PACKET #%i", ntohs(blastHeader->identifier));
-                  do_debug(2, ":");
-                  //dump_packet (length, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);
+                  do_debug(2, " DEMUXED PACKET: ID %i", ntohs(blastHeader->identifier));
+                  if(debug>1) {
+                    do_debug(2, ":");
+                    dump_packet (length, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);                    
+                  }
+                  else {
+                    do_debug(2, "\n");
+                  }
                   
                   // tun mode
                   if(tunnel_mode == TUN_MODE) {
@@ -1826,7 +1740,8 @@ int main(int argc, char *argv[]) {
                       perror("could not write the packet correctly");
                     }
                     else {
-                      do_debug (2, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
+                      do_debug(1, " Packet with ID %i sent to the tun interface\n", ntohs(blastHeader->identifier));
+                      do_debug(2, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
                     }
 
                     // update the timestamp when a packet with this identifier has been sent
@@ -1845,7 +1760,8 @@ int main(int argc, char *argv[]) {
                         perror("could not write the packet correctly");
                       }
                       else {
-                        do_debug (2, " Packet correctly sent to the tun interface\n");
+                        do_debug(1, " Packet with ID %i sent to the tun interface", ntohs(blastHeader->identifier));
+                        do_debug(2, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
                       }
 
                       // update the timestamp when a packet with this identifier has been sent
@@ -1862,7 +1778,7 @@ int main(int argc, char *argv[]) {
                   //do_debug(2, "packet length (without separator): %i\n", packet_length);
                 }
 
-                do_debug(1,"Sending a blast ACK\n");
+                do_debug(2," Sending a blast ACK\n");
                 // this packet requires an ACK
                 // send the ACK as soon as the packet arrives
                 // send an ACK per arrived packet. Do not check if this is the first time it has arrived
@@ -1878,7 +1794,7 @@ int main(int argc, char *argv[]) {
                 else if(mode==NETWORK_MODE)
                   fd = network_mode_fd;
                 sendPacketBlastMode( fd, mode, &ACK, remote, local);
-                printf("************** sent blast ACK. Length %i\n", ntohs(ACK.header.packetSize));
+                do_debug(1," Sent blast ACK to the network. ID %i, length %i\n", ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));
               }
             }
             else {
@@ -2411,7 +2327,6 @@ int main(int argc, char *argv[]) {
                 }
               }              
             }
-
           }
   
           else {
@@ -2531,7 +2446,7 @@ int main(int argc, char *argv[]) {
           uint64_t now = GetTimeStamp();
 
           if (blastMode) {
-            do_debug(2, "%"PRIu64": Packet arrived from tun\n", now);              
+            do_debug(2, "%"PRIu64": Packet arrived from tun\n", now);             
 
             // add a new empty packet to the list
             struct packet* thisPacket = insertLast(&packetsToSend,0,NULL);
@@ -2540,6 +2455,8 @@ int main(int argc, char *argv[]) {
             // use 'htons()' because these fields will be sent through the network
             thisPacket->header.packetSize = htons(cread (tun_fd, thisPacket->tunneledPacket, BUFSIZE));
             thisPacket->header.identifier = htons((uint16_t)tun2net); // the ID is the 16 LSBs of 'tun2net'
+
+            do_debug(1, "NATIVE PACKET arrived from tun: ID %i, length %i bytes\n", ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
 
             assert ( SIZE_PROTOCOL_FIELD == 1 );
 
@@ -2560,7 +2477,7 @@ int main(int argc, char *argv[]) {
             else if(mode==NETWORK_MODE)
               fd = network_mode_fd;
             sendPacketBlastMode( fd, mode, thisPacket, remote, local);
-            printf("************** sent blast packet. Length %i\n", ntohs(thisPacket->header.packetSize));
+            do_debug(1, " SENT blast packet to the network. ID %i, Length %i\n", ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
 
             /*
             // write in the log file
@@ -2582,7 +2499,8 @@ int main(int argc, char *argv[]) {
 
             // the packet has been sent. Store the timestamp
             thisPacket->sentTimestamp = now;
-            do_debug(1, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
+
+            do_debug(2, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
             if(debug > 1)
               dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );
           }
