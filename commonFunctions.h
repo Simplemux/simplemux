@@ -53,3 +53,15 @@ int cwrite(int fd, uint8_t *buf, int n);
 int read_n(int fd, uint8_t *buf, int n);
 
 void my_err(char *msg, ...);
+
+uint64_t GetTimeStamp();
+
+uint8_t ToByte(bool b[8]);
+
+void FromByte(uint8_t c, bool b[8]);
+
+void PrintByte(int debug_level, int num_bits, bool b[8]);
+
+void dump_packet (int packet_size, uint8_t packet[BUFSIZE]);
+
+int date_and_time(char buffer[25]);
