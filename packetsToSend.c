@@ -176,8 +176,8 @@ void sendPacketBlastMode(  int fd,
 
    switch (mode) {
       case UDP_MODE:
+         do_debug(1, "   Sending to the network a UDP blast packet with ID %i: %i bytes\n", ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
          do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-         do_debug(1, "   Sending to the network a UDP blast packet: %i bytes\n", total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
 
         // send the packet
         if (sendto(fd, &(packetToSend->header), total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
@@ -193,8 +193,8 @@ void sendPacketBlastMode(  int fd,
       break;
 
       case NETWORK_MODE:
+         do_debug(1, " Sending to the network an IP blast packet with ID %i: %i bytes\n", ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE );
          do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-         do_debug(1, " Sending to the network an IP blast packet: %i bytes\n", total_length + IPv4_HEADER_SIZE );
 
         // build the header
         struct iphdr ipheader;  

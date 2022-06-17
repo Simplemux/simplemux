@@ -6,6 +6,10 @@
 //#define TCP_HEADER_SIZE 20
 #define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long
 
+#define TIME_UNTIL_SENDING_AGAIN_BLAST 5000000 // milliseconds before sending again a packet with the same ID
+                                                // there are 65536 possible values of the ID
+                                                // if a packet with an ID has been sent 5 seconds ago,
+                                                //it can be sent again
 
 // Protocol IDs, according to IANA
 // see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml

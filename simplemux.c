@@ -1533,25 +1533,26 @@ int main(int argc, char *argv[]) {
       /* Initialize the timeout data structure. */
 
       if(blastMode) {
-        //do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);
+
         time_last_sent_in_microsec = findLastSentTimestamp(packetsToSend);
 
         printList(&packetsToSend);
 
         now_microsec = GetTimeStamp();
+        //do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);
 
         if (time_last_sent_in_microsec == 0) {
           time_last_sent_in_microsec = now_microsec;
-          do_debug(1, "%"PRIu64": No packet has been sent yet \n", now_microsec);
+          do_debug(1, "%"PRIu64" No packet is waiting to be sent to the network\n", now_microsec);
         }
 
         if(time_last_sent_in_microsec + period > now_microsec) {
           microseconds_left = time_last_sent_in_microsec + period - now_microsec;
-          do_debug(1, "%"PRIu64": The next packet will be sent in %"PRIu64" us\n", now_microsec, microseconds_left);         
+          do_debug(1, "%"PRIu64" The next packet will be sent in %"PRIu64" us\n", now_microsec, microseconds_left);         
         }
         else {
           // the period is already expired
-          do_debug(1, "%"PRIu64": Call the poll with limit 0 \n", now_microsec);
+          do_debug(1, "%"PRIu64" Call the poll with limit 0\n", now_microsec);
           microseconds_left = 0;
         }        
       }
@@ -1957,10 +1958,15 @@ int main(int argc, char *argv[]) {
                 }
                 else {
 
-                  if (now - blastModeTimestamps[ntohs(blastHeader->identifier)] < 500000) {
+                  if (now - blastModeTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
                     // the packet has been sent recently
                     // do not send it again
                     do_debug(1,"The packet has been sent recently. Do not send it again\n");
+                    do_debug(2,"now (%"PRIu64") - blastModeTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
+                      now,
+                      ntohs(blastHeader->identifier),
+                      blastModeTimestamps[ntohs(blastHeader->identifier)],
+                      TIME_UNTIL_SENDING_AGAIN_BLAST);
                   }
                   else {
                     deliverThisPacket=true;
@@ -2717,20 +2723,10 @@ int main(int argc, char *argv[]) {
             sendPacketBlastMode( fd, mode, thisPacket, remote, local);
             printf("************** sent blast packet. Length %i\n", ntohs(thisPacket->header.packetSize));
 
-            // create the Simplemux header
             /*
+            // write in the log file
             switch (mode) {
-              case UDP_MODE:
-                // send the packet
-                if (sendto(udp_mode_fd, (uint8_t)&thisPacket, ntohs(thisPacket->header.packetSize)+sizeof(struct simplemuxBlastHeader), 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
-                  perror("sendto() in UDP mode failed");
-                  exit (EXIT_FAILURE);
-                }
-                else {
-                  do_debug (2, "%"PRIu64" Packet of %i bytes correctly sent to the network\n", now, ntohs(thisPacket->header.packetSize));
-                }
-                
-                // write in the log file
+              case UDP_MODE:        
                 if ( log_file != NULL ) {
                   fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
                   fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
@@ -2738,22 +2734,6 @@ int main(int argc, char *argv[]) {
               break;
              
               case NETWORK_MODE:
-                // build the header
-                BuildIPHeader(&ipheader, ntohs(thisPacket->header.packetSize), ipprotocol, local, remote);
-
-                // build the full IP multiplexed packet
-                BuildFullIPPacket(ipheader, thisPacket->tunneledPacket, ntohs(thisPacket->header.packetSize), full_ip_packet);
-
-                // send the packet
-                if (sendto (network_mode_fd, full_ip_packet, ntohs(thisPacket->header.packetSize) + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
-                  perror ("sendto() in Network mode failed");
-                  exit (EXIT_FAILURE);
-                }
-                else {
-                  do_debug (2, "%"PRIu64" Packet of %i bytes correctly sent to the network\n", now, ntohs(thisPacket->header.packetSize));
-                }
-
-                // write in the log file
                 if ( log_file != NULL ) {
                   fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
                   fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
@@ -2761,65 +2741,11 @@ int main(int argc, char *argv[]) {
               break;
             }*/
 
-            // update the timestamp when a packet with this identifier has been sent
-            uint64_t now = GetTimeStamp();
-            blastModeTimestamps[ntohs(thisPacket->header.identifier)] = now;
-
-
-
-/*
-            // tun mode
-            if(tunnel_mode == TUN_MODE) {
-               // write the demuxed packet to the tun interface
-              do_debug (2, " Sending packet of %i bytes to the tun interface\n", ntohs(thisPacket->header.packetSize));
-              if (cwrite ( tun_fd, thisPacket->tunneledPacket, ntohs(thisPacket->header.packetSize)) != ntohs(thisPacket->header.packetSize)) {
-                perror("could not write the packet correctly");
-              }
-              else {
-                do_debug (2, " Packet correctly sent to the tun interface\n");
-              }
-
-              // update the timestamp when a packet with this identifier has been sent
-              uint64_t now = GetTimeStamp();
-              blastModeTimestamps[ntohs(thisPacket->header.identifier)] = now;
-            }
-            // tap mode
-            else if(tunnel_mode == TAP_MODE) {
-              if (thisPacket->header.protocolID != IPPROTO_ETHERNET) {
-                do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", thisPacket->header.protocolID);              
-              }
-              else {
-                 // write the demuxed packet to the tap interface
-                do_debug (2, " Sending frame of %i bytes to the tap interface\n", ntohs(thisPacket->header.packetSize));
-                if (cwrite ( tun_fd, thisPacket->tunneledPacket, ntohs(thisPacket->header.packetSize)) != ntohs(thisPacket->header.packetSize)) {
-                  perror("could not write the packet correctly");
-                }
-                else {
-                  do_debug (2, " Packet correctly sent to the tap interface\n");
-                }
-
-                // update the timestamp when a packet with this identifier has been sent
-                uint64_t now = GetTimeStamp();
-                blastModeTimestamps[ntohs(thisPacket->header.identifier)] = now;
-              }
-            }
-            else {
-              perror ("wrong value of 'tunnel_mode'");
-              exit (EXIT_FAILURE);
-            }
-            
-            do_debug(2, "\n");
-*/
-
             // the packet has been sent. Store the timestamp
-            now_microsec = GetTimeStamp();
-            thisPacket->sentTimestamp = now_microsec;
-
+            thisPacket->sentTimestamp = now;
             do_debug(1, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
             if(debug > 1)
               dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );
-
-            //time_last_sent_in_microsec = now_microsec;
           }
 
           else {
