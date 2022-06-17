@@ -45,3 +45,11 @@ void BuildFullIPPacket(struct iphdr iph, uint8_t *data_packet, uint16_t len_data
 void GetIpHeader(struct iphdr *iph, uint8_t *ip_packet);
 
 void SetIpHeader(struct iphdr iph, uint8_t *ip_packet);
+
+int cread(int fd, uint8_t *buf, int n);
+
+int cwrite(int fd, uint8_t *buf, int n);
+
+int read_n(int fd, uint8_t *buf, int n);
+
+void my_err(char *msg, ...);

@@ -54,12 +54,7 @@
 
 #include "simplemux.h"
 
-/* global variables */
-
-// FIXME REMOVE THIS VARIABLE. Also in 'commonFunctions.c'
-int debug;            // 0:no debug; 1:minimum debug; 2:maximum debug 
-
-
+/* global variable */
 char *progname;
 
 
@@ -105,68 +100,7 @@ static bool rtp_detect(const uint8_t *const ip __attribute__((unused)),
   return is_rtp;
 }
 
-/**************************************************************************
- * cread: read routine that checks for errors and exits if an error is    *
- *        returned.                                                       *
- **************************************************************************/
-int cread(int fd, uint8_t *buf, int n) {
 
-  int nread;
-
-  if((nread=read(fd, buf, n)) < 0) {
-    perror("Reading data");
-    exit(1);
-  }
-  return nread;
-}
-
-/**************************************************************************
- * cwrite: write routine that checks for errors and exits if an error is  *
- *         returned.                                                      *
- **************************************************************************/
-int cwrite(int fd, uint8_t *buf, int n) {
-
-  int nwritten;
-
-  if((nwritten = write(fd, buf, n)) < 0){
-    perror("cwrite() Error writing data");
-    exit(1);
-  }
-  return nwritten;
-}
-
-/**************************************************************************
- * read_n: ensures we read exactly n bytes, and puts them into "buf".     *
- *         (unless EOF, of course)                                        *
- **************************************************************************/
-int read_n(int fd, uint8_t *buf, int n) {
-
-  int nread, left = n;
-
-  while(left > 0) {
-    if ((nread = cread(fd, buf, left)) == 0){
-      return 0 ;      
-    }else {
-      left -= nread;
-      buf += nread;
-    }
-  }
-  return n;
-}
-
-
-
-/**************************************************************************
- * my_err: prints custom error messages on stderr.                        *
- **************************************************************************/
-void my_err(char *msg, ...) {
-
-  va_list argp;
-
-  va_start(argp, msg);
-  vfprintf(stderr, msg, argp);
-  va_end(argp);
-}
 
 /**************************************************************************
  * usage: prints usage and exits.                                         *
@@ -467,6 +401,8 @@ static void print_rohc_traces(void *const priv_ctxt,
  ************************ main program ************************************
  **************************************************************************/
 int main(int argc, char *argv[]) {
+
+  int debug;            // 0:no debug; 1:minimum debug; 2:maximum debug 
 
   // variables for managing the network interfaces
   int tun_fd;                     // file descriptor of the tun interface(no mux packet)

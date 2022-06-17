@@ -99,3 +99,65 @@ void GetIpHeader(struct iphdr *iph, uint8_t *ip_packet) {
 void SetIpHeader(struct iphdr iph, uint8_t *ip_packet) {
   memcpy((struct iphdr*)ip_packet,&iph,sizeof(struct iphdr));
 }
+
+/**************************************************************************
+ * cread: read routine that checks for errors and exits if an error is    *
+ *        returned.                                                       *
+ **************************************************************************/
+int cread(int fd, uint8_t *buf, int n) {
+
+  int nread;
+
+  if((nread=read(fd, buf, n)) < 0) {
+    perror("Reading data");
+    exit(1);
+  }
+  return nread;
+}
+
+/**************************************************************************
+ * cwrite: write routine that checks for errors and exits if an error is  *
+ *         returned.                                                      *
+ **************************************************************************/
+int cwrite(int fd, uint8_t *buf, int n) {
+
+  int nwritten;
+
+  if((nwritten = write(fd, buf, n)) < 0){
+    perror("cwrite() Error writing data");
+    exit(1);
+  }
+  return nwritten;
+}
+
+/**************************************************************************
+ * read_n: ensures we read exactly n bytes, and puts them into "buf".     *
+ *         (unless EOF, of course)                                        *
+ **************************************************************************/
+int read_n(int fd, uint8_t *buf, int n) {
+
+  int nread, left = n;
+
+  while(left > 0) {
+    if ((nread = cread(fd, buf, left)) == 0){
+      return 0 ;      
+    }else {
+      left -= nread;
+      buf += nread;
+    }
+  }
+  return n;
+}
+
+
+/**************************************************************************
+ * my_err: prints custom error messages on stderr.                        *
+ **************************************************************************/
+void my_err(char *msg, ...) {
+
+  va_list argp;
+
+  va_start(argp, msg);
+  vfprintf(stderr, msg, argp);
+  va_end(argp);
+}
