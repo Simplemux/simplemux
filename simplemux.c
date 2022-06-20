@@ -1678,6 +1678,11 @@ int main(int argc, char *argv[]) {
 
               int length = ntohs(blastHeader->packetSize);
 
+              if (length>BUFSIZE) {
+                perror("Problem with the length of the received packet\n");
+                do_debug(1," Length is %i, but the maximum allowed size is %i", length, BUFSIZE);
+              }
+
               // check if this is an ACK or not
               if((blastHeader->ACK & THISISANACK ) == THISISANACK) {
 
