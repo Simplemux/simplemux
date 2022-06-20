@@ -1685,8 +1685,10 @@ int main(int argc, char *argv[]) {
 
                 // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
                 do_debug(2," Removing packet with ID %i from the list\n", ntohs(blastHeader->identifier));
+                if(debug>2)
+                  printList(&packetsToSend);
                 if(delete(&packetsToSend,ntohs(blastHeader->identifier))==false) {
-                  do_debug(2,"*********** PROBLEM: The packet was not found *********\n");
+                  do_debug(2,"The packet had already been removed from the list\n");
                 }
                 else {
                   do_debug(2," Packet with ID %i removed from the list\n", ntohs(blastHeader->identifier));

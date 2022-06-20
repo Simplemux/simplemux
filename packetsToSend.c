@@ -310,47 +310,34 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
 
 
 //delete a link with a given identifier
+// inspired by https://www.geeksforgeeks.org/linked-list-set-3-deleting-node/
 bool delete(struct packet** head_ref, uint16_t identifier) {
 
-   //start from the first link
-   struct packet* current = *head_ref;
-   struct packet* previous = NULL;
-  
-   //if list is empty
-   if(head_ref == NULL) {
+   struct packet* temp = *head_ref, *prev;
+
+   // If the head node itself holds the key to be deleted
+   if (temp != NULL && ntohs(temp->header.identifier) == identifier) {
+      *head_ref = temp->next; // Changed head
+      free(temp); // free old head
+      return true;
+    }
+
+   // Search for the key to be deleted, keep track of the
+   // previous node as we need to change 'prev->next'
+   while (temp != NULL && ntohs(temp->header.identifier) != identifier) {
+      prev = temp;
+      temp = temp->next;
+   }
+
+   // If the key was not present in linked list
+   if (temp == NULL)
       return false;
-   }
 
-   //navigate through the list
-   while(ntohs(current->header.identifier) != identifier) {
+   // Unlink the node from linked list
+   prev->next = temp->next;
 
-      //if it is last node
-      if(current->next == NULL) {
-         return NULL;
-      }
-      else {
-         //store reference to current link
-         previous = current;
-         //move to next link
-         current = current->next;
-      }
-   }
+   free(temp); // Free memory
 
-   //found a match, update the link
-
-   // if the link to delete is the first one
-   if(current == *head_ref) {
-      //change first to point to next link
-      *head_ref = (*head_ref)->next;
-      free(current);
-   }
-   // if the link to delete is not the first one
-   else {
-      //bypass the current link
-      previous->next = current->next;
-      free(current);
-   }    
-  
    return true;
 }
 
