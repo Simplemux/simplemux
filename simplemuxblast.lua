@@ -96,11 +96,11 @@ function simplemuxblast.dissector(buf, pkt, tree)
       end
       -- if Protocol is 143, there is an Eth frame inside
       if Protocol == 143 then
-        Dissector.get("eth_withoutfcs"):call(buf(offset):tvb(), pkt, subtree)
+        Dissector.get("eth_withoutfcs"):call(buf(offset):tvb(), pkt, tree)
       end
       -- if Protocol is 142, there is a ROHC compressed packet inside
       if Protocol == 142 then
-        Dissector.get("rohc"):call(buf(offset):tvb(), pkt, subtree)
+        Dissector.get("rohc"):call(buf(offset):tvb(), pkt, tree)
       end
     end
 
