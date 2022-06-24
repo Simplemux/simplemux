@@ -1757,8 +1757,8 @@ int main(int argc, char *argv[]) {
                   }
                   // tap mode
                   else if(tunnel_mode == TAP_MODE) {
-                    if (protocol_rec!= IPPROTO_ETHERNET) {
-                      do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);              
+                    if (blastHeader->protocolID != IPPROTO_ETHERNET) {
+                      do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", blastHeader->protocolID);              
                     }
                     else {
                        // write the demuxed packet to the tap interface
