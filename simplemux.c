@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
   int size_muxed_packet = 0;              // accumulated size of the multiplexed packet
   int predicted_size_muxed_packet;        // size of the muxed packet if the arrived packet was added to it
   int position;                           // for reading the arrived multiplexed packet
-  int packet_length;                      // the length of each packet inside the multiplexed bundle
+  uint16_t packet_length;                 // the length of each packet inside the multiplexed bundle
   int interface_mtu;                      // the maximum transfer unit of the interface
   int user_mtu = 0;                       // the MTU specified by the user (it must be <= interface_mtu)
   int selected_mtu;                       // the MTU that will be used in the program
@@ -437,11 +437,13 @@ int main(int argc, char *argv[]) {
           fast_mode = true;
           port = PORT_FAST;   // by default, port = PORT. In fast mode, it is PORT_FAST
           ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast mode, use 254
+          do_debug(1, "Fast mode engaged\n");
           break;
         case 'b':            /* blast mode */
           blastMode = true;
           port = PORT_BLAST;   // by default, port = PORT. In blast mode, it is PORT_BLAST
           ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast mode, use 252
+          do_debug(1, "Blast mode engaged\n");
           break;
         case 'e':            /* the name of the network interface (e.g. "eth0") in "mux_if_name" */
           strncpy(mux_if_name, optarg, IFNAMSIZ-1);
@@ -526,8 +528,17 @@ int main(int argc, char *argv[]) {
       usage();
     }
 
+    else if(fast_mode == true) {
+      if(SIZE_PROTOCOL_FIELD!=1) {
+        my_err("Fast mode (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
+      }
+    }
+
     // Blast mode is restricted
-    else if((blastMode == true)) {
+    else if(blastMode == true) {
+      if(SIZE_PROTOCOL_FIELD!=1) {
+        my_err("Blast mode (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
+      }
       if((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)){
         my_err("Blast mode (-b) not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
         usage();
@@ -739,7 +750,7 @@ int main(int argc, char *argv[]) {
       local.sin_port = htons(port);            // local port
   
       // bind the socket "udp_mode_fd" to the local address and port
-       if (bind(udp_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+      if (bind(udp_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
         perror("bind");
       }
       else {
@@ -1319,8 +1330,8 @@ int main(int argc, char *argv[]) {
           microseconds_left = 0;
         }        
 
-        do_debug(1, " time_last_sent_in_microsec: %"PRIu64"\n", time_last_sent_in_microsec);
-        do_debug(1, " The next packet will be sent in %"PRIu64" us\n", microseconds_left);        
+        do_debug(3, " Time last sending: %"PRIu64" us\n", time_last_sent_in_microsec);
+        do_debug(3, " The next packet will be sent in %"PRIu64" us\n", microseconds_left);        
       }
 
 
@@ -1624,7 +1635,7 @@ int main(int argc, char *argv[]) {
             net2tun++;
             switch (mode) {
               case UDP_MODE:
-                do_debug(1, "MUXED PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
+                do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
   
                 // write the log file
                 if ( log_file != NULL ) {
@@ -1634,7 +1645,7 @@ int main(int argc, char *argv[]) {
               break;
   
               case TCP_CLIENT_MODE:
-                do_debug(1, "MUXED PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
+                do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
   
                 // write the log file
                 if ( log_file != NULL ) {
@@ -1644,7 +1655,7 @@ int main(int argc, char *argv[]) {
               break;
   
               case TCP_SERVER_MODE:
-                do_debug(1, "MUXED PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
+                do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
   
                 // write the log file
                 if ( log_file != NULL ) {
@@ -1654,7 +1665,7 @@ int main(int argc, char *argv[]) {
               break;
   
               case NETWORK_MODE:
-                do_debug(1, "MUXED PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
+                do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
   
                 // write the log file
                 if ( log_file != NULL ) {
@@ -1666,7 +1677,7 @@ int main(int argc, char *argv[]) {
   
             if(debug>0) {
               uint64_t now = GetTimeStamp();
-              do_debug(2, "%"PRIu64" Packet arrived from the network\n",now);         
+              do_debug(3, "%"PRIu64" Packet arrived from the network\n",now);         
             }
 
   
@@ -1889,7 +1900,7 @@ int main(int argc, char *argv[]) {
                     packet_length = buffer_from_net[position] % maximum_packet_length;
                     //packet_length = buffer_from_net[position] & maximum_packet_length;
 
-                    if (debug) {
+                    if (debug>0) {
                       do_debug(2, " buffer from net: %d\n", buffer_from_net[position]);
                       do_debug(2, "max packet length: %d\n", maximum_packet_length);
                       FromByte(buffer_from_net[position], bits);
@@ -1926,7 +1937,7 @@ int main(int argc, char *argv[]) {
                       do_debug(3, "packet_length final: %d\n", packet_length);
                       //packet_length = packet_length + (buffer_from_net[position+1] & 0x7F);
 
-                      if (debug) {
+                      if (debug>0) {
                         // print the first byte
                         FromByte(buffer_from_net[position], bits);
                         do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
@@ -1957,7 +1968,7 @@ int main(int argc, char *argv[]) {
                       //packet_length = packet_length + (buffer_from_net[position+2] % 128);
                       packet_length = packet_length + (buffer_from_net[position+2] & 0x7F);
 
-                      if (debug) {
+                      if (debug>0) {
                         // print the first byte
                         FromByte(buffer_from_net[position], bits);
                         do_debug(2, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
@@ -1976,23 +1987,9 @@ int main(int argc, char *argv[]) {
                       position = position + 3;
                     }
                   }
-                }
-                else {  // fast mode
 
-                  if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
-                    // do nothing, because I have already read the length
-                  }
-                  else {
-                    // I am in fast mode, but not in TCP mode, so I still have to read the length
-                    // It is in the two first bytes of the buffer
-                    packet_length = (buffer_from_net[position] << 8 ) + buffer_from_net[position+1];
+                  // read the 'Protocol'
 
-                    position = position + 2;
-                  }       
-                }
-
-                // read the 'Protocol'
-                if (!fast_mode) {
                   // check if this is the first separator or not
                   if (first_header_read == 0) {    // this is the first separator. The protocol field will always be present
                     // the next thing I expect is a 'protocol' field
@@ -2030,24 +2027,34 @@ int main(int argc, char *argv[]) {
                   }
                   do_debug(1, ". Length %i bytes\n", packet_length);
                 }
+
                 else {  // fast mode
+
                   if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
+                    // do nothing, because I have already read the length
+
                     // do nothing, because I have already read the Protocol
                     do_debug(1, " Length %i bytes\n", packet_length);
                   }
-                  else {                
+                  else {
+                    // I am in fast mode, but not in TCP mode, so I still have to read the length
+                    // It is in the two first bytes of the buffer
+                    //do_debug(0,"buffer_from_net[position] << 8: 0x%02x  buffer_from_net[position+1]: 0x%02x\n", buffer_from_net[position] << 8, buffer_from_net[position+1]);
+
+                    // apply the structure of a fast mode packet
+                    struct simplemuxFastHeader* fastHeader = (struct simplemuxFastHeader*) (&buffer_from_net[position]);
+                    packet_length = ntohs(fastHeader->packetSize); /// TESTING
+                    //packet_length = (buffer_from_net[position] << 8 ) + buffer_from_net[position+1];
+
+                    //position = position + 2;
+                    do_debug(1, " Length %i bytes. ", packet_length);
+
                     // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
-                    if ( SIZE_PROTOCOL_FIELD == 1 ) {
-                      protocol_rec = buffer_from_net[position];
-                      do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
-                      position ++;
-                    }
-                    else {  // SIZE_PROTOCOL_FIELD == 2
-                      protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-                      do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
-                      position = position + 2;
-                    }
-                    do_debug(1, ". Length %i bytes\n", packet_length);
+                    protocol_rec = fastHeader->protocolID;
+                    do_debug(1, "Protocol 0x%02x\n", protocol_rec);
+
+                    // move 'position' to the end of the simplemuxFast header
+                    position = position + sizeof(struct simplemuxFastHeader);
                   }
                 }
     
@@ -2083,7 +2090,7 @@ int main(int argc, char *argv[]) {
                   if ( protocol_rec != IPPROTO_ROHC ) {
                     // non-compressed packet
                     // dump the received packet on terminal
-                    if (debug) {
+                    if (debug>0) {
                       //do_debug(1, " Received ");
                       //do_debug(2, "   ");
                       dump_packet ( packet_length, demuxed_packet );
@@ -2120,7 +2127,7 @@ int main(int argc, char *argv[]) {
                       // memcpy(demuxed_packet, rohc_buf_data_at(rohc_packet_d, 0), packet_length);
 
                       // dump the ROHC packet on terminal
-                      if (debug) {
+                      if (debug>0) {
                         do_debug(1, " ROHC. ");
                       }
                       if (debug == 2) {
@@ -2139,7 +2146,7 @@ int main(int argc, char *argv[]) {
                         if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
                           do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
                           // dump the feedback packet on terminal
-                          if (debug) {
+                          if (debug>0) {
                             do_debug(2, "  ROHC feedback packet received\n");
     
                             dump_packet (rcvd_feedback.len, rcvd_feedback.data );
@@ -2163,7 +2170,7 @@ int main(int argc, char *argv[]) {
                           do_debug(3, "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n", feedback_send.len);
     
                           // dump the ROHC packet on terminal
-                          if (debug) {
+                          if (debug>0) {
                             do_debug(2, "  ROHC feedback packet generated\n");
                             dump_packet (feedback_send.len, feedback_send.data );
                           }
@@ -2200,7 +2207,7 @@ int main(int argc, char *argv[]) {
                           do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
                           //do_debug(2, "   ");
     
-                          if (debug) {
+                          if (debug>0) {
                             // dump the decompressed IP packet on terminal
                             dump_packet (ip_packet_d.len, ip_packet_d.data );
                           }
@@ -2339,7 +2346,7 @@ int main(int argc, char *argv[]) {
           else {
             // packet with the correct destination port, but a source port different from the multiplexing one
             // if the packet does not come from the multiplexing port, write it directly into the tun interface
-            do_debug(1, "NON-MUXED PACKET #%"PRIu32": Non-multiplexed packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
+            do_debug(1, "NON-SIMPLEMUX PACKET #%"PRIu32": Non-multiplexed packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
             cwrite ( tun_fd, buffer_from_net, nread_from_net);
   
             // write the log file
@@ -2399,7 +2406,7 @@ int main(int argc, char *argv[]) {
             // memcpy(buffer_from_net, rohc_buf_byte_at(rohc_packet_d, 0), packet_length);
 
             // dump the ROHC packet on terminal
-            if (debug) {
+            if (debug>0) {
               do_debug(2, " ROHC feedback packet received\n");
               dump_packet ( rohc_packet_d.len, rohc_packet_d.data );
             }
@@ -2453,7 +2460,7 @@ int main(int argc, char *argv[]) {
           uint64_t now = GetTimeStamp();
 
           if (blastMode) {
-            do_debug(2, "%"PRIu64": Packet arrived from tun\n", now);             
+            do_debug(3, "%"PRIu64": Packet arrived from tun\n", now);             
 
             // add a new empty packet to the list
             struct packet* thisPacket = insertLast(&packetsToSend,0,NULL);
@@ -2520,7 +2527,7 @@ int main(int argc, char *argv[]) {
             uint16_t size = size_packets_to_multiplex[num_pkts_stored_from_tun];  
         
             // print the native packet/frame received
-            if (debug) {
+            if (debug>0) {
               if (tunnel_mode == TUN_MODE)
                 do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tun: %i bytes\n", tun2net, size);
               else if (tunnel_mode == TAP_MODE)
@@ -2569,7 +2576,7 @@ int main(int argc, char *argv[]) {
             }
             
             // network mode
-             else {
+            else {
               if ( size + IPv4_HEADER_SIZE + 3 > selected_mtu ) {
                 drop_packet = 1;
                 do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + 3, selected_mtu);
@@ -2582,7 +2589,7 @@ int main(int argc, char *argv[]) {
                 }
               }
             }
-    
+   
             // the length of the packet is adequate
             if ( drop_packet == 0 ) {
     
@@ -2780,7 +2787,7 @@ int main(int argc, char *argv[]) {
                 // if the present packet is muxed, the max size of the packet will be overriden. So I first empty the buffer
                 //i.e. I build and send a multiplexed packet not including the current one
     
-                do_debug(2, "\n");
+                //do_debug(2, "\n");
     
                 switch (mode) {
                   case UDP_MODE:
@@ -2818,7 +2825,7 @@ int main(int argc, char *argv[]) {
                                                           size_packets_to_multiplex,
                                                           packets_to_multiplex,
                                                           muxed_packet);
-    
+
                 if (!fast_mode) {
                   if (single_protocol) {
                     if (SIZE_PROTOCOL_FIELD == 1)
@@ -2834,10 +2841,7 @@ int main(int argc, char *argv[]) {
                   }                
                 }
                 else {
-                  if (SIZE_PROTOCOL_FIELD == 1)
-                    do_debug(2, "   Fast mode. Added 1 Protocol byte to each separator. Total %i bytes", num_pkts_stored_from_tun);
-                  else
-                    do_debug(2, "   Fast mode. Added 2 Protocol bytes to each separator. Total %i bytes", 2 * num_pkts_stored_from_tun);
+                  do_debug(2, "   Fast mode. Added 1 Protocol byte to each separator. Total %i bytes", num_pkts_stored_from_tun);
                 }
                 
                 switch(tunnel_mode) {
@@ -3193,21 +3197,25 @@ int main(int argc, char *argv[]) {
                 }
               }
               else {  // fast mode
-     
-                // the length requires a two-byte separator (length expressed in 16 bits)
-                size_separators_to_multiplex[num_pkts_stored_from_tun] = 2;
 
+                // the length requires a two-byte separator (length expressed in 16 bits)
+                size_separators_to_multiplex[num_pkts_stored_from_tun] = sizeof(uint16_t);
+
+                //separators_to_multiplex[num_pkts_stored_from_tun] = htons(size);
+
+                
                 // add first byte of the separator (most significant bits)
                 separators_to_multiplex[num_pkts_stored_from_tun][0] = size_packets_to_multiplex[num_pkts_stored_from_tun] / 256;
    
                 // second byte of the Mux separator (less significant bits)
                 separators_to_multiplex[num_pkts_stored_from_tun][1] = size_packets_to_multiplex[num_pkts_stored_from_tun] % 256;
-               
+                
+
                 // increase the size of the multiplexed packet
                 size_muxed_packet = size_muxed_packet + 2;
     
                 // print the two bytes of the separator
-                if(debug) {
+                if(debug>0) {
                   // first byte
                   FromByte(separators_to_multiplex[num_pkts_stored_from_tun][0], bits);
                   do_debug(2, " Mux separator of 3 bytes. Length: 0x%02x (", separators_to_multiplex[num_pkts_stored_from_tun][0]);
@@ -3255,7 +3263,6 @@ int main(int argc, char *argv[]) {
               // if the packet limit or the size threshold are reached, send all the stored packets to the network
               // do not worry about the MTU. if it is reached, a number of packets will be sent
               if ((num_pkts_stored_from_tun == limit_numpackets_tun) || (size_muxed_packet > size_threshold) || (time_difference > timeout )) {
-    
                 // a multiplexed packet has to be sent
                 if (!fast_mode) {
                   // fill the SPB field (Single Protocol Bit)
@@ -3283,12 +3290,13 @@ int main(int argc, char *argv[]) {
                 }
                 else {
                   // add the size that corresponds to the Protocol field of all the separators
-                  size_muxed_packet = size_muxed_packet + ( SIZE_PROTOCOL_FIELD * num_pkts_stored_from_tun);                
+                  size_muxed_packet = size_muxed_packet + ( SIZE_PROTOCOL_FIELD * num_pkts_stored_from_tun);
+                  do_debug(2, "   Fast mode. Added header: length (2 bytes) + protocol (1 byte) in each separator. Total %i bytes\n", 3*num_pkts_stored_from_tun);            
                 }
     
                 // write the debug information
-                if (debug) {
-                  do_debug(2, "\n");
+                if (debug>0) {
+                  //do_debug(2, "\n");
                   do_debug(1, "SENDING TRIGGERED: ");
                   if (num_pkts_stored_from_tun == limit_numpackets_tun)
                     do_debug(1, "num packet limit reached\n");
@@ -3296,34 +3304,26 @@ int main(int argc, char *argv[]) {
                     do_debug(1," size threshold reached\n");
                   if (time_difference > timeout)
                     do_debug(1, "timeout reached\n");
-    
+
                   if ( SIZE_PROTOCOL_FIELD == 1 ) {
-                    if (!fast_mode) {
-                      if (single_protocol) {
-                        do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", protocol[0][0]);
-                      }
-                      else {
-                        do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", num_pkts_stored_from_tun);
-                      }
+                    if (single_protocol) {
+                      do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", protocol[0][0]);
                     }
                     else {
-                      do_debug(2, "   Fast mode. Added 1 Protocol byte in each separator. Total %i bytes", num_pkts_stored_from_tun);
+                      do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", num_pkts_stored_from_tun);
                     }
                   }
-                  else {  // SIZE_PROTOCOL_FIELD == 2
-                    if (!fast_mode) {
-                      if (single_protocol) {
-                        do_debug(2, "   All packets belong to the same protocol. Added 2 Protocol bytes (0x%02x%02x) in the first separator\n", protocol[0][0], protocol[0][1]);
-                      }
-                      else {
-                        do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n", 2 * num_pkts_stored_from_tun);
-                      }
+
+                  else {
+                    // SIZE_PROTOCOL_FIELD == 2
+                    if (single_protocol) {
+                      do_debug(2, "   All packets belong to the same protocol. Added 2 Protocol bytes (0x%02x%02x) in the first separator\n", protocol[0][0], protocol[0][1]);
                     }
                     else {
-                      do_debug(2, "   Fast mode. Added 2 Protocol byte in each separator. Total %i bytes", 2 * num_pkts_stored_from_tun);
+                      do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n", 2 * num_pkts_stored_from_tun);
                     }
                   }
-                  
+
                   switch(tunnel_mode) {
                     case TUN_MODE:
                       switch (mode) {
@@ -3526,8 +3526,6 @@ int main(int argc, char *argv[]) {
             }
           }
         }
-  
-
       }  
       /*************************************************************************************/  
       /******************** Period expired: multiplex **************************************/
@@ -3557,50 +3555,80 @@ int main(int argc, char *argv[]) {
 
             // There are some packets stored
 
-            // calculate the time difference
-            time_difference = now_microsec - time_last_sent_in_microsec;    
+            if(!fast_mode) {
+              // calculate if all the packets belong to the same protocol
+              single_protocol = 1;
+              for (k = 1; k < num_pkts_stored_from_tun ; k++) {
+                for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
+                  if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+                }
+              }
 
-            if (debug) {
-              do_debug(2, "\n");
-              do_debug(1, "SENDING TRIGGERED. Period expired. Time since last trigger: %" PRIu64 " usec\n", time_difference);
-              if (single_protocol) {
-                do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+              // Add the Single Protocol Bit in the first header (the most significant bit)
+              // It is 1 if all the multiplexed packets belong to the same protocol
+              if (single_protocol == 1) {
+                separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 0x80;  // this puts a '1' in the most significant bit position
+                size_muxed_packet = size_muxed_packet + 1;                // one byte corresponding to the 'protocol' field of the first header
               }
               else {
-                do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+                size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;    // one byte per packet, corresponding to the 'protocol' field
               }
-              switch (mode) {
-                case UDP_MODE:
-                  do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-                  do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
-                break;
-                case TCP_CLIENT_MODE:
-                  do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                  do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
-                break;
-                case NETWORK_MODE:
-                  do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-                  do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
-                break;
-              }
-            }
 
-            // calculate if all the packets belong to the same protocol
-            single_protocol = 1;
-            for (k = 1; k < num_pkts_stored_from_tun ; k++) {
-              for ( l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-                if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
-              }
-            }
+              // calculate the time difference
+              time_difference = now_microsec - time_last_sent_in_microsec;    
 
-            // Add the Single Protocol Bit in the first header (the most significant bit)
-            // It is 1 if all the multiplexed packets belong to the same protocol
-            if (single_protocol == 1) {
-              separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 128;  // this puts a 1 in the most significant bit position
-              size_muxed_packet = size_muxed_packet + 1;                // one byte corresponding to the 'protocol' field of the first header
+              if (debug>0) {
+                //do_debug(2, "\n");
+                do_debug(1, "SENDING TRIGGERED (Period expired). Time since last trigger: %" PRIu64 " usec\n", time_difference);
+                if (single_protocol) {
+                  do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+                }
+                else {
+                  do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+                }
+                switch (mode) {
+                  case UDP_MODE:
+                    do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+                    do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
+                  break;
+                  case TCP_CLIENT_MODE:
+                    do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                    do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+                  break;
+                  case NETWORK_MODE:
+                    do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+                    do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, size_muxed_packet + IPv4_HEADER_SIZE );
+                  break;
+                }
+              }
+
             }
             else {
-              size_muxed_packet = size_muxed_packet + num_pkts_stored_from_tun;    // one byte per packet, corresponding to the 'protocol' field
+              // fast mode
+              // in Fast mode the Protocol is sent in every separator
+              // calculate the time difference
+              time_difference = now_microsec - time_last_sent_in_microsec;    
+
+              if (debug>0) {
+                //do_debug(2, "\n");
+                do_debug(1, "SENDING TRIGGERED (Period expired). Time since last trigger: %" PRIu64 " usec\n", time_difference);
+                do_debug(2, "   Fast mode: Added 1 Protocol byte in each separator. Total %i bytes\n",num_pkts_stored_from_tun);
+
+                switch (mode) {
+                  case UDP_MODE:
+                    do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+                    do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, sizeof(uint8_t) * num_pkts_stored_from_tun + size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
+                  break;
+                  case TCP_CLIENT_MODE:
+                    do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                    do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, sizeof(uint8_t) * num_pkts_stored_from_tun + size_muxed_packet + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+                  break;
+                  case NETWORK_MODE:
+                    do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+                    do_debug(1, " Writing %i packets to network: %i bytes\n", num_pkts_stored_from_tun, sizeof(uint8_t) * num_pkts_stored_from_tun + size_muxed_packet + IPv4_HEADER_SIZE );
+                  break;
+                }
+              }
             }
 
             // build the multiplexed packet
@@ -3686,7 +3714,7 @@ int main(int argc, char *argv[]) {
           }
           // restart the period
           time_last_sent_in_microsec = now_microsec; 
-          do_debug(1, "Period expired: packet sent at %"PRIu64" us\n", time_last_sent_in_microsec);
+          do_debug(3, "%"PRIu64" Period expired\n", time_last_sent_in_microsec);
         }
       }
     }  // end while(1)

@@ -70,4 +70,10 @@
 #define DISABLE_NAGLE 1         // disable TCP Nagle algorithm
 #define QUICKACK 1              // enable TCP quick ACKs (non delayed)
 
+// header of the packet to be sent
+struct simplemuxFastHeader {
+   uint16_t packetSize; // use 'htons()' when writing it because this field will be sent through the network
+                        // use 'ntohs()' when reading it from the network
+   uint8_t protocolID;
+} __attribute__ ((__packed__));
 //#define linkedList

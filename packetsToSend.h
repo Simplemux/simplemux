@@ -28,7 +28,6 @@ struct packet {
    struct packet *next;
 } __attribute__ ((__packed__));
 
-
 //display the list
 void printList(struct packet** head_ref);
 
