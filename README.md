@@ -18,12 +18,13 @@ Simplemux can run in four modes:
 - **TCP client mode**: same as TCP server mode, but it is the TCP client.
 
 
-Simplemux has two *flavors*:
+Simplemux has the next *flavors*:
 
 - **Normal**: it tries to compress the separators as much as possible. For that aim, some single-bit fields are used.
 - **Fast**: it sacrifices some compression on behalf or speed. In this case, all the separators are 3-byte long, and all have the same structure.
 In TCP *mode*, the use of Simplemux *fast* is compulsory.
-- **Blast**: it sends the same packet a number of times. It does NOT work in TCP mode. DOCUMENTATION PENDING.
+- **Blast**: it sends the same packet a number of times. But it only delivers one copy to the end point (the one that arrives first). It does not multiplex a number of packets together. It does NOT work in TCP mode. DOCUMENTATION PENDING.
+
 
 ROCH feedback messages are always sent in IP/UDP packets.
 
