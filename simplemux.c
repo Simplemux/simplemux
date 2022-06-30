@@ -702,6 +702,12 @@ int main(int argc, char *argv[]) {
     }
     
     // UDP mode
+    // I use the same origin and destination port. The reason is that I am using the same socket for sending
+    //and receiving UDP simplemux packets
+    // The local port for Simplemux is PORT
+    // The remote port for Simplemux must also be PORT, because the packets go there
+    // Packets arriving to the local computer have dstPort = PORT, srcPort = PORT
+    // Packets sent from the local computer have srcPort = PORT, dstPort = PORT
     else if ( mode == UDP_MODE ) {
       /*** Request a socket for writing and receiving muxed packets in UDP mode ***/
       // AF_INET (exactly the same as PF_INET)
