@@ -7,6 +7,7 @@
 #include <stdint.h>  // required for using uint8_t, uint16_t, etc.
 #include "commonFunctions.h"
 
+#define HEARTBEAT 0x02
 #define THISISANACK 0x01
 #define ACKNEEDED 0x00
 
@@ -17,7 +18,7 @@ struct simplemuxBlastHeader {
    uint8_t protocolID;
    uint16_t identifier; // use 'htons()' when writing it because this field will be sent through the network
                         // use 'ntohs()' when reading it from the network
-   uint8_t ACK; // 0:this is a packet that requires an ACK; 1:the packet is an ACK
+   uint8_t ACK; // 0:this is a packet that requires an ACK; 1:the packet is an ACK; 2: the packet is a heartbeat
 } __attribute__ ((__packed__));
 
 // include the payload and also other parameters that are not sent through the network

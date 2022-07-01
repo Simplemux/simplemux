@@ -1807,8 +1807,9 @@ int main(int argc, char *argv[]) {
                 // send the ACK as soon as the packet arrives
                 // send an ACK per arrived packet. Do not check if this is the first time it has arrived
                 struct packet ACK;
-                ACK.header.packetSize = htons(sizeof(struct simplemuxBlastHeader));
-                ACK.header.protocolID = blastHeader->protocolID;
+                ACK.header.packetSize = 0; // htons(sizeof(struct simplemuxBlastHeader)); The length is only that of the payload
+                //ACK.header.protocolID = blastHeader->protocolID;  // the ACK does not have a payload, so no protocolID is needed
+                ACK.header.protocolID = 0;
                 ACK.header.identifier = blastHeader->identifier;
                 ACK.header.ACK = THISISANACK;
 
