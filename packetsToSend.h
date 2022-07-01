@@ -7,6 +7,7 @@
 #include <stdint.h>  // required for using uint8_t, uint16_t, etc.
 #include "commonFunctions.h"
 
+#define MASK 0x03
 #define HEARTBEAT 0x02
 #define THISISANACK 0x01
 #define ACKNEEDED 0x00

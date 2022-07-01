@@ -303,6 +303,8 @@ int main(int argc, char *argv[]) {
   uint64_t time_last_sent_in_microsec;            // moment when the last multiplexed packet was sent
   uint64_t now_microsec;                          // current time
   uint64_t time_difference;                       // difference between two timestamps
+  uint64_t lastHeartBeatSent;                     // timestamp of the last heartbeat sent
+  uint64_t lastHeartBeatReceived;                 // timestamp of the last heartbeat received
 
   int option;                             // command line options
   int l,j,k;
@@ -1286,6 +1288,10 @@ int main(int argc, char *argv[]) {
     // I calculate 'now' as the moment of the last sending
     time_last_sent_in_microsec = GetTimeStamp();
 
+    if(blastMode) {
+      lastHeartBeatSent = time_last_sent_in_microsec;
+      lastHeartBeatReceived = time_last_sent_in_microsec;
+    }
     
 
 
@@ -1701,7 +1707,7 @@ int main(int argc, char *argv[]) {
               }
 
               // check if this is an ACK or not
-              if((blastHeader->ACK & THISISANACK ) == THISISANACK) {
+              if((blastHeader->ACK & MASK ) == THISISANACK) {
 
                 do_debug(1," Arrived blast ACK packet ID %i\n", ntohs(blastHeader->identifier));
 
@@ -1716,7 +1722,7 @@ int main(int argc, char *argv[]) {
                   do_debug(2," Packet with ID %i removed from the list\n", ntohs(blastHeader->identifier));
                 }
               }
-              else {
+              else if((blastHeader->ACK & MASK ) == ACKNEEDED) {
 
                 do_debug(1," Arrived blast packet ID %i, Length %i\n", ntohs(blastHeader->identifier), length);
 
@@ -1820,6 +1826,14 @@ int main(int argc, char *argv[]) {
                   fd = network_mode_fd;
                 sendPacketBlastMode( fd, mode, &ACK, remote, local);
                 do_debug(1," Sent blast ACK to the network. ID %i, length %i\n", ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));
+              }
+              else if((blastHeader->ACK & MASK ) == HEARTBEAT) {
+                do_debug(1," Arrived blast heartbeat\n");
+                uint64_t now = GetTimeStamp();
+                lastHeartBeatReceived = now;
+              }
+              else {
+                perror("Unknown blast packet type\n");
               }
             }
             else {
@@ -3554,8 +3568,32 @@ int main(int argc, char *argv[]) {
             fd = udp_mode_fd;
           else if(mode==NETWORK_MODE)
             fd = network_mode_fd;
-          int n = sendExpiredPackects(packetsToSend, now_microsec, period, fd, mode, remote, local);
-          do_debug(2, "Period expired: Sent %d packets at the end of the period\n", n);
+
+          if(now_microsec - lastHeartBeatReceived > HEARTBEATDEADLINE) {
+            // heartbeat from the other side not received recently
+            do_debug(2, "Period expired. But nothing is sent because last heartbeat was received %"PRIu64" us ago\n", now_microsec - lastHeartBeatReceived);
+          }
+          else {
+            // heartbeat from the other side received recently
+            int n = sendExpiredPackects(packetsToSend, now_microsec, period, fd, mode, remote, local);
+            if(n>0)
+              do_debug(1, "Period expired: Sent %d blast packets (copies) at the end of the period\n", n);
+            else
+              do_debug(2, "Period expired: Nothing to send\n");            
+          }
+
+
+          // send a heartbeat to the other side
+          if(now_microsec - lastHeartBeatSent > HEARTBEATPERIOD) {
+            struct packet heartBeat;
+            heartBeat.header.packetSize = 0;
+            heartBeat.header.protocolID = 0;
+            heartBeat.header.identifier = 0;
+            heartBeat.header.ACK = HEARTBEAT;
+            sendPacketBlastMode( fd, mode, &heartBeat, remote, local);
+            do_debug(1," Sent blast heartbeat to the network\n");
+            lastHeartBeatSent = now_microsec;          
+          }
         }
         else {
           if ( num_pkts_stored_from_tun > 0 ) {
@@ -3586,7 +3624,7 @@ int main(int argc, char *argv[]) {
 
               if (debug>0) {
                 //do_debug(2, "\n");
-                do_debug(1, "SENDING TRIGGERED (Period expired). Time since last trigger: %" PRIu64 " usec\n", time_difference);
+                do_debug(1, "SENDING TRIGGERED (Period expired). Time since last trigger: %"PRIu64" us\n", time_difference);
                 if (single_protocol) {
                   do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
                 }

@@ -45,6 +45,8 @@
 #define PORT_BLAST 55558         // port for sending Simplemux fast
 
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
+#define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
+#define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
 
 /*
 // Protocol IDs, according to IANA
