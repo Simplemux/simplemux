@@ -1290,7 +1290,7 @@ int main(int argc, char *argv[]) {
 
     if(blastMode) {
       lastHeartBeatSent = time_last_sent_in_microsec;
-      lastHeartBeatReceived = time_last_sent_in_microsec;
+      lastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
     }
     
 
@@ -2535,9 +2535,22 @@ int main(int argc, char *argv[]) {
             // the packet has been sent. Store the timestamp
             thisPacket->sentTimestamp = now;
 
-            do_debug(2, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
-            if(debug > 1)
-              dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );
+            if(now - lastHeartBeatReceived > HEARTBEATDEADLINE) {
+              // heartbeat from the other side not received recently
+              if(delete(&packetsToSend,ntohs(thisPacket->header.identifier))==false) {
+                do_debug(2," The packet had already been removed from the list\n");
+              }
+              else {
+                do_debug(2," Packet with ID %i removed from the list\n", tun2net);
+              }              
+              do_debug(2, "%"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n", now, now - lastHeartBeatReceived, length(&packetsToSend));
+            }
+            else {
+              do_debug(2, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&packetsToSend));
+              if(debug > 1)
+                dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );              
+            }
+
           }
 
           else {
@@ -3557,7 +3570,7 @@ int main(int argc, char *argv[]) {
       // since there is no new packet, here it is not necessary to compress anything
 
       else {  // fd2read == 0
-        //do_debug(2, "Period expired\n");
+        do_debug(1, "Period expired\n");
         now_microsec = GetTimeStamp();
 
         if(blastMode) {
@@ -3593,6 +3606,9 @@ int main(int argc, char *argv[]) {
             sendPacketBlastMode( fd, mode, &heartBeat, remote, local);
             do_debug(1," Sent blast heartbeat to the network\n");
             lastHeartBeatSent = now_microsec;          
+          }
+          else {
+            do_debug(1," Not sending blast heartbeat to the network: %"PRIu64" < %"PRIu64"\n", now_microsec - lastHeartBeatSent, HEARTBEATPERIOD);
           }
         }
         else {
@@ -3762,6 +3778,10 @@ int main(int argc, char *argv[]) {
           do_debug(3, "%"PRIu64" Period expired\n", time_last_sent_in_microsec);
         }
       }
+
+
+      // FIXME: Put here the hearbeats
+      
     }  // end while(1)
 
     /** POLL **/
