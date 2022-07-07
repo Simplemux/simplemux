@@ -1314,24 +1314,34 @@ int main(int argc, char *argv[]) {
 
         if (time_last_sent_in_microsec == 0) {
           time_last_sent_in_microsec = now_microsec;
-          do_debug(2, "%"PRIu64" No packet is waiting to be sent to the network\n", now_microsec);
+          do_debug(2, "%"PRIu64" No blast packet is waiting to be sent to the network\n", now_microsec);
         }
 
         if(time_last_sent_in_microsec + period > now_microsec) {
           microseconds_left = time_last_sent_in_microsec + period - now_microsec;
-          do_debug(2, "%"PRIu64" The next packet will be sent in %"PRIu64" us\n", now_microsec, microseconds_left);         
+          do_debug(2, "%"PRIu64" The next blast packet will be sent in %"PRIu64" us\n", now_microsec, microseconds_left);         
         }
         else {
           // the period is already expired
           do_debug(2, "%"PRIu64" Call the poll with limit 0\n", now_microsec);
           microseconds_left = 0;
-        }        
+        }
+
+        // in blast mode, heartbeats have to be sent periodically
+        // if the time to the next heartbeat is smaller than the time to the next blast sent,
+        //then the time has to be reduced
+        uint64_t microsecondsToNextHeartBeat = lastHeartBeatSent + HEARTBEATPERIOD - now_microsec;
+
+        // choose the smallest one
+        if(microsecondsToNextHeartBeat < microseconds_left)
+          microseconds_left = microsecondsToNextHeartBeat;
       }
 
       else {
+        // not in blast mode
+
         now_microsec = GetTimeStamp();
 
-        // not in blast mode
         if ( period > (now_microsec - time_last_sent_in_microsec)) {
           // the period is not expired
           microseconds_left = (period - (now_microsec - time_last_sent_in_microsec));
@@ -3570,7 +3580,7 @@ int main(int argc, char *argv[]) {
       // since there is no new packet, here it is not necessary to compress anything
 
       else {  // fd2read == 0
-        do_debug(1, "Period expired\n");
+        do_debug(2, "Poll timeout expired\n");
         now_microsec = GetTimeStamp();
 
         if(blastMode) {
@@ -3582,21 +3592,27 @@ int main(int argc, char *argv[]) {
           else if(mode==NETWORK_MODE)
             fd = network_mode_fd;
 
-          if(now_microsec - lastHeartBeatReceived > HEARTBEATDEADLINE) {
-            // heartbeat from the other side not received recently
-            do_debug(2, "Period expired. But nothing is sent because last heartbeat was received %"PRIu64" us ago\n", now_microsec - lastHeartBeatReceived);
-          }
-          else {
-            // heartbeat from the other side received recently
-            int n = sendExpiredPackects(packetsToSend, now_microsec, period, fd, mode, remote, local);
-            if(n>0)
-              do_debug(1, "Period expired: Sent %d blast packets (copies) at the end of the period\n", n);
-            else
-              do_debug(2, "Period expired: Nothing to send\n");            
+          // I may be here because of two different causes (both may have been accomplished):
+          // - period expired
+          // - heartbeat period expired
+
+          // - period expired
+          if(now_microsec - time_last_sent_in_microsec > period) {
+            if(now_microsec - lastHeartBeatReceived > HEARTBEATDEADLINE) {
+              // heartbeat from the other side not received recently
+              do_debug(2, " Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n", now_microsec - lastHeartBeatReceived);
+            }
+            else {
+              // heartbeat from the other side received recently
+              int n = sendExpiredPackects(packetsToSend, now_microsec, period, fd, mode, remote, local);
+              if(n>0)
+                do_debug(1, " Period expired: Sent %d blast packets (copies) at the end of the period\n", n);
+              else
+                do_debug(2, " Period expired: Nothing to send\n");            
+            }            
           }
 
-
-          // send a heartbeat to the other side
+          // heartbeat period expired: send a heartbeat to the other side
           if(now_microsec - lastHeartBeatSent > HEARTBEATPERIOD) {
             struct packet heartBeat;
             heartBeat.header.packetSize = 0;
@@ -3604,16 +3620,16 @@ int main(int argc, char *argv[]) {
             heartBeat.header.identifier = 0;
             heartBeat.header.ACK = HEARTBEAT;
             sendPacketBlastMode( fd, mode, &heartBeat, remote, local);
-            do_debug(1," Sent blast heartbeat to the network\n");
+            do_debug(1," Sent blast heartbeat to the network: %"PRIu64" > %"PRIu64"\n", now_microsec - lastHeartBeatSent, HEARTBEATPERIOD);
             lastHeartBeatSent = now_microsec;          
           }
           else {
-            do_debug(1," Not sending blast heartbeat to the network: %"PRIu64" < %"PRIu64"\n", now_microsec - lastHeartBeatSent, HEARTBEATPERIOD);
+            do_debug(2," Not sending blast heartbeat to the network: %"PRIu64" < %"PRIu64"\n", now_microsec - lastHeartBeatSent, HEARTBEATPERIOD);
           }
         }
         else {
+          // not in blast mode
           if ( num_pkts_stored_from_tun > 0 ) {
-
             // There are some packets stored
 
             if(!fast_mode) {
