@@ -29,6 +29,7 @@
 #include "packetsToSend.c"      // FIXME: Why not .h ¿?
 #include "buildMuxedPacket.c"   // FIXME: Why not .h ¿?
 #include "commonFunctions.c"
+#include "netToTun.c"
 
 //#define BUFSIZE 2304            // buffer for reading from tun/tap interface, must be >= MTU of the network
 //#define IPv4_HEADER_SIZE 20
