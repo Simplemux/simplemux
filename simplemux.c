@@ -273,10 +273,6 @@ int main(int argc, char *argv[]) {
   uint8_t muxed_packet[BUFSIZE];                    // stores the multiplexed packet
   uint8_t full_ip_packet[BUFSIZE];                  // Full IP packet
 
-  // variables for storing the packets to demultiplex
-  uint16_t nread_from_net;                  // number of bytes read from network which will be demultiplexed
-  uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
-  uint8_t buffer_from_net_aux[BUFSIZE];     // stores the packet received from the network, before sending it to tun
   uint8_t demuxed_packet[BUFSIZE];          // stores each demultiplexed packet
   uint16_t length_muxed_packet;               // length of the next TCP packet
   uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast mode)
@@ -1437,12 +1433,12 @@ int main(int argc, char *argv[]) {
         {
           int is_multiplexed_packet;
           int nread_from_net; // number of bytes read from network which will be demultiplexed
+          uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
 
           is_multiplexed_packet = readPacketFromNet(mode,
                                                     udp_mode_fd,
                                                     network_mode_fd,
                                                     buffer_from_net,
-                                                    buffer_from_net_aux,
                                                     received,
                                                     slen,
                                                     port,
@@ -2215,6 +2211,9 @@ int main(int argc, char *argv[]) {
         //else if ( FD_ISSET ( feedback_fd, &rd_set )) {    /* FD_ISSET tests to see if a file descriptor is part of the set */
         else if(fds_poll[1].revents & POLLIN) {
         
+          int nread_from_net; // number of bytes read from network which will be demultiplexed
+          uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
+          
           // a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
           nread_from_net = recvfrom ( feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&feedback_remote, &slen_feedback );
   

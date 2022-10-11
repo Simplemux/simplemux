@@ -8,7 +8,6 @@ int readPacketFromNet(char mode,
               int udp_mode_fd,
               int network_mode_fd,
               uint8_t* buffer_from_net,
-              uint8_t* buffer_from_net_aux,
               struct sockaddr_in received,
               socklen_t slen,
               uint16_t port,
@@ -27,6 +26,7 @@ int readPacketFromNet(char mode,
 
 {
   int is_multiplexed_packet = -1;
+  uint8_t buffer_from_net_aux[BUFSIZE];
 
   if (mode == UDP_MODE) {
     // a packet has been received from the network, destined to the multiplexing port
