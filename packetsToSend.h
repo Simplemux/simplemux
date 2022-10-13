@@ -5,12 +5,20 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>  // required for using uint8_t, uint16_t, etc.
-#include "commonFunctions.h"
+#include "commonFunctions.c"
+//#include "buildMuxedPacket.c"
 
 #define MASK 0x03
 #define HEARTBEAT 0x02
 #define THISISANACK 0x01
 #define ACKNEEDED 0x00
+
+// header of the packet to be sent
+struct simplemuxFastHeader {
+   uint16_t packetSize; // use 'htons()' when writing it because this field will be sent through the network
+                        // use 'ntohs()' when reading it from the network
+   uint8_t protocolID;
+} __attribute__ ((__packed__));
 
 // header of the packet to be sent
 struct simplemuxBlastHeader {

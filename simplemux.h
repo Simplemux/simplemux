@@ -26,9 +26,9 @@
 #include <poll.h>
 #include <assert.h>
 #include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
-#include "packetsToSend.c"      // FIXME: Why not .h ¿?
-#include "buildMuxedPacket.c"   // FIXME: Why not .h ¿?
-#include "commonFunctions.c"
+//#include "packetsToSend.c"      // FIXME: Why not .h ¿?
+//#include "buildMuxedPacket.c"   // FIXME: Why not .h ¿?
+//#include "commonFunctions.c"
 #include "netToTun.c"
 
 //#define BUFSIZE 2304            // buffer for reading from tun/tap interface, must be >= MTU of the network
@@ -65,18 +65,13 @@
 //#define TCP_CLIENT_MODE 'T'     // T: TCP client mode
 //#define TCP_SERVER_MODE 'S'     // S: TCP server mode
 
-#define TUN_MODE 'U'            // T: tun mode, i.e. IP packets will be tunneled inside Simplemux
-#define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
+//#define TUN_MODE 'U'            // T: tun mode, i.e. IP packets will be tunneled inside Simplemux
+//#define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
 
 //#define Linux_TTL 64            // the initial value of the TTL IP field in Linux
 
 #define DISABLE_NAGLE 1         // disable TCP Nagle algorithm
 #define QUICKACK 1              // enable TCP quick ACKs (non delayed)
 
-// header of the packet to be sent
-struct simplemuxFastHeader {
-   uint16_t packetSize; // use 'htons()' when writing it because this field will be sent through the network
-                        // use 'ntohs()' when reading it from the network
-   uint8_t protocolID;
-} __attribute__ ((__packed__));
+
 //#define linkedList
