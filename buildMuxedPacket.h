@@ -1,3 +1,6 @@
+//#include "commonfunctions.c"
+#include "packetsToSend.c"
+
 #define MAXPKTS 100             // maximum number of packets to store
 #define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
                                 // 2: protocol field of two bytes
