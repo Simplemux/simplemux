@@ -31,6 +31,8 @@
 #define TUN_MODE 'U'            // T: tun mode, i.e. IP packets will be tunneled inside Simplemux
 #define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
 
+#define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
+
 void do_debug(int level, char *msg, ...);
 
 unsigned short in_cksum(unsigned short *addr, int len);
