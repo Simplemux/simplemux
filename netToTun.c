@@ -261,7 +261,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
                         struct sockaddr_in feedback_remote,
                         int nread_from_net,
                         FILE *log_file,
-                        struct packet *packetsToSend,
+                        struct packet **packetsToSend,
                         int tun_fd,
                         int udp_mode_fd,
                         int network_mode_fd,
@@ -332,7 +332,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
     if (length > BUFSIZE) {
       perror("Problem with the length of the received packet\n");
-      do_debug(1," Length is %i, but the maximum allowed size is %i", length, BUFSIZE);
+      do_debug(1," Length is %i, but the maximum allowed size is %i\n", length, BUFSIZE);
     }
 
     // check if this is an ACK or not
@@ -343,8 +343,8 @@ int demuxPacketFromNet( uint32_t* net2tun,
       // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
       do_debug(2," Removing packet with ID %i from the list\n", ntohs(blastHeader->identifier));
       if(debug>2)
-        printList(&packetsToSend);
-      if(delete(&packetsToSend,ntohs(blastHeader->identifier))==false) {
+        printList(packetsToSend);
+      if(delete(packetsToSend,ntohs(blastHeader->identifier))==false) {
         do_debug(2,"The packet had already been removed from the list\n");
       }
       else {
@@ -370,10 +370,10 @@ int demuxPacketFromNet( uint32_t* net2tun,
           // do not send it again
           do_debug(1,"The packet with ID %i has been sent recently. Do not send it again\n", ntohs(blastHeader->identifier));
           do_debug(2,"now (%"PRIu64") - blastModeTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
-            now,
-            ntohs(blastHeader->identifier),
-            blastModeTimestamps[ntohs(blastHeader->identifier)],
-            TIME_UNTIL_SENDING_AGAIN_BLAST);
+                    now,
+                    ntohs(blastHeader->identifier),
+                    blastModeTimestamps[ntohs(blastHeader->identifier)],
+                    TIME_UNTIL_SENDING_AGAIN_BLAST);
         }
         else {
           deliverThisPacket=true;

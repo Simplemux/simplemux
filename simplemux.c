@@ -1405,8 +1405,8 @@ int main(int argc, char *argv[]) {
                   (mode == TCP_CLIENT_MODE) ) )
         {
           int is_multiplexed_packet;
-          int nread_from_net; // number of bytes read from network which will be demultiplexed
-          uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
+          int nread_from_net;                 // number of bytes read from network which will be demultiplexed
+          uint8_t buffer_from_net[BUFSIZE];   // stores the packet received from the network, before sending it to tun
 
           is_multiplexed_packet = readPacketFromNet(mode,
                                                     udp_mode_fd,
@@ -1445,7 +1445,7 @@ int main(int argc, char *argv[]) {
                                 feedback_remote,
                                 nread_from_net,
                                 log_file,
-                                packetsToSend,
+                                &packetsToSend,
                                 tun_fd,
                                 udp_mode_fd,
                                 network_mode_fd,
@@ -1607,7 +1607,7 @@ int main(int argc, char *argv[]) {
             else if(mode==NETWORK_MODE)
               fd = network_mode_fd;
             sendPacketBlastMode( fd, mode, thisPacket, remote, local);
-            do_debug(1, " SENT blast packet to the network. ID %i, Length %i\n", ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
+            do_debug(1, " Sent blast packet to the network. ID %i, Length %i\n", ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
 
             /*
             // write in the log file
