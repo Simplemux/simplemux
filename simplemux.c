@@ -259,7 +259,6 @@ int main(int argc, char *argv[]) {
 
 
   // variables for storing the packets to multiplex
-  uint16_t total_length;                            // total length of the built multiplexed packet
   uint8_t protocol_rec;                             // protocol field of the received muxed packet
   uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];   // protocol field of each packet
   uint16_t size_separators_to_multiplex[MAXPKTS];   // stores the size of the Simplemux separator. It does not include the "Protocol" field
@@ -270,8 +269,6 @@ int main(int argc, char *argv[]) {
   struct packet *packetsToSend = NULL;              // to be used in blast mode
 
   uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network
-  uint8_t muxed_packet[BUFSIZE];                    // stores the multiplexed packet
-  uint8_t full_ip_packet[BUFSIZE];                  // Full IP packet
 
   uint16_t length_muxed_packet;               // length of the next TCP packet
   uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast mode)
@@ -296,7 +293,6 @@ int main(int argc, char *argv[]) {
   // very long unsigned integers for storing the system clock in microseconds
   uint64_t time_last_sent_in_microsec;            // moment when the last multiplexed packet was sent
   uint64_t now_microsec;                          // current time
-  uint64_t time_difference;                       // difference between two timestamps
   uint64_t lastHeartBeatSent;                     // timestamp of the last heartbeat sent
   uint64_t lastHeartBeatReceived;                 // timestamp of the last heartbeat received
 
@@ -304,16 +300,14 @@ int main(int argc, char *argv[]) {
   int l,j,k;
   int num_pkts_stored_from_tun = 0;       // number of packets received and not sent from tun (stored)
   int size_muxed_packet = 0;              // accumulated size of the multiplexed packet
-  int predicted_size_muxed_packet;        // size of the muxed packet if the arrived packet was added to it
 
   int interface_mtu;                      // the maximum transfer unit of the interface
   int user_mtu = 0;                       // the MTU specified by the user (it must be <= interface_mtu)
   int selected_mtu;                       // the MTU that will be used in the program
   int single_protocol;                    // it is 1 when the Single-Protocol-Bit of the first header is 1
 
-  int limit_length_two_bytes;             // the maximum length of a packet in order to express it in 2 bytes. It may be 8192 or 16384 (non-first header)
   int first_header_written = 0;           // it indicates if the first header has been written or not
-  int drop_packet = 0;
+
   bool accepting_tcp_connections = 0;     // it is set to '1' if this is a TCP server and no connections have started
 
   // fixed size of the separator in fast mode
@@ -1591,11 +1585,34 @@ int main(int argc, char *argv[]) {
             tunToNetNoBlastMode(tun2net,
                                 mode,
                                 tunnel_mode,
+                                ROHC_mode,
+                                fast_mode,
                                 tun_fd,
                                 udp_mode_fd,
                                 network_mode_fd,
+                                tcp_server_fd,
+                                tcp_client_fd,
+                                accepting_tcp_connections,
                                 local,
-                                remote );
+                                remote,
+                                &ipheader,
+                                ipprotocol,
+                                &num_pkts_stored_from_tun,
+                                size_packets_to_multiplex,
+                                packets_to_multiplex,
+                                size_separators_to_multiplex,
+                                separators_to_multiplex,
+                                protocol,
+                                selected_mtu,
+                                &first_header_written,
+                                size_separator_fast_mode,
+                                size_max,
+                                &size_muxed_packet,
+                                &time_last_sent_in_microsec,
+                                limit_numpackets_tun,
+                                size_threshold,
+                                timeout,
+                                log_file );
           }
         }
       }  
@@ -1680,7 +1697,7 @@ int main(int argc, char *argv[]) {
               }
 
               // calculate the time difference
-              time_difference = now_microsec - time_last_sent_in_microsec;    
+              uint64_t time_difference = now_microsec - time_last_sent_in_microsec;    
 
               if (debug>0) {
                 //do_debug(2, "\n");
@@ -1737,6 +1754,9 @@ int main(int argc, char *argv[]) {
             }
 
             // build the multiplexed packet
+            uint16_t total_length;          // total length of the built multiplexed packet
+            uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
+
             total_length = build_multiplexed_packet ( num_pkts_stored_from_tun,
                                                       fast_mode,
                                                       single_protocol,
@@ -1755,6 +1775,7 @@ int main(int argc, char *argv[]) {
                 BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
 
                 // build the full IP multiplexed packet
+                uint8_t full_ip_packet[BUFSIZE];
                 BuildFullIPPacket(ipheader,muxed_packet,total_length, full_ip_packet);
 
                 // send the packet
