@@ -21,14 +21,17 @@
 #define IPPROTO_ROHC 142          // ROHC Protocol ID
 #define IPPROTO_ETHERNET 143      // Ethernet Protocol ID
 
-
 #define Linux_TTL 64            // the initial value of the TTL IP field in Linux
-
 
 #define NETWORK_MODE    'N'     // N: network mode
 #define UDP_MODE        'U'     // U: UDP mode
 #define TCP_CLIENT_MODE 'T'     // T: TCP client mode
 #define TCP_SERVER_MODE 'S'     // S: TCP server mode
+
+#define TUN_MODE 'U'            // T: tun mode, i.e. IP packets will be tunneled inside Simplemux
+#define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
+
+#define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
 
 void do_debug(int level, char *msg, ...);
 
