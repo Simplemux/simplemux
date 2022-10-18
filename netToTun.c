@@ -19,6 +19,7 @@ int readPacketFromNet(char mode,
                       uint8_t ipprotocol,
                       uint8_t* protocol_rec,
                       int* nread_from_net,
+                      uint16_t* packet_length,
                       uint16_t* pending_bytes_muxed_packet,
                       int tcp_server_fd,
                       int tcp_client_fd,
@@ -30,7 +31,6 @@ int readPacketFromNet(char mode,
 {
   int is_multiplexed_packet = -1;
   uint8_t buffer_from_net_aux[BUFSIZE];
-  uint16_t packet_length;
 
   if (mode == UDP_MODE) {
     // a packet has been received from the network, destined to the multiplexing port
@@ -173,7 +173,7 @@ int readPacketFromNet(char mode,
         }
         else if (*nread_from_net == *pending_bytes_muxed_packet) {
           // I have read a complete packet
-          packet_length = *read_tcp_bytes + *nread_from_net;
+          *packet_length = *read_tcp_bytes + *nread_from_net;
           do_debug(3, " (complete muxed packet of %i bytes)\n", packet_length);
 
           // reset the variables
@@ -260,6 +260,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
                         struct sockaddr_in remote,
                         struct sockaddr_in feedback_remote,
                         int nread_from_net,
+                        uint16_t packet_length,
                         FILE *log_file,
                         struct packet **packetsToSend,
                         int tun_fd,
@@ -541,10 +542,8 @@ int demuxPacketFromNet( uint32_t* net2tun,
       }
 
 
-      // read the length
-      uint16_t packet_length;
-
       if (!fast_mode) {
+
         if (LXT_first_byte == 0) {
           // the LXT bit of the first byte is 0 => the separator is one-byte long
 
@@ -578,7 +577,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
             // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
             // I do the product by 128, because the next byte includes 7 bits of the length
             packet_length = ((buffer_from_net[position] % maximum_packet_length) * 128 );
-            do_debug(3, "packet_length initial: %d\n", packet_length);
+            do_debug(3, "initial packet_length (only most significant bits): %d\n", packet_length);
             /*
             uint8_t mask;
             if (maximum_packet_length == 64)
@@ -589,7 +588,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
             // I add the value of the 7 less significant bits of the second byte
             packet_length = packet_length + (buffer_from_net[position + 1] % 128);
-            do_debug(3, "packet_length final: %d\n", packet_length);
+            do_debug(3, "packet_length (all the bits): %d\n", packet_length);
             //packet_length = packet_length + (buffer_from_net[position+1] & 0x7F);
 
             if (debug>0) {

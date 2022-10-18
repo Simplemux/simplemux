@@ -297,7 +297,7 @@ int main(int argc, char *argv[]) {
   uint64_t lastHeartBeatReceived;                 // timestamp of the last heartbeat received
 
   int option;                             // command line options
-  int l,j,k;
+  int l,k;
   int num_pkts_stored_from_tun = 0;       // number of packets received and not sent from tun (stored)
   int size_muxed_packet = 0;              // accumulated size of the multiplexed packet
 
@@ -318,9 +318,6 @@ int main(int argc, char *argv[]) {
                           // it is 1 for ROHC Unidirectional mode (headers are to be compressed/decompressed)
                           // it is 2 for ROHC Bidirectional Optimistic mode
                           // it is 3 for ROHC Bidirectional Reliable mode (not implemented yet)
-
-
-
 
   // variables for the log file
   char log_file_name[100] = "";       // name of the log file  
@@ -1401,6 +1398,7 @@ int main(int argc, char *argv[]) {
           int is_multiplexed_packet;
           int nread_from_net;                 // number of bytes read from network which will be demultiplexed
           uint8_t buffer_from_net[BUFSIZE];   // stores the packet received from the network, before sending it to tun
+          uint16_t packet_length;
 
           is_multiplexed_packet = readPacketFromNet(mode,
                                                     udp_mode_fd,
@@ -1413,6 +1411,7 @@ int main(int argc, char *argv[]) {
                                                     ipprotocol,
                                                     &protocol_rec,
                                                     &nread_from_net,
+                                                    &packet_length,
                                                     &pending_bytes_muxed_packet,
                                                     tcp_server_fd,
                                                     tcp_client_fd,
@@ -1438,6 +1437,7 @@ int main(int argc, char *argv[]) {
                                 remote,
                                 feedback_remote,
                                 nread_from_net,
+                                packet_length,
                                 log_file,
                                 &packetsToSend,
                                 tun_fd,
@@ -1729,7 +1729,7 @@ int main(int argc, char *argv[]) {
               // fast mode
               // in Fast mode the Protocol is sent in every separator
               // calculate the time difference
-              time_difference = now_microsec - time_last_sent_in_microsec;    
+              uint64_t time_difference = now_microsec - time_last_sent_in_microsec;    
 
               if (debug>0) {
                 //do_debug(2, "\n");
