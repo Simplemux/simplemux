@@ -32,6 +32,7 @@
 #define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
 
 #define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
+#define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
 
 void do_debug(int level, char *msg, ...);
 
