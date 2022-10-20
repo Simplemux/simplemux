@@ -63,10 +63,6 @@ void periodExpiredBlastMode ( struct context* contextSimplemux,
 
 
 void periodExpiredNoBlastMode ( struct context* contextSimplemux,
-                                int udp_mode_fd,
-                                int network_mode_fd,
-                                int tcp_server_fd,
-                                int tcp_client_fd,
                                 uint32_t tun2net,
                                 int* num_pkts_stored_from_tun,
                                 int* first_header_written,
@@ -200,7 +196,7 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
                         full_ip_packet);
 
       // send the packet
-      if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &remote, sizeof (struct sockaddr)) < 0)  {
+      if (sendto (contextSimplemux->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &remote, sizeof (struct sockaddr)) < 0)  {
         perror ("sendto() failed ");
         exit (EXIT_FAILURE);
       }
@@ -212,7 +208,7 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
     
     case UDP_MODE:
       // send the packet. I don't need to build the header, because I have a UDP socket  
-      if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+      if (sendto(contextSimplemux->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
         perror("sendto()");
         exit (EXIT_FAILURE);
       }
@@ -226,7 +222,7 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
       // send the packet. I don't need to build the header, because I have a TCP socket
 
       // FIXME: This said 'tcp_welcoming_fd', but I think it was a bug            
-      if (write(tcp_server_fd, muxed_packet, total_length)==-1) {
+      if (write(contextSimplemux->tcp_server_fd, muxed_packet, total_length)==-1) {
         perror("write() in TCP server mode failed");
         exit (EXIT_FAILURE);  
       }
@@ -238,7 +234,7 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
 
     case TCP_CLIENT_MODE:
       // send the packet. I don't need to build the header, because I have a TCP socket  
-      if (write(tcp_client_fd, muxed_packet, total_length)==-1) {
+      if (write(contextSimplemux->tcp_client_fd, muxed_packet, total_length)==-1) {
         perror("write() in TCP client mode failed");
         exit (EXIT_FAILURE);  
       }

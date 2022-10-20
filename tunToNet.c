@@ -3,9 +3,6 @@
 // packet/frame arrived at tun: read it, and send a blast packet to the network
 void tunToNetBlastMode (struct context* contextSimplemux,
                         uint32_t tun2net,
-                        int tun_fd,
-                        int udp_mode_fd,
-                        int network_mode_fd,
                         struct sockaddr_in local,
                         struct sockaddr_in remote,
                         struct packet **packetsToSend,
@@ -18,9 +15,9 @@ void tunToNetBlastMode (struct context* contextSimplemux,
   // add a new empty packet to the list
   struct packet* thisPacket = insertLast(packetsToSend,0,NULL);
 
-  // read the packet from tun_fd and add the data
+  // read the packet from contextSimplemux->tun_fd and add the data
   // use 'htons()' because these fields will be sent through the network
-  thisPacket->header.packetSize = htons(cread (tun_fd, thisPacket->tunneledPacket, BUFSIZE));
+  thisPacket->header.packetSize = htons(cread (contextSimplemux->tun_fd, thisPacket->tunneledPacket, BUFSIZE));
   thisPacket->header.identifier = htons((uint16_t)tun2net); // the ID is the 16 LSBs of 'tun2net'
 
   do_debug(1, "NATIVE PACKET arrived from tun: ID %i, length %i bytes\n", ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
@@ -40,9 +37,9 @@ void tunToNetBlastMode (struct context* contextSimplemux,
   // send the packet to the network
   int fd;
   if(contextSimplemux->mode==UDP_MODE)
-    fd = udp_mode_fd;
+    fd = contextSimplemux->udp_mode_fd;
   else if(contextSimplemux->mode==NETWORK_MODE)
-    fd = network_mode_fd;
+    fd = contextSimplemux->network_mode_fd;
 
   sendPacketBlastMode(fd,
                       contextSimplemux->mode,
@@ -95,11 +92,6 @@ void tunToNetBlastMode (struct context* contextSimplemux,
 // - a multiplexed packet has to be sent through the network
 void tunToNetNoBlastMode (struct context* contextSimplemux,
                           uint32_t tun2net,
-                          int tun_fd,
-                          int udp_mode_fd,
-                          int network_mode_fd,
-                          int tcp_server_fd,
-                          int tcp_client_fd,
                           bool accepting_tcp_connections,
                           struct sockaddr_in local,
                           struct sockaddr_in remote,
@@ -123,8 +115,8 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
                           FILE *log_file)
 {
 
-  /* read the packet from tun_fd, store it in the array, and store its size */
-  size_packets_to_multiplex[(*num_pkts_stored_from_tun)] = cread (tun_fd, packets_to_multiplex[(*num_pkts_stored_from_tun)], BUFSIZE);
+  /* read the packet from contextSimplemux->tun_fd, store it in the array, and store its size */
+  size_packets_to_multiplex[(*num_pkts_stored_from_tun)] = cread (contextSimplemux->tun_fd, packets_to_multiplex[(*num_pkts_stored_from_tun)], BUFSIZE);
   uint16_t size = size_packets_to_multiplex[(*num_pkts_stored_from_tun)];  
 
   // print the native packet/frame received
@@ -510,7 +502,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       switch (contextSimplemux->mode) {
         case UDP_MODE:
           // send the packet
-          if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+          if (sendto(contextSimplemux->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
             perror("sendto() in UDP mode failed");
             exit (EXIT_FAILURE);
           }
@@ -524,7 +516,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
 
         case TCP_CLIENT_MODE:
           // send the packet
-          if (write(tcp_client_fd, muxed_packet, total_length)==-1) {
+          if (write(contextSimplemux->tcp_client_fd, muxed_packet, total_length)==-1) {
             perror("write() in TCP client mode failed");
             exit (EXIT_FAILURE);
           }
@@ -543,7 +535,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           else {
             // send the packet
             //if (sendto(tcp_welcoming_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
-            if (write(tcp_server_fd, muxed_packet, total_length)==-1) {
+            if (write(contextSimplemux->tcp_server_fd, muxed_packet, total_length)==-1) {
               perror("write() in TCP server mode failed");
               exit (EXIT_FAILURE);
             }
@@ -564,7 +556,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           BuildFullIPPacket(*ipheader, muxed_packet, total_length, full_ip_packet);
 
           // send the packet
-          if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+          if (sendto (contextSimplemux->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
             perror ("sendto() in Network mode failed");
             exit (EXIT_FAILURE);
           }
@@ -1017,7 +1009,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       switch (contextSimplemux->mode) {
         case UDP_MODE:
           // send the packet. I don't need to build the header, because I have a UDP socket
-          if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+          if (sendto(contextSimplemux->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
             perror("sendto() in UDP mode failed");
             exit (EXIT_FAILURE);                
           }
@@ -1044,7 +1036,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           BuildFullIPPacket(*ipheader, muxed_packet, total_length, full_ip_packet);
 
           // send the multiplexed packet
-          if (sendto (network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+          if (sendto (contextSimplemux->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
             perror ("sendto() in Network mode failed ");
             exit (EXIT_FAILURE);
           }
@@ -1065,7 +1057,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         case TCP_CLIENT_MODE:
           // send the packet. I don't need to build the header, because I have a TCP socket
           
-          if (write(tcp_client_fd, muxed_packet, total_length)==-1) {
+          if (write(contextSimplemux->tcp_client_fd, muxed_packet, total_length)==-1) {
             perror("write() in TCP client mode failed");
             exit (EXIT_FAILURE);
           }
@@ -1091,7 +1083,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
             do_debug(1," The packet should be sent to the TCP socket. But no client has yet been connected to this server\n");
           }
           else {
-            if (write(tcp_server_fd, muxed_packet, total_length)==-1) {
+            if (write(contextSimplemux->tcp_server_fd, muxed_packet, total_length)==-1) {
               perror("write() in TCP server mode failed");
               exit (EXIT_FAILURE);
             }

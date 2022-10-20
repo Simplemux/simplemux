@@ -44,6 +44,17 @@ struct context {
                 // it is 2 for ROHC Bidirectional Optimistic mode
                 // it is 3 for ROHC Bidirectional Reliable mode (not implemented yet)
 
+  // variables for managing the network interfaces
+  int tun_fd;                     // file descriptor of the tun interface(no mux packet)
+  int udp_mode_fd;                // file descriptor of the socket in UDP mode
+  int network_mode_fd;            // file descriptor of the socket in Network mode
+  int feedback_fd;                // file descriptor of the socket of the feedback received from the network interface
+  int tcp_welcoming_fd;           // file descriptor of the TCP welcoming socket
+  int tcp_client_fd;              // file descriptor of the TCP socket
+  int tcp_server_fd;
+
+  
+
   uint16_t length_muxed_packet;  // length of the next TCP packet
 };
 

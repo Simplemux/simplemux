@@ -222,17 +222,6 @@ int main(int argc, char *argv[]) {
 
   contextSimplemux.rohcMode = 0;  // by default it is 0: ROHC is not used
 
-  // variables for managing the network interfaces
-  int tun_fd;                     // file descriptor of the tun interface(no mux packet)
-  int udp_mode_fd;                // file descriptor of the socket in UDP mode
-  int network_mode_fd;            // file descriptor of the socket in Network mode
-  int feedback_fd;                // file descriptor of the socket of the feedback received from the network interface
-  int tcp_welcoming_fd;           // file descriptor of the TCP welcoming socket
-  int tcp_client_fd;              // file descriptor of the TCP socket
-  int tcp_server_fd;
-  //int maxfd;                    // maximum number of file descriptors
-
-
   int fd2read;
   
   char tun_if_name[IFNAMSIZ] = "";    // name of the tun interface (e.g. "tun0")
@@ -551,7 +540,7 @@ int main(int argc, char *argv[]) {
     if (contextSimplemux.tunnelMode == TUN_MODE) {
       // tun tunnel mode (i.e. send IP packets)
       // initialize tun interface for native packets
-      if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
+      if ( (contextSimplemux.tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
         my_err("Error connecting to tun interface for capturing native packets %s\n", tun_if_name);
         exit(1);
       }
@@ -567,7 +556,7 @@ int main(int argc, char *argv[]) {
       }        
 
       // initialize tap interface for native packets
-      if ( (tun_fd = tun_alloc(tun_if_name, IFF_TAP | IFF_NO_PI)) < 0 ) {
+      if ( (contextSimplemux.tun_fd = tun_alloc(tun_if_name, IFF_TAP | IFF_NO_PI)) < 0 ) {
         my_err("Error connecting to tap interface for capturing native Ethernet frames %s\n", tun_if_name);
         exit(1);
       }
@@ -625,10 +614,10 @@ int main(int argc, char *argv[]) {
   
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // network_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
+      // contextSimplemux.network_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
       // create a raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
       // Submit request for a raw socket descriptor
-      if ((network_mode_fd = socket (AF_INET, SOCK_RAW, ipprotocol)) < 0) {
+      if ((contextSimplemux.network_mode_fd = socket (AF_INET, SOCK_RAW, ipprotocol)) < 0) {
         perror ("Raw socket for sending muxed packets failed ");
         exit (EXIT_FAILURE);
       }
@@ -637,15 +626,15 @@ int main(int argc, char *argv[]) {
       }
 
       // Set flag so socket expects us to provide IPv4 header
-      if (setsockopt (network_mode_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
+      if (setsockopt (contextSimplemux.network_mode_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
         perror ("setsockopt() failed to set IP_HDRINCL ");
         exit (EXIT_FAILURE);
       }
 
-      // Bind the socket "network_mode_fd" to interface index
-      // bind socket descriptor "network_mode_fd" to specified interface with setsockopt() since
+      // Bind the socket "contextSimplemux.network_mode_fd" to interface index
+      // bind socket descriptor "contextSimplemux.network_mode_fd" to specified interface with setsockopt() since
       // none of the other arguments of sendto() specify which interface to use.
-      if (setsockopt (network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
+      if (setsockopt (contextSimplemux.network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
         perror ("setsockopt() failed to bind to interface (network mode) ");
         exit (EXIT_FAILURE);
       }  
@@ -662,28 +651,28 @@ int main(int argc, char *argv[]) {
       /*** Request a socket for writing and receiving muxed packets in UDP mode ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // udp_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
+      // contextSimplemux.udp_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
 
       /* creates an UN-named socket inside the kernel and returns
        * an integer known as socket descriptor
        * This function takes domain/family as its first argument.
        * For Internet family of IPv4 addresses we use AF_INET
        */
-      if ( ( udp_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+      if ( ( contextSimplemux.udp_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
         perror("socket() UDP mode");
         exit(1);
       }
 
-      // Use ioctl() to look up interface index which we will use to bind socket descriptor "udp_mode_fd" to
+      // Use ioctl() to look up interface index which we will use to bind socket descriptor "contextSimplemux.udp_mode_fd" to
       memset (&iface, 0, sizeof (iface));
       snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
-      if (ioctl (udp_mode_fd, SIOCGIFINDEX, &iface) < 0) {
+      if (ioctl (contextSimplemux.udp_mode_fd, SIOCGIFINDEX, &iface) < 0) {
         perror ("ioctl() failed to find interface (transport mode) ");
         return (EXIT_FAILURE);
       }
 
       /*** get the IP address of the local interface ***/
-      if (ioctl(udp_mode_fd, SIOCGIFADDR, &iface) < 0) {
+      if (ioctl(contextSimplemux.udp_mode_fd, SIOCGIFADDR, &iface) < 0) {
         perror ("ioctl() failed to find the IP address for local interface ");
         return (EXIT_FAILURE);
       }
@@ -705,8 +694,8 @@ int main(int argc, char *argv[]) {
       local.sin_addr.s_addr = inet_addr(local_ip);    // local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
       local.sin_port = htons(port);            // local port
   
-      // bind the socket "udp_mode_fd" to the local address and port
-      if (bind(udp_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+      // bind the socket "contextSimplemux.udp_mode_fd" to the local address and port
+      if (bind(contextSimplemux.udp_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
         perror("bind");
       }
       else {
@@ -719,24 +708,24 @@ int main(int argc, char *argv[]) {
       /*** Request a socket for writing and receiving muxed packets in TCP mode ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // tcp_welcoming_fd is the file descriptor of the socket for managing arrived multiplexed packets
+      // contextSimplemux.tcp_welcoming_fd is the file descriptor of the socket for managing arrived multiplexed packets
 
       /* creates an UN-named socket inside the kernel and returns
        * an integer known as socket descriptor
        * This function takes domain/family as its first argument.
        * For Internet family of IPv4 addresses we use AF_INET
        */
-      if ( ( tcp_welcoming_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
+      if ( ( contextSimplemux.tcp_welcoming_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
         perror("socket() TCP server mode");
         exit(1);
       }      
 
-      // Use ioctl() to look up interface index which we will use to bind socket descriptor "udp_mode_fd" to
+      // Use ioctl() to look up interface index which we will use to bind socket descriptor "contextSimplemux.udp_mode_fd" to
       memset (&iface, 0, sizeof (iface));
       snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
                 
       /*** get the IP address of the local interface ***/
-      if (ioctl(tcp_welcoming_fd, SIOCGIFADDR, &iface) < 0) {
+      if (ioctl(contextSimplemux.tcp_welcoming_fd, SIOCGIFADDR, &iface) < 0) {
         perror ("ioctl() failed to find the IP address for local interface ");
         return (EXIT_FAILURE);
       }
@@ -761,7 +750,7 @@ int main(int argc, char *argv[]) {
       /* The call to the function "bind()" assigns the details specified
        * in the structure 'sockaddr' to the socket created above
        */  
-      if (bind(tcp_welcoming_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+      if (bind(contextSimplemux.tcp_welcoming_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
         perror("bind");
       }
       else {
@@ -772,7 +761,7 @@ int main(int argc, char *argv[]) {
        * maximum number of client connections that the server will queue for this listening
        * socket.
        */
-      listen(tcp_welcoming_fd, 1);
+      listen(contextSimplemux.tcp_welcoming_fd, 1);
       
       // from now on, I will accept a TCP connection
       accepting_tcp_connections = 1;
@@ -783,24 +772,24 @@ int main(int argc, char *argv[]) {
       /*** Request a socket for writing and receiving muxed packets in TCP mode ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // tcp_client_fd is the file descriptor of the socket for managing arrived multiplexed packets
+      // contextSimplemux.tcp_client_fd is the file descriptor of the socket for managing arrived multiplexed packets
 
       /* creates an UN-named socket inside the kernel and returns
        * an integer known as socket descriptor
        * This function takes domain/family as its first argument.
        * For Internet family of IPv4 addresses we use AF_INET
        */
-      if ( ( tcp_client_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
+      if ( ( contextSimplemux.tcp_client_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
         perror("socket() TCP mode");
         exit(1);
       }
       
-      // Use ioctl() to look up interface index which we will use to bind socket descriptor "udp_mode_fd" to
+      // Use ioctl() to look up interface index which we will use to bind socket descriptor "contextSimplemux.udp_mode_fd" to
       memset (&iface, 0, sizeof (iface));
       snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
       
       /*** get the IP address of the local interface ***/
-      if (ioctl(tcp_client_fd, SIOCGIFADDR, &iface) < 0) {
+      if (ioctl(contextSimplemux.tcp_client_fd, SIOCGIFADDR, &iface) < 0) {
         perror ("ioctl() failed to find the IP address for local interface ");
         return (EXIT_FAILURE);
       }
@@ -828,7 +817,7 @@ int main(int argc, char *argv[]) {
        * which tries to connect this socket with the socket (IP address and port)
        * of the remote host
        */
-      if( connect(tcp_client_fd, (struct sockaddr *)&remote, sizeof(remote)) < 0) {
+      if( connect(contextSimplemux.tcp_client_fd, (struct sockaddr *)&remote, sizeof(remote)) < 0) {
         do_debug(1, "Trying to connect to the TCP server at %s:%i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port));
         perror("connect() error: TCP connect Failed. The TCP server did not accept the connection");
         return 1;
@@ -839,34 +828,34 @@ int main(int argc, char *argv[]) {
         if ( DISABLE_NAGLE == 1 ) {
           // disable NAGLE algorigthm, see https://holmeshe.me/network-essentials-setsockopt-TCP_NODELAY/
           int flags =1;
-          setsockopt(tcp_client_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags));          
+          setsockopt(contextSimplemux.tcp_client_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags));          
         }
         if ( QUICKACK == 1 ) {
           // enable quick ACK, i.e. avoid delayed ACKs
           int flags =1;
-          setsockopt(tcp_client_fd, IPPROTO_TCP, TCP_QUICKACK, (void *)&flags, sizeof(flags));          
+          setsockopt(contextSimplemux.tcp_client_fd, IPPROTO_TCP, TCP_QUICKACK, (void *)&flags, sizeof(flags));          
         }
       }
     }
 
     /*** get the MTU of the local interface ***/
     if ( contextSimplemux.mode== UDP_MODE)  {
-      if (ioctl(udp_mode_fd, SIOCGIFMTU, &iface) == -1)
+      if (ioctl(contextSimplemux.udp_mode_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
     else if ( contextSimplemux.mode== NETWORK_MODE) {
-      if (ioctl(network_mode_fd, SIOCGIFMTU, &iface) == -1)
+      if (ioctl(contextSimplemux.network_mode_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
     else if ( contextSimplemux.mode== TCP_SERVER_MODE ) {
-      if (ioctl(tcp_welcoming_fd, SIOCGIFMTU, &iface) == -1)
+      if (ioctl(contextSimplemux.tcp_welcoming_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
     else if ( contextSimplemux.mode== TCP_CLIENT_MODE ) {
-      if (ioctl(tcp_client_fd, SIOCGIFMTU, &iface) == -1)
+      if (ioctl(contextSimplemux.tcp_client_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
@@ -969,13 +958,13 @@ int main(int argc, char *argv[]) {
       /*** Request a socket for feedback packets ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // feedback_fd is the file descriptor of the socket for managing arrived feedback packets
-      if ( ( feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+      // contextSimplemux.feedback_fd is the file descriptor of the socket for managing arrived feedback packets
+      if ( ( contextSimplemux.feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
         perror("socket()");
         exit(1);
       }
   
-      if (ioctl (feedback_fd, SIOCGIFINDEX, &iface) < 0) {
+      if (ioctl (contextSimplemux.feedback_fd, SIOCGIFINDEX, &iface) < 0) {
         perror ("ioctl() failed to find interface (feedback)");
         return (EXIT_FAILURE);
       }
@@ -992,8 +981,8 @@ int main(int argc, char *argv[]) {
       feedback.sin_addr.s_addr = inet_addr(local_ip);    // local IP
       feedback.sin_port = htons(port_feedback);      // local port (feedback)
   
-      // bind the socket "feedback_fd" to the local feedback address (the same used for multiplexing) and port
-       if (bind(feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
+      // bind the socket "contextSimplemux.feedback_fd" to the local feedback address (the same used for multiplexing) and port
+       if (bind(contextSimplemux.feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
         perror("bind");
       }
       else {
@@ -1001,7 +990,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    //do_debug(1,"tun_fd: %d; network_mode_fd: %d; udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n", tun_fd, network_mode_fd, udp_mode_fd, feedback_fd, tcp_welcoming_fd, tcp_client_fd);
+    //do_debug(1,"tun_fd: %d; network_mode_fd: %d; contextSimplemux.udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n", contextSimplemux.tun_fd, contextSimplemux.network_mode_fd, contextSimplemux.udp_mode_fd, contextSimplemux.feedback_fd, contextSimplemux.tcp_welcoming_fd, contextSimplemux.tcp_client_fd);
     
     switch(contextSimplemux.rohcMode) {
       case 0:
@@ -1217,16 +1206,16 @@ int main(int argc, char *argv[]) {
     struct pollfd* fds_poll = malloc(NUMBER_OF_SOCKETS * sizeof(struct pollfd));
     memset(fds_poll, 0, NUMBER_OF_SOCKETS * sizeof(struct pollfd));
   
-    fds_poll[0].fd = tun_fd;
-    fds_poll[1].fd = feedback_fd;
+    fds_poll[0].fd = contextSimplemux.tun_fd;
+    fds_poll[1].fd = contextSimplemux.feedback_fd;
     if ( contextSimplemux.mode== NETWORK_MODE )
-      fds_poll[2].fd = network_mode_fd;
+      fds_poll[2].fd = contextSimplemux.network_mode_fd;
     else if ( contextSimplemux.mode== UDP_MODE )
-      fds_poll[2].fd = udp_mode_fd;
+      fds_poll[2].fd = contextSimplemux.udp_mode_fd;
     else if ( contextSimplemux.mode==TCP_SERVER_MODE )
-      fds_poll[2].fd = tcp_welcoming_fd;
+      fds_poll[2].fd = contextSimplemux.tcp_welcoming_fd;
     else
-      fds_poll[2].fd = tcp_client_fd;
+      fds_poll[2].fd = contextSimplemux.tcp_client_fd;
     
     fds_poll[0].events = POLLIN;
     fds_poll[1].events = POLLIN;
@@ -1346,28 +1335,28 @@ int main(int argc, char *argv[]) {
 
           // accept the connection
           unsigned int len = sizeof(struct sockaddr);
-          tcp_server_fd = accept(tcp_welcoming_fd, (struct sockaddr*)&TCPpair, &len);
+          contextSimplemux.tcp_server_fd = accept(contextSimplemux.tcp_welcoming_fd, (struct sockaddr*)&TCPpair, &len);
           
           if ( DISABLE_NAGLE == 1 ) {
             // disable NAGLE algorigthm, see https://holmeshe.me/network-essentials-setsockopt-TCP_NODELAY/
             int flags =1;
-            setsockopt(tcp_client_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags));
+            setsockopt(contextSimplemux.tcp_client_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags));
           }
 
           // from now on, the TCP welcoming socket will NOT accept any other connection
           // FIXME: Does this make sense?
           accepting_tcp_connections = 0;
   
-          if(tcp_server_fd <= 0) {
+          if(contextSimplemux.tcp_server_fd <= 0) {
             perror("Error in 'accept()': TCP welcoming Socket");
           }
   
-          // change the descriptor to that of tcp_server_fd
-          // from now on, tcp_server_fd will be used
-          fds_poll[2].fd = tcp_server_fd;
-          //if(tcp_server_fd > maxfd) maxfd = tcp_server_fd;
+          // change the descriptor to that of contextSimplemux.tcp_server_fd
+          // from now on, contextSimplemux.tcp_server_fd will be used
+          fds_poll[2].fd = contextSimplemux.tcp_server_fd;
+          //if(contextSimplemux.tcp_server_fd > maxfd) maxfd = contextSimplemux.tcp_server_fd;
           
-          do_debug(1,"TCP connection started by the client. Socket for connecting to the client: %d\n", tcp_server_fd);        
+          do_debug(1,"TCP connection started by the client. Socket for connecting to the client: %d\n", contextSimplemux.tcp_server_fd);        
   
         }
         
@@ -1390,9 +1379,6 @@ int main(int argc, char *argv[]) {
           uint16_t packet_length;
 
           is_multiplexed_packet = readPacketFromNet(&contextSimplemux,
-                                                    //contextSimplemux.mode,
-                                                    udp_mode_fd,
-                                                    network_mode_fd,
                                                     buffer_from_net,
                                                     received,
                                                     slen,
@@ -1403,8 +1389,6 @@ int main(int argc, char *argv[]) {
                                                     &nread_from_net,
                                                     &packet_length,
                                                     &pending_bytes_muxed_packet,
-                                                    tcp_server_fd,
-                                                    tcp_client_fd,
                                                     size_separator_fast_mode,
                                                     &read_tcp_bytes_separator,
                                                     &read_tcp_bytes/*,
@@ -1426,10 +1410,6 @@ int main(int argc, char *argv[]) {
                                 packet_length,
                                 log_file,
                                 &packetsToSend,
-                                tun_fd,
-                                udp_mode_fd,
-                                network_mode_fd,
-                                feedback_fd,
                                 blastModeTimestamps,
                                 buffer_from_net,
                                 &protocol_rec,
@@ -1442,7 +1422,7 @@ int main(int argc, char *argv[]) {
             // packet with the correct destination port, but a source port different from the multiplexing one
             // if the packet does not come from the multiplexing port, write it directly into the tun interface
             do_debug(1, "NON-SIMPLEMUX PACKET #%"PRIu32": Non-multiplexed packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
-            cwrite ( tun_fd, buffer_from_net, nread_from_net);
+            cwrite ( contextSimplemux.tun_fd, buffer_from_net, nread_from_net);
   
             // write the log file
             if ( log_file != NULL ) {
@@ -1463,14 +1443,14 @@ int main(int argc, char *argv[]) {
         // the ROHC mode only affects the decompressor. So if I receive a ROHC feedback packet, I will use it
         // this implies that if the origin is in ROHC Unidirectional mode and the destination in Bidirectional, feedback will still work
   
-        //else if ( FD_ISSET ( feedback_fd, &rd_set )) {    /* FD_ISSET tests to see if a file descriptor is part of the set */
+        //else if ( FD_ISSET ( contextSimplemux.feedback_fd, &rd_set )) {    /* FD_ISSET tests to see if a file descriptor is part of the set */
         else if(fds_poll[1].revents & POLLIN) {
         
           int nread_from_net; // number of bytes read from network which will be demultiplexed
           uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
 
           // a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
-          nread_from_net = recvfrom ( feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&feedback_remote, &slen_feedback );
+          nread_from_net = recvfrom ( contextSimplemux.feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&feedback_remote, &slen_feedback );
   
           if (nread_from_net == -1) perror ("recvfrom()");
   
@@ -1527,7 +1507,7 @@ int main(int argc, char *argv[]) {
             // packet with destination port 55556, but a source port different from the feedback one
             // if the packet does not come from the feedback port, write it directly into the tun interface
             do_debug(1, "NON-FEEDBACK PACKET %"PRIu32": Non-feedback packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
-            cwrite ( tun_fd, buffer_from_net, nread_from_net);
+            cwrite ( contextSimplemux.tun_fd, buffer_from_net, nread_from_net);
   
             // write the log file
             if ( log_file != NULL ) {
@@ -1548,7 +1528,7 @@ int main(int argc, char *argv[]) {
         /*** a local packet has arrived to tun/tap, and it has to be multiplexed and sent to the destination***/
   
         /* FD_ISSET tests if a file descriptor is part of the set */
-        //else if(FD_ISSET(tun_fd, &rd_set)) {
+        //else if(FD_ISSET(contextSimplemux.tun_fd, &rd_set)) {
         else if(fds_poll[0].revents & POLLIN) {
           /* increase the counter of the number of packets read from tun*/
           tun2net++;
@@ -1556,11 +1536,6 @@ int main(int argc, char *argv[]) {
           if (contextSimplemux.blastMode) {
             tunToNetBlastMode(&contextSimplemux,
                               tun2net,
-                              //contextSimplemux.mode,
-                              //contextSimplemux.tunnelMode,
-                              tun_fd,
-                              udp_mode_fd,
-                              network_mode_fd,
                               local,
                               remote,
                               &packetsToSend,
@@ -1571,15 +1546,6 @@ int main(int argc, char *argv[]) {
             // not in blast mode
             tunToNetNoBlastMode(&contextSimplemux,
                                 tun2net,
-                                /*contextSimplemux.mode,
-                                contextSimplemux.tunnelMode,
-                                contextSimplemux.rohcMode,
-                                contextSimplemux.fastMode,*/
-                                tun_fd,
-                                udp_mode_fd,
-                                network_mode_fd,
-                                tcp_server_fd,
-                                tcp_client_fd,
                                 accepting_tcp_connections,
                                 local,
                                 remote,
@@ -1620,13 +1586,12 @@ int main(int argc, char *argv[]) {
           // go through the list and send all the packets with now_microsec > sentTimestamp + period
           int fd;
           if(contextSimplemux.mode==UDP_MODE)
-            fd = udp_mode_fd;
+            fd = contextSimplemux.udp_mode_fd;
           else if(contextSimplemux.mode==NETWORK_MODE)
-            fd = network_mode_fd;
+            fd = contextSimplemux.network_mode_fd;
 
           periodExpiredBlastMode (&contextSimplemux,
                                   fd,
-                                  //contextSimplemux.mode,
                                   &time_last_sent_in_microsec,
                                   period,
                                   lastHeartBeatReceived,
@@ -1642,14 +1607,6 @@ int main(int argc, char *argv[]) {
             // There are some packets stored
 
             periodExpiredNoBlastMode (&contextSimplemux,
-                                      /*contextSimplemux.mode,
-                                      contextSimplemux.tunnelMode,
-                                      contextSimplemux.fastMode,*/
-                                      //int tun_fd,
-                                      udp_mode_fd,
-                                      network_mode_fd,
-                                      tcp_server_fd,
-                                      tcp_client_fd,
                                       tun2net,
                                       &num_pkts_stored_from_tun,
                                       &first_header_written,
