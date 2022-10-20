@@ -1,4 +1,4 @@
-#include "commonFunctions.h"
+//#include "commonFunctions.h"
 //#include "packetsToSend.c"
 #include "buildMuxedPacket.c"
 
@@ -8,7 +8,8 @@
  * 0  a correct but not multiplexed packet has been read from the network
  * -1 error. Incorrect read
  */
-int readPacketFromNet(char mode,
+int readPacketFromNet(struct context* contextSimplemux,
+                      //char mode,
                       int udp_mode_fd,
                       int network_mode_fd,
                       uint8_t* buffer_from_net,
@@ -25,14 +26,14 @@ int readPacketFromNet(char mode,
                       int tcp_client_fd,
                       int size_separator_fast_mode,
                       uint8_t* read_tcp_bytes_separator,
-                      uint16_t* read_tcp_bytes,
-                      uint16_t* length_muxed_packet )
+                      uint16_t* read_tcp_bytes/*,
+                      uint16_t* length_muxed_packet*/ )
 
 {
   int is_multiplexed_packet = -1;
   uint8_t buffer_from_net_aux[BUFSIZE];
 
-  if (mode == UDP_MODE) {
+  if (contextSimplemux->mode == UDP_MODE) {
     // a packet has been received from the network, destined to the multiplexing port
     // 'slen' is the length of the IP address
     // I cannot use 'remote' because it would replace the IP address and port. I use 'received'
@@ -54,7 +55,7 @@ int readPacketFromNet(char mode,
       is_multiplexed_packet = 0;
   }
 
-  else if (mode == NETWORK_MODE) {
+  else if (contextSimplemux->mode  == NETWORK_MODE) {
     // a packet has been received from the network, destined to the local interface for muxed packets
     *nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
 
@@ -79,7 +80,7 @@ int readPacketFromNet(char mode,
       is_multiplexed_packet = 0;
   }
 
-  else if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
+  else if ((contextSimplemux->mode  == TCP_SERVER_MODE) || (contextSimplemux->mode  == TCP_CLIENT_MODE)) {
 
     // some bytes have been received from the network, destined to the TCP socket
     
@@ -98,7 +99,7 @@ int readPacketFromNet(char mode,
       do_debug(3, "[readPacketFromNet] Reading TCP. No pending bytes of the muxed packet. Start reading a new separator\n");
 
       // read a separator (3 or 4 bytes), or a part of it
-      if (mode == TCP_SERVER_MODE) {
+      if (contextSimplemux->mode  == TCP_SERVER_MODE) {
         *nread_from_net = read(tcp_server_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
       }
       else {
@@ -131,10 +132,10 @@ int readPacketFromNet(char mode,
         // I can now obtain the length of the packet
         // the first byte is the Most Significant Byte of the length
         // the second byte is the Less Significant Byte of the length
-        *length_muxed_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
-        *pending_bytes_muxed_packet = *length_muxed_packet;
+        contextSimplemux->length_muxed_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
+        *pending_bytes_muxed_packet = contextSimplemux->length_muxed_packet;
 
-        do_debug(2, " Read separator: Length %i (0x%02x%02x)", *length_muxed_packet, buffer_from_net[0], buffer_from_net[1]);
+        do_debug(2, " Read separator: Length %i (0x%02x%02x)", contextSimplemux->length_muxed_packet, buffer_from_net[0], buffer_from_net[1]);
 
         // read the Protocol field
         if ( SIZE_PROTOCOL_FIELD == 1 ) {
@@ -148,7 +149,7 @@ int readPacketFromNet(char mode,
 
         // read the packet itself (without the separator)
         // I only read the length of the packet
-        if (mode == TCP_SERVER_MODE) {
+        if (contextSimplemux->mode  == TCP_SERVER_MODE) {
           *nread_from_net = read(tcp_server_fd, buffer_from_net, *pending_bytes_muxed_packet);
         }
         else {
@@ -191,7 +192,7 @@ int readPacketFromNet(char mode,
       // I try to read 'pending_bytes_muxed_packet' and to put them at position '*read_tcp_bytes'
       do_debug(3, "[readPacketFromNet] Reading TCP. %i TCP bytes pending of the previous payload\n", *pending_bytes_muxed_packet);
 
-      if (mode == TCP_SERVER_MODE) {
+      if (contextSimplemux->mode  == TCP_SERVER_MODE) {
         *nread_from_net = read(tcp_server_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
       }
       else {
@@ -209,10 +210,10 @@ int readPacketFromNet(char mode,
       }
 
       else if(*nread_from_net < *pending_bytes_muxed_packet) {
-        do_debug(3, "[readPacketFromNet] (I have not yet read the whole muxed packet: pending %i bytes)\n", *length_muxed_packet - *nread_from_net);
+        do_debug(3, "[readPacketFromNet] (I have not yet read the whole muxed packet: pending %i bytes)\n", contextSimplemux->length_muxed_packet - *nread_from_net);
         // I have not read the whole packet
         // next time I will have to keep on reading
-        *pending_bytes_muxed_packet = *length_muxed_packet - *nread_from_net;
+        *pending_bytes_muxed_packet = contextSimplemux->length_muxed_packet - *nread_from_net;
         *read_tcp_bytes = *read_tcp_bytes + *nread_from_net;
 
         //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", *nread_from_net, *read_tcp_bytes, *pending_bytes_muxed_packet);
@@ -221,7 +222,7 @@ int readPacketFromNet(char mode,
         is_multiplexed_packet = -1;
       }
       else if(*nread_from_net == *pending_bytes_muxed_packet) {
-        do_debug(3, "[readPacketFromNet]  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n", *nread_from_net, *length_muxed_packet);
+        do_debug(3, "[readPacketFromNet]  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n", *nread_from_net, contextSimplemux->length_muxed_packet);
         // I have read the pending bytes of this packet
         *pending_bytes_muxed_packet = 0;
         //*read_tcp_bytes = *read_tcp_bytes + *nread_from_net;

@@ -34,6 +34,14 @@
 #define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
 #define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
 
+struct context {
+  char mode;        // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode
+  char tunnel_mode; // TUN (U, default) or TAP (T) tunnel mode
+  bool fast_mode;
+
+  uint16_t length_muxed_packet;  // length of the next TCP packet
+};
+
 void do_debug(int level, char *msg, ...);
 
 unsigned short in_cksum(unsigned short *addr, int len);

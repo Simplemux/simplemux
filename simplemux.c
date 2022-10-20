@@ -215,6 +215,11 @@ static void print_rohc_traces(void *const priv_ctxt,
  **************************************************************************/
 int main(int argc, char *argv[]) {
 
+  struct context contextSimplemux;
+
+  contextSimplemux.fast_mode = false; // fast mode is disabled by default
+  bool blastMode = false;             // blast mode is disabled by default
+
   // variables for managing the network interfaces
   int tun_fd;                     // file descriptor of the tun interface(no mux packet)
   int udp_mode_fd;                // file descriptor of the socket in UDP mode
@@ -231,14 +236,11 @@ int main(int argc, char *argv[]) {
   char tun_if_name[IFNAMSIZ] = "";    // name of the tun interface (e.g. "tun0")
   char mux_if_name[IFNAMSIZ] = "";    // name of the network interface (e.g. "eth0")
 
-  char mode;                // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode          
-  char tunnel_mode;         // TUN (U, default) or TAP (T) tunnel mode
+  //char mode;                // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode          
+  //char tunnel_mode;         // TUN (U, default) or TAP (T) tunnel mode
 
   char mode_string[10];
   char tunnel_mode_string[4];
-
-  bool fast_mode = false;             // fast mode is disabled by default
-  bool blastMode = false;             // blast mode is disabled by default
 
   const int on = 1;                   // needed when creating a socket
 
@@ -270,7 +272,7 @@ int main(int argc, char *argv[]) {
 
   uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network
 
-  uint16_t length_muxed_packet;               // length of the next TCP packet
+  //uint16_t length_muxed_packet;               // length of the next TCP packet
   uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast mode)
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast mode)
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast mode)
@@ -348,25 +350,24 @@ int main(int argc, char *argv[]) {
           strncpy(tun_if_name, optarg, IFNAMSIZ-1);
           break;
         case 'M':            /* network (N) or udp (U) or tcpclient (T) or tcpserver (S) mode */
-          //strncpy(mode, optarg, 1);
           strcpy(mode_string, optarg);
 
           // check the 'mode' string and fill 'mode'
           if (strcmp(mode_string, "network") == 0) {
             do_debug(3, "the mode string is network\n");
-            mode = 'N';
+            contextSimplemux.mode = 'N';
           }
           else if (strcmp(mode_string, "udp") == 0){
             do_debug(3, "the mode string is udp\n");
-            mode = 'U';
+            contextSimplemux.mode= 'U';
           }
           else if (strcmp(mode_string, "tcpserver") == 0){
             do_debug(3, "the mode string is tcpserver\n");
-            mode = 'S';
+            contextSimplemux.mode= 'S';
           }
           else if (strcmp(mode_string, "tcpclient") == 0){
             do_debug(3, "the mode string is tcpclient\n");
-            mode = 'T';
+            contextSimplemux.mode= 'T';
           }
           else {
             do_debug(3, "the mode string is not valid\n");
@@ -375,17 +376,16 @@ int main(int argc, char *argv[]) {
 
           break;
         case 'T':            /* TUN (U) or TAP (A) tunnel mode */
-          //strncpy(tunnel_mode, optarg, 1);
           strcpy(tunnel_mode_string, optarg);
 
           // check the 'tunnel_mode' string and fill 'tunnel_mode'
           if (strcmp(tunnel_mode_string, "tun") == 0) {
             do_debug(3, "the tunnel mode string is tun\n");
-            tunnel_mode = 'U';
+            contextSimplemux.tunnel_mode = 'U';
           }
           else if (strcmp(tunnel_mode_string, "tap") == 0){
             do_debug(3, "the tunnel mode string is tap\n");
-            tunnel_mode = 'A';
+            contextSimplemux.tunnel_mode = 'A';
           }
           else {
             do_debug(3, "the tunnel mode string is not valid\n");
@@ -394,7 +394,7 @@ int main(int argc, char *argv[]) {
 
           break;
         case 'f':            /* fast mode */
-          fast_mode = true;
+          contextSimplemux.fast_mode = true;
           port = PORT_FAST;   // by default, port = PORT. In fast mode, it is PORT_FAST
           ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast mode, use 254
           do_debug(1, "Fast mode engaged\n");
@@ -456,7 +456,6 @@ int main(int argc, char *argv[]) {
     }
 
 
-
     // check interface options
     if(*tun_if_name == '\0') {
       my_err("Must specify a tun/tap interface name for native packets ('-i' option)\n");
@@ -471,24 +470,24 @@ int main(int argc, char *argv[]) {
 
 
     // check if NETWORK or TRANSPORT mode have been selected (mandatory)
-    else if((mode != NETWORK_MODE) && (mode != UDP_MODE) && (mode != TCP_CLIENT_MODE) && (mode != TCP_SERVER_MODE)) {
+    else if((contextSimplemux.mode!= NETWORK_MODE) && (contextSimplemux.mode!= UDP_MODE) && (contextSimplemux.mode!= TCP_CLIENT_MODE) && (contextSimplemux.mode!= TCP_SERVER_MODE)) {
       my_err("Must specify a valid mode ('-M' option MUST be 'network', 'udp', 'tcpserver' or 'tcpclient')\n");
       usage();
     } 
   
     // check if TUN or TAP mode have been selected (mandatory)
-    else if((tunnel_mode != TUN_MODE) && (tunnel_mode != TAP_MODE)) {
+    else if((contextSimplemux.tunnel_mode != TUN_MODE) && (contextSimplemux.tunnel_mode != TAP_MODE)) {
       my_err("Must specify a valid tunnel mode ('-T' option MUST be 'tun' or 'tap')\n");
       usage();
     } 
 
     // TAP mode requires fast mode
-    else if(((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) && (fast_mode == false)) {
+    else if(((contextSimplemux.mode== TCP_SERVER_MODE) || (contextSimplemux.mode== TCP_CLIENT_MODE)) && (contextSimplemux.fast_mode == false)) {
       my_err("TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient') require fast mode (option '-f')\n");
       usage();
     }
 
-    else if(fast_mode == true) {
+    else if(contextSimplemux.fast_mode == true) {
       if(SIZE_PROTOCOL_FIELD!=1) {
         my_err("Fast mode (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
       }
@@ -499,11 +498,11 @@ int main(int argc, char *argv[]) {
       if(SIZE_PROTOCOL_FIELD!=1) {
         my_err("Blast mode (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
       }
-      if((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)){
+      if((contextSimplemux.mode== TCP_SERVER_MODE) || (contextSimplemux.mode== TCP_CLIENT_MODE)){
         my_err("Blast mode (-b) not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
         usage();
       }
-      if(fast_mode == true) {
+      if(contextSimplemux.fast_mode== true) {
         my_err("Blast mode (-b) and fast mode (-f) are not compatible\n");
         usage();        
       }
@@ -556,7 +555,7 @@ int main(int argc, char *argv[]) {
 
 
     /************* initialize the tun/tap **************/
-    if (tunnel_mode == TUN_MODE) {
+    if (contextSimplemux.tunnel_mode == TUN_MODE) {
       // tun tunnel mode (i.e. send IP packets)
       // initialize tun interface for native packets
       if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
@@ -565,7 +564,7 @@ int main(int argc, char *argv[]) {
       }
       do_debug(1, "Successfully connected to interface for native packets %s\n", tun_if_name);    
     }
-    else if (tunnel_mode == TAP_MODE) {
+    else if (contextSimplemux.tunnel_mode == TAP_MODE) {
       // tap tunnel mode (i.e. send Ethernet frames)
       
       // ROHC mode cannot be used in tunnel mode TAP, because Ethernet headers cannot be compressed
@@ -586,7 +585,7 @@ int main(int argc, char *argv[]) {
 
 
     /*** Request a socket for writing and receiving muxed packets in Network mode ***/
-    if ( mode == NETWORK_MODE ) {
+    if ( contextSimplemux.mode== NETWORK_MODE ) {
       // initialize header IP to be used when receiving a packet in NETWORK mode
       memset(&ipheader, 0, sizeof(struct iphdr));      
       memset (&iface, 0, sizeof (iface));
@@ -607,15 +606,13 @@ int main(int argc, char *argv[]) {
         if (ifa->ifa_addr == NULL)
           continue;  
         
-        s=getnameinfo(ifa->ifa_addr,sizeof(struct sockaddr_in),host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
+        s = getnameinfo(ifa->ifa_addr,sizeof(struct sockaddr_in),host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
         
         if((strcmp(ifa->ifa_name,mux_if_name)==0)&&(ifa->ifa_addr->sa_family==AF_INET)) {
           if (s != 0) {
               printf("getnameinfo() failed: %s\n", gai_strerror(s));
               exit(EXIT_FAILURE);
           }
-          //printf("\tInterface : <%s>\n",ifa->ifa_name );
-          //printf("\t  Address : <%s>\n", host);
           do_debug(1,"Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, ipprotocol);
           break;
         }
@@ -668,7 +665,7 @@ int main(int argc, char *argv[]) {
     // The remote port for Simplemux must also be PORT, because the packets go there
     // Packets arriving to the local computer have dstPort = PORT, srcPort = PORT
     // Packets sent from the local computer have srcPort = PORT, dstPort = PORT
-    else if ( mode == UDP_MODE ) {
+    else if ( contextSimplemux.mode== UDP_MODE ) {
       /*** Request a socket for writing and receiving muxed packets in UDP mode ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
@@ -725,7 +722,7 @@ int main(int argc, char *argv[]) {
     }
 
     // TCP server mode
-    else if (mode == TCP_SERVER_MODE ) {
+    else if (contextSimplemux.mode== TCP_SERVER_MODE ) {
       /*** Request a socket for writing and receiving muxed packets in TCP mode ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
@@ -789,7 +786,7 @@ int main(int argc, char *argv[]) {
     }
 
     // TCP client mode
-    else if ( mode == TCP_CLIENT_MODE ) {
+    else if ( contextSimplemux.mode== TCP_CLIENT_MODE ) {
       /*** Request a socket for writing and receiving muxed packets in TCP mode ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
@@ -860,22 +857,22 @@ int main(int argc, char *argv[]) {
     }
 
     /*** get the MTU of the local interface ***/
-    if ( mode == UDP_MODE)  {
+    if ( contextSimplemux.mode== UDP_MODE)  {
       if (ioctl(udp_mode_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
-    else if ( mode == NETWORK_MODE) {
+    else if ( contextSimplemux.mode== NETWORK_MODE) {
       if (ioctl(network_mode_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
-    else if ( mode == TCP_SERVER_MODE ) {
+    else if ( contextSimplemux.mode== TCP_SERVER_MODE ) {
       if (ioctl(tcp_welcoming_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
-    else if ( mode == TCP_CLIENT_MODE ) {
+    else if ( contextSimplemux.mode== TCP_CLIENT_MODE ) {
       if (ioctl(tcp_client_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
@@ -913,7 +910,7 @@ int main(int argc, char *argv[]) {
     }
 
     // define the maximum size threshold
-    switch ( mode ) {
+    switch ( contextSimplemux.mode) {
       case NETWORK_MODE:
         size_max = selected_mtu - IPv4_HEADER_SIZE ;
       break;
@@ -1229,11 +1226,11 @@ int main(int argc, char *argv[]) {
   
     fds_poll[0].fd = tun_fd;
     fds_poll[1].fd = feedback_fd;
-    if ( mode == NETWORK_MODE )
+    if ( contextSimplemux.mode== NETWORK_MODE )
       fds_poll[2].fd = network_mode_fd;
-    else if ( mode == UDP_MODE )
+    else if ( contextSimplemux.mode== UDP_MODE )
       fds_poll[2].fd = udp_mode_fd;
-    else if ( mode==TCP_SERVER_MODE )
+    else if ( contextSimplemux.mode==TCP_SERVER_MODE )
       fds_poll[2].fd = tcp_welcoming_fd;
     else
       fds_poll[2].fd = tcp_client_fd;
@@ -1352,7 +1349,7 @@ int main(int argc, char *argv[]) {
         /*************** TCP connection request from a client *************/
         /******************************************************************/
         // a connection request has arrived to the welcoming socket
-        if ((fds_poll[2].revents & POLLIN) && (mode==TCP_SERVER_MODE) && (accepting_tcp_connections == 1) ) {
+        if ((fds_poll[2].revents & POLLIN) && (contextSimplemux.mode==TCP_SERVER_MODE) && (accepting_tcp_connections == 1) ) {
 
           // accept the connection
           unsigned int len = sizeof(struct sockaddr);
@@ -1389,17 +1386,18 @@ int main(int argc, char *argv[]) {
         // In TCP_SERVER_MODE, I will only enter here if the TCP connection is already started
         // in the rest of modes, I will enter here if a muxed packet has arrived        
         else if ( (fds_poll[2].revents & POLLIN) && 
-                  (((mode == TCP_SERVER_MODE) && (accepting_tcp_connections == 0))  ||
-                  (mode == NETWORK_MODE) || 
-                  (mode == UDP_MODE) ||
-                  (mode == TCP_CLIENT_MODE) ) )
+                  (((contextSimplemux.mode== TCP_SERVER_MODE) && (accepting_tcp_connections == 0))  ||
+                  (contextSimplemux.mode== NETWORK_MODE) || 
+                  (contextSimplemux.mode== UDP_MODE) ||
+                  (contextSimplemux.mode== TCP_CLIENT_MODE) ) )
         {
           int is_multiplexed_packet;
           int nread_from_net;                 // number of bytes read from network which will be demultiplexed
           uint8_t buffer_from_net[BUFSIZE];   // stores the packet received from the network, before sending it to tun
           uint16_t packet_length;
 
-          is_multiplexed_packet = readPacketFromNet(mode,
+          is_multiplexed_packet = readPacketFromNet(&contextSimplemux,
+                                                    //contextSimplemux.mode,
                                                     udp_mode_fd,
                                                     network_mode_fd,
                                                     buffer_from_net,
@@ -1416,8 +1414,8 @@ int main(int argc, char *argv[]) {
                                                     tcp_client_fd,
                                                     size_separator_fast_mode,
                                                     &read_tcp_bytes_separator,
-                                                    &read_tcp_bytes,
-                                                    &length_muxed_packet );
+                                                    &read_tcp_bytes/*,
+                                                    &contextSimplemux.length_muxed_packet*/ );
     
           // now 'buffer_from_net' may contain a full packet or frame.
           // check if the packet is a multiplexed one
@@ -1427,10 +1425,10 @@ int main(int argc, char *argv[]) {
           
           else if (is_multiplexed_packet == 1) {
             demuxPacketFromNet( &net2tun,
-                                mode,
-                                tunnel_mode,
+                                contextSimplemux.mode,
+                                contextSimplemux.tunnel_mode,
                                 blastMode,
-                                fast_mode,
+                                contextSimplemux.fast_mode,
                                 ROHC_mode,
                                 local,
                                 remote,
@@ -1568,8 +1566,8 @@ int main(int argc, char *argv[]) {
 
           if (blastMode) {
             tunToNetBlastMode(tun2net,
-                              mode,
-                              tunnel_mode,
+                              contextSimplemux.mode,
+                              contextSimplemux.tunnel_mode,
                               tun_fd,
                               udp_mode_fd,
                               network_mode_fd,
@@ -1582,10 +1580,10 @@ int main(int argc, char *argv[]) {
           else {
             // not in blast mode
             tunToNetNoBlastMode(tun2net,
-                                mode,
-                                tunnel_mode,
+                                contextSimplemux.mode,
+                                contextSimplemux.tunnel_mode,
                                 ROHC_mode,
-                                fast_mode,
+                                contextSimplemux.fast_mode,
                                 tun_fd,
                                 udp_mode_fd,
                                 network_mode_fd,
@@ -1630,13 +1628,13 @@ int main(int argc, char *argv[]) {
 
           // go through the list and send all the packets with now_microsec > sentTimestamp + period
           int fd;
-          if(mode==UDP_MODE)
+          if(contextSimplemux.mode==UDP_MODE)
             fd = udp_mode_fd;
-          else if(mode==NETWORK_MODE)
+          else if(contextSimplemux.mode==NETWORK_MODE)
             fd = network_mode_fd;
 
           periodExpiredBlastMode (fd,
-                                  mode,
+                                  contextSimplemux.mode,
                                   &time_last_sent_in_microsec,
                                   period,
                                   lastHeartBeatReceived,
@@ -1651,9 +1649,9 @@ int main(int argc, char *argv[]) {
           if ( num_pkts_stored_from_tun > 0 ) {
             // There are some packets stored
 
-            periodExpiredNoBlastMode (mode,
-                                      tunnel_mode,
-                                      fast_mode,
+            periodExpiredNoBlastMode (contextSimplemux.mode,
+                                      contextSimplemux.tunnel_mode,
+                                      contextSimplemux.fast_mode,
                                       //int tun_fd,
                                       udp_mode_fd,
                                       network_mode_fd,
