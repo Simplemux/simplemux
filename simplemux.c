@@ -297,14 +297,13 @@ int main(int argc, char *argv[]) {
   uint64_t lastHeartBeatReceived;                 // timestamp of the last heartbeat received
 
   int option;                             // command line options
-  int l,k;
+  int l;
   int num_pkts_stored_from_tun = 0;       // number of packets received and not sent from tun (stored)
   int size_muxed_packet = 0;              // accumulated size of the multiplexed packet
 
   int interface_mtu;                      // the maximum transfer unit of the interface
   int user_mtu = 0;                       // the MTU specified by the user (it must be <= interface_mtu)
   int selected_mtu;                       // the MTU that will be used in the program
-  int single_protocol;                    // it is 1 when the Single-Protocol-Bit of the first header is 1
 
   int first_header_written = 0;           // it indicates if the first header has been written or not
 
@@ -794,7 +793,7 @@ int main(int argc, char *argv[]) {
       /*** Request a socket for writing and receiving muxed packets in TCP mode ***/
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // tcp_welcoming_fd is the file descriptor of the socket for managing arrived multiplexed packets
+      // tcp_client_fd is the file descriptor of the socket for managing arrived multiplexed packets
 
       /* creates an UN-named socket inside the kernel and returns
        * an integer known as socket descriptor
@@ -1660,17 +1659,22 @@ int main(int argc, char *argv[]) {
                                       network_mode_fd,
                                       tcp_server_fd,
                                       tcp_client_fd,
+                                      tun2net,
                                       &num_pkts_stored_from_tun,
                                       &first_header_written,
                                       &time_last_sent_in_microsec,
                                       protocol,
+                                      size_separators_to_multiplex,
                                       separators_to_multiplex,
                                       &size_muxed_packet,
                                       size_packets_to_multiplex,
                                       packets_to_multiplex,
                                       local,
                                       remote,
-                                      ipheader );
+                                      ipprotocol,
+                                      &ipheader,
+                                      log_file );
+
           }
           else {
             // No packet arrived

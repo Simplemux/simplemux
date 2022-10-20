@@ -62,6 +62,8 @@ void periodExpiredBlastMode ( int fd,
 }
 
 
+
+/// voy por aquí
 void periodExpiredNoBlastMode ( char mode,
                                 char tunnel_mode,
                                 bool fast_mode,
@@ -70,23 +72,30 @@ void periodExpiredNoBlastMode ( char mode,
                                 int network_mode_fd,
                                 int tcp_server_fd,
                                 int tcp_client_fd,
+                                uint32_t tun2net,
                                 int* num_pkts_stored_from_tun,
                                 int* first_header_written,
                                 uint64_t* time_last_sent_in_microsec,
                                 uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD],
+                                uint16_t size_separators_to_multiplex[MAXPKTS],
                                 uint8_t separators_to_multiplex[MAXPKTS][3],
                                 int* size_muxed_packet,
                                 uint16_t size_packets_to_multiplex[MAXPKTS],
                                 uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE],
                                 struct sockaddr_in local,
                                 struct sockaddr_in remote,
-                                struct iphdr* ipheader )
+                                uint8_t ipprotocol,
+                                struct iphdr* ipheader,
+                                FILE *log_file )
 {
   // There are some packets stored
 
+  // it is 1 when the Single-Protocol-Bit of the first header is 1
+  int single_protocol;
+
   if(!fast_mode) {
     // calculate if all the packets belong to the same protocol
-    int single_protocol = 1;
+    single_protocol = 1;
     for (int k = 1; k < (*num_pkts_stored_from_tun) ; k++) {
       for (int l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
         if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
@@ -136,6 +145,11 @@ void periodExpiredNoBlastMode ( char mode,
   else {
     // fast mode
     // in Fast mode the Protocol is sent in every separator
+
+    // in this case, the value of 'single_protocol' is not relevant,
+    //but it is needed by 'build_multiplexed_packet()'
+    single_protocol = 1;
+
     // calculate the time difference
     uint64_t now_microsec = GetTimeStamp();
     uint64_t time_difference = now_microsec - (*time_last_sent_in_microsec);    
@@ -181,11 +195,11 @@ void periodExpiredNoBlastMode ( char mode,
     
     case NETWORK_MODE:
       // build the header
-      BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
+      BuildIPHeader(ipheader, total_length, ipprotocol, local, remote);
 
       // build the full IP multiplexed packet
       uint8_t full_ip_packet[BUFSIZE];
-      BuildFullIPPacket(ipheader,
+      BuildFullIPPacket(*ipheader,
                         muxed_packet,
                         total_length,
                         full_ip_packet);
@@ -214,8 +228,10 @@ void periodExpiredNoBlastMode ( char mode,
     break;
 
     case TCP_SERVER_MODE:
-      // send the packet. I don't need to build the header, because I have a TCP socket              
-      if (write(tcp_welcoming_fd, muxed_packet, total_length)==-1) {
+      // send the packet. I don't need to build the header, because I have a TCP socket
+
+      // FIXME: This said 'tcp_welcoming_fd', but I think it was a bug            
+      if (write(tcp_server_fd, muxed_packet, total_length)==-1) {
         perror("write() in TCP server mode failed");
         exit (EXIT_FAILURE);  
       }
