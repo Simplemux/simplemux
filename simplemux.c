@@ -217,8 +217,10 @@ int main(int argc, char *argv[]) {
 
   struct context contextSimplemux;
 
-  contextSimplemux.fast_mode = false; // fast mode is disabled by default
-  bool blastMode = false;             // blast mode is disabled by default
+  contextSimplemux.fastMode = false; // fast mode is disabled by default
+  contextSimplemux.blastMode = false; // blast mode is disabled by default
+
+  contextSimplemux.rohcMode = 0;  // by default it is 0: ROHC is not used
 
   // variables for managing the network interfaces
   int tun_fd;                     // file descriptor of the tun interface(no mux packet)
@@ -235,9 +237,6 @@ int main(int argc, char *argv[]) {
   
   char tun_if_name[IFNAMSIZ] = "";    // name of the tun interface (e.g. "tun0")
   char mux_if_name[IFNAMSIZ] = "";    // name of the network interface (e.g. "eth0")
-
-  //char mode;                // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode          
-  //char tunnel_mode;         // TUN (U, default) or TAP (T) tunnel mode
 
   char mode_string[10];
   char tunnel_mode_string[4];
@@ -314,12 +313,6 @@ int main(int argc, char *argv[]) {
   // fixed size of the separator in fast mode
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
 
-  // ROHC header compression variables
-  int ROHC_mode = 0;      // it is 0 if ROHC is not used
-                          // it is 1 for ROHC Unidirectional mode (headers are to be compressed/decompressed)
-                          // it is 2 for ROHC Bidirectional Optimistic mode
-                          // it is 3 for ROHC Bidirectional Reliable mode (not implemented yet)
-
   // variables for the log file
   char log_file_name[100] = "";       // name of the log file  
   FILE *log_file = NULL;              // file descriptor of the log file
@@ -341,7 +334,7 @@ int main(int argc, char *argv[]) {
           debug = atoi(optarg);    /* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
           break;
         case 'r':
-          ROHC_mode = atoi(optarg);  /* 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)*/ 
+          contextSimplemux.rohcMode = atoi(optarg);  /* 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)*/ 
           break;
         case 'h':            /* help */
           usage();
@@ -378,14 +371,14 @@ int main(int argc, char *argv[]) {
         case 'T':            /* TUN (U) or TAP (A) tunnel mode */
           strcpy(tunnel_mode_string, optarg);
 
-          // check the 'tunnel_mode' string and fill 'tunnel_mode'
+          // check the 'tunnel_mode' string and fill 'tunnelMode'
           if (strcmp(tunnel_mode_string, "tun") == 0) {
             do_debug(3, "the tunnel mode string is tun\n");
-            contextSimplemux.tunnel_mode = 'U';
+            contextSimplemux.tunnelMode = 'U';
           }
           else if (strcmp(tunnel_mode_string, "tap") == 0){
             do_debug(3, "the tunnel mode string is tap\n");
-            contextSimplemux.tunnel_mode = 'A';
+            contextSimplemux.tunnelMode = 'A';
           }
           else {
             do_debug(3, "the tunnel mode string is not valid\n");
@@ -394,13 +387,13 @@ int main(int argc, char *argv[]) {
 
           break;
         case 'f':            /* fast mode */
-          contextSimplemux.fast_mode = true;
+          contextSimplemux.fastMode = true;
           port = PORT_FAST;   // by default, port = PORT. In fast mode, it is PORT_FAST
           ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast mode, use 254
           do_debug(1, "Fast mode engaged\n");
           break;
         case 'b':            /* blast mode */
-          blastMode = true;
+          contextSimplemux.blastMode = true;
           port = PORT_BLAST;   // by default, port = PORT. In blast mode, it is PORT_BLAST
           ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast mode, use 252
           do_debug(1, "Blast mode engaged\n");
@@ -476,25 +469,25 @@ int main(int argc, char *argv[]) {
     } 
   
     // check if TUN or TAP mode have been selected (mandatory)
-    else if((contextSimplemux.tunnel_mode != TUN_MODE) && (contextSimplemux.tunnel_mode != TAP_MODE)) {
+    else if((contextSimplemux.tunnelMode != TUN_MODE) && (contextSimplemux.tunnelMode != TAP_MODE)) {
       my_err("Must specify a valid tunnel mode ('-T' option MUST be 'tun' or 'tap')\n");
       usage();
     } 
 
     // TAP mode requires fast mode
-    else if(((contextSimplemux.mode== TCP_SERVER_MODE) || (contextSimplemux.mode== TCP_CLIENT_MODE)) && (contextSimplemux.fast_mode == false)) {
+    else if(((contextSimplemux.mode== TCP_SERVER_MODE) || (contextSimplemux.mode== TCP_CLIENT_MODE)) && (contextSimplemux.fastMode == false)) {
       my_err("TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient') require fast mode (option '-f')\n");
       usage();
     }
 
-    else if(contextSimplemux.fast_mode == true) {
+    else if(contextSimplemux.fastMode == true) {
       if(SIZE_PROTOCOL_FIELD!=1) {
         my_err("Fast mode (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
       }
     }
 
     // Blast mode is restricted
-    else if(blastMode == true) {
+    else if(contextSimplemux.blastMode == true) {
       if(SIZE_PROTOCOL_FIELD!=1) {
         my_err("Blast mode (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
       }
@@ -502,11 +495,11 @@ int main(int argc, char *argv[]) {
         my_err("Blast mode (-b) not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
         usage();
       }
-      if(contextSimplemux.fast_mode== true) {
+      if(contextSimplemux.fastMode== true) {
         my_err("Blast mode (-b) and fast mode (-f) are not compatible\n");
         usage();        
       }
-      if(ROHC_mode!=0) {
+      if(contextSimplemux.rohcMode!=0) {
         my_err("Blast mode (-b) is not compatible with ROHC (-r)\n");
         usage();          
       }
@@ -545,17 +538,17 @@ int main(int argc, char *argv[]) {
     do_debug ( 1 , "debug level set to %i\n", debug);
 
     // check ROHC option
-    if ( ROHC_mode < 0 ) {
-      ROHC_mode = 0;
+    if ( contextSimplemux.rohcMode < 0 ) {
+      contextSimplemux.rohcMode = 0;
     }
-    else if ( ROHC_mode > 2 ) { 
-      ROHC_mode = 2;
+    else if ( contextSimplemux.rohcMode > 2 ) { 
+      contextSimplemux.rohcMode = 2;
     }
     /************* end - check command line options **************/
 
 
     /************* initialize the tun/tap **************/
-    if (contextSimplemux.tunnel_mode == TUN_MODE) {
+    if (contextSimplemux.tunnelMode == TUN_MODE) {
       // tun tunnel mode (i.e. send IP packets)
       // initialize tun interface for native packets
       if ( (tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
@@ -564,11 +557,11 @@ int main(int argc, char *argv[]) {
       }
       do_debug(1, "Successfully connected to interface for native packets %s\n", tun_if_name);    
     }
-    else if (contextSimplemux.tunnel_mode == TAP_MODE) {
+    else if (contextSimplemux.tunnelMode == TAP_MODE) {
       // tap tunnel mode (i.e. send Ethernet frames)
       
       // ROHC mode cannot be used in tunnel mode TAP, because Ethernet headers cannot be compressed
-      if (ROHC_mode != 0) {
+      if (contextSimplemux.rohcMode != 0) {
         my_err("Error ROHC cannot be used in 'tap' mode (Ethernet headers cannot be compressed)\n");
         exit(1);          
       }        
@@ -1010,7 +1003,7 @@ int main(int argc, char *argv[]) {
 
     //do_debug(1,"tun_fd: %d; network_mode_fd: %d; udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n", tun_fd, network_mode_fd, udp_mode_fd, feedback_fd, tcp_welcoming_fd, tcp_client_fd);
     
-    switch(ROHC_mode) {
+    switch(contextSimplemux.rohcMode) {
       case 0:
         do_debug ( 1 , "ROHC not activated\n", debug);
         break;
@@ -1027,7 +1020,7 @@ int main(int argc, char *argv[]) {
 
     // If ROHC has been selected, I have to initialize it
     // see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
-    if ( ROHC_mode > 0 ) {
+    if ( contextSimplemux.rohcMode > 0 ) {
 
       /* initialize the random generator */
       seed = time(NULL);
@@ -1113,13 +1106,13 @@ int main(int argc, char *argv[]) {
       *  - with small CIDs use ROHC_SMALL_CID, ROHC_SMALL_CID_MAX maximum of 5 streams (MAX_CID = 4),
       *  - ROHC_O_MODE: Bidirectional Optimistic mode (O-mode)
       *  - ROHC_U_MODE: Unidirectional mode (U-mode).    */
-      if ( ROHC_mode == 1 ) {
+      if ( contextSimplemux.rohcMode == 1 ) {
         decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_U_MODE);  // Unidirectional mode
       }
-      else if ( ROHC_mode == 2 ) {
+      else if ( contextSimplemux.rohcMode == 2 ) {
         decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_O_MODE);  // Bidirectional Optimistic mode
       }
-      /*else if ( ROHC_mode == 3 ) {
+      /*else if ( contextSimplemux.rohcMode == 3 ) {
         decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);  // Bidirectional Reliable mode (not implemented yet)
       }*/
 
@@ -1207,7 +1200,7 @@ int main(int argc, char *argv[]) {
     
 
     // in blast mode, fill the vector of timestamps with zeroes
-    if(blastMode) {
+    if(contextSimplemux.blastMode) {
       for(int i=0;i<0xFFFF+1;i++)
         blastModeTimestamps[i] = 0;
     }
@@ -1243,7 +1236,7 @@ int main(int argc, char *argv[]) {
     // I calculate 'now' as the moment of the last sending
     time_last_sent_in_microsec = GetTimeStamp();
 
-    if(blastMode) {
+    if(contextSimplemux.blastMode) {
       lastHeartBeatSent = time_last_sent_in_microsec;
       lastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
     }
@@ -1257,7 +1250,7 @@ int main(int argc, char *argv[]) {
     
       /* Initialize the timeout data structure. */
 
-      if(blastMode) {
+      if(contextSimplemux.blastMode) {
 
         time_last_sent_in_microsec = findLastSentTimestamp(packetsToSend);
 
@@ -1424,12 +1417,8 @@ int main(int argc, char *argv[]) {
           }
           
           else if (is_multiplexed_packet == 1) {
-            demuxPacketFromNet( &net2tun,
-                                contextSimplemux.mode,
-                                contextSimplemux.tunnel_mode,
-                                blastMode,
-                                contextSimplemux.fast_mode,
-                                ROHC_mode,
+            demuxPacketFromNet( &contextSimplemux,
+                                &net2tun,
                                 local,
                                 remote,
                                 feedback_remote,
@@ -1564,10 +1553,11 @@ int main(int argc, char *argv[]) {
           /* increase the counter of the number of packets read from tun*/
           tun2net++;
 
-          if (blastMode) {
-            tunToNetBlastMode(tun2net,
-                              contextSimplemux.mode,
-                              contextSimplemux.tunnel_mode,
+          if (contextSimplemux.blastMode) {
+            tunToNetBlastMode(&contextSimplemux,
+                              tun2net,
+                              //contextSimplemux.mode,
+                              //contextSimplemux.tunnelMode,
                               tun_fd,
                               udp_mode_fd,
                               network_mode_fd,
@@ -1579,11 +1569,12 @@ int main(int argc, char *argv[]) {
 
           else {
             // not in blast mode
-            tunToNetNoBlastMode(tun2net,
-                                contextSimplemux.mode,
-                                contextSimplemux.tunnel_mode,
-                                ROHC_mode,
-                                contextSimplemux.fast_mode,
+            tunToNetNoBlastMode(&contextSimplemux,
+                                tun2net,
+                                /*contextSimplemux.mode,
+                                contextSimplemux.tunnelMode,
+                                contextSimplemux.rohcMode,
+                                contextSimplemux.fastMode,*/
                                 tun_fd,
                                 udp_mode_fd,
                                 network_mode_fd,
@@ -1624,7 +1615,7 @@ int main(int argc, char *argv[]) {
       else {  // fd2read == 0
         do_debug(2, "Poll timeout expired\n");
         
-        if(blastMode) {
+        if(contextSimplemux.blastMode) {
 
           // go through the list and send all the packets with now_microsec > sentTimestamp + period
           int fd;
@@ -1633,8 +1624,9 @@ int main(int argc, char *argv[]) {
           else if(contextSimplemux.mode==NETWORK_MODE)
             fd = network_mode_fd;
 
-          periodExpiredBlastMode (fd,
-                                  contextSimplemux.mode,
+          periodExpiredBlastMode (&contextSimplemux,
+                                  fd,
+                                  //contextSimplemux.mode,
                                   &time_last_sent_in_microsec,
                                   period,
                                   lastHeartBeatReceived,
@@ -1649,9 +1641,10 @@ int main(int argc, char *argv[]) {
           if ( num_pkts_stored_from_tun > 0 ) {
             // There are some packets stored
 
-            periodExpiredNoBlastMode (contextSimplemux.mode,
-                                      contextSimplemux.tunnel_mode,
-                                      contextSimplemux.fast_mode,
+            periodExpiredNoBlastMode (&contextSimplemux,
+                                      /*contextSimplemux.mode,
+                                      contextSimplemux.tunnelMode,
+                                      contextSimplemux.fastMode,*/
                                       //int tun_fd,
                                       udp_mode_fd,
                                       network_mode_fd,

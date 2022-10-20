@@ -36,8 +36,13 @@
 
 struct context {
   char mode;        // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode
-  char tunnel_mode; // TUN (U, default) or TAP (T) tunnel mode
-  bool fast_mode;
+  char tunnelMode;  // TUN (U, default) or TAP (T) tunnel mode
+  bool fastMode;
+  bool blastMode;
+  int rohcMode; // it is 0 if ROHC is not used
+                // it is 1 for ROHC Unidirectional mode (headers are to be compressed/decompressed)
+                // it is 2 for ROHC Bidirectional Optimistic mode
+                // it is 3 for ROHC Bidirectional Reliable mode (not implemented yet)
 
   uint16_t length_muxed_packet;  // length of the next TCP packet
 };

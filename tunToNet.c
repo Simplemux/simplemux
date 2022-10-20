@@ -1,9 +1,8 @@
 #include "netToTun.c"
 
 // packet/frame arrived at tun: read it, and send a blast packet to the network
-void tunToNetBlastMode (uint32_t tun2net,
-                        char mode,
-                        char tunnel_mode,
+void tunToNetBlastMode (struct context* contextSimplemux,
+                        uint32_t tun2net,
                         int tun_fd,
                         int udp_mode_fd,
                         int network_mode_fd,
@@ -28,10 +27,10 @@ void tunToNetBlastMode (uint32_t tun2net,
 
   assert ( SIZE_PROTOCOL_FIELD == 1 );
 
-  if (tunnel_mode == TAP_MODE) {
+  if (contextSimplemux->tunnelMode == TAP_MODE) {
     thisPacket->header.protocolID = IPPROTO_ETHERNET;
   }
-  else if (tunnel_mode == TUN_MODE) {
+  else if (contextSimplemux->tunnelMode == TUN_MODE) {
     thisPacket->header.protocolID = IPPROTO_IP_ON_IP;
   }
 
@@ -40,16 +39,22 @@ void tunToNetBlastMode (uint32_t tun2net,
 
   // send the packet to the network
   int fd;
-  if(mode==UDP_MODE)
+  if(contextSimplemux->mode==UDP_MODE)
     fd = udp_mode_fd;
-  else if(mode==NETWORK_MODE)
+  else if(contextSimplemux->mode==NETWORK_MODE)
     fd = network_mode_fd;
-  sendPacketBlastMode( fd, mode, thisPacket, remote, local);
+
+  sendPacketBlastMode(fd,
+                      contextSimplemux->mode,
+                      thisPacket,
+                      remote,
+                      local);
+
   do_debug(1, " Sent blast packet to the network. ID %i, Length %i\n", ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
 
   /*
   // write in the log file
-  switch (mode) {
+  switch (contextSimplemux->mode) {
     case UDP_MODE:        
       if ( log_file != NULL ) {
         fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), (*num_pkts_stored_from_tun));
@@ -88,11 +93,8 @@ void tunToNetBlastMode (uint32_t tun2net,
 // packet/frame arrived at tun: read it, and check if:
 // - the packet has to be stored
 // - a multiplexed packet has to be sent through the network
-void tunToNetNoBlastMode (uint32_t tun2net,
-                          char mode,
-                          char tunnel_mode,
-                          int ROHC_mode,
-                          bool fast_mode,
+void tunToNetNoBlastMode (struct context* contextSimplemux,
+                          uint32_t tun2net,
                           int tun_fd,
                           int udp_mode_fd,
                           int network_mode_fd,
@@ -127,9 +129,9 @@ void tunToNetNoBlastMode (uint32_t tun2net,
 
   // print the native packet/frame received
   if (debug>0) {
-    if (tunnel_mode == TUN_MODE)
+    if (contextSimplemux->tunnelMode == TUN_MODE)
       do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tun: %i bytes\n", tun2net, size);
-    else if (tunnel_mode == TAP_MODE)
+    else if (contextSimplemux->tunnelMode == TAP_MODE)
       do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tap: %i bytes\n", tun2net, size);
 
     //do_debug(2, "   ");
@@ -146,7 +148,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
 
   // check if this packet (plus the tunnel and simplemux headers ) is bigger than the MTU. Drop it in that case
   bool drop_packet = false;
-  if (mode == UDP_MODE) {
+  if (contextSimplemux->mode == UDP_MODE) {
 
     if ( size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3 > selected_mtu ) {
       drop_packet = true;
@@ -161,7 +163,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
   }
   
   // TCP client mode or TCP server mode
-  else if ((mode == TCP_CLIENT_MODE) || (mode == TCP_SERVER_MODE)) {          
+  else if ((contextSimplemux->mode == TCP_CLIENT_MODE) || (contextSimplemux->mode == TCP_SERVER_MODE)) {          
     if ( size + IPv4_HEADER_SIZE + TCP_HEADER_SIZE + 3 > selected_mtu ) {
       drop_packet = true;
       do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, selected_mtu);
@@ -193,7 +195,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
   if ( drop_packet == false ) {
 
     /******************** compress the headers if the ROHC option has been set ****************/
-    if ( ROHC_mode > 0 ) {
+    if ( contextSimplemux->rohcMode > 0 ) {
       // header compression has been selected by the user
 
       // copy the length read from tun to the buffer where the packet to be compressed is stored
@@ -283,7 +285,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
     else {
       // header compression has not been selected by the user
 
-      if (tunnel_mode == TAP_MODE) {
+      if (contextSimplemux->tunnelMode == TAP_MODE) {
         // tap mode
         
         // since this frame CANNOT be compressed, its protocol number has to be 143: 'Ethernet on IP' 
@@ -296,7 +298,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
           protocol[(*num_pkts_stored_from_tun)][1] = IPPROTO_ETHERNET;
         }               
       }
-      else if (tunnel_mode == TUN_MODE) {
+      else if (contextSimplemux->tunnelMode == TUN_MODE) {
         // tun mode
       
         // since this IP packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
@@ -311,7 +313,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
       }
 
       else {
-        perror ("wrong value of 'tunnel_mode'");
+        perror ("wrong value of 'tunnelMode'");
         exit (EXIT_FAILURE);
       }
     }
@@ -326,7 +328,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
     int single_protocol;
 
     // in fast mode I will send the protocol in every packet
-    if (!fast_mode) {
+    if (!(contextSimplemux->fastMode)) {
       // calculate if all the packets belong to the same protocol (single_protocol = 1) 
       //or they belong to different protocols (single_protocol = 0)
       single_protocol = 1;
@@ -348,7 +350,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
     int predicted_size_muxed_packet;        // size of the muxed packet if the arrived packet was added to it
 
     predicted_size_muxed_packet = predict_size_multiplexed_packet ( *num_pkts_stored_from_tun,
-                                                                    fast_mode,
+                                                                    contextSimplemux->fastMode,
                                                                     single_protocol,
                                                                     protocol,
                                                                     size_separators_to_multiplex,
@@ -359,7 +361,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
     // I add the length of the present packet:
 
     // separator and length of the present packet
-    if (!fast_mode) {
+    if (!(contextSimplemux->fastMode)) {
       if ((*first_header_written) == 0) {
         // this is the first header, so the maximum length to be expressed in 1 byte is 64
         if (size_packets_to_multiplex[(*num_pkts_stored_from_tun)] < 64 ) {
@@ -393,7 +395,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
 
       //do_debug(2, "\n");
 
-      switch (mode) {
+      switch (contextSimplemux->mode) {
         case UDP_MODE:
           do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predicted_size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
         case TCP_CLIENT_MODE:
@@ -404,7 +406,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
       }
 
       // add the length corresponding to the Protocol field
-      if (!fast_mode) {
+      if (!(contextSimplemux->fastMode)) {
         // add the Single Protocol Bit in the first header (the most significant bit)
         // it is '1' if all the multiplexed packets belong to the same protocol
         if (single_protocol == 1) {
@@ -424,7 +426,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
       uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
       total_length = build_multiplexed_packet ( *num_pkts_stored_from_tun,
-                                                fast_mode,
+                                                (contextSimplemux->fastMode),
                                                 single_protocol,
                                                 protocol,
                                                 size_separators_to_multiplex,
@@ -433,7 +435,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
                                                 packets_to_multiplex,
                                                 muxed_packet);
 
-      if (!fast_mode) {
+      if (!(contextSimplemux->fastMode)) {
         if (single_protocol) {
           if (SIZE_PROTOCOL_FIELD == 1)
             do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
@@ -451,9 +453,9 @@ void tunToNetNoBlastMode (uint32_t tun2net,
         do_debug(2, "   Fast mode. Added 1 Protocol byte to each separator. Total %i bytes", (*num_pkts_stored_from_tun));
       }
       
-      switch(tunnel_mode) {
+      switch(contextSimplemux->tunnelMode) {
         case TUN_MODE:
-          switch (mode) {
+          switch (contextSimplemux->mode) {
             case UDP_MODE:
               do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug(1, " Sending to the network a UDP muxed packet without this one: %i bytes\n", (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
@@ -478,7 +480,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
         break;
 
         case TAP_MODE:
-          switch (mode) {
+          switch (contextSimplemux->mode) {
             case UDP_MODE:
               do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug(1, " Sending to the network a UDP packet without this Eth frame: %i bytes\n", (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
@@ -505,7 +507,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
 
 
       // send the multiplexed packet without the current one
-      switch (mode) {
+      switch (contextSimplemux->mode) {
         case UDP_MODE:
           // send the packet
           if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
@@ -610,7 +612,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
     // update the size of the muxed packet, adding the size of the current one
     (*size_muxed_packet) = (*size_muxed_packet) + size_packets_to_multiplex[(*num_pkts_stored_from_tun)];
 
-    if (!fast_mode) {
+    if (!(contextSimplemux->fastMode)) {
       // I have to add the multiplexing separator.
       //   - It is 1 byte if the length is smaller than 64 (or 128 for non-first separators) 
       //   - It is 2 bytes if the length is 64 (or 128 for non-first separators) or more
@@ -858,14 +860,14 @@ void tunToNetNoBlastMode (uint32_t tun2net,
     // I have finished storing the packet, so I increase the number of stored packets
     (*num_pkts_stored_from_tun) ++;
 
-    if (!fast_mode) {
+    if (!(contextSimplemux->fastMode)) {
       // I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
       if ((*first_header_written) == 0) (*first_header_written) = 1;              
     }  
 
 
 
-    if (!fast_mode) {
+    if (!(contextSimplemux->fastMode)) {
       do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Protocol not included).", *num_pkts_stored_from_tun , (*size_muxed_packet));
     }
     else { // fast mode
@@ -884,7 +886,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
     // do not worry about the MTU. if it is reached, a number of packets will be sent
     if (((*num_pkts_stored_from_tun) == limit_numpackets_tun) || ((*size_muxed_packet) > size_threshold) || (time_difference > timeout )) {
       // a multiplexed packet has to be sent
-      if (!fast_mode) {
+      if (!(contextSimplemux->fastMode)) {
         // fill the SPB field (Single Protocol Bit)
         
         // calculate if all the packets belong to the same protocol
@@ -944,9 +946,9 @@ void tunToNetNoBlastMode (uint32_t tun2net,
           }
         }
 
-        switch(tunnel_mode) {
+        switch(contextSimplemux->tunnelMode) {
           case TUN_MODE:
-            switch (mode) {
+            switch (contextSimplemux->mode) {
               case UDP_MODE:
                 do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                 do_debug(1, " Sending to the network a UDP packet containing %i native one(s): %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
@@ -971,7 +973,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
           break;
           
           case TAP_MODE:
-            switch (mode) {
+            switch (contextSimplemux->mode) {
               case UDP_MODE:
                 do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
                 do_debug(1, " Sending to the network a UDP packet containing %i native Eth frame(s): %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
@@ -1002,7 +1004,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
       uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
       total_length = build_multiplexed_packet ( (*num_pkts_stored_from_tun),
-                                                fast_mode,
+                                                (contextSimplemux->fastMode),
                                                 single_protocol,
                                                 protocol,
                                                 size_separators_to_multiplex,
@@ -1012,7 +1014,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
                                                 muxed_packet);
 
       // send the multiplexed packet
-      switch (mode) {
+      switch (contextSimplemux->mode) {
         case UDP_MODE:
           // send the packet. I don't need to build the header, because I have a UDP socket
           if (sendto(udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
@@ -1020,14 +1022,14 @@ void tunToNetNoBlastMode (uint32_t tun2net,
             exit (EXIT_FAILURE);                
           }
           else {
-            if(tunnel_mode == TUN_MODE) {
+            if(contextSimplemux->tunnelMode == TUN_MODE) {
               do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", (*num_pkts_stored_from_tun));
             }
-            else if(tunnel_mode == TAP_MODE) {
+            else if(contextSimplemux->tunnelMode == TAP_MODE) {
               do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", (*num_pkts_stored_from_tun));                    
             }
             else {
-              perror ("wrong value of 'tunnel_mode'");
+              perror ("wrong value of 'tunnelMode'");
               exit (EXIT_FAILURE);
             }
           }
@@ -1047,14 +1049,14 @@ void tunToNetNoBlastMode (uint32_t tun2net,
             exit (EXIT_FAILURE);
           }
           else {
-            if(tunnel_mode == TUN_MODE) {
+            if(contextSimplemux->tunnelMode == TUN_MODE) {
               do_debug(2, "Packet sent (includes %d muxed packet(s))\n\n", (*num_pkts_stored_from_tun));
             }
-            else if(tunnel_mode == TAP_MODE) {
+            else if(contextSimplemux->tunnelMode == TAP_MODE) {
               do_debug(2, "Packet sent (includes %d muxed frame(s))\n\n", (*num_pkts_stored_from_tun));
             }
             else {
-              perror ("wrong value of 'tunnel_mode'");
+              perror ("wrong value of 'tunnelMode'");
               exit (EXIT_FAILURE);
             }
           }
@@ -1068,14 +1070,14 @@ void tunToNetNoBlastMode (uint32_t tun2net,
             exit (EXIT_FAILURE);
           }
           else {
-            if(tunnel_mode == TUN_MODE) {
+            if(contextSimplemux->tunnelMode == TUN_MODE) {
               do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", (*num_pkts_stored_from_tun));
             }
-            else if(tunnel_mode == TAP_MODE) {
+            else if(contextSimplemux->tunnelMode == TAP_MODE) {
               do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", (*num_pkts_stored_from_tun));                    
             }
             else {
-              perror ("wrong value of 'tunnel_mode'");
+              perror ("wrong value of 'tunnelMode'");
               exit (EXIT_FAILURE);
             }
           }
@@ -1094,14 +1096,14 @@ void tunToNetNoBlastMode (uint32_t tun2net,
               exit (EXIT_FAILURE);
             }
             else {
-              if(tunnel_mode == TUN_MODE) {
+              if(contextSimplemux->tunnelMode == TUN_MODE) {
                 do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", (*num_pkts_stored_from_tun));
               }
-              else if(tunnel_mode == TAP_MODE) {
+              else if(contextSimplemux->tunnelMode == TAP_MODE) {
                 do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", (*num_pkts_stored_from_tun));                    
               }
               else {
-                perror ("wrong value of 'tunnel_mode'");
+                perror ("wrong value of 'tunnelMode'");
                 exit (EXIT_FAILURE);
               }
             }
@@ -1111,7 +1113,7 @@ void tunToNetNoBlastMode (uint32_t tun2net,
 
       // write the log file
       if ( log_file != NULL ) {
-        switch (mode) {
+        switch (contextSimplemux->mode) {
           case UDP_MODE:
             fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), (*num_pkts_stored_from_tun));
           break;

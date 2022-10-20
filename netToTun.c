@@ -9,7 +9,6 @@
  * -1 error. Incorrect read
  */
 int readPacketFromNet(struct context* contextSimplemux,
-                      //char mode,
                       int udp_mode_fd,
                       int network_mode_fd,
                       uint8_t* buffer_from_net,
@@ -26,8 +25,7 @@ int readPacketFromNet(struct context* contextSimplemux,
                       int tcp_client_fd,
                       int size_separator_fast_mode,
                       uint8_t* read_tcp_bytes_separator,
-                      uint16_t* read_tcp_bytes/*,
-                      uint16_t* length_muxed_packet*/ )
+                      uint16_t* read_tcp_bytes )
 
 {
   int is_multiplexed_packet = -1;
@@ -251,12 +249,8 @@ int readPacketFromNet(struct context* contextSimplemux,
   return is_multiplexed_packet;
 }
 
-int demuxPacketFromNet( uint32_t* net2tun,
-                        char mode,
-                        char tunnel_mode,
-                        bool blastMode,
-                        bool fast_mode,
-                        int ROHC_mode,
+int demuxPacketFromNet( struct context* contextSimplemux,
+                        uint32_t* net2tun,
                         struct sockaddr_in local,
                         struct sockaddr_in remote,
                         struct sockaddr_in feedback_remote,
@@ -277,7 +271,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
 {
   /* increase the counter of the number of packets read from the network */
   (*net2tun)++;
-  switch (mode) {
+  switch (contextSimplemux->mode) {
     case UDP_MODE:
       do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
 
@@ -324,7 +318,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
     do_debug(3, "%"PRIu64" Packet arrived from the network\n",now);         
   }
 
-  if(blastMode) {
+  if(contextSimplemux->blastMode) {
     // there should be a single packet
 
     // apply the structure of a blast mode packet
@@ -394,7 +388,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
         }
         
         // tun mode
-        if(tunnel_mode == TUN_MODE) {
+        if(contextSimplemux->tunnelMode == TUN_MODE) {
            // write the demuxed packet to the tun interface
           do_debug (2, "%"PRIu64" Sending packet of %i bytes to the tun interface\n", now, length);
           if (cwrite ( tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
@@ -410,7 +404,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
           blastModeTimestamps[ntohs(blastHeader->identifier)] = now;
         }
         // tap mode
-        else if(tunnel_mode == TAP_MODE) {
+        else if(contextSimplemux->tunnelMode == TAP_MODE) {
           if (blastHeader->protocolID != IPPROTO_ETHERNET) {
             do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", blastHeader->protocolID);              
           }
@@ -431,7 +425,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
           }
         }
         else {
-          perror ("wrong value of 'tunnel_mode'");
+          perror ("wrong value of 'tunnelMode'");
           exit (EXIT_FAILURE);
         }
         
@@ -451,11 +445,17 @@ int demuxPacketFromNet( uint32_t* net2tun,
       ACK.header.ACK = THISISANACK;
 
       int fd;
-      if(mode==UDP_MODE)
+      if(contextSimplemux->mode==UDP_MODE)
         fd = udp_mode_fd;
-      else if(mode==NETWORK_MODE)
+      else if(contextSimplemux->mode==NETWORK_MODE)
         fd = network_mode_fd;
-      sendPacketBlastMode( fd, mode, &ACK, remote, local);
+
+      sendPacketBlastMode(fd,
+                          contextSimplemux->mode,
+                          &ACK,
+                          remote,
+                          local);
+
       do_debug(1," Sent blast ACK to the network. ID %i, length %i\n", ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));
     }
     else if((blastHeader->ACK & MASK ) == HEARTBEAT) {
@@ -478,7 +478,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
     int maximum_packet_length;              // the maximum length of a packet. It may be 64 (first header) or 128 (non-first header)
 
     while (position < nread_from_net) {   
-      if (!fast_mode) {
+      if (!(contextSimplemux->fastMode)) {
         // check if this is the first separator or not
         if (first_header_read == 0) {
 
@@ -543,7 +543,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
       }
 
 
-      if (!fast_mode) {
+      if (!(contextSimplemux->fastMode)) {
 
         if (LXT_first_byte == 0) {
           // the LXT bit of the first byte is 0 => the separator is one-byte long
@@ -689,7 +689,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
       else {  // fast mode
 
-        if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
+        if ((contextSimplemux->mode == TCP_SERVER_MODE) || (contextSimplemux->mode == TCP_CLIENT_MODE)) {
           // do nothing, because I have already read the length
           do_debug(1, " Length %i bytes\n", packet_length);
 
@@ -730,7 +730,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
         // this means that reception is desynchronized
         // in TCP mode, this will never recover, so abort
-        if ((mode == TCP_CLIENT_MODE) || (mode == TCP_CLIENT_MODE)) {
+        if ((contextSimplemux->mode == TCP_CLIENT_MODE) || (contextSimplemux->mode == TCP_CLIENT_MODE)) {
           do_debug (1, "ERROR: Length problem in TCP mode. Abort\n");
           return -1;
         }
@@ -761,7 +761,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
           // ROHC-compressed packet
 
           // I cannot decompress the packet if I am not in ROHC mode
-          if ( ROHC_mode == 0 ) {
+          if ( contextSimplemux->rohcMode == 0 ) {
             do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
 
             // write the log file
@@ -801,7 +801,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
             *status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
 
             // if bidirectional mode has been set, check the feedback
-            if ( ROHC_mode > 1 ) {
+            if ( contextSimplemux->rohcMode > 1 ) {
 
               // check if the decompressor has received feedback, and it has to be delivered to the local compressor
               if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
@@ -969,13 +969,13 @@ int demuxPacketFromNet( uint32_t* net2tun,
         if ( ( *protocol_rec != IPPROTO_ROHC ) || ((*protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
 
           // tun mode
-          if(tunnel_mode == TUN_MODE) {
+          if(contextSimplemux->tunnelMode == TUN_MODE) {
              // write the demuxed packet to the tun interface
             do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
             cwrite ( tun_fd, demuxed_packet, packet_length );
           }
           // tap mode
-          else if(tunnel_mode == TAP_MODE) {
+          else if(contextSimplemux->tunnelMode == TAP_MODE) {
             if (*protocol_rec != IPPROTO_ETHERNET) {
               do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);              
             }
@@ -986,7 +986,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
             }
           }
           else {
-            perror ("wrong value of 'tunnel_mode'");
+            perror ("wrong value of 'tunnelMode'");
             exit (EXIT_FAILURE);
           }
           

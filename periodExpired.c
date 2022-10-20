@@ -1,7 +1,7 @@
 #include "tunToNet.c"
 
-void periodExpiredBlastMode ( int fd,
-                              int mode,
+void periodExpiredBlastMode ( struct context* contextSimplemux,
+                              int fd,
                               uint64_t* time_last_sent_in_microsec,
                               uint64_t period,
                               uint64_t lastHeartBeatReceived,
@@ -29,7 +29,7 @@ void periodExpiredBlastMode ( int fd,
                                   now_microsec,
                                   period,
                                   fd,
-                                  mode,
+                                  contextSimplemux->mode,
                                   remote,
                                   local);
       if(n>0)
@@ -48,7 +48,7 @@ void periodExpiredBlastMode ( int fd,
     heartBeat.header.ACK = HEARTBEAT;
 
     sendPacketBlastMode(fd,
-                        mode,
+                        contextSimplemux->mode,
                         &heartBeat,
                         remote,
                         local);
@@ -62,12 +62,7 @@ void periodExpiredBlastMode ( int fd,
 }
 
 
-
-/// voy por aquí
-void periodExpiredNoBlastMode ( char mode,
-                                char tunnel_mode,
-                                bool fast_mode,
-                                //int tun_fd,
+void periodExpiredNoBlastMode ( struct context* contextSimplemux,
                                 int udp_mode_fd,
                                 int network_mode_fd,
                                 int tcp_server_fd,
@@ -93,7 +88,7 @@ void periodExpiredNoBlastMode ( char mode,
   // it is 1 when the Single-Protocol-Bit of the first header is 1
   int single_protocol;
 
-  if(!fast_mode) {
+  if(!(contextSimplemux->fastMode)) {
     // calculate if all the packets belong to the same protocol
     single_protocol = 1;
     for (int k = 1; k < (*num_pkts_stored_from_tun) ; k++) {
@@ -125,7 +120,7 @@ void periodExpiredNoBlastMode ( char mode,
       else {
         do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",(*num_pkts_stored_from_tun));
       }
-      switch (mode) {
+      switch (contextSimplemux->mode) {
         case UDP_MODE:
           do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
           do_debug(1, " Writing %i packets to network: %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
@@ -159,7 +154,7 @@ void periodExpiredNoBlastMode ( char mode,
       do_debug(1, "SENDING TRIGGERED (Period expired). Time since last trigger: %" PRIu64 " usec\n", time_difference);
       do_debug(2, "   Fast mode: Added 1 Protocol byte in each separator. Total %i bytes\n",(*num_pkts_stored_from_tun));
 
-      switch (mode) {
+      switch (contextSimplemux->mode) {
         case UDP_MODE:
           do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
           do_debug(1, " Writing %i packets to network: %i bytes\n", (*num_pkts_stored_from_tun), sizeof(uint8_t) * (*num_pkts_stored_from_tun) + (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
@@ -181,7 +176,7 @@ void periodExpiredNoBlastMode ( char mode,
   uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
   total_length = build_multiplexed_packet ( (*num_pkts_stored_from_tun),
-                                            fast_mode,
+                                            (contextSimplemux->fastMode),
                                             single_protocol,
                                             protocol,
                                             size_separators_to_multiplex,
@@ -191,7 +186,7 @@ void periodExpiredNoBlastMode ( char mode,
                                             muxed_packet);
 
   // send the multiplexed packet
-  switch (mode) {
+  switch (contextSimplemux->mode) {
     
     case NETWORK_MODE:
       // build the header
