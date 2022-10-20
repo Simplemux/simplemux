@@ -30,7 +30,8 @@
 //#include "buildMuxedPacket.c"   // FIXME: Why not .h ¿?
 //#include "commonFunctions.c"
 //#include "netToTun.c"
-#include "tunToNet.c"
+//#include "tunToNet.c"
+#include "periodExpired.c"
 
 //#define BUFSIZE 2304            // buffer for reading from tun/tap interface, must be >= MTU of the network
 //#define IPv4_HEADER_SIZE 20
@@ -47,7 +48,7 @@
 #define PORT_BLAST 55558         // port for sending Simplemux fast
 
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
-#define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
+//#define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
 //#define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
 
 /*
