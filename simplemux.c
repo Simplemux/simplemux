@@ -232,14 +232,14 @@ int main(int argc, char *argv[]) {
 
   const int on = 1;                   // needed when creating a socket
 
-  struct sockaddr_in local, remote, feedback, feedback_remote, received;  // structs for storing sockets
+
   struct sockaddr_in TCPpair;
 
   struct iphdr ipheader;              // IP header
   struct ifreq iface;                 // network interface
 
-  socklen_t slen = sizeof(remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
-  socklen_t slen_feedback = sizeof(feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
+  socklen_t slen = sizeof(contextSimplemux.remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
+  socklen_t slen_feedback = sizeof(contextSimplemux.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
 
   char remote_ip[16] = "";                  // dotted quad IP string with the IP of the remote machine
   char local_ip[16] = "";                   // dotted quad IP string with the IP of the local machine
@@ -601,16 +601,16 @@ int main(int argc, char *argv[]) {
       }
  
       // assign the local address for the multiplexed packets
-      memset(&local, 0, sizeof(local));
-      local.sin_family = AF_INET;
-      local.sin_addr.s_addr = inet_addr(host);  // convert the string 'host' to an IP address
+      memset(&(contextSimplemux.local), 0, sizeof(contextSimplemux.local));
+      contextSimplemux.local.sin_family = AF_INET;
+      contextSimplemux.local.sin_addr.s_addr = inet_addr(host);  // convert the string 'host' to an IP address
 
       freeifaddrs(ifaddr);
       
        // assign the destination address for the multiplexed packets
-      memset(&remote, 0, sizeof(remote));
-      remote.sin_family = AF_INET;
-      remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP. There are no ports in Network Mode
+      memset(&(contextSimplemux.remote), 0, sizeof(contextSimplemux.remote));
+      contextSimplemux.remote.sin_family = AF_INET;
+      contextSimplemux.remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP. There are no ports in Network Mode
   
       // AF_INET (exactly the same as PF_INET)
       // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
@@ -622,7 +622,7 @@ int main(int argc, char *argv[]) {
         exit (EXIT_FAILURE);
       }
       else {
-        do_debug(1,"Remote IP %s\n", inet_ntoa(remote.sin_addr));
+        do_debug(1,"Remote IP %s\n", inet_ntoa(contextSimplemux.remote.sin_addr));
       }
 
       // Set flag so socket expects us to provide IPv4 header
@@ -683,23 +683,23 @@ int main(int argc, char *argv[]) {
       }
   
       // assign the destination address and port for the multiplexed packets
-      memset(&remote, 0, sizeof(remote));
-      remote.sin_family = AF_INET;
-      remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP
-      remote.sin_port = htons(port);            // remote port
+      memset(&(contextSimplemux.remote), 0, sizeof(contextSimplemux.remote));
+      contextSimplemux.remote.sin_family = AF_INET;
+      contextSimplemux.remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP
+      contextSimplemux.remote.sin_port = htons(port);            // remote port
   
       // assign the local address and port for the multiplexed packets
-      memset(&local, 0, sizeof(local));
-      local.sin_family = AF_INET;
-      local.sin_addr.s_addr = inet_addr(local_ip);    // local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-      local.sin_port = htons(port);            // local port
+      memset(&(contextSimplemux.local), 0, sizeof(contextSimplemux.local));
+      contextSimplemux.local.sin_family = AF_INET;
+      contextSimplemux.local.sin_addr.s_addr = inet_addr(local_ip);    // local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
+      contextSimplemux.local.sin_port = htons(port);            // local port
   
       // bind the socket "contextSimplemux.udp_mode_fd" to the local address and port
-      if (bind(contextSimplemux.udp_mode_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+      if (bind(contextSimplemux.udp_mode_fd, (struct sockaddr *)&(contextSimplemux.local), sizeof(contextSimplemux.local))==-1) {
         perror("bind");
       }
       else {
-        do_debug(1, "Socket for multiplexing over UDP open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+        do_debug(1, "Socket for multiplexing over UDP open. Remote IP %s. Port %i\n", inet_ntoa(contextSimplemux.remote.sin_addr), htons(contextSimplemux.remote.sin_port)); 
       }
     }
 
@@ -736,25 +736,25 @@ int main(int argc, char *argv[]) {
       }
 
       // assign the destination address and port for the multiplexed packets
-      memset(&remote, 0, sizeof(remote));
-      remote.sin_family = AF_INET;
-      remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP
-      remote.sin_port = htons(port);            // remote port
+      memset(&(contextSimplemux.remote), 0, sizeof(contextSimplemux.remote));
+      contextSimplemux.remote.sin_family = AF_INET;
+      contextSimplemux.remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP
+      contextSimplemux.remote.sin_port = htons(port);            // remote port
   
       // assign the local address and port for the multiplexed packets
-      memset(&local, 0, sizeof(local));
-      local.sin_family = AF_INET;
-      local.sin_addr.s_addr = inet_addr(local_ip);    // local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-      local.sin_port = htons(port);            // local port
+      memset(&(contextSimplemux.local), 0, sizeof(contextSimplemux.local));
+      contextSimplemux.local.sin_family = AF_INET;
+      contextSimplemux.local.sin_addr.s_addr = inet_addr(local_ip);    // local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
+      contextSimplemux.local.sin_port = htons(port);            // local port
 
       /* The call to the function "bind()" assigns the details specified
        * in the structure 'sockaddr' to the socket created above
        */  
-      if (bind(contextSimplemux.tcp_welcoming_fd, (struct sockaddr *)&local, sizeof(local))==-1) {
+      if (bind(contextSimplemux.tcp_welcoming_fd, (struct sockaddr *)&(contextSimplemux.local), sizeof(contextSimplemux.local))==-1) {
         perror("bind");
       }
       else {
-        do_debug(1, "Welcoming TCP socket open. Remote IP %s. Port %i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port)); 
+        do_debug(1, "Welcoming TCP socket open. Remote IP %s. Port %i\n", inet_ntoa(contextSimplemux.remote.sin_addr), htons(contextSimplemux.remote.sin_port)); 
       }
 
       /* The call to the function "listen()" with second argument as 1 specifies
@@ -800,16 +800,16 @@ int main(int argc, char *argv[]) {
       }
 
       // assign the local address and port for the multiplexed packets
-      memset(&local, 0, sizeof(local));
-      local.sin_family = AF_INET;
-      local.sin_addr.s_addr = inet_addr(local_ip);    // local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-      local.sin_port = htons(port);            // local port
+      memset(&(contextSimplemux.local), 0, sizeof(contextSimplemux.local));
+      contextSimplemux.local.sin_family = AF_INET;
+      contextSimplemux.local.sin_addr.s_addr = inet_addr(local_ip);    // local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
+      contextSimplemux.local.sin_port = htons(port);            // local port
       
       // assign the destination address and port for the multiplexed packets
-      memset(&remote, 0, sizeof(remote));
-      remote.sin_family = AF_INET;
-      remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP
-      remote.sin_port = htons(port);            // remote port
+      memset(&(contextSimplemux.remote), 0, sizeof(contextSimplemux.remote));
+      contextSimplemux.remote.sin_family = AF_INET;
+      contextSimplemux.remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP
+      contextSimplemux.remote.sin_port = htons(port);            // remote port
 
 
       /* Information like IP address of the remote host and its port is
@@ -817,13 +817,13 @@ int main(int argc, char *argv[]) {
        * which tries to connect this socket with the socket (IP address and port)
        * of the remote host
        */
-      if( connect(contextSimplemux.tcp_client_fd, (struct sockaddr *)&remote, sizeof(remote)) < 0) {
-        do_debug(1, "Trying to connect to the TCP server at %s:%i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port));
+      if( connect(contextSimplemux.tcp_client_fd, (struct sockaddr *)&(contextSimplemux.remote), sizeof(contextSimplemux.remote)) < 0) {
+        do_debug(1, "Trying to connect to the TCP server at %s:%i\n", inet_ntoa(contextSimplemux.remote.sin_addr), htons(contextSimplemux.remote.sin_port));
         perror("connect() error: TCP connect Failed. The TCP server did not accept the connection");
         return 1;
       }
       else {
-        do_debug(1, "Successfully connected to the TCP server at %s:%i\n", inet_ntoa(remote.sin_addr), htons(remote.sin_port));
+        do_debug(1, "Successfully connected to the TCP server at %s:%i\n", inet_ntoa(contextSimplemux.remote.sin_addr), htons(contextSimplemux.remote.sin_port));
 
         if ( DISABLE_NAGLE == 1 ) {
           // disable NAGLE algorigthm, see https://holmeshe.me/network-essentials-setsockopt-TCP_NODELAY/
@@ -970,23 +970,23 @@ int main(int argc, char *argv[]) {
       }
       
       // assign the destination address and port for the feedback packets
-      memset(&feedback_remote, 0, sizeof(feedback_remote));
-      feedback_remote.sin_family = AF_INET;
-      feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);  // remote feedback IP (the same IP as the remote one)
-      feedback_remote.sin_port = htons(port_feedback);    // remote feedback port
+      memset(&(contextSimplemux.feedback_remote), 0, sizeof(contextSimplemux.feedback_remote));
+      contextSimplemux.feedback_remote.sin_family = AF_INET;
+      contextSimplemux.feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);  // remote feedback IP (the same IP as the remote one)
+      contextSimplemux.feedback_remote.sin_port = htons(port_feedback);    // remote feedback port
   
       // assign the source address and port to the feedback packets
-      memset(&feedback, 0, sizeof(feedback));
-      feedback.sin_family = AF_INET;
-      feedback.sin_addr.s_addr = inet_addr(local_ip);    // local IP
-      feedback.sin_port = htons(port_feedback);      // local port (feedback)
+      memset(&(contextSimplemux.feedback), 0, sizeof(contextSimplemux.feedback));
+      contextSimplemux.feedback.sin_family = AF_INET;
+      contextSimplemux.feedback.sin_addr.s_addr = inet_addr(local_ip);    // local IP
+      contextSimplemux.feedback.sin_port = htons(port_feedback);      // local port (feedback)
   
       // bind the socket "contextSimplemux.feedback_fd" to the local feedback address (the same used for multiplexing) and port
-       if (bind(contextSimplemux.feedback_fd, (struct sockaddr *)&feedback, sizeof(feedback))==-1) {
+       if (bind(contextSimplemux.feedback_fd, (struct sockaddr *)&(contextSimplemux.feedback), sizeof(contextSimplemux.feedback))==-1) {
         perror("bind");
       }
       else {
-        do_debug(1, "Socket for ROHC feedback over UDP open. Remote IP %s. Port %i\n", inet_ntoa(feedback_remote.sin_addr), htons(feedback_remote.sin_port)); 
+        do_debug(1, "Socket for ROHC feedback over UDP open. Remote IP %s. Port %i\n", inet_ntoa(contextSimplemux.feedback_remote.sin_addr), htons(contextSimplemux.feedback_remote.sin_port)); 
       }
     }
 
@@ -1380,7 +1380,7 @@ int main(int argc, char *argv[]) {
 
           is_multiplexed_packet = readPacketFromNet(&contextSimplemux,
                                                     buffer_from_net,
-                                                    received,
+                                                    //received,
                                                     slen,
                                                     port,
                                                     ipheader,
@@ -1403,9 +1403,9 @@ int main(int argc, char *argv[]) {
           else if (is_multiplexed_packet == 1) {
             demuxPacketFromNet( &contextSimplemux,
                                 &net2tun,
-                                local,
+                                /*local,
                                 remote,
-                                feedback_remote,
+                                feedback_remote,*/
                                 nread_from_net,
                                 packet_length,
                                 log_file,
@@ -1427,7 +1427,7 @@ int main(int argc, char *argv[]) {
             // write the log file
             if ( log_file != NULL ) {
               // the packet is good
-              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(contextSimplemux.remote.sin_addr), ntohs(contextSimplemux.remote.sin_port));
               fflush(log_file);
             }
           }
@@ -1450,23 +1450,23 @@ int main(int argc, char *argv[]) {
           uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
 
           // a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
-          nread_from_net = recvfrom ( contextSimplemux.feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&feedback_remote, &slen_feedback );
+          nread_from_net = recvfrom ( contextSimplemux.feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(contextSimplemux.feedback_remote), &slen_feedback );
   
           if (nread_from_net == -1) perror ("recvfrom()");
   
           // now buffer_from_net contains a full packet or frame.
           // check if the packet comes (source port) from the feedback port (default 55556).  (Its destination port IS the feedback port)
   
-          if (port_feedback == ntohs(feedback_remote.sin_port)) {
+          if (port_feedback == ntohs(contextSimplemux.feedback_remote.sin_port)) {
   
             // the packet comes from the feedback port (default 55556)
-            do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", feedback_pkts, nread_from_net, inet_ntoa(feedback.sin_addr), ntohs(feedback.sin_port));
+            do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", feedback_pkts, nread_from_net, inet_ntoa(contextSimplemux.feedback.sin_addr), ntohs(contextSimplemux.feedback.sin_port));
   
             feedback_pkts ++;
   
             // write the log file
             if ( log_file != NULL ) {
-              fprintf (log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, feedback_pkts, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+              fprintf (log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, feedback_pkts, inet_ntoa(contextSimplemux.remote.sin_addr), ntohs(contextSimplemux.remote.sin_port));
               fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
             }
   
@@ -1512,7 +1512,7 @@ int main(int argc, char *argv[]) {
             // write the log file
             if ( log_file != NULL ) {
               // the packet is good
-              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(contextSimplemux.remote.sin_addr), ntohs(contextSimplemux.remote.sin_port));
               fflush(log_file);
             }
           }
@@ -1536,8 +1536,8 @@ int main(int argc, char *argv[]) {
           if (contextSimplemux.blastMode) {
             tunToNetBlastMode(&contextSimplemux,
                               tun2net,
-                              local,
-                              remote,
+                              /*local,
+                              remote,*/
                               &packetsToSend,
                               &lastHeartBeatReceived );
           }
@@ -1547,8 +1547,8 @@ int main(int argc, char *argv[]) {
             tunToNetNoBlastMode(&contextSimplemux,
                                 tun2net,
                                 accepting_tcp_connections,
-                                local,
-                                remote,
+                                /*local,
+                                remote,*/
                                 &ipheader,
                                 ipprotocol,
                                 &num_pkts_stored_from_tun,
@@ -1596,8 +1596,8 @@ int main(int argc, char *argv[]) {
                                   period,
                                   lastHeartBeatReceived,
                                   &lastHeartBeatSent,
-                                  local,
-                                  remote,
+                                  /*local,
+                                  remote,*/
                                   packetsToSend);
 
         }
@@ -1617,8 +1617,8 @@ int main(int argc, char *argv[]) {
                                       &size_muxed_packet,
                                       size_packets_to_multiplex,
                                       packets_to_multiplex,
-                                      local,
-                                      remote,
+                                      /*local,
+                                      remote,*/
                                       ipprotocol,
                                       &ipheader,
                                       log_file );

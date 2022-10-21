@@ -3,8 +3,8 @@
 // packet/frame arrived at tun: read it, and send a blast packet to the network
 void tunToNetBlastMode (struct context* contextSimplemux,
                         uint32_t tun2net,
-                        struct sockaddr_in local,
-                        struct sockaddr_in remote,
+                        /*struct sockaddr_in local,
+                        struct sockaddr_in remote,*/
                         struct packet **packetsToSend,
                         uint64_t* lastHeartBeatReceived )
 {
@@ -44,8 +44,8 @@ void tunToNetBlastMode (struct context* contextSimplemux,
   sendPacketBlastMode(fd,
                       contextSimplemux->mode,
                       thisPacket,
-                      remote,
-                      local);
+                      contextSimplemux->remote,
+                      contextSimplemux->local);
 
   do_debug(1, " Sent blast packet to the network. ID %i, Length %i\n", ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
 
@@ -54,14 +54,14 @@ void tunToNetBlastMode (struct context* contextSimplemux,
   switch (contextSimplemux->mode) {
     case UDP_MODE:        
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), (*num_pkts_stored_from_tun));
+        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
       }
     break;
    
     case NETWORK_MODE:
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), (*num_pkts_stored_from_tun));
+        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), (*num_pkts_stored_from_tun));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
       }
     break;
@@ -93,8 +93,8 @@ void tunToNetBlastMode (struct context* contextSimplemux,
 void tunToNetNoBlastMode (struct context* contextSimplemux,
                           uint32_t tun2net,
                           bool accepting_tcp_connections,
-                          struct sockaddr_in local,
-                          struct sockaddr_in remote,
+                          /*struct sockaddr_in local,
+                          struct sockaddr_in remote,*/
                           struct iphdr* ipheader,
                           uint8_t ipprotocol,
                           int* num_pkts_stored_from_tun,
@@ -148,7 +148,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
       }
     }
@@ -162,7 +162,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
       }
     }
@@ -177,7 +177,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       // write the log file
       if ( log_file != NULL ) {
         // FIXME: remove 'nun_packets_stored_from_tun' from the expression
-        fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + 3, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), (*num_pkts_stored_from_tun));
+        fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + 3, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
       }
     }
@@ -502,14 +502,14 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       switch (contextSimplemux->mode) {
         case UDP_MODE:
           // send the packet
-          if (sendto(contextSimplemux->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+          if (sendto(contextSimplemux->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&(contextSimplemux->remote), sizeof(contextSimplemux->remote))==-1) {
             perror("sendto() in UDP mode failed");
             exit (EXIT_FAILURE);
           }
           
           // write in the log file
           if ( log_file != NULL ) {
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
             fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
           }
         break;
@@ -523,7 +523,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           
           // write in the log file
           if ( log_file != NULL ) {
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
             fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
           }
         break;
@@ -534,14 +534,14 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           }
           else {
             // send the packet
-            //if (sendto(tcp_welcoming_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+            //if (sendto(tcp_welcoming_fd, muxed_packet, total_length, 0, (struct sockaddr *)&(contextSimplemux->remote), sizeof(contextSimplemux->remote))==-1) {
             if (write(contextSimplemux->tcp_server_fd, muxed_packet, total_length)==-1) {
               perror("write() in TCP server mode failed");
               exit (EXIT_FAILURE);
             }
             // write in the log file
             if ( log_file != NULL ) {
-              fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), (*num_pkts_stored_from_tun));
+              fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
               fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
             }              
           }
@@ -549,20 +549,20 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         
         case NETWORK_MODE:
           // build the header
-          BuildIPHeader(ipheader, total_length, ipprotocol, local, remote);
+          BuildIPHeader(ipheader, total_length, ipprotocol, contextSimplemux->local, contextSimplemux->remote);
 
           // build the full IP multiplexed packet
           uint8_t full_ip_packet[BUFSIZE];
           BuildFullIPPacket(*ipheader, muxed_packet, total_length, full_ip_packet);
 
           // send the packet
-          if (sendto (contextSimplemux->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+          if (sendto (contextSimplemux->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&(contextSimplemux->remote), sizeof (struct sockaddr)) < 0)  {
             perror ("sendto() in Network mode failed");
             exit (EXIT_FAILURE);
           }
           // write in the log file
           if ( log_file != NULL ) {
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), (*num_pkts_stored_from_tun));
             fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
           }
         break;
@@ -1009,7 +1009,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       switch (contextSimplemux->mode) {
         case UDP_MODE:
           // send the packet. I don't need to build the header, because I have a UDP socket
-          if (sendto(contextSimplemux->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+          if (sendto(contextSimplemux->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&(contextSimplemux->remote), sizeof(contextSimplemux->remote))==-1) {
             perror("sendto() in UDP mode failed");
             exit (EXIT_FAILURE);                
           }
@@ -1029,14 +1029,14 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         
         case NETWORK_MODE:
           // build the header
-          BuildIPHeader(ipheader, total_length, ipprotocol, local, remote);
+          BuildIPHeader(ipheader, total_length, ipprotocol, contextSimplemux->local, contextSimplemux->remote);
 
           // build full IP multiplexed packet
           uint8_t full_ip_packet[BUFSIZE];
           BuildFullIPPacket(*ipheader, muxed_packet, total_length, full_ip_packet);
 
           // send the multiplexed packet
-          if (sendto (contextSimplemux->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+          if (sendto (contextSimplemux->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&(contextSimplemux->remote), sizeof (struct sockaddr)) < 0)  {
             perror ("sendto() in Network mode failed ");
             exit (EXIT_FAILURE);
           }
@@ -1107,13 +1107,13 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       if ( log_file != NULL ) {
         switch (contextSimplemux->mode) {
           case UDP_MODE:
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
           break;
           case TCP_CLIENT_MODE:
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
           break;
           case NETWORK_MODE:
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), (*num_pkts_stored_from_tun));
           break;
         }
         if ((*num_pkts_stored_from_tun) == limit_numpackets_tun)

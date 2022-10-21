@@ -53,6 +53,12 @@ struct context {
   int tcp_client_fd;              // file descriptor of the TCP socket
   int tcp_server_fd;
 
+  // structs for storing sockets
+  struct sockaddr_in local;
+  struct sockaddr_in remote;
+  struct sockaddr_in feedback;
+  struct sockaddr_in feedback_remote;
+  struct sockaddr_in received;  
   
 
   uint16_t length_muxed_packet;  // length of the next TCP packet

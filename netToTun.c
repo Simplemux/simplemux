@@ -10,7 +10,7 @@
  */
 int readPacketFromNet(struct context* contextSimplemux,
                       uint8_t* buffer_from_net,
-                      struct sockaddr_in received,
+                      //struct sockaddr_in received,
                       socklen_t slen,
                       uint16_t port,
                       struct iphdr ipheader,
@@ -32,7 +32,7 @@ int readPacketFromNet(struct context* contextSimplemux,
     // 'slen' is the length of the IP address
     // I cannot use 'remote' because it would replace the IP address and port. I use 'received'
 
-    *nread_from_net = recvfrom ( contextSimplemux->udp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
+    *nread_from_net = recvfrom ( contextSimplemux->udp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(contextSimplemux->received), &slen );
     if (*nread_from_net==-1) {
       perror ("[readPacketFromNet] recvfrom() UDP error");
     }
@@ -43,7 +43,7 @@ int readPacketFromNet(struct context* contextSimplemux,
     // I don't have the IP and UDP headers
 
     // check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
-    if (port == ntohs(received.sin_port)) 
+    if (port == ntohs(contextSimplemux->received.sin_port)) 
       is_multiplexed_packet = 1;
     else
       is_multiplexed_packet = 0;
@@ -247,9 +247,9 @@ int readPacketFromNet(struct context* contextSimplemux,
 
 int demuxPacketFromNet( struct context* contextSimplemux,
                         uint32_t* net2tun,
-                        struct sockaddr_in local,
+                        /*struct sockaddr_in local,
                         struct sockaddr_in remote,
-                        struct sockaddr_in feedback_remote,
+                        struct sockaddr_in feedback_remote,*/
                         int nread_from_net,
                         uint16_t packet_length,
                         FILE *log_file,
@@ -265,41 +265,41 @@ int demuxPacketFromNet( struct context* contextSimplemux,
   (*net2tun)++;
   switch (contextSimplemux->mode) {
     case UDP_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case TCP_CLIENT_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), nread_from_net );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case TCP_SERVER_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), nread_from_net );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case NETWORK_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", *net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, *net2tun, inet_ntoa(remote.sin_addr));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
@@ -445,8 +445,8 @@ int demuxPacketFromNet( struct context* contextSimplemux,
       sendPacketBlastMode(fd,
                           contextSimplemux->mode,
                           &ACK,
-                          remote,
-                          local);
+                          contextSimplemux->remote,
+                          contextSimplemux->local);
 
       do_debug(1," Sent blast ACK to the network. ID %i, length %i\n", ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));
     }
@@ -830,7 +830,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
 
 
                 // send the feedback packet to the peer
-                if (sendto(contextSimplemux->feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&feedback_remote, sizeof(feedback_remote))==-1) {
+                if (sendto(contextSimplemux->feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&(contextSimplemux->feedback_remote), sizeof(contextSimplemux->feedback_remote))==-1) {
                   perror("sendto() failed when sending a ROHC packet");
                 }
                 else {
@@ -877,7 +877,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
 
                 // write the log file
                 if ( log_file != NULL ) {
-                  fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));  // the packet is bad so I add a line
+                  fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port));  // the packet is bad so I add a line
                   fflush(log_file);
                 }
               }

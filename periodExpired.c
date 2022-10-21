@@ -6,8 +6,8 @@ void periodExpiredBlastMode ( struct context* contextSimplemux,
                               uint64_t period,
                               uint64_t lastHeartBeatReceived,
                               uint64_t* lastHeartBeatSent,
-                              struct sockaddr_in local,
-                              struct sockaddr_in remote,
+                              /*struct sockaddr_in local,
+                              struct sockaddr_in remote,*/
                               struct packet *packetsToSend )
 {
 
@@ -30,8 +30,8 @@ void periodExpiredBlastMode ( struct context* contextSimplemux,
                                   period,
                                   fd,
                                   contextSimplemux->mode,
-                                  remote,
-                                  local);
+                                  contextSimplemux->remote,
+                                  contextSimplemux->local);
       if(n>0)
         do_debug(1, " Period expired: Sent %d blast packets (copies) at the end of the period\n", n);
       else
@@ -50,8 +50,8 @@ void periodExpiredBlastMode ( struct context* contextSimplemux,
     sendPacketBlastMode(fd,
                         contextSimplemux->mode,
                         &heartBeat,
-                        remote,
-                        local);
+                        contextSimplemux->remote,
+                        contextSimplemux->local);
 
     do_debug(1," Sent blast heartbeat to the network: %"PRIu64" > %"PRIu64"\n", now_microsec - (*lastHeartBeatSent), HEARTBEATPERIOD);
     (*lastHeartBeatSent) = now_microsec;          
@@ -73,8 +73,8 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
                                 int* size_muxed_packet,
                                 uint16_t size_packets_to_multiplex[MAXPKTS],
                                 uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE],
-                                struct sockaddr_in local,
-                                struct sockaddr_in remote,
+                                /*struct sockaddr_in local,
+                                struct sockaddr_in remote,*/
                                 uint8_t ipprotocol,
                                 struct iphdr* ipheader,
                                 FILE *log_file )
@@ -186,7 +186,7 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
     
     case NETWORK_MODE:
       // build the header
-      BuildIPHeader(ipheader, total_length, ipprotocol, local, remote);
+      BuildIPHeader(ipheader, total_length, ipprotocol, contextSimplemux->local, contextSimplemux->remote);
 
       // build the full IP multiplexed packet
       uint8_t full_ip_packet[BUFSIZE];
@@ -196,25 +196,25 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
                         full_ip_packet);
 
       // send the packet
-      if (sendto (contextSimplemux->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &remote, sizeof (struct sockaddr)) < 0)  {
+      if (sendto (contextSimplemux->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &(contextSimplemux->remote), sizeof (struct sockaddr)) < 0)  {
         perror ("sendto() failed ");
         exit (EXIT_FAILURE);
       }
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), (*num_pkts_stored_from_tun));  
+        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), (*num_pkts_stored_from_tun));  
       }
     break;
     
     case UDP_MODE:
       // send the packet. I don't need to build the header, because I have a UDP socket  
-      if (sendto(contextSimplemux->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+      if (sendto(contextSimplemux->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&(contextSimplemux->remote), sizeof(contextSimplemux->remote))==-1) {
         perror("sendto()");
         exit (EXIT_FAILURE);
       }
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), (*num_pkts_stored_from_tun));  
+        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), (*num_pkts_stored_from_tun));  
       }
     break;
 
@@ -228,7 +228,7 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
       }
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), (*num_pkts_stored_from_tun));  
+        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), (*num_pkts_stored_from_tun));  
       }
     break;
 
@@ -240,7 +240,7 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
       }
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), (*num_pkts_stored_from_tun));  
+        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), (*num_pkts_stored_from_tun));  
       }
     break;
   }
