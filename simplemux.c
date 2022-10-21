@@ -247,20 +247,10 @@ int main(int argc, char *argv[]) {
   uint16_t port_feedback = PORT_FEEDBACK;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
   uint8_t ipprotocol = IPPROTO_SIMPLEMUX;
 
-
-  // variables for storing the packets to multiplex
   uint8_t protocol_rec;                             // protocol field of the received muxed packet
-  uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];   // protocol field of each packet
-  uint16_t size_separators_to_multiplex[MAXPKTS];   // stores the size of the Simplemux separator. It does not include the "Protocol" field
-  uint8_t separators_to_multiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
-  uint16_t size_packets_to_multiplex[MAXPKTS];      // stores the size of the received packet
-
 
   struct packet *packetsToSend = NULL;              // to be used in blast mode
 
-  uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network
-
-  //uint16_t length_muxed_packet;               // length of the next TCP packet
   uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast mode)
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast mode)
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast mode)
@@ -1536,8 +1526,6 @@ int main(int argc, char *argv[]) {
           if (contextSimplemux.blastMode) {
             tunToNetBlastMode(&contextSimplemux,
                               tun2net,
-                              /*local,
-                              remote,*/
                               &packetsToSend,
                               &lastHeartBeatReceived );
           }
@@ -1547,16 +1535,14 @@ int main(int argc, char *argv[]) {
             tunToNetNoBlastMode(&contextSimplemux,
                                 tun2net,
                                 accepting_tcp_connections,
-                                /*local,
-                                remote,*/
                                 &ipheader,
                                 ipprotocol,
                                 &num_pkts_stored_from_tun,
-                                size_packets_to_multiplex,
-                                packets_to_multiplex,
-                                size_separators_to_multiplex,
-                                separators_to_multiplex,
-                                protocol,
+                                //size_packets_to_multiplex,
+                                //packets_to_multiplex,
+                                //size_separators_to_multiplex,
+                                //separators_to_multiplex,
+                                //protocol,
                                 selected_mtu,
                                 &first_header_written,
                                 size_separator_fast_mode,
@@ -1611,12 +1597,12 @@ int main(int argc, char *argv[]) {
                                       &num_pkts_stored_from_tun,
                                       &first_header_written,
                                       &time_last_sent_in_microsec,
-                                      protocol,
-                                      size_separators_to_multiplex,
-                                      separators_to_multiplex,
+                                      //protocol,
+                                      //size_separators_to_multiplex,
+                                      //separators_to_multiplex,
                                       &size_muxed_packet,
-                                      size_packets_to_multiplex,
-                                      packets_to_multiplex,
+                                      //size_packets_to_multiplex,
+                                      //packets_to_multiplex,
                                       /*local,
                                       remote,*/
                                       ipprotocol,

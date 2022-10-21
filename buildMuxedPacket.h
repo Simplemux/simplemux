@@ -1,11 +1,6 @@
 //#include "commonfunctions.c"
 #include "packetsToSend.c"
 
-#define MAXPKTS 100             // maximum number of packets to store
-#define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
-                                // 2: protocol field of two bytes
-#define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
-
 // the length of the multiplexed packet is returned by this function
 uint16_t predict_size_multiplexed_packet (int num_packets,
                                           bool fast_mode,

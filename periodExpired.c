@@ -67,12 +67,12 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
                                 int* num_pkts_stored_from_tun,
                                 int* first_header_written,
                                 uint64_t* time_last_sent_in_microsec,
-                                uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD],
-                                uint16_t size_separators_to_multiplex[MAXPKTS],
-                                uint8_t separators_to_multiplex[MAXPKTS][3],
+                                //uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD],
+                                //uint16_t size_separators_to_multiplex[MAXPKTS],
+                                //uint8_t separators_to_multiplex[MAXPKTS][3],
                                 int* size_muxed_packet,
-                                uint16_t size_packets_to_multiplex[MAXPKTS],
-                                uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE],
+                                //uint16_t size_packets_to_multiplex[MAXPKTS],
+                                //uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE],
                                 /*struct sockaddr_in local,
                                 struct sockaddr_in remote,*/
                                 uint8_t ipprotocol,
@@ -89,14 +89,14 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
     single_protocol = 1;
     for (int k = 1; k < (*num_pkts_stored_from_tun) ; k++) {
       for (int l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-        if (protocol[k][l] != protocol[k-1][l]) single_protocol = 0;
+        if (contextSimplemux->protocol[k][l] != contextSimplemux->protocol[k-1][l]) single_protocol = 0;
       }
     }
 
     // Add the Single Protocol Bit in the first header (the most significant bit)
     // It is 1 if all the multiplexed packets belong to the same protocol
     if (single_protocol == 1) {
-      separators_to_multiplex[0][0] = separators_to_multiplex[0][0] + 0x80;  // this puts a '1' in the most significant bit position
+      contextSimplemux->separators_to_multiplex[0][0] = contextSimplemux->separators_to_multiplex[0][0] + 0x80;  // this puts a '1' in the most significant bit position
       (*size_muxed_packet) = (*size_muxed_packet) + 1;                // one byte corresponding to the 'protocol' field of the first header
     }
     else {
@@ -174,11 +174,11 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
   total_length = build_multiplexed_packet ( (*num_pkts_stored_from_tun),
                                             (contextSimplemux->fastMode),
                                             single_protocol,
-                                            protocol,
-                                            size_separators_to_multiplex,
-                                            separators_to_multiplex,
-                                            size_packets_to_multiplex,
-                                            packets_to_multiplex,
+                                            contextSimplemux->protocol,
+                                            contextSimplemux->size_separators_to_multiplex,
+                                            contextSimplemux->separators_to_multiplex,
+                                            contextSimplemux->size_packets_to_multiplex,
+                                            contextSimplemux->packets_to_multiplex,
                                             muxed_packet);
 
   // send the multiplexed packet

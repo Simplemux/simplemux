@@ -31,6 +31,11 @@
 #define TUN_MODE 'U'            // T: tun mode, i.e. IP packets will be tunneled inside Simplemux
 #define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
 
+#define MAXPKTS 100             // maximum number of packets to store
+#define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
+                                // 2: protocol field of two bytes
+#define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
+
 #define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
 #define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
 
@@ -59,7 +64,13 @@ struct context {
   struct sockaddr_in feedback;
   struct sockaddr_in feedback_remote;
   struct sockaddr_in received;  
-  
+
+  // variables for storing the packets to multiplex
+  uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];   // protocol field of each packet
+  uint16_t size_separators_to_multiplex[MAXPKTS];   // stores the size of the Simplemux separator. It does not include the "Protocol" field
+  uint8_t separators_to_multiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
+  uint16_t size_packets_to_multiplex[MAXPKTS];      // stores the size of the received packet
+  uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network 
 
   uint16_t length_muxed_packet;  // length of the next TCP packet
 };
