@@ -249,7 +249,7 @@ int main(int argc, char *argv[]) {
 
   uint8_t protocol_rec;                             // protocol field of the received muxed packet
 
-  struct packet *packetsToSend = NULL;              // to be used in blast mode
+  struct packet *unconfirmedPacketsBlastMode = NULL;              // to be used in blast mode
 
   uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast mode)
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast mode)
@@ -1231,10 +1231,10 @@ int main(int argc, char *argv[]) {
 
       if(contextSimplemux.blastMode) {
 
-        time_last_sent_in_microsec = findLastSentTimestamp(packetsToSend);
+        time_last_sent_in_microsec = findLastSentTimestamp(unconfirmedPacketsBlastMode);
 
         if(debug>1)
-          printList(&packetsToSend);
+          printList(&unconfirmedPacketsBlastMode);
 
         now_microsec = GetTimeStamp();
         //do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);
@@ -1399,7 +1399,7 @@ int main(int argc, char *argv[]) {
                                 nread_from_net,
                                 packet_length,
                                 log_file,
-                                &packetsToSend,
+                                &unconfirmedPacketsBlastMode,
                                 blastModeTimestamps,
                                 buffer_from_net,
                                 &protocol_rec,
@@ -1526,7 +1526,7 @@ int main(int argc, char *argv[]) {
           if (contextSimplemux.blastMode) {
             tunToNetBlastMode(&contextSimplemux,
                               tun2net,
-                              &packetsToSend,
+                              &unconfirmedPacketsBlastMode,
                               &lastHeartBeatReceived );
           }
 
@@ -1582,9 +1582,7 @@ int main(int argc, char *argv[]) {
                                   period,
                                   lastHeartBeatReceived,
                                   &lastHeartBeatSent,
-                                  /*local,
-                                  remote,*/
-                                  packetsToSend);
+                                  unconfirmedPacketsBlastMode);
 
         }
         else {
@@ -1597,14 +1595,7 @@ int main(int argc, char *argv[]) {
                                       &num_pkts_stored_from_tun,
                                       &first_header_written,
                                       &time_last_sent_in_microsec,
-                                      //protocol,
-                                      //size_separators_to_multiplex,
-                                      //separators_to_multiplex,
                                       &size_muxed_packet,
-                                      //size_packets_to_multiplex,
-                                      //packets_to_multiplex,
-                                      /*local,
-                                      remote,*/
                                       ipprotocol,
                                       &ipheader,
                                       log_file );

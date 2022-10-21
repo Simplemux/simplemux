@@ -8,7 +8,7 @@ void periodExpiredBlastMode ( struct context* contextSimplemux,
                               uint64_t* lastHeartBeatSent,
                               /*struct sockaddr_in local,
                               struct sockaddr_in remote,*/
-                              struct packet *packetsToSend )
+                              struct packet *unconfirmedPacketsBlastMode )
 {
 
   // I may be here because of two different causes (both may have been accomplished):
@@ -25,7 +25,7 @@ void periodExpiredBlastMode ( struct context* contextSimplemux,
     }
     else {
       // heartbeat from the other side received recently
-      int n = sendExpiredPackects(packetsToSend,
+      int n = sendExpiredPackects(unconfirmedPacketsBlastMode,
                                   now_microsec,
                                   period,
                                   fd,

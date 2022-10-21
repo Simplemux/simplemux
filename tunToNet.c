@@ -5,7 +5,7 @@ void tunToNetBlastMode (struct context* contextSimplemux,
                         uint32_t tun2net,
                         /*struct sockaddr_in local,
                         struct sockaddr_in remote,*/
-                        struct packet **packetsToSend,
+                        struct packet **unconfirmedPacketsBlastMode,
                         uint64_t* lastHeartBeatReceived )
 {
   uint64_t now = GetTimeStamp();
@@ -13,7 +13,7 @@ void tunToNetBlastMode (struct context* contextSimplemux,
   do_debug(3, "%"PRIu64": Packet arrived from tun\n", now);             
 
   // add a new empty packet to the list
-  struct packet* thisPacket = insertLast(packetsToSend,0,NULL);
+  struct packet* thisPacket = insertLast(unconfirmedPacketsBlastMode,0,NULL);
 
   // read the packet from contextSimplemux->tun_fd and add the data
   // use 'htons()' because these fields will be sent through the network
@@ -72,16 +72,16 @@ void tunToNetBlastMode (struct context* contextSimplemux,
 
   if(now - (*lastHeartBeatReceived) > HEARTBEATDEADLINE) {
     // heartbeat from the other side not received recently
-    if(delete(packetsToSend,ntohs(thisPacket->header.identifier))==false) {
+    if(delete(unconfirmedPacketsBlastMode,ntohs(thisPacket->header.identifier))==false) {
       do_debug(2," The packet had already been removed from the list\n");
     }
     else {
       do_debug(2," Packet with ID %i removed from the list\n", tun2net);
     }              
-    do_debug(2, "%"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n", now, now - (*lastHeartBeatReceived), length(packetsToSend));
+    do_debug(2, "%"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n", now, now - (*lastHeartBeatReceived), length(unconfirmedPacketsBlastMode));
   }
   else {
-    do_debug(2, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(packetsToSend));
+    do_debug(2, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(unconfirmedPacketsBlastMode));
     if(debug > 1)
       dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );              
   }

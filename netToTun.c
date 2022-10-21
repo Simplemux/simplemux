@@ -247,13 +247,10 @@ int readPacketFromNet(struct context* contextSimplemux,
 
 int demuxPacketFromNet( struct context* contextSimplemux,
                         uint32_t* net2tun,
-                        /*struct sockaddr_in local,
-                        struct sockaddr_in remote,
-                        struct sockaddr_in feedback_remote,*/
                         int nread_from_net,
                         uint16_t packet_length,
                         FILE *log_file,
-                        struct packet **packetsToSend,
+                        struct packet **unconfirmedPacketsBlastMode,
                         uint64_t* blastModeTimestamps,
                         uint8_t* buffer_from_net,
                         uint8_t* protocol_rec,
@@ -331,8 +328,8 @@ int demuxPacketFromNet( struct context* contextSimplemux,
       // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
       do_debug(2," Removing packet with ID %i from the list\n", ntohs(blastHeader->identifier));
       if(debug>2)
-        printList(packetsToSend);
-      if(delete(packetsToSend,ntohs(blastHeader->identifier))==false) {
+        printList(unconfirmedPacketsBlastMode);
+      if(delete(unconfirmedPacketsBlastMode,ntohs(blastHeader->identifier))==false) {
         do_debug(2,"The packet had already been removed from the list\n");
       }
       else {
