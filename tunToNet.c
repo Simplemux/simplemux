@@ -54,14 +54,14 @@ void tunToNetBlastMode (struct context* contextSimplemux,
   switch (contextSimplemux->mode) {
     case UDP_MODE:        
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
+        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), contextSimplemux->num_pkts_stored_from_tun);
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
       }
     break;
    
     case NETWORK_MODE:
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), (*num_pkts_stored_from_tun));
+        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), contextSimplemux->num_pkts_stored_from_tun);
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
       }
     break;
@@ -97,7 +97,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
                           struct sockaddr_in remote,*/
                           struct iphdr* ipheader,
                           uint8_t ipprotocol,
-                          int* num_pkts_stored_from_tun,
+                          //int* num_pkts_stored_from_tun,
                           /*uint16_t size_packets_to_multiplex[MAXPKTS],
                           uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE],
                           uint16_t size_separators_to_multiplex[MAXPKTS],
@@ -107,7 +107,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
                           int* first_header_written,
                           int size_separator_fast_mode,
                           int size_max,
-                          int* size_muxed_packet,
+                          //int* size_muxed_packet,
                           uint64_t* time_last_sent_in_microsec,
                           int limit_numpackets_tun,
                           int size_threshold,
@@ -116,8 +116,8 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
 {
 
   /* read the packet from contextSimplemux->tun_fd, store it in the array, and store its size */
-  contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] = cread (contextSimplemux->tun_fd, contextSimplemux->packets_to_multiplex[(*num_pkts_stored_from_tun)], BUFSIZE);
-  uint16_t size = contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)];  
+  contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] = cread (contextSimplemux->tun_fd, contextSimplemux->packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun], BUFSIZE);
+  uint16_t size = contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];  
 
   // print the native packet/frame received
   if (debug>0) {
@@ -128,7 +128,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
 
     //do_debug(2, "   ");
     // dump the newly-created IP packet on terminal
-    dump_packet ( contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)], contextSimplemux->packets_to_multiplex[(*num_pkts_stored_from_tun)] );
+    dump_packet ( contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun], contextSimplemux->packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] );
   }
 
   // write in the log file
@@ -177,7 +177,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       // write the log file
       if ( log_file != NULL ) {
         // FIXME: remove 'nun_packets_stored_from_tun' from the expression
-        fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + 3, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
+        fprintf (log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + 3, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), contextSimplemux->num_pkts_stored_from_tun);
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
       }
     }
@@ -194,7 +194,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       ip_packet.len = size;
 
       // copy the packet
-      memcpy(rohc_buf_data_at(ip_packet, 0), contextSimplemux->packets_to_multiplex[(*num_pkts_stored_from_tun)], size);
+      memcpy(rohc_buf_data_at(ip_packet, 0), contextSimplemux->packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun], size);
 
       // reset the buffer where the rohc packet is to be stored
       rohc_buf_reset (&rohc_packet);
@@ -220,20 +220,20 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         // since this packet has been compressed with ROHC, its protocol number must be 142
         // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
         if ( SIZE_PROTOCOL_FIELD == 1 ) {
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][0] = IPPROTO_ROHC;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][0] = IPPROTO_ROHC;
         }
         else {  // SIZE_PROTOCOL_FIELD == 2 
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][0] = 0;
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][1] = IPPROTO_ROHC;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][0] = 0;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][1] = IPPROTO_ROHC;
         }
 
         // Copy the compressed length and the compressed packet over the packet read from tun
-        contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] = rohc_packet.len;
-        for (uint16_t l = 0; l < contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] ; l++) {
-          contextSimplemux->packets_to_multiplex[(*num_pkts_stored_from_tun)][l] = rohc_buf_byte_at(rohc_packet, l);
+        contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] = rohc_packet.len;
+        for (uint16_t l = 0; l < contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] ; l++) {
+          contextSimplemux->packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][l] = rohc_buf_byte_at(rohc_packet, l);
         }
         // I try to use memcpy instead, but it does not work properly
-        // memcpy(contextSimplemux->packets_to_multiplex[(*num_pkts_stored_from_tun)], rohc_buf_byte_at(rohc_packet, 0), contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)]);
+        // memcpy(contextSimplemux->packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun], rohc_buf_byte_at(rohc_packet, 0), contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun]);
 
         // dump the ROHC packet on terminal
         if (debug >= 1 ) {
@@ -250,16 +250,16 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         /* Send it in its native form */
 
         // I don't have to copy the native length and the native packet, because they
-        // have already been stored in 'contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)]' and 'contextSimplemux->packets_to_multiplex[(*num_pkts_stored_from_tun)]'
+        // have already been stored in 'contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun]' and 'contextSimplemux->packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun]'
 
         // since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP'
         // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
         if ( SIZE_PROTOCOL_FIELD == 1 ) {
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][0] = IPPROTO_IP_ON_IP;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][0] = IPPROTO_IP_ON_IP;
         }
         else {  // SIZE_PROTOCOL_FIELD == 2 
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][0] = 0;
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][1] = IPPROTO_IP_ON_IP;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][0] = 0;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][1] = IPPROTO_IP_ON_IP;
         }
 
         fprintf(stderr, "compression of IP packet failed\n");
@@ -283,11 +283,11 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         // since this frame CANNOT be compressed, its protocol number has to be 143: 'Ethernet on IP' 
         // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
         if ( SIZE_PROTOCOL_FIELD == 1 ) {
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][0] = IPPROTO_ETHERNET;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][0] = IPPROTO_ETHERNET;
         }
         else {  // SIZE_PROTOCOL_FIELD == 2 
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][0] = 0;
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][1] = IPPROTO_ETHERNET;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][0] = 0;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][1] = IPPROTO_ETHERNET;
         }               
       }
       else if (contextSimplemux->tunnelMode == TUN_MODE) {
@@ -296,11 +296,11 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         // since this IP packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
         // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
         if ( SIZE_PROTOCOL_FIELD == 1 ) {
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][0] = IPPROTO_IP_ON_IP;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][0] = IPPROTO_IP_ON_IP;
         }
         else {  // SIZE_PROTOCOL_FIELD == 2 
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][0] = 0;
-          contextSimplemux->protocol[(*num_pkts_stored_from_tun)][1] = IPPROTO_IP_ON_IP;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][0] = 0;
+          contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][1] = IPPROTO_IP_ON_IP;
         }
       }
 
@@ -324,7 +324,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       // calculate if all the packets belong to the same protocol (single_protocol = 1) 
       //or they belong to different protocols (single_protocol = 0)
       single_protocol = 1;
-      for (int k = 1; k < (*num_pkts_stored_from_tun) ; k++) {
+      for (int k = 1; k < contextSimplemux->num_pkts_stored_from_tun ; k++) {
         for (int l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
           if (contextSimplemux->protocol[k][l] != contextSimplemux->protocol[k-1][l])
             single_protocol = 0;
@@ -341,7 +341,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
     // calculate the size without the present packet
     int predicted_size_muxed_packet;        // size of the muxed packet if the arrived packet was added to it
 
-    predicted_size_muxed_packet = predict_size_multiplexed_packet ( *num_pkts_stored_from_tun,
+    predicted_size_muxed_packet = predict_size_multiplexed_packet ( contextSimplemux->num_pkts_stored_from_tun,
                                                                     contextSimplemux->fastMode,
                                                                     single_protocol,
                                                                     contextSimplemux->protocol,
@@ -356,20 +356,20 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
     if (!(contextSimplemux->fastMode)) {
       if ((*first_header_written) == 0) {
         // this is the first header, so the maximum length to be expressed in 1 byte is 64
-        if (contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] < 64 ) {
-          predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)];
+        if (contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] < 64 ) {
+          predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];
         }
         else {
-          predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)];
+          predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];
         }
       }
       else {
         // this is not the first header, so the maximum length to be expressed in 1 byte is 128
-        if (contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] < 128 ) {
-          predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)];
+        if (contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] < 128 ) {
+          predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];
         }
         else {
-          predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)];
+          predicted_size_muxed_packet = predicted_size_muxed_packet + 2 + contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];
         }
       }
     }
@@ -377,7 +377,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       // the header is always fixed: the size of the length field + the size of the protocol field 
       predicted_size_muxed_packet = predicted_size_muxed_packet +
                                     size_separator_fast_mode +
-                                    contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)];
+                                    contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];
     }
 
 
@@ -403,21 +403,21 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         // it is '1' if all the multiplexed packets belong to the same protocol
         if (single_protocol == 1) {
           contextSimplemux->separators_to_multiplex[0][0] = contextSimplemux->separators_to_multiplex[0][0] + 0x80;  // this puts a 1 in the most significant bit position
-          (*size_muxed_packet) = (*size_muxed_packet) + 1;                // one byte corresponding to the 'protocol' field of the first header
+          (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + 1;                // one byte corresponding to the 'protocol' field of the first header
         }
         else {
-          (*size_muxed_packet) = (*size_muxed_packet) + (*num_pkts_stored_from_tun);    // one byte per packet, corresponding to the 'protocol' field
+          (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + contextSimplemux->num_pkts_stored_from_tun;    // one byte per packet, corresponding to the 'protocol' field
         }
       }
       else {  // fast mode
-        (*size_muxed_packet) = (*size_muxed_packet) + ((*num_pkts_stored_from_tun) * SIZE_PROTOCOL_FIELD);
+        (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + (contextSimplemux->num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD);
       }
 
       // build the multiplexed packet without the current one
       uint16_t total_length;          // total length of the built multiplexed packet
       uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
-      total_length = build_multiplexed_packet ( *num_pkts_stored_from_tun,
+      total_length = build_multiplexed_packet ( contextSimplemux->num_pkts_stored_from_tun,
                                                 (contextSimplemux->fastMode),
                                                 single_protocol,
                                                 contextSimplemux->protocol,
@@ -436,13 +436,13 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         }
         else {
           if (SIZE_PROTOCOL_FIELD == 1)
-            do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", (*num_pkts_stored_from_tun));
+            do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", contextSimplemux->num_pkts_stored_from_tun);
           else
-            do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n", 2 * (*num_pkts_stored_from_tun));
+            do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n", 2 * contextSimplemux->num_pkts_stored_from_tun);
         }                
       }
       else {
-        do_debug(2, "   Fast mode. Added 1 Protocol byte to each separator. Total %i bytes", (*num_pkts_stored_from_tun));
+        do_debug(2, "   Fast mode. Added 1 Protocol byte to each separator. Total %i bytes", contextSimplemux->num_pkts_stored_from_tun);
       }
       
       switch(contextSimplemux->tunnelMode) {
@@ -450,23 +450,23 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           switch (contextSimplemux->mode) {
             case UDP_MODE:
               do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-              do_debug(1, " Sending to the network a UDP muxed packet without this one: %i bytes\n", (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+              do_debug(1, " Sending to the network a UDP muxed packet without this one: %i bytes\n", (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             break;
             case TCP_CLIENT_MODE:
               //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
               do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-              //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-              do_debug(1, " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet));
+              //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+              do_debug(1, " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet));
             break;
             case TCP_SERVER_MODE:
               //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
               do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-              //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-              do_debug(1, " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet));
+              //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+              do_debug(1, " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet));
             break;
             case NETWORK_MODE:
               do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-              do_debug(1, " Sending to the network an IP muxed packet without this one: %i bytes\n", (*size_muxed_packet) + IPv4_HEADER_SIZE );
+              do_debug(1, " Sending to the network an IP muxed packet without this one: %i bytes\n", (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE );
             break;
           }
         break;
@@ -475,23 +475,23 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           switch (contextSimplemux->mode) {
             case UDP_MODE:
               do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-              do_debug(1, " Sending to the network a UDP packet without this Eth frame: %i bytes\n", (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+              do_debug(1, " Sending to the network a UDP packet without this Eth frame: %i bytes\n", (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             break;
             case TCP_CLIENT_MODE:
               //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
               do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-              //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-              do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet));
+              //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+              do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet));
             break;
             case TCP_SERVER_MODE:
               //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
               do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-              //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-              do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet));
+              //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+              do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet));
             break;
             case NETWORK_MODE:
               do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-              do_debug(1, " Sending to the network an IP packet without this Eth frame: %i bytes\n", (*size_muxed_packet) + IPv4_HEADER_SIZE );
+              do_debug(1, " Sending to the network an IP packet without this Eth frame: %i bytes\n", (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE );
             break;
           }
         break;
@@ -509,7 +509,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           
           // write in the log file
           if ( log_file != NULL ) {
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), contextSimplemux->num_pkts_stored_from_tun);
             fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
           }
         break;
@@ -523,7 +523,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           
           // write in the log file
           if ( log_file != NULL ) {
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), contextSimplemux->num_pkts_stored_from_tun);
             fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
           }
         break;
@@ -541,7 +541,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
             }
             // write in the log file
             if ( log_file != NULL ) {
-              fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
+              fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), contextSimplemux->num_pkts_stored_from_tun);
               fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
             }              
           }
@@ -562,7 +562,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           }
           // write in the log file
           if ( log_file != NULL ) {
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), contextSimplemux->num_pkts_stored_from_tun);
             fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
           }
         break;
@@ -575,13 +575,13 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
 
       // I have emptied the buffer, so I have to
       //move the current packet to the first position of the 'packets_to_multiplex' array
-      memcpy(contextSimplemux->packets_to_multiplex[0], contextSimplemux->packets_to_multiplex[(*num_pkts_stored_from_tun)], BUFSIZE);
+      memcpy(contextSimplemux->packets_to_multiplex[0], contextSimplemux->packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun], BUFSIZE);
 
       // move the current separator to the first position of the array
-      memcpy(contextSimplemux->separators_to_multiplex[0], contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)], 2);
+      memcpy(contextSimplemux->separators_to_multiplex[0], contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun], 2);
 
       // move the size of the packet to the first position of the array
-      contextSimplemux->size_packets_to_multiplex[0] = contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)];
+      contextSimplemux->size_packets_to_multiplex[0] = contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];
 
       // set the rest of the values of the size to 0
       // note: it starts with 1, not with 0
@@ -589,20 +589,20 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         contextSimplemux->size_packets_to_multiplex[j] = 0;
 
       // move the size of the separator to the first position of the array
-      contextSimplemux->size_separators_to_multiplex[0] = contextSimplemux->size_separators_to_multiplex[(*num_pkts_stored_from_tun)];
+      contextSimplemux->size_separators_to_multiplex[0] = contextSimplemux->size_separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];
 
       // I have sent a packet, so I set to 0 the "(*first_header_written)" bit
       (*first_header_written) = 0;
 
       // reset the length and the number of packets
-      (*size_muxed_packet) = 0;
-      (*num_pkts_stored_from_tun) = 0;
+      (contextSimplemux->size_muxed_packet) = 0;
+      contextSimplemux->num_pkts_stored_from_tun = 0;
     }
     /*** end check if size limit would be reached ***/
 
 
     // update the size of the muxed packet, adding the size of the current one
-    (*size_muxed_packet) = (*size_muxed_packet) + contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)];
+    (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];
 
     if (!(contextSimplemux->fastMode)) {
       // I have to add the multiplexing separator.
@@ -629,29 +629,29 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       // or 2097152 (2^21) bytes for a non-first one)
 
       // one-byte separator
-      if (contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] < maximum_packet_length ) {
+      if (contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] < maximum_packet_length ) {
 
         // the length can be written in the first byte of the separator
         // it can be expressed in 
         //  - 6 bits for the first separator
         // - 7 bits for non-first separators
-        contextSimplemux->size_separators_to_multiplex[(*num_pkts_stored_from_tun)] = 1;
+        contextSimplemux->size_separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] = 1;
 
         // add the 'length' field to the packet
         // since the value is < maximum_packet_length, the most significant bits will always be 0:
         // - first separator: the value will be expressed in 6 bits
         // - non-first separator: the value will be expressed in 7 bits
-        contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0] = contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)];
+        contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0] = contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];
 
         // increase the size of the multiplexed packet
-        (*size_muxed_packet) ++;
+        (contextSimplemux->size_muxed_packet) ++;
 
         // print the Mux separator (only one byte)
         if(debug) {
           // convert the byte to bits
           bool bits[8];   // used for printing the bits of a byte in debug mode
-          FromByte(contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0], bits);
-          do_debug(2, " Mux separator of 1 byte (plus Protocol): 0x%02x (", contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0]);
+          FromByte(contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0], bits);
+          do_debug(2, " Mux separator of 1 byte (plus Protocol): 0x%02x (", contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0]);
           //do_debug(2, " Mux separator of 1 byte (plus Protocol): ");
           if ((*first_header_written) == 0) {
             PrintByte(2, 7, bits);      // first header
@@ -665,10 +665,10 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       }
       
       // two-byte separator
-      else if (contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] < limit_length_two_bytes ) {
+      else if (contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] < limit_length_two_bytes ) {
 
         // the length requires a two-byte separator (length expressed in 13 or 14 bits)
-        contextSimplemux->size_separators_to_multiplex[(*num_pkts_stored_from_tun)] = 2;
+        contextSimplemux->size_separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] = 2;
 
         // first byte of the Mux separator
         // It can be:
@@ -681,24 +681,24 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         // first header
         if ((*first_header_written) == 0) {
           // add 64 (0100 0000) to the header, i.e., set the value of LXT to '1' (7th bit)
-          contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0] = (contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] / 128 ) + 64;  // first header
+          contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0] = (contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] / 128 ) + 64;  // first header
         }
         // non-first header
         else {
           // add 128 (1000 0000) to the header, i.e., set the value of LXT to '1' (8th bit)
-          contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0] = (contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] / 128 ) + 128;  // non-first header
-          //do_debug(2, "num_pkts_stored_from_tun: %i\n", (*num_pkts_stored_from_tun));
-          //do_debug(2, "contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)]: %i\n", contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)]);
-          //do_debug(2, "contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] / 128: %i\n", contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] / 128);
-          //do_debug(2, "contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] / 128 + 128: %i\n", (contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] / 128) + 128);
-          //do_debug(2, "separators_to_multiplex[(*num_pkts_stored_from_tun)][0]: %i\n", contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0]);
+          contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0] = (contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] / 128 ) + 128;  // non-first header
+          //do_debug(2, "num_pkts_stored_from_tun: %i\n", contextSimplemux->num_pkts_stored_from_tun);
+          //do_debug(2, "contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun]: %i\n", contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun]);
+          //do_debug(2, "contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] / 128: %i\n", contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] / 128);
+          //do_debug(2, "contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] / 128 + 128: %i\n", (contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] / 128) + 128);
+          //do_debug(2, "separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0]: %i\n", contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0]);
         }
 
 
         // second byte of the Mux separator
 
         // Length: the 7 less significant bytes of the length. Use modulo 128
-        contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][1] = contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] % 128;
+        contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][1] = contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] % 128;
 
         // fill the LXT field of the second byte
         // LXT bit has to be set to 0, because this is the last byte of the length
@@ -707,15 +707,15 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         // SPB field will be filled later
         
         // increase the size of the multiplexed packet
-        (*size_muxed_packet) = (*size_muxed_packet) + 2;
+        (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + 2;
 
         // print the two bytes of the separator
         if(debug) {
           bool bits[8];   // used for printing the bits of a byte in debug mode
 
           // first byte
-          FromByte(contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0], bits);
-          do_debug(2, " Mux separator of 2 bytes (plus Protocol): 0x%02x (", contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0]);
+          FromByte(contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0], bits);
+          do_debug(2, " Mux separator of 2 bytes (plus Protocol): 0x%02x (", contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0]);
           //do_debug(2, " Mux separator of 2 bytes (plus Protocol). First byte: ");
           if ((*first_header_written) == 0) {
             PrintByte(2, 7, bits);      // first header
@@ -727,8 +727,8 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           }
 
           // second byte
-          FromByte(contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][1], bits);
-          do_debug(2, " 0x%02x (", contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][1]);
+          FromByte(contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][1], bits);
+          do_debug(2, " 0x%02x (", contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][1]);
           //do_debug(2, ". second byte: ");
           PrintByte(2, 8, bits);
           do_debug(2, ")\n");
@@ -739,7 +739,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       else {
 
         // the length requires a three-byte separator (length expressed in 20 or 21 bits)
-        contextSimplemux->size_separators_to_multiplex[(*num_pkts_stored_from_tun)] = 3;
+        contextSimplemux->size_separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] = 3;
 
         //FIXME. NOT TESTED. I have just copied the case of two-byte separator
         // first byte of the Mux separator
@@ -751,41 +751,41 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
 
         if ((*first_header_written) == 0) {
           // first header
-          contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0] = (contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] / 16384 ) + 64;
+          contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0] = (contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] / 16384 ) + 64;
 
         }
         else {
           // non-first header
-          contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0] = (contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] / 16384 ) + 128;  
+          contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0] = (contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] / 16384 ) + 128;  
         }
 
 
         // second byte of the Mux separator
         // Length: the 7 second significant bytes of the length. Use modulo 16384
-        contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][1] = contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] % 16384;
+        contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][1] = contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] % 16384;
 
         // LXT bit has to be set to 1, because this is not the last byte of the length
-        contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0] = contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0] + 128;
+        contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0] = contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0] + 128;
 
 
         // third byte of the Mux separator
         // Length: the 7 less significant bytes of the length. Use modulo 128
-        contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][1] = contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] % 128;
+        contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][1] = contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] % 128;
 
         // LXT bit has to be set to 0, because this is the last byte of the length
         // if I do nothing, it will be 0, since I have used modulo 128
 
 
         // increase the size of the multiplexed packet
-        (*size_muxed_packet) = (*size_muxed_packet) + 3;
+        (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + 3;
 
         // print the three bytes of the separator
         if(debug) {
           bool bits[8];   // used for printing the bits of a byte in debug mode
 
           // first byte
-          FromByte(contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0], bits);
-          do_debug(2, " Mux separator of 3 bytes: (0x%02x) ", contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0]);
+          FromByte(contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0], bits);
+          do_debug(2, " Mux separator of 3 bytes: (0x%02x) ", contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0]);
           if ((*first_header_written) == 0) {
             PrintByte(2, 7, bits);      // first header
           }
@@ -794,14 +794,14 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           }
 
           // second byte
-          FromByte(contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][1], bits);
-          do_debug(2, " (0x%02x) ", contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][1]);
+          FromByte(contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][1], bits);
+          do_debug(2, " (0x%02x) ", contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][1]);
           PrintByte(2, 8, bits);
           do_debug(2, "\n");
 
           // third byte
-          FromByte(contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][2], bits);
-          do_debug(2, " (0x%02x) ", contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][2]);
+          FromByte(contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][2], bits);
+          do_debug(2, " (0x%02x) ", contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][2]);
           PrintByte(2, 8, bits);
           do_debug(2, "\n");
         }
@@ -810,47 +810,47 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
     else {  // fast mode
 
       // the length requires a two-byte separator (length expressed in 16 bits)
-      contextSimplemux->size_separators_to_multiplex[(*num_pkts_stored_from_tun)] = sizeof(uint16_t);
+      contextSimplemux->size_separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] = sizeof(uint16_t);
 
-      //separators_to_multiplex[(*num_pkts_stored_from_tun)] = htons(size);
+      //separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] = htons(size);
 
       
       // add first byte of the separator (most significant bits)
-      contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0] = contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] / 256;
+      contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0] = contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] / 256;
 
       // second byte of the Mux separator (less significant bits)
-      contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][1] = contextSimplemux->size_packets_to_multiplex[(*num_pkts_stored_from_tun)] % 256;
+      contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][1] = contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] % 256;
       
 
       // increase the size of the multiplexed packet
-      (*size_muxed_packet) = (*size_muxed_packet) + 2;
+      (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + 2;
 
       // print the two bytes of the separator
       if(debug>0) {
         bool bits[8];   // used for printing the bits of a byte in debug mode
 
         // first byte
-        FromByte(contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0], bits);
-        do_debug(2, " Mux separator of 3 bytes. Length: 0x%02x (", contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][0]);
+        FromByte(contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0], bits);
+        do_debug(2, " Mux separator of 3 bytes. Length: 0x%02x (", contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][0]);
         PrintByte(2, 8, bits);
         do_debug(2, ")");
 
         // second byte
-        FromByte(contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][1], bits);
-        do_debug(2, " 0x%02x (", contextSimplemux->separators_to_multiplex[(*num_pkts_stored_from_tun)][1]);
+        FromByte(contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][1], bits);
+        do_debug(2, " 0x%02x (", contextSimplemux->separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun][1]);
         PrintByte(2, 8, bits);
         do_debug(2, ")");
 
         // third byte: protocol
-        FromByte(contextSimplemux->protocol[(*num_pkts_stored_from_tun)][0], bits);
-        do_debug(2, ". Protocol: 0x%02x (", contextSimplemux->protocol[(*num_pkts_stored_from_tun)][0]);
+        FromByte(contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][0], bits);
+        do_debug(2, ". Protocol: 0x%02x (", contextSimplemux->protocol[contextSimplemux->num_pkts_stored_from_tun][0]);
         PrintByte(2, 8, bits);
         do_debug(2, ")\n");
       }
     }
 
     // I have finished storing the packet, so I increase the number of stored packets
-    (*num_pkts_stored_from_tun) ++;
+    contextSimplemux->num_pkts_stored_from_tun ++;
 
     if (!(contextSimplemux->fastMode)) {
       // I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
@@ -860,10 +860,10 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
 
 
     if (!(contextSimplemux->fastMode)) {
-      do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Protocol not included).", *num_pkts_stored_from_tun , (*size_muxed_packet));
+      do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Protocol not included).", contextSimplemux->num_pkts_stored_from_tun , (contextSimplemux->size_muxed_packet));
     }
     else { // fast mode
-      do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Separator(s) included).", *num_pkts_stored_from_tun , (*size_muxed_packet) + ((*num_pkts_stored_from_tun) * SIZE_PROTOCOL_FIELD));
+      do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Separator(s) included).", contextSimplemux->num_pkts_stored_from_tun , (contextSimplemux->size_muxed_packet) + (contextSimplemux->num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD));
     }
    
     uint64_t now_microsec = GetTimeStamp();
@@ -876,14 +876,14 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
 
     // if the packet limit or the size threshold are reached, send all the stored packets to the network
     // do not worry about the MTU. if it is reached, a number of packets will be sent
-    if (((*num_pkts_stored_from_tun) == limit_numpackets_tun) || ((*size_muxed_packet) > size_threshold) || (time_difference > timeout )) {
+    if ((contextSimplemux->num_pkts_stored_from_tun == limit_numpackets_tun) || ((contextSimplemux->size_muxed_packet) > size_threshold) || (time_difference > timeout )) {
       // a multiplexed packet has to be sent
       if (!(contextSimplemux->fastMode)) {
         // fill the SPB field (Single Protocol Bit)
         
         // calculate if all the packets belong to the same protocol
         single_protocol = 1;
-        for (int k = 1; k < (*num_pkts_stored_from_tun) ; k++) {
+        for (int k = 1; k < contextSimplemux->num_pkts_stored_from_tun ; k++) {
           for (int l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
             if (contextSimplemux->protocol[k][l] != contextSimplemux->protocol[k-1][l])
               single_protocol = 0;
@@ -895,26 +895,26 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         if (single_protocol == 1) {
           contextSimplemux->separators_to_multiplex[0][0] = contextSimplemux->separators_to_multiplex[0][0] + 128;  // this puts a 1 in the most significant bit position
           // one or two bytes corresponding to the 'protocol' field of the first header
-          (*size_muxed_packet) = (*size_muxed_packet) + SIZE_PROTOCOL_FIELD;
+          (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + SIZE_PROTOCOL_FIELD;
         }
         else {
           // add the size that corresponds to the Protocol field of all the separators
-          (*size_muxed_packet) = (*size_muxed_packet) + ( SIZE_PROTOCOL_FIELD * (*num_pkts_stored_from_tun));
+          (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + ( SIZE_PROTOCOL_FIELD * contextSimplemux->num_pkts_stored_from_tun);
         }               
       }
       else {
         // add the size that corresponds to the Protocol field of all the separators
-        (*size_muxed_packet) = (*size_muxed_packet) + ( SIZE_PROTOCOL_FIELD * (*num_pkts_stored_from_tun));
-        do_debug(2, "   Fast mode. Added header: length (2 bytes) + protocol (1 byte) in each separator. Total %i bytes\n", 3 * (*num_pkts_stored_from_tun));            
+        (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + ( SIZE_PROTOCOL_FIELD * contextSimplemux->num_pkts_stored_from_tun);
+        do_debug(2, "   Fast mode. Added header: length (2 bytes) + protocol (1 byte) in each separator. Total %i bytes\n", 3 * contextSimplemux->num_pkts_stored_from_tun);            
       }
 
       // write the debug information
       if (debug>0) {
         //do_debug(2, "\n");
         do_debug(1, "SENDING TRIGGERED: ");
-        if ((*num_pkts_stored_from_tun) == limit_numpackets_tun)
+        if (contextSimplemux->num_pkts_stored_from_tun == limit_numpackets_tun)
           do_debug(1, "num packet limit reached\n");
-        if ((*size_muxed_packet) > size_threshold)
+        if ((contextSimplemux->size_muxed_packet) > size_threshold)
           do_debug(1," size threshold reached\n");
         if (time_difference > timeout)
           do_debug(1, "timeout reached\n");
@@ -924,7 +924,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
             do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", contextSimplemux->protocol[0][0]);
           }
           else {
-            do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", *num_pkts_stored_from_tun);
+            do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", contextSimplemux->num_pkts_stored_from_tun);
           }
         }
 
@@ -934,7 +934,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
             do_debug(2, "   All packets belong to the same protocol. Added 2 Protocol bytes (0x%02x%02x) in the first separator\n", contextSimplemux->protocol[0][0], contextSimplemux->protocol[0][1]);
           }
           else {
-            do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n", 2 * (*num_pkts_stored_from_tun));
+            do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n", 2 * contextSimplemux->num_pkts_stored_from_tun);
           }
         }
 
@@ -943,23 +943,23 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
             switch (contextSimplemux->mode) {
               case UDP_MODE:
                 do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a UDP packet containing %i native one(s): %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+                do_debug(1, " Sending to the network a UDP packet containing %i native one(s): %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               break;
               case TCP_CLIENT_MODE:
                 //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
                 do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-                //do_debug(1, " Sending to the network a TCP packet containing %i native one(s): %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet));
+                //do_debug(1, " Sending to the network a TCP packet containing %i native one(s): %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                do_debug(1, " Sending to the network a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet));
               break;
               case TCP_SERVER_MODE:
                 //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
                 do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-                //do_debug(1, " Sending to the network a TCP packet containing %i native one(s): %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet));
+                //do_debug(1, " Sending to the network a TCP packet containing %i native one(s): %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                do_debug(1, " Sending to the network a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet));
               break;
               case NETWORK_MODE:
                 do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-                do_debug(1, " Sending to the network an IP packet containing %i native one(s): %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE );
+                do_debug(1, " Sending to the network an IP packet containing %i native one(s): %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE );
               break;
             }
           break;
@@ -968,23 +968,23 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
             switch (contextSimplemux->mode) {
               case UDP_MODE:
                 do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a UDP packet containing %i native Eth frame(s): %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+                do_debug(1, " Sending to the network a UDP packet containing %i native Eth frame(s): %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               break;
               case TCP_CLIENT_MODE:
                 //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
                 do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-                //do_debug(1, " Sending to the network a TCP packet containing %i native Eth frame(s): %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet));
+                //do_debug(1, " Sending to the network a TCP packet containing %i native Eth frame(s): %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet));
               break;
               case TCP_SERVER_MODE:
                 //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
                 do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-                //do_debug(1, " Sending to the network a TCP packet containing %i native Eth frame(s): %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet));
+                //do_debug(1, " Sending to the network a TCP packet containing %i native Eth frame(s): %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+                do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet));
               break;
               case NETWORK_MODE:
                 do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-                do_debug(1, " Sending to the network an IP packet containing %i native Eth frame(s): %i bytes\n", (*num_pkts_stored_from_tun), (*size_muxed_packet) + IPv4_HEADER_SIZE );
+                do_debug(1, " Sending to the network an IP packet containing %i native Eth frame(s): %i bytes\n", contextSimplemux->num_pkts_stored_from_tun, (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE );
               break;
             }
           break;
@@ -995,7 +995,7 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       uint16_t total_length;          // total length of the built multiplexed packet
       uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
-      total_length = build_multiplexed_packet ( (*num_pkts_stored_from_tun),
+      total_length = build_multiplexed_packet ( contextSimplemux->num_pkts_stored_from_tun,
                                                 (contextSimplemux->fastMode),
                                                 single_protocol,
                                                 contextSimplemux->protocol,
@@ -1015,10 +1015,10 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           }
           else {
             if(contextSimplemux->tunnelMode == TUN_MODE) {
-              do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", (*num_pkts_stored_from_tun));
+              do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", contextSimplemux->num_pkts_stored_from_tun);
             }
             else if(contextSimplemux->tunnelMode == TAP_MODE) {
-              do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", (*num_pkts_stored_from_tun));                    
+              do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", contextSimplemux->num_pkts_stored_from_tun);                    
             }
             else {
               perror ("wrong value of 'tunnelMode'");
@@ -1042,10 +1042,10 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           }
           else {
             if(contextSimplemux->tunnelMode == TUN_MODE) {
-              do_debug(2, "Packet sent (includes %d muxed packet(s))\n\n", (*num_pkts_stored_from_tun));
+              do_debug(2, "Packet sent (includes %d muxed packet(s))\n\n", contextSimplemux->num_pkts_stored_from_tun);
             }
             else if(contextSimplemux->tunnelMode == TAP_MODE) {
-              do_debug(2, "Packet sent (includes %d muxed frame(s))\n\n", (*num_pkts_stored_from_tun));
+              do_debug(2, "Packet sent (includes %d muxed frame(s))\n\n", contextSimplemux->num_pkts_stored_from_tun);
             }
             else {
               perror ("wrong value of 'tunnelMode'");
@@ -1063,10 +1063,10 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           }
           else {
             if(contextSimplemux->tunnelMode == TUN_MODE) {
-              do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", (*num_pkts_stored_from_tun));
+              do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", contextSimplemux->num_pkts_stored_from_tun);
             }
             else if(contextSimplemux->tunnelMode == TAP_MODE) {
-              do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", (*num_pkts_stored_from_tun));                    
+              do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", contextSimplemux->num_pkts_stored_from_tun);                    
             }
             else {
               perror ("wrong value of 'tunnelMode'");
@@ -1089,10 +1089,10 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
             }
             else {
               if(contextSimplemux->tunnelMode == TUN_MODE) {
-                do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", (*num_pkts_stored_from_tun));
+                do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", contextSimplemux->num_pkts_stored_from_tun);
               }
               else if(contextSimplemux->tunnelMode == TAP_MODE) {
-                do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", (*num_pkts_stored_from_tun));                    
+                do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", contextSimplemux->num_pkts_stored_from_tun);                    
               }
               else {
                 perror ("wrong value of 'tunnelMode'");
@@ -1107,18 +1107,18 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       if ( log_file != NULL ) {
         switch (contextSimplemux->mode) {
           case UDP_MODE:
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), contextSimplemux->num_pkts_stored_from_tun);
           break;
           case TCP_CLIENT_MODE:
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i", GetTimeStamp(), (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), contextSimplemux->num_pkts_stored_from_tun);
           break;
           case NETWORK_MODE:
-            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i", GetTimeStamp(), (*size_muxed_packet) + IPv4_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), (*num_pkts_stored_from_tun));
+            fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i", GetTimeStamp(), (contextSimplemux->size_muxed_packet) + IPv4_HEADER_SIZE, tun2net, inet_ntoa(contextSimplemux->remote.sin_addr), contextSimplemux->num_pkts_stored_from_tun);
           break;
         }
-        if ((*num_pkts_stored_from_tun) == limit_numpackets_tun)
+        if (contextSimplemux->num_pkts_stored_from_tun == limit_numpackets_tun)
           fprintf(log_file, "\tnumpacket_limit");
-        if ((*size_muxed_packet) > size_threshold)
+        if ((contextSimplemux->size_muxed_packet) > size_threshold)
           fprintf(log_file, "\tsize_limit");
         if (time_difference > timeout)
           fprintf(log_file, "\ttimeout");
@@ -1130,8 +1130,8 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       (*first_header_written) = 0;
 
       // reset the length and the number of packets
-      (*size_muxed_packet) = 0 ;
-      (*num_pkts_stored_from_tun) = 0;
+      (contextSimplemux->size_muxed_packet) = 0 ;
+      contextSimplemux->num_pkts_stored_from_tun = 0;
 
       // restart the period: update the time of the last packet sent
       *time_last_sent_in_microsec = now_microsec;

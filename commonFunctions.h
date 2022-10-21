@@ -66,13 +66,15 @@ struct context {
   struct sockaddr_in received;  
 
   // variables for storing the packets to multiplex
+  int num_pkts_stored_from_tun;                     // number of packets received and not sent from tun (stored)
   uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];   // protocol field of each packet
   uint16_t size_separators_to_multiplex[MAXPKTS];   // stores the size of the Simplemux separator. It does not include the "Protocol" field
   uint8_t separators_to_multiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
   uint16_t size_packets_to_multiplex[MAXPKTS];      // stores the size of the received packet
   uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network 
-
-  uint16_t length_muxed_packet;  // length of the next TCP packet
+  int size_muxed_packet;                            // accumulated size of the multiplexed packet
+  
+  uint16_t length_muxed_packet;                     // length of the next TCP packet
 };
 
 void do_debug(int level, char *msg, ...);

@@ -222,6 +222,9 @@ int main(int argc, char *argv[]) {
 
   contextSimplemux.rohcMode = 0;  // by default it is 0: ROHC is not used
 
+  contextSimplemux.num_pkts_stored_from_tun = 0; 
+  contextSimplemux.size_muxed_packet = 0;
+
   int fd2read;
   
   char tun_if_name[IFNAMSIZ] = "";    // name of the tun interface (e.g. "tun0")
@@ -277,9 +280,6 @@ int main(int argc, char *argv[]) {
   uint64_t lastHeartBeatReceived;                 // timestamp of the last heartbeat received
 
   int option;                             // command line options
-  int l;
-  int num_pkts_stored_from_tun = 0;       // number of packets received and not sent from tun (stored)
-  int size_muxed_packet = 0;              // accumulated size of the multiplexed packet
 
   int interface_mtu;                      // the maximum transfer unit of the interface
   int user_mtu = 0;                       // the MTU specified by the user (it must be <= interface_mtu)
@@ -1467,7 +1467,7 @@ int main(int argc, char *argv[]) {
             rohc_packet_d.len = nread_from_net;
       
             // Copy the packet itself
-            for (l = 0; l < nread_from_net ; l++) {
+            for (int l = 0; l < nread_from_net ; l++) {
               rohc_buf_byte_at(rohc_packet_d, l) = buffer_from_net[l];
             }
 
@@ -1537,17 +1537,12 @@ int main(int argc, char *argv[]) {
                                 accepting_tcp_connections,
                                 &ipheader,
                                 ipprotocol,
-                                &num_pkts_stored_from_tun,
-                                //size_packets_to_multiplex,
-                                //packets_to_multiplex,
-                                //size_separators_to_multiplex,
-                                //separators_to_multiplex,
-                                //protocol,
+                                //&num_pkts_stored_from_tun,
                                 selected_mtu,
                                 &first_header_written,
                                 size_separator_fast_mode,
                                 size_max,
-                                &size_muxed_packet,
+                                //&size_muxed_packet,
                                 &time_last_sent_in_microsec,
                                 limit_numpackets_tun,
                                 size_threshold,
@@ -1587,15 +1582,15 @@ int main(int argc, char *argv[]) {
         }
         else {
           // not in blast mode
-          if ( num_pkts_stored_from_tun > 0 ) {
+          if ( contextSimplemux.num_pkts_stored_from_tun > 0 ) {
             // There are some packets stored
 
             periodExpiredNoBlastMode (&contextSimplemux,
                                       tun2net,
-                                      &num_pkts_stored_from_tun,
+                                      //&num_pkts_stored_from_tun,
                                       &first_header_written,
                                       &time_last_sent_in_microsec,
-                                      &size_muxed_packet,
+                                      //&size_muxed_packet,
                                       ipprotocol,
                                       &ipheader,
                                       log_file );
