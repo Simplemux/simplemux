@@ -5,30 +5,25 @@
  **************************************************************************/
 // it takes all the variables where packets are stored, and predicts the size of a multiplexed packet including all of them
 // the variables are:
-//  - prot[MAXPKTS][SIZE_PROTOCOL_FIELD]  the protocol byte of each packet
-//  - size_separators_to_mux[MAXPKTS]     the size of each separator (1 or 2 bytes). Protocol byte not included
-//  - separators_to_mux[MAXPKTS][2]       the separators
-//  - size_packets_to_mux[MAXPKTS]        the size of each packet to be multiplexed
-//  - packets_to_mux[MAXPKTS][BUFSIZE]    the packet to be multiplexed
+//  - contextSimplemux->protocol[MAXPKTS][SIZE_PROTOCOL_FIELD]    the protocol byte of each packet
+//  - contextSimplemux->size_separators_to_multiplex[MAXPKTS]     the size of each separator (1 or 2 bytes). Protocol byte not included
+//  - contextSimplemux->separators_to_multiplex[MAXPKTS][2]       the separators
+//  - contextSimplemux->size_packets_to_multiplex[MAXPKTS]        the size of each packet to be multiplexed
+//  - contextSimplemux->packets_to_multiplex[MAXPKTS][BUFSIZE]    the packet to be multiplexed
 
 // the length of the multiplexed packet is returned by this function
-uint16_t predict_size_multiplexed_packet (int num_packets,
-                                          bool fast_mode,
-                                          int single_prot,
-                                          uint8_t prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
-                                          uint16_t size_separators_to_mux[MAXPKTS],
-                                          uint8_t separators_to_mux[MAXPKTS][3],
-                                          uint16_t size_packets_to_mux[MAXPKTS],
-                                          uint8_t packets_to_mux[MAXPKTS][BUFSIZE])
+uint16_t predict_size_multiplexed_packet (struct context* contextSimplemux,
+                                          int single_prot)
 {
-  int k;
   int length = 0;
 
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
 
-  if (!fast_mode) {
+  if (contextSimplemux->flavor == 'N') {
+    // normal flavor
+
     // for each packet, read the protocol field (if present), the separator and the packet itself
-    for (k = 0; k < num_packets ; k++) {
+    for (int k = 0; k < contextSimplemux->num_pkts_stored_from_tun ; k++) {
 
       // count the 'Protocol' field if necessary
       if ( (k==0) || (single_prot == 0 ) ) {    // the protocol field is always present in the first separator (k=0), and maybe in the rest
@@ -36,20 +31,23 @@ uint16_t predict_size_multiplexed_packet (int num_packets,
       }
     
       // count the separator
-      length = length + size_separators_to_mux[k];
+      length = length + contextSimplemux->size_separators_to_multiplex[k];
 
       // count the bytes of the packet itself
-      length = length + size_packets_to_mux[k];
+      length = length + contextSimplemux->size_packets_to_multiplex[k];
     }    
   }
-  else { // fast mode
+  else {
+    // fast flavor
+    assert(contextSimplemux->flavor == 'F');
+
     // count the separator and the protocol field
-    length = length + (num_packets * size_separator_fast_mode);
+    length = length + (contextSimplemux->num_pkts_stored_from_tun * size_separator_fast_mode);
 
     // for each packet, add the length of the packet itself
-    for (k = 0; k < num_packets ; k++) {
+    for (int k = 0; k < contextSimplemux->num_pkts_stored_from_tun ; k++) {
       // count the bytes of the packet itself
-      length = length + size_packets_to_mux[k];
+      length = length + contextSimplemux->size_packets_to_multiplex[k];
     }       
   }
 
@@ -62,29 +60,22 @@ uint16_t predict_size_multiplexed_packet (int num_packets,
  **************************************************************************/
 // it takes all the variables where packets are stored, and builds a multiplexed packet
 // the variables are:
-//  - prot[MAXPKTS][SIZE_PROTOCOL_FIELD]  the protocol byte of each packet
-//  - size_separators_to_mux[MAXPKTS]    the size of each separator (1 or 2 bytes). Protocol byte not included
-//  - separators_to_mux[MAXPKTS][2]      the separators
-//  - size_packets_to_mux[MAXPKTS]      the size of each packet to be multiplexed
-//  - packets_to_mux[MAXPKTS][BUFSIZE]    the packet to be multiplexed
+//  - contextSimplemux->protocol[MAXPKTS][SIZE_PROTOCOL_FIELD]    the protocol byte of each packet
+//  - contextSimplemux->size_separators_to_multiplex[MAXPKTS]     the size of each separator (1 or 2 bytes). Protocol byte not included
+//  - contextSimplemux->separators_to_multiplex[MAXPKTS][2]       the separators
+//  - contextSimplemux->size_packets_to_multiplex[MAXPKTS]        the size of each packet to be multiplexed
+//  - contextSimplemux->packets_to_multiplex[MAXPKTS][BUFSIZE]    the packet to be multiplexed
 
 // the multiplexed packet is stored in mux_packet[BUFSIZE]
 // the length of the multiplexed packet is returned by this function
-uint16_t build_multiplexed_packet ( int num_packets,
-                                    bool fast_mode,
+uint16_t build_multiplexed_packet ( struct context* contextSimplemux,
                                     int single_prot,
-                                    uint8_t prot[MAXPKTS][SIZE_PROTOCOL_FIELD],
-                                    uint16_t size_separators_to_mux[MAXPKTS],
-                                    uint8_t separators_to_mux[MAXPKTS][3],
-                                    uint16_t size_packets_to_mux[MAXPKTS],
-                                    uint8_t packets_to_mux[MAXPKTS][BUFSIZE],
                                     uint8_t mux_packet[BUFSIZE])
 {
-  int k, l;
   int length = 0;
 
   // for each packet, write the protocol field (if required), the separator and the packet itself
-  for (k = 0; k < num_packets ; k++) {
+  for (int k = 0; k < contextSimplemux->num_pkts_stored_from_tun ; k++) {
 
     if (k == 0)
       // add a tab before the first separator
@@ -98,36 +89,36 @@ uint16_t build_multiplexed_packet ( int num_packets,
     // add the separator
     do_debug(2, "0x");
 
-    for (l = 0; l < size_separators_to_mux[k] ; l++) {
-      do_debug(2, "%02x", separators_to_mux[k][l]);
-      mux_packet[length] = separators_to_mux[k][l];
+    for (int l = 0; l < contextSimplemux->size_separators_to_multiplex[k] ; l++) {
+      do_debug(2, "%02x", contextSimplemux->separators_to_multiplex[k][l]);
+      mux_packet[length] = contextSimplemux->separators_to_multiplex[k][l];
       length ++;
     }
 
-    if (!fast_mode) {
+    if (contextSimplemux->flavor == 'N') {
       // add the 'Protocol' field if necessary
       if ( (k==0) || (single_prot == 0 ) ) {    // the protocol field is always present in the first separator (k=0), and maybe in the rest
-        for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
-          mux_packet[length] = prot[k][l];
+        for (int m = 0; m < SIZE_PROTOCOL_FIELD ; m++ ) {
+          mux_packet[length] = contextSimplemux->protocol[k][m];
           length ++;
         }
-        //do_debug(2, "Protocol field: %02x ", prot[k][0]);
-        do_debug(2, "%02x", prot[k][0]);
+        //do_debug(2, "Protocol field: %02x ", contextSimplemux->protocol[k][0]);
+        do_debug(2, "%02x", contextSimplemux->protocol[k][0]);
       }      
     }
     else {  // fast mode
       // in fast mode, I always add the protocol
-      for (l = 0; l < SIZE_PROTOCOL_FIELD ; l++ ) {
-        mux_packet[length] = prot[k][l];
+      for (int m = 0; m < SIZE_PROTOCOL_FIELD ; m++ ) {
+        mux_packet[length] = contextSimplemux->protocol[k][m];
         length ++;
       }
-      //do_debug(2, "Protocol field: %02x ", prot[k][0]);
-      do_debug(2, "%02x", prot[k][0]);
+      //do_debug(2, "Protocol field: %02x ", contextSimplemux->protocol[k][0]);
+      do_debug(2, "%02x", contextSimplemux->protocol[k][0]);
     }
     
     // add the bytes of the packet itself
-    for (l = 0; l < size_packets_to_mux[k] ; l++) {
-      mux_packet[length] = packets_to_mux[k][l];
+    for (int l = 0; l < contextSimplemux->size_packets_to_multiplex[k] ; l++) {
+      mux_packet[length] = contextSimplemux->packets_to_multiplex[k][l];
       length ++;
     }
   }

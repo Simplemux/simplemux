@@ -160,7 +160,7 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
 }
 
 
-void sendPacketBlastMode(  int fd,
+void sendPacketBlastFlavor(int fd,
                            int mode,
                            struct packet* packetToSend,
                            struct sockaddr_in remote,
@@ -176,8 +176,8 @@ void sendPacketBlastMode(  int fd,
 
    switch (mode) {
       case UDP_MODE:
-         do_debug(3, "[sendPacketBlastMode] Sending to the network a UDP blast packet with ID %i: %i bytes\n", ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-         do_debug(3, "[sendPacketBlastMode]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+         do_debug(3, "[sendPacketBlastFlavor] Sending to the network a UDP blast packet with ID %i: %i bytes\n", ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+         do_debug(3, "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
 
         // send the packet
         if (sendto(fd, &(packetToSend->header), total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
@@ -193,8 +193,8 @@ void sendPacketBlastMode(  int fd,
       break;
 
       case NETWORK_MODE:
-         do_debug(3, "[sendPacketBlastMode] Sending to the network an IP blast packet with ID %i: %i bytes\n", ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE );
-         do_debug(3, "[sendPacketBlastMode]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+         do_debug(3, "[sendPacketBlastFlavor] Sending to the network an IP blast packet with ID %i: %i bytes\n", ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE );
+         do_debug(3, "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
 
         // build the header
         struct iphdr ipheader;  
@@ -248,7 +248,7 @@ int sendExpiredPackects(struct packet* head_ref,
          current->sentTimestamp = now;
 
          // send the packet
-         sendPacketBlastMode( fd, mode, current, remote, local);
+         sendPacketBlastFlavor( fd, mode, current, remote, local);
 
          sentPackets++;
       }

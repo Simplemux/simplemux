@@ -10,7 +10,6 @@
  */
 int readPacketFromNet(struct context* contextSimplemux,
                       uint8_t* buffer_from_net,
-                      //struct sockaddr_in received,
                       socklen_t slen,
                       uint16_t port,
                       struct iphdr ipheader,
@@ -250,8 +249,8 @@ int demuxPacketFromNet( struct context* contextSimplemux,
                         int nread_from_net,
                         uint16_t packet_length,
                         FILE *log_file,
-                        struct packet **unconfirmedPacketsBlastMode,
-                        uint64_t* blastModeTimestamps,
+                        struct packet **unconfirmedPacketsBlastFlavor,
+                        uint64_t* blastFlavorTimestamps,
                         uint8_t* buffer_from_net,
                         uint8_t* protocol_rec,
                         rohc_status_t* status,
@@ -307,7 +306,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
     do_debug(3, "%"PRIu64" Packet arrived from the network\n",now);         
   }
 
-  if(contextSimplemux->blastMode) {
+  if(contextSimplemux->flavor == 'B') {
     // there should be a single packet
 
     // apply the structure of a blast mode packet
@@ -328,8 +327,8 @@ int demuxPacketFromNet( struct context* contextSimplemux,
       // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
       do_debug(2," Removing packet with ID %i from the list\n", ntohs(blastHeader->identifier));
       if(debug>2)
-        printList(unconfirmedPacketsBlastMode);
-      if(delete(unconfirmedPacketsBlastMode,ntohs(blastHeader->identifier))==false) {
+        printList(unconfirmedPacketsBlastFlavor);
+      if(delete(unconfirmedPacketsBlastFlavor,ntohs(blastHeader->identifier))==false) {
         do_debug(2,"The packet had already been removed from the list\n");
       }
       else {
@@ -345,19 +344,19 @@ int demuxPacketFromNet( struct context* contextSimplemux,
 
       uint64_t now = GetTimeStamp();
 
-      if(blastModeTimestamps[ntohs(blastHeader->identifier)] == 0){
+      if(blastFlavorTimestamps[ntohs(blastHeader->identifier)] == 0){
         deliverThisPacket=true;
       }
       else {
 
-        if (now - blastModeTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
+        if (now - blastFlavorTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
           // the packet has been sent recently
           // do not send it again
           do_debug(1,"The packet with ID %i has been sent recently. Do not send it again\n", ntohs(blastHeader->identifier));
-          do_debug(2,"now (%"PRIu64") - blastModeTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
+          do_debug(2,"now (%"PRIu64") - blastFlavorTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
                     now,
                     ntohs(blastHeader->identifier),
-                    blastModeTimestamps[ntohs(blastHeader->identifier)],
+                    blastFlavorTimestamps[ntohs(blastHeader->identifier)],
                     TIME_UNTIL_SENDING_AGAIN_BLAST);
         }
         else {
@@ -390,7 +389,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
 
           // update the timestamp when a packet with this identifier has been sent
           uint64_t now = GetTimeStamp();
-          blastModeTimestamps[ntohs(blastHeader->identifier)] = now;
+          blastFlavorTimestamps[ntohs(blastHeader->identifier)] = now;
         }
         // tap mode
         else if(contextSimplemux->tunnelMode == TAP_MODE) {
@@ -410,7 +409,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
 
             // update the timestamp when a packet with this identifier has been sent
             uint64_t now = GetTimeStamp();
-            blastModeTimestamps[ntohs(blastHeader->identifier)] = now;
+            blastFlavorTimestamps[ntohs(blastHeader->identifier)] = now;
           }
         }
         else {
@@ -439,7 +438,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
       else if(contextSimplemux->mode==NETWORK_MODE)
         fd = contextSimplemux->network_mode_fd;
 
-      sendPacketBlastMode(fd,
+      sendPacketBlastFlavor(fd,
                           contextSimplemux->mode,
                           &ACK,
                           contextSimplemux->remote,
@@ -467,7 +466,9 @@ int demuxPacketFromNet( struct context* contextSimplemux,
     int maximum_packet_length;              // the maximum length of a packet. It may be 64 (first header) or 128 (non-first header)
 
     while (position < nread_from_net) {   
-      if (!(contextSimplemux->fastMode)) {
+      if (contextSimplemux->flavor == 'N') {
+        // normal flavor
+
         // check if this is the first separator or not
         if (first_header_read == 0) {
 
@@ -522,7 +523,9 @@ int demuxPacketFromNet( struct context* contextSimplemux,
         do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
         do_debug(2, ": ");
       }
-      else {  // fast mode
+      else {
+        // fast flavor
+        assert(contextSimplemux->flavor == 'F');
 
         // I have demuxed another packet
         num_demuxed_packets ++;
@@ -532,7 +535,8 @@ int demuxPacketFromNet( struct context* contextSimplemux,
       }
 
 
-      if (!(contextSimplemux->fastMode)) {
+      if (contextSimplemux->flavor == 'N') {
+        // normal flavor
 
         if (LXT_first_byte == 0) {
           // the LXT bit of the first byte is 0 => the separator is one-byte long
@@ -676,7 +680,9 @@ int demuxPacketFromNet( struct context* contextSimplemux,
         do_debug(1, ". Length %i bytes\n", packet_length);
       }
 
-      else {  // fast mode
+      else {
+        // fast flavor
+        assert(contextSimplemux->flavor == 'F');
 
         if ((contextSimplemux->mode == TCP_SERVER_MODE) || (contextSimplemux->mode == TCP_CLIENT_MODE)) {
           // do nothing, because I have already read the length

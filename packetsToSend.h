@@ -59,7 +59,7 @@ int length(struct packet** head_ref);
 //find a link with given identifier
 struct packet* find(struct packet** head_ref, uint16_t identifier);
 
-void sendPacketBlastMode(  int fd,
+void sendPacketBlastFlavor(int fd,
                            int mode,
                            struct packet* packetToSend,
                            struct sockaddr_in remote,

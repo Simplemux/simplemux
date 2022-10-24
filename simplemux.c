@@ -112,8 +112,8 @@ void usage(void) {
   fprintf(stderr, "-c <peerIP>: specify peer destination IP address, i.e. the tunnel remote end (mandatory)\n");
   fprintf(stderr, "-M <mode>: 'network' or 'udp' or 'tcpclient' or 'tcpserver' mode (mandatory)\n");
   fprintf(stderr, "-T <tunnel mode>: 'tun' (default) or 'tap' mode\n");
-  fprintf(stderr, "-f: Fast mode (compression rate is lower, but it is faster). Compulsory for TCP mode\n");
-  fprintf(stderr, "-b: Blast mode (packets are sent until an application-level ACK is received from the other side). A period (-P) is needed in this case\n");
+  fprintf(stderr, "-f: fast flavor (compression rate is lower, but it is faster). Compulsory for TCP mode\n");
+  fprintf(stderr, "-b: blast flavor (packets are sent until an application-level ACK is received from the other side). A period (-P) is needed in this case\n");
   fprintf(stderr, "-p <port>: port to listen on, and to connect to (default 55555)\n");
   fprintf(stderr, "-d <debug_level>: Debug level. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
   fprintf(stderr, "-r <ROHC_option>: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
@@ -217,13 +217,18 @@ int main(int argc, char *argv[]) {
 
   struct context contextSimplemux;
 
-  contextSimplemux.fastMode = false; // fast mode is disabled by default
-  contextSimplemux.blastMode = false; // blast mode is disabled by default
+  // set the initial values of some context variables
+  //contextSimplemux.fastMode = false; // fast flavor is disabled by default
+  //contextSimplemux.blastMode = false; // blast mode is disabled by default
+
+  contextSimplemux.flavor = 'N';  // by default 'normal flavor' is selected
 
   contextSimplemux.rohcMode = 0;  // by default it is 0: ROHC is not used
 
   contextSimplemux.num_pkts_stored_from_tun = 0; 
   contextSimplemux.size_muxed_packet = 0;
+
+
 
   int fd2read;
   
@@ -234,7 +239,6 @@ int main(int argc, char *argv[]) {
   char tunnel_mode_string[4];
 
   const int on = 1;                   // needed when creating a socket
-
 
   struct sockaddr_in TCPpair;
 
@@ -252,13 +256,13 @@ int main(int argc, char *argv[]) {
 
   uint8_t protocol_rec;                             // protocol field of the received muxed packet
 
-  struct packet *unconfirmedPacketsBlastMode = NULL;              // to be used in blast mode
+  struct packet *unconfirmedPacketsBlastFlavor = NULL;              // to be used in blast flavor
 
-  uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast mode)
-  uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast mode)
-  uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast mode)
+  uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast flavor)
+  uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
+  uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 
-  uint64_t blastModeTimestamps[0xFFFF+1];   // I will store 65536 different timestamps: one for each possible identifier
+  uint64_t blastFlavorTimestamps[0xFFFF+1];   // I will store 65536 different timestamps: one for each possible identifier
 
   // variables for controlling the arrival and departure of packets
   uint32_t tun2net = 0, net2tun = 0;     // number of packets read from tun and from net
@@ -289,7 +293,7 @@ int main(int argc, char *argv[]) {
 
   bool accepting_tcp_connections = 0;     // it is set to '1' if this is a TCP server and no connections have started
 
-  // fixed size of the separator in fast mode
+  // fixed size of the separator in fast flavor
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
 
   // variables for the log file
@@ -365,17 +369,19 @@ int main(int argc, char *argv[]) {
           do_debug(3, "tunnel_mode_string: %s\n", tunnel_mode_string);
 
           break;
-        case 'f':            /* fast mode */
-          contextSimplemux.fastMode = true;
-          port = PORT_FAST;   // by default, port = PORT. In fast mode, it is PORT_FAST
-          ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast mode, use 254
-          do_debug(1, "Fast mode engaged\n");
+        case 'f':            /* fast flavor */
+          //contextSimplemux.fastMode = true;
+          contextSimplemux.flavor = 'F';
+          port = PORT_FAST;   // by default, port = PORT. In fast flavor, it is PORT_FAST
+          ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast flavor, use 254
+          do_debug(1, "Fast flavor engaged\n");
           break;
-        case 'b':            /* blast mode */
-          contextSimplemux.blastMode = true;
-          port = PORT_BLAST;   // by default, port = PORT. In blast mode, it is PORT_BLAST
-          ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast mode, use 252
-          do_debug(1, "Blast mode engaged\n");
+        case 'b':            /* blast flavor */
+          //contextSimplemux.blastFlavor = true;
+          contextSimplemux.flavor = 'B';
+          port = PORT_BLAST;   // by default, port = PORT. In blast flavor, it is PORT_BLAST
+          ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast flavor, use 252
+          do_debug(1, "Blast flavor engaged\n");
           break;
         case 'e':            /* the name of the network interface (e.g. "eth0") in "mux_if_name" */
           strncpy(mux_if_name, optarg, IFNAMSIZ-1);
@@ -453,49 +459,49 @@ int main(int argc, char *argv[]) {
       usage();
     } 
 
-    // TAP mode requires fast mode
-    else if(((contextSimplemux.mode== TCP_SERVER_MODE) || (contextSimplemux.mode== TCP_CLIENT_MODE)) && (contextSimplemux.fastMode == false)) {
-      my_err("TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient') require fast mode (option '-f')\n");
+    // TAP mode requires fast flavor
+    else if(((contextSimplemux.mode== TCP_SERVER_MODE) || (contextSimplemux.mode== TCP_CLIENT_MODE)) && (contextSimplemux.flavor != 'F')) {
+      my_err("TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient') require fast flavor (option '-f')\n");
       usage();
     }
 
-    else if(contextSimplemux.fastMode == true) {
+    else if(contextSimplemux.flavor == 'F') {
       if(SIZE_PROTOCOL_FIELD!=1) {
-        my_err("Fast mode (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
+        my_err("fast flavor (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
       }
     }
 
-    // Blast mode is restricted
-    else if(contextSimplemux.blastMode == true) {
+    // blast flavor is restricted
+    else if(contextSimplemux.flavor == 'B') {
       if(SIZE_PROTOCOL_FIELD!=1) {
-        my_err("Blast mode (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
+        my_err("blast flavor (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
       }
       if((contextSimplemux.mode== TCP_SERVER_MODE) || (contextSimplemux.mode== TCP_CLIENT_MODE)){
-        my_err("Blast mode (-b) not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
+        my_err("blast flavor (-b) not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
         usage();
       }
-      if(contextSimplemux.fastMode== true) {
-        my_err("Blast mode (-b) and fast mode (-f) are not compatible\n");
+      if(contextSimplemux.flavor == 'F') {
+        my_err("blast flavor (-b) and fast flavor (-f) are not compatible\n");
         usage();        
       }
       if(contextSimplemux.rohcMode!=0) {
-        my_err("Blast mode (-b) is not compatible with ROHC (-r)\n");
+        my_err("blast flavor (-b) is not compatible with ROHC (-r)\n");
         usage();          
       }
       if(size_threshold!=0) {
-        my_err("Blast mode (-b) is not compatible with size threshold (-B)\n");
+        my_err("blast flavor (-b) is not compatible with size threshold (-B)\n");
         usage();
       }
       if(timeout!=MAXTIMEOUT) {
-        my_err("Blast mode (-b) is not compatible with timeout (-t)\n");
+        my_err("blast flavor (-b) is not compatible with timeout (-t)\n");
         usage();
       }
       if(limit_numpackets_tun!=0) {
-        my_err("Blast mode (-b) is not compatible with a limit of the number of packets. Only a packet is sent (-n)\n");
+        my_err("blast flavor (-b) is not compatible with a limit of the number of packets. Only a packet is sent (-n)\n");
         usage();
       }
       if(period==MAXTIMEOUT) {
-        my_err("In blast mode (-b) you must specify a Period (-P)\n");
+        my_err("In blast flavor (-b) you must specify a Period (-P)\n");
         usage();        
       }
     }
@@ -1178,10 +1184,10 @@ int main(int argc, char *argv[]) {
     do_debug(1, "\n");
     
 
-    // in blast mode, fill the vector of timestamps with zeroes
-    if(contextSimplemux.blastMode) {
+    // in blast flavor, fill the vector of timestamps with zeroes
+    if(contextSimplemux.flavor == 'B') {
       for(int i=0;i<0xFFFF+1;i++)
-        blastModeTimestamps[i] = 0;
+        blastFlavorTimestamps[i] = 0;
     }
 
     /** prepare POLL structure **/
@@ -1215,7 +1221,7 @@ int main(int argc, char *argv[]) {
     // I calculate 'now' as the moment of the last sending
     time_last_sent_in_microsec = GetTimeStamp();
 
-    if(contextSimplemux.blastMode) {
+    if(contextSimplemux.flavor == 'B') {
       lastHeartBeatSent = time_last_sent_in_microsec;
       lastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
     }
@@ -1229,12 +1235,12 @@ int main(int argc, char *argv[]) {
     
       /* Initialize the timeout data structure. */
 
-      if(contextSimplemux.blastMode) {
+      if(contextSimplemux.flavor == 'B') {
 
-        time_last_sent_in_microsec = findLastSentTimestamp(unconfirmedPacketsBlastMode);
+        time_last_sent_in_microsec = findLastSentTimestamp(unconfirmedPacketsBlastFlavor);
 
         if(debug>1)
-          printList(&unconfirmedPacketsBlastMode);
+          printList(&unconfirmedPacketsBlastFlavor);
 
         now_microsec = GetTimeStamp();
         //do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);
@@ -1254,7 +1260,7 @@ int main(int argc, char *argv[]) {
           microseconds_left = 0;
         }
 
-        // in blast mode, heartbeats have to be sent periodically
+        // in blast flavor, heartbeats have to be sent periodically
         // if the time to the next heartbeat is smaller than the time to the next blast sent,
         //then the time has to be reduced
         uint64_t microsecondsToNextHeartBeat = lastHeartBeatSent + HEARTBEATPERIOD - now_microsec;
@@ -1265,7 +1271,7 @@ int main(int argc, char *argv[]) {
       }
 
       else {
-        // not in blast mode
+        // not in blast flavor
 
         now_microsec = GetTimeStamp();
 
@@ -1370,7 +1376,6 @@ int main(int argc, char *argv[]) {
 
           is_multiplexed_packet = readPacketFromNet(&contextSimplemux,
                                                     buffer_from_net,
-                                                    //received,
                                                     slen,
                                                     port,
                                                     ipheader,
@@ -1381,8 +1386,7 @@ int main(int argc, char *argv[]) {
                                                     &pending_bytes_muxed_packet,
                                                     size_separator_fast_mode,
                                                     &read_tcp_bytes_separator,
-                                                    &read_tcp_bytes/*,
-                                                    &contextSimplemux.length_muxed_packet*/ );
+                                                    &read_tcp_bytes );
     
           // now 'buffer_from_net' may contain a full packet or frame.
           // check if the packet is a multiplexed one
@@ -1393,14 +1397,11 @@ int main(int argc, char *argv[]) {
           else if (is_multiplexed_packet == 1) {
             demuxPacketFromNet( &contextSimplemux,
                                 &net2tun,
-                                /*local,
-                                remote,
-                                feedback_remote,*/
                                 nread_from_net,
                                 packet_length,
                                 log_file,
-                                &unconfirmedPacketsBlastMode,
-                                blastModeTimestamps,
+                                &unconfirmedPacketsBlastFlavor,
+                                blastFlavorTimestamps,
                                 buffer_from_net,
                                 &protocol_rec,
                                 &status,
@@ -1523,26 +1524,24 @@ int main(int argc, char *argv[]) {
           /* increase the counter of the number of packets read from tun*/
           tun2net++;
 
-          if (contextSimplemux.blastMode) {
-            tunToNetBlastMode(&contextSimplemux,
+          if (contextSimplemux.flavor == 'B') {
+            tunToNetBlastFlavor(&contextSimplemux,
                               tun2net,
-                              &unconfirmedPacketsBlastMode,
+                              &unconfirmedPacketsBlastFlavor,
                               &lastHeartBeatReceived );
           }
 
           else {
-            // not in blast mode
-            tunToNetNoBlastMode(&contextSimplemux,
+            // not in blast flavor
+            tunToNetNoBlastFlavor(&contextSimplemux,
                                 tun2net,
                                 accepting_tcp_connections,
                                 &ipheader,
                                 ipprotocol,
-                                //&num_pkts_stored_from_tun,
                                 selected_mtu,
                                 &first_header_written,
                                 size_separator_fast_mode,
                                 size_max,
-                                //&size_muxed_packet,
                                 &time_last_sent_in_microsec,
                                 limit_numpackets_tun,
                                 size_threshold,
@@ -1562,7 +1561,7 @@ int main(int argc, char *argv[]) {
       else {  // fd2read == 0
         do_debug(2, "Poll timeout expired\n");
         
-        if(contextSimplemux.blastMode) {
+        if(contextSimplemux.flavor == 'B') {
 
           // go through the list and send all the packets with now_microsec > sentTimestamp + period
           int fd;
@@ -1571,26 +1570,24 @@ int main(int argc, char *argv[]) {
           else if(contextSimplemux.mode==NETWORK_MODE)
             fd = contextSimplemux.network_mode_fd;
 
-          periodExpiredBlastMode (&contextSimplemux,
+          periodExpiredblastFlavor (&contextSimplemux,
                                   fd,
                                   &time_last_sent_in_microsec,
                                   period,
                                   lastHeartBeatReceived,
                                   &lastHeartBeatSent,
-                                  unconfirmedPacketsBlastMode);
+                                  unconfirmedPacketsBlastFlavor);
 
         }
         else {
-          // not in blast mode
+          // not in blast flavor
           if ( contextSimplemux.num_pkts_stored_from_tun > 0 ) {
             // There are some packets stored
 
-            periodExpiredNoBlastMode (&contextSimplemux,
+            periodExpiredNoblastFlavor (&contextSimplemux,
                                       tun2net,
-                                      //&num_pkts_stored_from_tun,
                                       &first_header_written,
                                       &time_last_sent_in_microsec,
-                                      //&size_muxed_packet,
                                       ipprotocol,
                                       &ipheader,
                                       log_file );

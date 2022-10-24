@@ -1,11 +1,9 @@
 #include "netToTun.c"
 
 // packet/frame arrived at tun: read it, and send a blast packet to the network
-void tunToNetBlastMode (struct context* contextSimplemux,
+void tunToNetBlastFlavor (struct context* contextSimplemux,
                         uint32_t tun2net,
-                        /*struct sockaddr_in local,
-                        struct sockaddr_in remote,*/
-                        struct packet **unconfirmedPacketsBlastMode,
+                        struct packet **unconfirmedPacketsBlastFlavor,
                         uint64_t* lastHeartBeatReceived )
 {
   uint64_t now = GetTimeStamp();
@@ -13,7 +11,7 @@ void tunToNetBlastMode (struct context* contextSimplemux,
   do_debug(3, "%"PRIu64": Packet arrived from tun\n", now);             
 
   // add a new empty packet to the list
-  struct packet* thisPacket = insertLast(unconfirmedPacketsBlastMode,0,NULL);
+  struct packet* thisPacket = insertLast(unconfirmedPacketsBlastFlavor,0,NULL);
 
   // read the packet from contextSimplemux->tun_fd and add the data
   // use 'htons()' because these fields will be sent through the network
@@ -41,7 +39,7 @@ void tunToNetBlastMode (struct context* contextSimplemux,
   else if(contextSimplemux->mode==NETWORK_MODE)
     fd = contextSimplemux->network_mode_fd;
 
-  sendPacketBlastMode(fd,
+  sendPacketBlastFlavor(fd,
                       contextSimplemux->mode,
                       thisPacket,
                       contextSimplemux->remote,
@@ -72,16 +70,16 @@ void tunToNetBlastMode (struct context* contextSimplemux,
 
   if(now - (*lastHeartBeatReceived) > HEARTBEATDEADLINE) {
     // heartbeat from the other side not received recently
-    if(delete(unconfirmedPacketsBlastMode,ntohs(thisPacket->header.identifier))==false) {
+    if(delete(unconfirmedPacketsBlastFlavor,ntohs(thisPacket->header.identifier))==false) {
       do_debug(2," The packet had already been removed from the list\n");
     }
     else {
       do_debug(2," Packet with ID %i removed from the list\n", tun2net);
     }              
-    do_debug(2, "%"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n", now, now - (*lastHeartBeatReceived), length(unconfirmedPacketsBlastMode));
+    do_debug(2, "%"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n", now, now - (*lastHeartBeatReceived), length(unconfirmedPacketsBlastFlavor));
   }
   else {
-    do_debug(2, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(unconfirmedPacketsBlastMode));
+    do_debug(2, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(unconfirmedPacketsBlastFlavor));
     if(debug > 1)
       dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );              
   }
@@ -90,29 +88,20 @@ void tunToNetBlastMode (struct context* contextSimplemux,
 // packet/frame arrived at tun: read it, and check if:
 // - the packet has to be stored
 // - a multiplexed packet has to be sent through the network
-void tunToNetNoBlastMode (struct context* contextSimplemux,
-                          uint32_t tun2net,
-                          bool accepting_tcp_connections,
-                          /*struct sockaddr_in local,
-                          struct sockaddr_in remote,*/
-                          struct iphdr* ipheader,
-                          uint8_t ipprotocol,
-                          //int* num_pkts_stored_from_tun,
-                          /*uint16_t size_packets_to_multiplex[MAXPKTS],
-                          uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE],
-                          uint16_t size_separators_to_multiplex[MAXPKTS],
-                          uint8_t separators_to_multiplex[MAXPKTS][3],
-                          uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD],*/
-                          int selected_mtu,
-                          int* first_header_written,
-                          int size_separator_fast_mode,
-                          int size_max,
-                          //int* size_muxed_packet,
-                          uint64_t* time_last_sent_in_microsec,
-                          int limit_numpackets_tun,
-                          int size_threshold,
-                          uint64_t timeout,
-                          FILE *log_file)
+void tunToNetNoBlastFlavor (struct context* contextSimplemux,
+                            uint32_t tun2net,
+                            bool accepting_tcp_connections,
+                            struct iphdr* ipheader,
+                            uint8_t ipprotocol,
+                            int selected_mtu,
+                            int* first_header_written,
+                            int size_separator_fast_mode,
+                            int size_max,
+                            uint64_t* time_last_sent_in_microsec,
+                            int limit_numpackets_tun,
+                            int size_threshold,
+                            uint64_t timeout,
+                            FILE *log_file)
 {
 
   /* read the packet from contextSimplemux->tun_fd, store it in the array, and store its size */
@@ -319,8 +308,11 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
 
     int single_protocol;
 
-    // in fast mode I will send the protocol in every packet
-    if (!(contextSimplemux->fastMode)) {
+    // in fast flavor I will send the protocol in every packet
+    // in normal flavor I may avoid the protocol field in many packets
+
+    if (contextSimplemux->flavor == 'N') {
+      // normal flavor
       // calculate if all the packets belong to the same protocol (single_protocol = 1) 
       //or they belong to different protocols (single_protocol = 0)
       single_protocol = 1;
@@ -332,6 +324,8 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       }              
     } 
     else {
+      // fast mode
+      assert(contextSimplemux->flavor == 'F');
       // single_protocol does not make sense in fast mode because
       //all the separators have a Protocol field
       single_protocol = -1;
@@ -341,19 +335,15 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
     // calculate the size without the present packet
     int predicted_size_muxed_packet;        // size of the muxed packet if the arrived packet was added to it
 
-    predicted_size_muxed_packet = predict_size_multiplexed_packet ( contextSimplemux->num_pkts_stored_from_tun,
-                                                                    contextSimplemux->fastMode,
-                                                                    single_protocol,
-                                                                    contextSimplemux->protocol,
-                                                                    contextSimplemux->size_separators_to_multiplex,
-                                                                    contextSimplemux->separators_to_multiplex,
-                                                                    contextSimplemux->size_packets_to_multiplex,
-                                                                    contextSimplemux->packets_to_multiplex);
+    predicted_size_muxed_packet = predict_size_multiplexed_packet ( contextSimplemux,
+                                                                    single_protocol);
 
     // I add the length of the present packet:
 
     // separator and length of the present packet
-    if (!(contextSimplemux->fastMode)) {
+    if (contextSimplemux->flavor == 'N') {
+      // normal flavor
+
       if ((*first_header_written) == 0) {
         // this is the first header, so the maximum length to be expressed in 1 byte is 64
         if (contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] < 64 ) {
@@ -373,7 +363,10 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         }
       }
     }
-    else { // fast mode
+    else {
+      // fast mode
+      assert(contextSimplemux->flavor == 'F');
+
       // the header is always fixed: the size of the length field + the size of the protocol field 
       predicted_size_muxed_packet = predicted_size_muxed_packet +
                                     size_separator_fast_mode +
@@ -398,7 +391,9 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       }
 
       // add the length corresponding to the Protocol field
-      if (!(contextSimplemux->fastMode)) {
+      if (contextSimplemux->flavor == 'N') {
+        // normal flavor
+
         // add the Single Protocol Bit in the first header (the most significant bit)
         // it is '1' if all the multiplexed packets belong to the same protocol
         if (single_protocol == 1) {
@@ -409,25 +404,24 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
           (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + contextSimplemux->num_pkts_stored_from_tun;    // one byte per packet, corresponding to the 'protocol' field
         }
       }
-      else {  // fast mode
-        (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + (contextSimplemux->num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD);
+      else { 
+        // fast mode
+        assert(contextSimplemux->flavor == 'F');
+
+        contextSimplemux->size_muxed_packet = contextSimplemux->size_muxed_packet + (contextSimplemux->num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD);
       }
 
       // build the multiplexed packet without the current one
       uint16_t total_length;          // total length of the built multiplexed packet
       uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
-      total_length = build_multiplexed_packet ( contextSimplemux->num_pkts_stored_from_tun,
-                                                (contextSimplemux->fastMode),
+      total_length = build_multiplexed_packet ( contextSimplemux,
                                                 single_protocol,
-                                                contextSimplemux->protocol,
-                                                contextSimplemux->size_separators_to_multiplex,
-                                                contextSimplemux->separators_to_multiplex,
-                                                contextSimplemux->size_packets_to_multiplex,
-                                                contextSimplemux->packets_to_multiplex,
                                                 muxed_packet);
 
-      if (!(contextSimplemux->fastMode)) {
+      if (contextSimplemux->flavor == 'N') {
+        // normal flavor
+
         if (single_protocol) {
           if (SIZE_PROTOCOL_FIELD == 1)
             do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
@@ -442,6 +436,9 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         }                
       }
       else {
+        // fast mode
+        assert(contextSimplemux->flavor == 'F');
+
         do_debug(2, "   Fast mode. Added 1 Protocol byte to each separator. Total %i bytes", contextSimplemux->num_pkts_stored_from_tun);
       }
       
@@ -604,7 +601,9 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
     // update the size of the muxed packet, adding the size of the current one
     (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + contextSimplemux->size_packets_to_multiplex[contextSimplemux->num_pkts_stored_from_tun];
 
-    if (!(contextSimplemux->fastMode)) {
+    if (contextSimplemux->flavor == 'N') {
+      // normal flavor
+
       // I have to add the multiplexing separator.
       //   - It is 1 byte if the length is smaller than 64 (or 128 for non-first separators) 
       //   - It is 2 bytes if the length is 64 (or 128 for non-first separators) or more
@@ -807,7 +806,9 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         }
       }
     }
-    else {  // fast mode
+    else {
+      // fast flavor
+      assert(contextSimplemux->flavor == 'F');
 
       // the length requires a two-byte separator (length expressed in 16 bits)
       contextSimplemux->size_separators_to_multiplex[contextSimplemux->num_pkts_stored_from_tun] = sizeof(uint16_t);
@@ -852,17 +853,18 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
     // I have finished storing the packet, so I increase the number of stored packets
     contextSimplemux->num_pkts_stored_from_tun ++;
 
-    if (!(contextSimplemux->fastMode)) {
+    if (contextSimplemux->flavor == 'N') {
+      // normal flavor
+
       // I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
-      if ((*first_header_written) == 0) (*first_header_written) = 1;              
-    }  
+      if ((*first_header_written) == 0) (*first_header_written) = 1; 
 
-
-
-    if (!(contextSimplemux->fastMode)) {
       do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Protocol not included).", contextSimplemux->num_pkts_stored_from_tun , (contextSimplemux->size_muxed_packet));
     }
-    else { // fast mode
+    else {
+      // fast flavor
+      assert(contextSimplemux->flavor == 'F');
+
       do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Separator(s) included).", contextSimplemux->num_pkts_stored_from_tun , (contextSimplemux->size_muxed_packet) + (contextSimplemux->num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD));
     }
    
@@ -878,7 +880,9 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
     // do not worry about the MTU. if it is reached, a number of packets will be sent
     if ((contextSimplemux->num_pkts_stored_from_tun == limit_numpackets_tun) || ((contextSimplemux->size_muxed_packet) > size_threshold) || (time_difference > timeout )) {
       // a multiplexed packet has to be sent
-      if (!(contextSimplemux->fastMode)) {
+      if (contextSimplemux->flavor == 'N') {
+        // normal flavor
+
         // fill the SPB field (Single Protocol Bit)
         
         // calculate if all the packets belong to the same protocol
@@ -903,13 +907,16 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
         }               
       }
       else {
+        // fast flavor
+        assert(contextSimplemux->flavor == 'F');
+
         // add the size that corresponds to the Protocol field of all the separators
         (contextSimplemux->size_muxed_packet) = (contextSimplemux->size_muxed_packet) + ( SIZE_PROTOCOL_FIELD * contextSimplemux->num_pkts_stored_from_tun);
         do_debug(2, "   Fast mode. Added header: length (2 bytes) + protocol (1 byte) in each separator. Total %i bytes\n", 3 * contextSimplemux->num_pkts_stored_from_tun);            
       }
 
       // write the debug information
-      if (debug>0) {
+      if (debug > 0) {
         //do_debug(2, "\n");
         do_debug(1, "SENDING TRIGGERED: ");
         if (contextSimplemux->num_pkts_stored_from_tun == limit_numpackets_tun)
@@ -995,14 +1002,8 @@ void tunToNetNoBlastMode (struct context* contextSimplemux,
       uint16_t total_length;          // total length of the built multiplexed packet
       uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
-      total_length = build_multiplexed_packet ( contextSimplemux->num_pkts_stored_from_tun,
-                                                (contextSimplemux->fastMode),
+      total_length = build_multiplexed_packet ( contextSimplemux,
                                                 single_protocol,
-                                                contextSimplemux->protocol,
-                                                contextSimplemux->size_separators_to_multiplex,
-                                                contextSimplemux->separators_to_multiplex,
-                                                contextSimplemux->size_packets_to_multiplex,
-                                                contextSimplemux->packets_to_multiplex,
                                                 muxed_packet);
 
       // send the multiplexed packet

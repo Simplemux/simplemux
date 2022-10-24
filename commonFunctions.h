@@ -42,8 +42,9 @@
 struct context {
   char mode;        // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode
   char tunnelMode;  // TUN (U, default) or TAP (T) tunnel mode
-  bool fastMode;
-  bool blastMode;
+  char flavor;      // Normal ('N'), Fast ('F'), Blast ('B')
+  //bool fastMode;
+  //bool blastMode;
   int rohcMode; // it is 0 if ROHC is not used
                 // it is 1 for ROHC Unidirectional mode (headers are to be compressed/decompressed)
                 // it is 2 for ROHC Bidirectional Optimistic mode
@@ -73,8 +74,19 @@ struct context {
   uint16_t size_packets_to_multiplex[MAXPKTS];      // stores the size of the received packet
   uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network 
   int size_muxed_packet;                            // accumulated size of the multiplexed packet
-  
+
   uint16_t length_muxed_packet;                     // length of the next TCP packet
+
+  // pending
+  /*
+  struct packet *unconfirmedPacketsBlastFlavor = NULL;              // to be used in blast mode
+  uint64_t blastFlavorTimestamps[0xFFFF+1];   // I will store 65536 different timestamps: one for each possible identifier
+
+  // variables for controlling the arrival and departure of packets
+  uint32_t tun2net;           // number of packets read from tun
+  uint32_t net2tun;           // number of packets read from net
+  uint32_t feedback_pkts;     // number of ROHC feedback packets
+  */
 };
 
 void do_debug(int level, char *msg, ...);

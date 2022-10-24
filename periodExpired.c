@@ -1,14 +1,12 @@
 #include "tunToNet.c"
 
-void periodExpiredBlastMode ( struct context* contextSimplemux,
+void periodExpiredblastFlavor ( struct context* contextSimplemux,
                               int fd,
                               uint64_t* time_last_sent_in_microsec,
                               uint64_t period,
                               uint64_t lastHeartBeatReceived,
                               uint64_t* lastHeartBeatSent,
-                              /*struct sockaddr_in local,
-                              struct sockaddr_in remote,*/
-                              struct packet *unconfirmedPacketsBlastMode )
+                              struct packet *unconfirmedPacketsBlastFlavor )
 {
 
   // I may be here because of two different causes (both may have been accomplished):
@@ -25,7 +23,7 @@ void periodExpiredBlastMode ( struct context* contextSimplemux,
     }
     else {
       // heartbeat from the other side received recently
-      int n = sendExpiredPackects(unconfirmedPacketsBlastMode,
+      int n = sendExpiredPackects(unconfirmedPacketsBlastFlavor,
                                   now_microsec,
                                   period,
                                   fd,
@@ -47,11 +45,11 @@ void periodExpiredBlastMode ( struct context* contextSimplemux,
     heartBeat.header.identifier = 0;
     heartBeat.header.ACK = HEARTBEAT;
 
-    sendPacketBlastMode(fd,
-                        contextSimplemux->mode,
-                        &heartBeat,
-                        contextSimplemux->remote,
-                        contextSimplemux->local);
+    sendPacketBlastFlavor(fd,
+                          contextSimplemux->mode,
+                          &heartBeat,
+                          contextSimplemux->remote,
+                          contextSimplemux->local);
 
     do_debug(1," Sent blast heartbeat to the network: %"PRIu64" > %"PRIu64"\n", now_microsec - (*lastHeartBeatSent), HEARTBEATPERIOD);
     (*lastHeartBeatSent) = now_microsec;          
@@ -62,19 +60,10 @@ void periodExpiredBlastMode ( struct context* contextSimplemux,
 }
 
 
-void periodExpiredNoBlastMode ( struct context* contextSimplemux,
+void periodExpiredNoblastFlavor ( struct context* contextSimplemux,
                                 uint32_t tun2net,
-                                //int* num_pkts_stored_from_tun,
                                 int* first_header_written,
                                 uint64_t* time_last_sent_in_microsec,
-                                //uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD],
-                                //uint16_t size_separators_to_multiplex[MAXPKTS],
-                                //uint8_t separators_to_multiplex[MAXPKTS][3],
-                                //int* size_muxed_packet,
-                                //uint16_t size_packets_to_multiplex[MAXPKTS],
-                                //uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE],
-                                /*struct sockaddr_in local,
-                                struct sockaddr_in remote,*/
                                 uint8_t ipprotocol,
                                 struct iphdr* ipheader,
                                 FILE *log_file )
@@ -84,7 +73,9 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
   // it is 1 when the Single-Protocol-Bit of the first header is 1
   int single_protocol;
 
-  if(!(contextSimplemux->fastMode)) {
+  if(contextSimplemux->flavor == 'N') {
+    // normal flavor
+
     // calculate if all the packets belong to the same protocol
     single_protocol = 1;
     for (int k = 1; k < contextSimplemux->num_pkts_stored_from_tun ; k++) {
@@ -134,8 +125,10 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
 
   }
   else {
-    // fast mode
-    // in Fast mode the Protocol is sent in every separator
+    // fast flavor
+    assert(contextSimplemux->flavor == 'F');
+
+    // in Fast flavor the Protocol is sent in every separator
 
     // in this case, the value of 'single_protocol' is not relevant,
     //but it is needed by 'build_multiplexed_packet()'
@@ -171,14 +164,8 @@ void periodExpiredNoBlastMode ( struct context* contextSimplemux,
   uint16_t total_length;          // total length of the built multiplexed packet
   uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
-  total_length = build_multiplexed_packet ( contextSimplemux->num_pkts_stored_from_tun,
-                                            (contextSimplemux->fastMode),
+  total_length = build_multiplexed_packet ( contextSimplemux,
                                             single_protocol,
-                                            contextSimplemux->protocol,
-                                            contextSimplemux->size_separators_to_multiplex,
-                                            contextSimplemux->separators_to_multiplex,
-                                            contextSimplemux->size_packets_to_multiplex,
-                                            contextSimplemux->packets_to_multiplex,
                                             muxed_packet);
 
   // send the multiplexed packet
