@@ -565,6 +565,7 @@ int main(int argc, char *argv[]) {
     /************* end - initialize the tun/tap **************/
 
 
+    /* SOCKET REQUEST */
     /*** Request a socket for writing and receiving muxed packets in Network mode ***/
     if ( context.mode== NETWORK_MODE ) {
       // initialize header IP to be used when receiving a packet in NETWORK mode
@@ -836,6 +837,7 @@ int main(int argc, char *argv[]) {
         }
       }
     }
+    /* END OF SOCKET REQUEST */
 
     /*** get the MTU of the local interface ***/
     if ( context.mode== UDP_MODE)  {
@@ -1187,12 +1189,6 @@ int main(int argc, char *argv[]) {
     do_debug(1, "\n");
     
 
-    // in blast flavor, fill the vector of timestamps with zeroes
-    if(context.flavor == 'B') {
-      for(int i=0;i<0xFFFF+1;i++)
-        context.blastTimestamps[i] = 0;
-    }
-
     /** prepare POLL structure **/
     // it has size 3 (NUMBER_OF_SOCKETS), because it handles 3 sockets
     // - tun/tap socket where demuxed packets are sent/received
@@ -1219,12 +1215,18 @@ int main(int argc, char *argv[]) {
     fds_poll[0].events = POLLIN;
     fds_poll[1].events = POLLIN;
     fds_poll[2].events = POLLIN;
-    /** END prepare POLL structure **/  
-      
-    // I calculate 'now' as the moment of the last sending
-    context.timeLastSent = GetTimeStamp();
+    /** END prepare POLL structure **/
 
+    // I calculate 'now' as the moment of the last sending
+    context.timeLastSent = GetTimeStamp();  
+      
+    // initializations for blast flavor
     if(context.flavor == 'B') {
+      // fill the vector of timestamps with zeroes
+      for(int i=0; i < 0xFFFF + 1; i++) {
+        context.blastTimestamps[i] = 0;
+      }
+      // fill the variables 'lastBlastHeartBeatSent' and 'lastBlastHeartBeatReceived'
       context.lastBlastHeartBeatSent = context.timeLastSent;
       context.lastBlastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
     }
