@@ -76,15 +76,49 @@ struct contextSimplemux {
 
   uint16_t length_muxed_packet;                     // length of the next TCP packet
 
-  // pending
+  struct packet *unconfirmedPacketsBlast;           // pointer to the list of unconfirmed packets (blast flavor)
   /*
-  struct packet *unconfirmedPacketsBlastFlavor = NULL;              // to be used in blast mode
   uint64_t blastFlavorTimestamps[0xFFFF+1];   // I will store 65536 different timestamps: one for each possible identifier
+  uint64_t lastHeartBeatReceived;
 
   // variables for counting the arrived and sent packets
   uint32_t tun2net;           // number of packets read from tun
   uint32_t net2tun;           // number of packets read from net
   uint32_t feedback_pkts;     // number of ROHC feedback packets
+
+  char remote_ip[16] = "";                  // dotted quad IP string with the IP of the remote machine
+  char local_ip[16] = "";                   // dotted quad IP string with the IP of the local machine
+  uint16_t port = PORT;                     // UDP/TCP port to be used for sending the multiplexed packets
+  uint16_t port_feedback = PORT_FEEDBACK;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
+  uint8_t ipprotocol = IPPROTO_SIMPLEMUX;
+
+  struct iphdr ipheader;              // IP header
+  struct ifreq iface;                 // network interface
+
+  int size_threshold = 0;                         // if the number of bytes stored is higher than this, a muxed packet is sent
+  int size_max;                                   // maximum value of the packet size
+
+  uint64_t timeout = MAXTIMEOUT;                  // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
+                                                  //previous sending), the sending is triggered. default 100 seconds
+  uint64_t period= MAXTIMEOUT;                    // (microseconds). If the 'period' expires, a packet is sent
+  uint64_t microseconds_left = period;            // the time until the period expires 
+
+  int limit_numpackets_tun,
+  int size_threshold,
+  uint64_t timeout,
+  FILE *log_fileS
+
+  int first_header_written = 0;           // it indicates if the first header has been written or not
+
+  bool accepting_tcp_connections = 0;     // it is set to '1' if this is a TCP server and no connections have started
+
+  // fixed size of the separator in fast flavor
+  int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
+
+  // very long unsigned integers for storing the system clock in microseconds
+  uint64_t time_last_sent_in_microsec;            // moment when the last multiplexed packet was sent
+  uint64_t lastHeartBeatSent;                     // timestamp of the last heartbeat sent
+  uint64_t lastHeartBeatReceived;                 // timestamp of the last heartbeat received
   */
 };
 

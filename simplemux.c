@@ -218,15 +218,11 @@ int main(int argc, char *argv[]) {
   struct contextSimplemux context;
 
   // set the initial values of some context variables
-  //context.fastMode = false; // fast flavor is disabled by default
-  //context.blastMode = false; // blast mode is disabled by default
-
   context.flavor = 'N';  // by default 'normal flavor' is selected
-
   context.rohcMode = 0;  // by default it is 0: ROHC is not used
-
   context.num_pkts_stored_from_tun = 0; 
   context.size_muxed_packet = 0;
+  context.unconfirmedPacketsBlast = NULL;
 
 
 
@@ -256,7 +252,7 @@ int main(int argc, char *argv[]) {
 
   uint8_t protocol_rec;                             // protocol field of the received muxed packet
 
-  struct packet *unconfirmedPacketsBlastFlavor = NULL;              // to be used in blast flavor
+
 
   uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast flavor)
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
@@ -370,18 +366,30 @@ int main(int argc, char *argv[]) {
 
           break;
         case 'f':            /* fast flavor */
-          //context.fastMode = true;
-          context.flavor = 'F';
-          port = PORT_FAST;   // by default, port = PORT. In fast flavor, it is PORT_FAST
-          ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast flavor, use 254
-          do_debug(1, "Fast flavor engaged\n");
+          if(context.flavor == 'B') {
+            // both -f and -b options have been selected
+            my_err("fast ('-f') and blast (`-b') flavors are not compatible\n");
+            usage();
+          }
+          else{
+            context.flavor = 'F';
+            port = PORT_FAST;   // by default, port = PORT. In fast flavor, it is PORT_FAST
+            ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast flavor, use 254
+            do_debug(1, "Fast flavor engaged\n");            
+          }
           break;
         case 'b':            /* blast flavor */
-          //context.blastFlavor = true;
-          context.flavor = 'B';
-          port = PORT_BLAST;   // by default, port = PORT. In blast flavor, it is PORT_BLAST
-          ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast flavor, use 252
-          do_debug(1, "Blast flavor engaged\n");
+          if(context.flavor == 'F') {
+            // both -f and -b options have been selected
+            my_err("fast ('-f') and blast (`-b') flavors are not compatible\n");
+            usage();
+          }
+          else{
+            context.flavor = 'B';
+            port = PORT_BLAST;   // by default, port = PORT. In blast flavor, it is PORT_BLAST
+            ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast flavor, use 252
+            do_debug(1, "Blast flavor engaged\n");
+          }
           break;
         case 'e':            /* the name of the network interface (e.g. "eth0") in "mux_if_name" */
           strncpy(mux_if_name, optarg, IFNAMSIZ-1);
@@ -442,20 +450,20 @@ int main(int argc, char *argv[]) {
       my_err("Must specify the IP address of the peer\n");
       usage();
     } else if(*mux_if_name == '\0') {
-      my_err("Must specify local interface name for multiplexed packets\n");
+      my_err("Must specify the local interface name for multiplexed packets\n");
       usage();
     } 
 
 
     // check if NETWORK or TRANSPORT mode have been selected (mandatory)
     else if((context.mode!= NETWORK_MODE) && (context.mode!= UDP_MODE) && (context.mode!= TCP_CLIENT_MODE) && (context.mode!= TCP_SERVER_MODE)) {
-      my_err("Must specify a valid mode ('-M' option MUST be 'network', 'udp', 'tcpserver' or 'tcpclient')\n");
+      my_err("Must specify a valid mode ('-M' option MUST either be 'network', 'udp', 'tcpserver' or 'tcpclient')\n");
       usage();
     } 
   
     // check if TUN or TAP mode have been selected (mandatory)
     else if((context.tunnelMode != TUN_MODE) && (context.tunnelMode != TAP_MODE)) {
-      my_err("Must specify a valid tunnel mode ('-T' option MUST be 'tun' or 'tap')\n");
+      my_err("Must specify a valid tunnel mode ('-T' option MUST either be 'tun' or 'tap')\n");
       usage();
     } 
 
@@ -467,22 +475,18 @@ int main(int argc, char *argv[]) {
 
     else if(context.flavor == 'F') {
       if(SIZE_PROTOCOL_FIELD!=1) {
-        my_err("fast flavor (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
+        my_err("fast flavor (-f) only allows a protocol field of size 1. Please revise the value of 'SIZE_PROTOCOL_FIELD'\n");        
       }
     }
 
     // blast flavor is restricted
     else if(context.flavor == 'B') {
       if(SIZE_PROTOCOL_FIELD!=1) {
-        my_err("blast flavor (-f) only allows a protocol field of size 1. Please review 'SIZE_PROTOCOL_FIELD'\n");        
+        my_err("blast flavor (-f) only allows a protocol field of size 1. Please revise the value of 'SIZE_PROTOCOL_FIELD'\n");        
       }
       if((context.mode== TCP_SERVER_MODE) || (context.mode== TCP_CLIENT_MODE)){
-        my_err("blast flavor (-b) not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
+        my_err("blast flavor (-b) is not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
         usage();
-      }
-      if(context.flavor == 'F') {
-        my_err("blast flavor (-b) and fast flavor (-f) are not compatible\n");
-        usage();        
       }
       if(context.rohcMode!=0) {
         my_err("blast flavor (-b) is not compatible with ROHC (-r)\n");
@@ -1237,10 +1241,10 @@ int main(int argc, char *argv[]) {
 
       if(context.flavor == 'B') {
 
-        time_last_sent_in_microsec = findLastSentTimestamp(unconfirmedPacketsBlastFlavor);
+        time_last_sent_in_microsec = findLastSentTimestamp(context.unconfirmedPacketsBlast);
 
         if(debug>1)
-          printList(&unconfirmedPacketsBlastFlavor);
+          printList(&context.unconfirmedPacketsBlast);
 
         now_microsec = GetTimeStamp();
         //do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);
@@ -1400,7 +1404,7 @@ int main(int argc, char *argv[]) {
                                 nread_from_net,
                                 packet_length,
                                 log_file,
-                                &unconfirmedPacketsBlastFlavor,
+                                //&context.unconfirmedPacketsBlast,
                                 blastFlavorTimestamps,
                                 buffer_from_net,
                                 &protocol_rec,
@@ -1509,8 +1513,7 @@ int main(int argc, char *argv[]) {
           }
         }
   
-  
-  
+    
         /**************************************************************************************/  
         /***************** TUN to NET: compress and multiplex *********************************/
         /**************************************************************************************/
@@ -1526,9 +1529,9 @@ int main(int argc, char *argv[]) {
 
           if (context.flavor == 'B') {
             tunToNetBlastFlavor(&context,
-                              tun2net,
-                              &unconfirmedPacketsBlastFlavor,
-                              &lastHeartBeatReceived );
+                                tun2net,
+                                //&context.unconfirmedPacketsBlast,
+                                &lastHeartBeatReceived );
           }
 
           else {
@@ -1550,6 +1553,7 @@ int main(int argc, char *argv[]) {
           }
         }
       }  
+
       /*************************************************************************************/  
       /******************** Period expired: multiplex **************************************/
       /*************************************************************************************/  
@@ -1571,12 +1575,12 @@ int main(int argc, char *argv[]) {
             fd = context.network_mode_fd;
 
           periodExpiredblastFlavor (&context,
-                                  fd,
-                                  &time_last_sent_in_microsec,
-                                  period,
-                                  lastHeartBeatReceived,
-                                  &lastHeartBeatSent,
-                                  unconfirmedPacketsBlastFlavor);
+                                    fd,
+                                    &time_last_sent_in_microsec,
+                                    period,
+                                    lastHeartBeatReceived,
+                                    &lastHeartBeatSent/*,
+                                    context.unconfirmedPacketsBlast*/);
 
         }
         else {
@@ -1585,12 +1589,12 @@ int main(int argc, char *argv[]) {
             // There are some packets stored
 
             periodExpiredNoblastFlavor (&context,
-                                      tun2net,
-                                      &first_header_written,
-                                      &time_last_sent_in_microsec,
-                                      ipprotocol,
-                                      &ipheader,
-                                      log_file );
+                                        tun2net,
+                                        &first_header_written,
+                                        &time_last_sent_in_microsec,
+                                        ipprotocol,
+                                        &ipheader,
+                                        log_file );
 
           }
           else {

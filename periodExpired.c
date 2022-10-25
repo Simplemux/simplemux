@@ -5,8 +5,8 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
                               uint64_t* time_last_sent_in_microsec,
                               uint64_t period,
                               uint64_t lastHeartBeatReceived,
-                              uint64_t* lastHeartBeatSent,
-                              struct packet *unconfirmedPacketsBlastFlavor )
+                              uint64_t* lastHeartBeatSent/*,
+                              struct packet *unconfirmedPacketsBlastFlavor*/ )
 {
 
   // I may be here because of two different causes (both may have been accomplished):
@@ -23,7 +23,7 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
     }
     else {
       // heartbeat from the other side received recently
-      int n = sendExpiredPackects(unconfirmedPacketsBlastFlavor,
+      int n = sendExpiredPackects(context->unconfirmedPacketsBlast,
                                   now_microsec,
                                   period,
                                   fd,

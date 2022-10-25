@@ -249,7 +249,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                         int nread_from_net,
                         uint16_t packet_length,
                         FILE *log_file,
-                        struct packet **unconfirmedPacketsBlastFlavor,
+                        //struct packet **unconfirmedPacketsBlastFlavor,
                         uint64_t* blastFlavorTimestamps,
                         uint8_t* buffer_from_net,
                         uint8_t* protocol_rec,
@@ -327,8 +327,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
       do_debug(2," Removing packet with ID %i from the list\n", ntohs(blastHeader->identifier));
       if(debug>2)
-        printList(unconfirmedPacketsBlastFlavor);
-      if(delete(unconfirmedPacketsBlastFlavor,ntohs(blastHeader->identifier))==false) {
+        printList(&context->unconfirmedPacketsBlast);
+      if(delete(&context->unconfirmedPacketsBlast,ntohs(blastHeader->identifier))==false) {
         do_debug(2,"The packet had already been removed from the list\n");
       }
       else {
