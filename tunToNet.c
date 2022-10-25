@@ -86,14 +86,12 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 // - the packet has to be stored
 // - a multiplexed packet has to be sent through the network
 void tunToNetNoBlastFlavor (struct contextSimplemux* context,
-                            bool accepting_tcp_connections,
                             struct iphdr* ipheader,
                             uint8_t ipprotocol,
                             int selected_mtu,
                             int* first_header_written,
                             int size_separator_fast_mode,
                             int size_max,
-                            uint64_t* time_last_sent_in_microsec,
                             int limit_numpackets_tun,
                             int size_threshold,
                             uint64_t timeout,
@@ -522,7 +520,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
         break;
 
         case TCP_SERVER_MODE:  
-          if(accepting_tcp_connections == 1) {
+          if(context->acceptingTcpConnections == true) {
             do_debug(1," The packet should be sent to the TCP socket. But no client has yet been connected to this server\n");
           }
           else {
@@ -564,7 +562,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
 
       // I have sent a packet, so I restart the period: update the time of the last packet sent
       uint64_t now_microsec = GetTimeStamp();
-      *time_last_sent_in_microsec = now_microsec;
+      context->timeLastSent = now_microsec;
 
       // I have emptied the buffer, so I have to
       //move the current packet to the first position of the 'packets_to_multiplex' array
@@ -865,7 +863,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
     }
    
     uint64_t now_microsec = GetTimeStamp();
-    uint64_t time_difference = now_microsec - (*time_last_sent_in_microsec);
+    uint64_t time_difference = now_microsec - (context->timeLastSent);
 
     do_debug(1, " Time since last trigger: %" PRIu64 " usec\n", time_difference);//PRIu64 is used for printing uint64_t numbers
 
@@ -1076,7 +1074,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
           // send the packet. I don't need to build the header, because I have a TCP socket
           
           // check if the connection has already been established by the client
-          if(accepting_tcp_connections == 1) {
+          if(context->acceptingTcpConnections == true) {
             do_debug(1," The packet should be sent to the TCP socket. But no client has yet been connected to this server\n");
           }
           else {
@@ -1131,7 +1129,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
       context->num_pkts_stored_from_tun = 0;
 
       // restart the period: update the time of the last packet sent
-      *time_last_sent_in_microsec = now_microsec;
+      context->timeLastSent = now_microsec;
     }
     else {
       // a multiplexed packet does not have to be sent. I have just accumulated this one

@@ -76,6 +76,12 @@ struct contextSimplemux {
 
   uint16_t length_muxed_packet;                     // length of the next TCP packet
 
+  uint64_t timeLastSent;          // timestamp (us) when the last multiplexed packet was sent
+  uint64_t microsecondsLeft;      // the time (us) until the period expires 
+
+  // only for tcpserver mode
+  bool acceptingTcpConnections;     // it is set to '1' if this is a TCP server and no connections have started
+
   // only for blast flavor
   struct packet *unconfirmedPacketsBlast;           // pointer to the list of unconfirmed packets (blast flavor)
   uint64_t blastTimestamps[0xFFFF+1];         // I will store 65536 different timestamps: one for each possible identifier
@@ -86,6 +92,7 @@ struct contextSimplemux {
   uint32_t tun2net;           // number of packets read from tun
   uint32_t net2tun;           // number of packets read from net
   uint32_t feedback_pkts;     // number of ROHC feedback packets
+
   /*
   char remote_ip[16] = "";                  // dotted quad IP string with the IP of the remote machine
   char local_ip[16] = "";                   // dotted quad IP string with the IP of the local machine
@@ -102,7 +109,7 @@ struct contextSimplemux {
   uint64_t timeout = MAXTIMEOUT;                  // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
                                                   //previous sending), the sending is triggered. default 100 seconds
   uint64_t period= MAXTIMEOUT;                    // (microseconds). If the 'period' expires, a packet is sent
-  uint64_t microseconds_left = period;            // the time until the period expires 
+
 
   int limit_numpackets_tun,
   int size_threshold,
@@ -111,15 +118,8 @@ struct contextSimplemux {
 
   int first_header_written = 0;           // it indicates if the first header has been written or not
 
-  bool accepting_tcp_connections = 0;     // it is set to '1' if this is a TCP server and no connections have started
-
   // fixed size of the separator in fast flavor
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
-
-  // very long unsigned integers for storing the system clock in microseconds
-  uint64_t time_last_sent_in_microsec;            // moment when the last multiplexed packet was sent
-
-
   */
 };
 

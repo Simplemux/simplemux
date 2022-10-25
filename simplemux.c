@@ -226,6 +226,7 @@ int main(int argc, char *argv[]) {
   context.tun2net = 0;
   context.net2tun = 0; 
   context.feedback_pkts = 0;
+  context.acceptingTcpConnections = false;
 
 
   int fd2read;
@@ -272,10 +273,9 @@ int main(int argc, char *argv[]) {
   uint64_t timeout = MAXTIMEOUT;                  // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
                                                   //previous sending), the sending is triggered. default 100 seconds
   uint64_t period= MAXTIMEOUT;                    // (microseconds). If the 'period' expires, a packet is sent
-  uint64_t microseconds_left = period;            // the time until the period expires  
+ 
 
   // very long unsigned integers for storing the system clock in microseconds
-  uint64_t time_last_sent_in_microsec;            // moment when the last multiplexed packet was sent
   uint64_t now_microsec;                          // current time
 
 
@@ -286,8 +286,6 @@ int main(int argc, char *argv[]) {
   int selected_mtu;                       // the MTU that will be used in the program
 
   int first_header_written = 0;           // it indicates if the first header has been written or not
-
-  bool accepting_tcp_connections = 0;     // it is set to '1' if this is a TCP server and no connections have started
 
   // fixed size of the separator in fast flavor
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
@@ -423,6 +421,7 @@ int main(int argc, char *argv[]) {
           break;
         case 'P':            /* Period for triggering a muxed packet */
           period = atoll(optarg);
+          context.microsecondsLeft = period; 
           break;
         default:
           my_err("Unknown option %c\n", option);
@@ -764,7 +763,7 @@ int main(int argc, char *argv[]) {
       listen(context.tcp_welcoming_fd, 1);
       
       // from now on, I will accept a TCP connection
-      accepting_tcp_connections = 1;
+      context.acceptingTcpConnections = true;
     }
 
     // TCP client mode
@@ -1223,10 +1222,10 @@ int main(int argc, char *argv[]) {
     /** END prepare POLL structure **/  
       
     // I calculate 'now' as the moment of the last sending
-    time_last_sent_in_microsec = GetTimeStamp();
+    context.timeLastSent = GetTimeStamp();
 
     if(context.flavor == 'B') {
-      context.lastBlastHeartBeatSent = time_last_sent_in_microsec;
+      context.lastBlastHeartBeatSent = context.timeLastSent;
       context.lastBlastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
     }
     
@@ -1241,7 +1240,7 @@ int main(int argc, char *argv[]) {
 
       if(context.flavor == 'B') {
 
-        time_last_sent_in_microsec = findLastSentTimestamp(context.unconfirmedPacketsBlast);
+        context.timeLastSent = findLastSentTimestamp(context.unconfirmedPacketsBlast);
 
         if(debug>1)
           printList(&context.unconfirmedPacketsBlast);
@@ -1249,19 +1248,19 @@ int main(int argc, char *argv[]) {
         now_microsec = GetTimeStamp();
         //do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);
 
-        if (time_last_sent_in_microsec == 0) {
-          time_last_sent_in_microsec = now_microsec;
+        if (context.timeLastSent == 0) {
+          context.timeLastSent = now_microsec;
           do_debug(2, "%"PRIu64" No blast packet is waiting to be sent to the network\n", now_microsec);
         }
 
-        if(time_last_sent_in_microsec + period > now_microsec) {
-          microseconds_left = time_last_sent_in_microsec + period - now_microsec;
-          do_debug(2, "%"PRIu64" The next blast packet will be sent in %"PRIu64" us\n", now_microsec, microseconds_left);         
+        if(context.timeLastSent + period > now_microsec) {
+          context.microsecondsLeft = context.timeLastSent + period - now_microsec;
+          do_debug(2, "%"PRIu64" The next blast packet will be sent in %"PRIu64" us\n", now_microsec, context.microsecondsLeft);         
         }
         else {
           // the period is already expired
           do_debug(2, "%"PRIu64" Call the poll with limit 0\n", now_microsec);
-          microseconds_left = 0;
+          context.microsecondsLeft = 0;
         }
 
         // in blast flavor, heartbeats have to be sent periodically
@@ -1270,8 +1269,8 @@ int main(int argc, char *argv[]) {
         uint64_t microsecondsToNextHeartBeat = context.lastBlastHeartBeatSent + HEARTBEATPERIOD - now_microsec;
 
         // choose the smallest one
-        if(microsecondsToNextHeartBeat < microseconds_left)
-          microseconds_left = microsecondsToNextHeartBeat;
+        if(microsecondsToNextHeartBeat < context.microsecondsLeft)
+          context.microsecondsLeft = microsecondsToNextHeartBeat;
       }
 
       else {
@@ -1279,23 +1278,23 @@ int main(int argc, char *argv[]) {
 
         now_microsec = GetTimeStamp();
 
-        if ( period > (now_microsec - time_last_sent_in_microsec)) {
+        if ( period > (now_microsec - context.timeLastSent)) {
           // the period is not expired
-          microseconds_left = (period - (now_microsec - time_last_sent_in_microsec));
+          context.microsecondsLeft = (period - (now_microsec - context.timeLastSent));
         }
         else {
           // the period is expired
           //printf("the period is expired\n");
-          microseconds_left = 0;
+          context.microsecondsLeft = 0;
         }        
 
-        do_debug(3, " Time last sending: %"PRIu64" us\n", time_last_sent_in_microsec);
-        do_debug(3, " The next packet will be sent in %"PRIu64" us\n", microseconds_left);        
+        do_debug(3, " Time last sending: %"PRIu64" us\n", context.timeLastSent);
+        do_debug(3, " The next packet will be sent in %"PRIu64" us\n", context.microsecondsLeft);        
       }
 
 
-      //if (microseconds_left > 0) do_debug(0,"%"PRIu64"\n", microseconds_left);
-      int milliseconds_left = (int)(microseconds_left / 1000.0);
+      //if (context.microsecondsLeft > 0) do_debug(0,"%"PRIu64"\n", context.microsecondsLeft);
+      int milliseconds_left = (int)(context.microsecondsLeft / 1000.0);
       //printf("milliseconds_left: %d", milliseconds_left);
       
       /** POLL **/
@@ -1325,13 +1324,13 @@ int main(int argc, char *argv[]) {
       /*******************************************/
       // a frame has arrived to one of the sockets in 'fds_poll'
       else if (fd2read > 0) {
-        //do_debug(0,"fd2read: %d; mode: %c; accepting_tcp_connections: %i\n", fd2read, mode, accepting_tcp_connections);
+        //do_debug(0,"fd2read: %d; mode: %c; context.acceptingTcpConnections: %i\n", fd2read, mode, context.acceptingTcpConnections);
 
         /******************************************************************/
         /*************** TCP connection request from a client *************/
         /******************************************************************/
         // a connection request has arrived to the welcoming socket
-        if ((fds_poll[2].revents & POLLIN) && (context.mode==TCP_SERVER_MODE) && (accepting_tcp_connections == 1) ) {
+        if ((fds_poll[2].revents & POLLIN) && (context.mode==TCP_SERVER_MODE) && (context.acceptingTcpConnections == true) ) {
 
           // accept the connection
           unsigned int len = sizeof(struct sockaddr);
@@ -1345,7 +1344,7 @@ int main(int argc, char *argv[]) {
 
           // from now on, the TCP welcoming socket will NOT accept any other connection
           // FIXME: Does this make sense?
-          accepting_tcp_connections = 0;
+          context.acceptingTcpConnections = false;
   
           if(context.tcp_server_fd <= 0) {
             perror("Error in 'accept()': TCP welcoming Socket");
@@ -1368,7 +1367,7 @@ int main(int argc, char *argv[]) {
         // In TCP_SERVER_MODE, I will only enter here if the TCP connection is already started
         // in the rest of modes, I will enter here if a muxed packet has arrived        
         else if ( (fds_poll[2].revents & POLLIN) && 
-                  (((context.mode== TCP_SERVER_MODE) && (accepting_tcp_connections == 0))  ||
+                  (((context.mode== TCP_SERVER_MODE) && (context.acceptingTcpConnections == false))  ||
                   (context.mode== NETWORK_MODE) || 
                   (context.mode== UDP_MODE) ||
                   (context.mode== TCP_CLIENT_MODE) ) )
@@ -1530,14 +1529,12 @@ int main(int argc, char *argv[]) {
           else {
             // not in blast flavor
             tunToNetNoBlastFlavor(&context,
-                                  accepting_tcp_connections,
                                   &ipheader,
                                   ipprotocol,
                                   selected_mtu,
                                   &first_header_written,
                                   size_separator_fast_mode,
                                   size_max,
-                                  &time_last_sent_in_microsec,
                                   limit_numpackets_tun,
                                   size_threshold,
                                   timeout,
@@ -1568,7 +1565,7 @@ int main(int argc, char *argv[]) {
 
           periodExpiredblastFlavor (&context,
                                     fd,
-                                    &time_last_sent_in_microsec,
+                                    //&time_last_sent_in_microsec,
                                     period );
 
         }
@@ -1579,7 +1576,6 @@ int main(int argc, char *argv[]) {
 
             periodExpiredNoblastFlavor (&context,
                                         &first_header_written,
-                                        &time_last_sent_in_microsec,
                                         ipprotocol,
                                         &ipheader,
                                         log_file );
@@ -1590,8 +1586,8 @@ int main(int argc, char *argv[]) {
             //do_debug(2, "Period expired. Nothing to be sent\n");
           }
           // restart the period
-          time_last_sent_in_microsec = now_microsec; 
-          do_debug(3, "%"PRIu64" Period expired\n", time_last_sent_in_microsec);
+          context.timeLastSent = now_microsec; 
+          do_debug(3, "%"PRIu64" Period expired\n", context.timeLastSent);
         }
       }     
     }  // end while(1)

@@ -1,9 +1,8 @@
 #include "tunToNet.c"
 
 void periodExpiredblastFlavor ( struct contextSimplemux* context,
-                              int fd,
-                              uint64_t* time_last_sent_in_microsec,
-                              uint64_t period )
+                                int fd,
+                                uint64_t period )
 {
 
   // I may be here because of two different causes (both may have been accomplished):
@@ -13,7 +12,7 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
   uint64_t now_microsec = GetTimeStamp();
 
   // - period expired
-  if(now_microsec - (*time_last_sent_in_microsec) > period) {
+  if(now_microsec - context->timeLastSent > period) {
     if(now_microsec - context->lastBlastHeartBeatReceived > HEARTBEATDEADLINE) {
       // heartbeat from the other side not received recently
       do_debug(2, " Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n", now_microsec - context->lastBlastHeartBeatReceived);
@@ -59,7 +58,6 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
 
 void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
                                   int* first_header_written,
-                                  uint64_t* time_last_sent_in_microsec,
                                   uint8_t ipprotocol,
                                   struct iphdr* ipheader,
                                   FILE *log_file )
@@ -92,7 +90,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
 
     // calculate the time difference
     uint64_t now_microsec = GetTimeStamp();
-    uint64_t time_difference = now_microsec - (*time_last_sent_in_microsec);    
+    uint64_t time_difference = now_microsec - context->timeLastSent;    
 
     if (debug>0) {
       //do_debug(2, "\n");
@@ -132,7 +130,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
 
     // calculate the time difference
     uint64_t now_microsec = GetTimeStamp();
-    uint64_t time_difference = now_microsec - (*time_last_sent_in_microsec);    
+    uint64_t time_difference = now_microsec - context->timeLastSent;    
 
     if (debug>0) {
       //do_debug(2, "\n");
