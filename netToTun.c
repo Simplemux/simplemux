@@ -8,7 +8,7 @@
  * 0  a correct but not multiplexed packet has been read from the network
  * -1 error. Incorrect read
  */
-int readPacketFromNet(struct context* contextSimplemux,
+int readPacketFromNet(struct contextSimplemux* context,
                       uint8_t* buffer_from_net,
                       socklen_t slen,
                       uint16_t port,
@@ -26,12 +26,12 @@ int readPacketFromNet(struct context* contextSimplemux,
   int is_multiplexed_packet = -1;
   uint8_t buffer_from_net_aux[BUFSIZE];
 
-  if (contextSimplemux->mode == UDP_MODE) {
+  if (context->mode == UDP_MODE) {
     // a packet has been received from the network, destined to the multiplexing port
     // 'slen' is the length of the IP address
     // I cannot use 'remote' because it would replace the IP address and port. I use 'received'
 
-    *nread_from_net = recvfrom ( contextSimplemux->udp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(contextSimplemux->received), &slen );
+    *nread_from_net = recvfrom ( context->udp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(context->received), &slen );
     if (*nread_from_net==-1) {
       perror ("[readPacketFromNet] recvfrom() UDP error");
     }
@@ -42,15 +42,15 @@ int readPacketFromNet(struct context* contextSimplemux,
     // I don't have the IP and UDP headers
 
     // check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
-    if (port == ntohs(contextSimplemux->received.sin_port)) 
+    if (port == ntohs(context->received.sin_port)) 
       is_multiplexed_packet = 1;
     else
       is_multiplexed_packet = 0;
   }
 
-  else if (contextSimplemux->mode  == NETWORK_MODE) {
+  else if (context->mode  == NETWORK_MODE) {
     // a packet has been received from the network, destined to the local interface for muxed packets
-    *nread_from_net = cread ( contextSimplemux->network_mode_fd, buffer_from_net_aux, BUFSIZE);
+    *nread_from_net = cread ( context->network_mode_fd, buffer_from_net_aux, BUFSIZE);
 
     if (*nread_from_net==-1) {
       perror ("[readPacketFromNet] cread error in network mode");
@@ -73,7 +73,7 @@ int readPacketFromNet(struct context* contextSimplemux,
       is_multiplexed_packet = 0;
   }
 
-  else if ((contextSimplemux->mode  == TCP_SERVER_MODE) || (contextSimplemux->mode  == TCP_CLIENT_MODE)) {
+  else if ((context->mode  == TCP_SERVER_MODE) || (context->mode  == TCP_CLIENT_MODE)) {
 
     // some bytes have been received from the network, destined to the TCP socket
     
@@ -83,7 +83,7 @@ int readPacketFromNet(struct context* contextSimplemux,
      * This call returns up to N bytes of data. If there are fewer 
      *bytes available than requested, the call returns the number currently available.
      */
-    //*nread_from_net = read(contextSimplemux->tcp_server_fd, buffer_from_net, sizeof(buffer_from_net));
+    //*nread_from_net = read(context->tcp_server_fd, buffer_from_net, sizeof(buffer_from_net));
     
     // I only read one packet (at most) each time the program goes through this part
 
@@ -92,11 +92,11 @@ int readPacketFromNet(struct context* contextSimplemux,
       do_debug(3, "[readPacketFromNet] Reading TCP. No pending bytes of the muxed packet. Start reading a new separator\n");
 
       // read a separator (3 or 4 bytes), or a part of it
-      if (contextSimplemux->mode  == TCP_SERVER_MODE) {
-        *nread_from_net = read(contextSimplemux->tcp_server_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
+      if (context->mode  == TCP_SERVER_MODE) {
+        *nread_from_net = read(context->tcp_server_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
       }
       else {
-        *nread_from_net = read(contextSimplemux->tcp_client_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
+        *nread_from_net = read(context->tcp_client_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
       }
       do_debug(3, "[readPacketFromNet]  %i bytes of the separator read from the TCP socket", *nread_from_net);
 
@@ -125,10 +125,10 @@ int readPacketFromNet(struct context* contextSimplemux,
         // I can now obtain the length of the packet
         // the first byte is the Most Significant Byte of the length
         // the second byte is the Less Significant Byte of the length
-        contextSimplemux->length_muxed_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
-        *pending_bytes_muxed_packet = contextSimplemux->length_muxed_packet;
+        context->length_muxed_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
+        *pending_bytes_muxed_packet = context->length_muxed_packet;
 
-        do_debug(2, " Read separator: Length %i (0x%02x%02x)", contextSimplemux->length_muxed_packet, buffer_from_net[0], buffer_from_net[1]);
+        do_debug(2, " Read separator: Length %i (0x%02x%02x)", context->length_muxed_packet, buffer_from_net[0], buffer_from_net[1]);
 
         // read the Protocol field
         if ( SIZE_PROTOCOL_FIELD == 1 ) {
@@ -142,11 +142,11 @@ int readPacketFromNet(struct context* contextSimplemux,
 
         // read the packet itself (without the separator)
         // I only read the length of the packet
-        if (contextSimplemux->mode  == TCP_SERVER_MODE) {
-          *nread_from_net = read(contextSimplemux->tcp_server_fd, buffer_from_net, *pending_bytes_muxed_packet);
+        if (context->mode  == TCP_SERVER_MODE) {
+          *nread_from_net = read(context->tcp_server_fd, buffer_from_net, *pending_bytes_muxed_packet);
         }
         else {
-          *nread_from_net = read(contextSimplemux->tcp_client_fd, buffer_from_net, *pending_bytes_muxed_packet);
+          *nread_from_net = read(context->tcp_client_fd, buffer_from_net, *pending_bytes_muxed_packet);
         }
         do_debug(3, "[readPacketFromNet]  %i bytes of the muxed packet read from the TCP socket", *nread_from_net);
 
@@ -185,11 +185,11 @@ int readPacketFromNet(struct context* contextSimplemux,
       // I try to read 'pending_bytes_muxed_packet' and to put them at position '*read_tcp_bytes'
       do_debug(3, "[readPacketFromNet] Reading TCP. %i TCP bytes pending of the previous payload\n", *pending_bytes_muxed_packet);
 
-      if (contextSimplemux->mode  == TCP_SERVER_MODE) {
-        *nread_from_net = read(contextSimplemux->tcp_server_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
+      if (context->mode  == TCP_SERVER_MODE) {
+        *nread_from_net = read(context->tcp_server_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
       }
       else {
-        *nread_from_net = read(contextSimplemux->tcp_client_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
+        *nread_from_net = read(context->tcp_client_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
       }
       do_debug(3, "[readPacketFromNet]  %i bytes read from the TCP socket ", *nread_from_net);
 
@@ -203,10 +203,10 @@ int readPacketFromNet(struct context* contextSimplemux,
       }
 
       else if(*nread_from_net < *pending_bytes_muxed_packet) {
-        do_debug(3, "[readPacketFromNet] (I have not yet read the whole muxed packet: pending %i bytes)\n", contextSimplemux->length_muxed_packet - *nread_from_net);
+        do_debug(3, "[readPacketFromNet] (I have not yet read the whole muxed packet: pending %i bytes)\n", context->length_muxed_packet - *nread_from_net);
         // I have not read the whole packet
         // next time I will have to keep on reading
-        *pending_bytes_muxed_packet = contextSimplemux->length_muxed_packet - *nread_from_net;
+        *pending_bytes_muxed_packet = context->length_muxed_packet - *nread_from_net;
         *read_tcp_bytes = *read_tcp_bytes + *nread_from_net;
 
         //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", *nread_from_net, *read_tcp_bytes, *pending_bytes_muxed_packet);
@@ -215,7 +215,7 @@ int readPacketFromNet(struct context* contextSimplemux,
         is_multiplexed_packet = -1;
       }
       else if(*nread_from_net == *pending_bytes_muxed_packet) {
-        do_debug(3, "[readPacketFromNet]  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n", *nread_from_net, contextSimplemux->length_muxed_packet);
+        do_debug(3, "[readPacketFromNet]  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n", *nread_from_net, context->length_muxed_packet);
         // I have read the pending bytes of this packet
         *pending_bytes_muxed_packet = 0;
         //*read_tcp_bytes = *read_tcp_bytes + *nread_from_net;
@@ -244,7 +244,7 @@ int readPacketFromNet(struct context* contextSimplemux,
   return is_multiplexed_packet;
 }
 
-int demuxPacketFromNet( struct context* contextSimplemux,
+int demuxPacketFromNet( struct contextSimplemux* context,
                         uint32_t* net2tun,
                         int nread_from_net,
                         uint16_t packet_length,
@@ -259,43 +259,43 @@ int demuxPacketFromNet( struct context* contextSimplemux,
 {
   /* increase the counter of the number of packets read from the network */
   (*net2tun)++;
-  switch (contextSimplemux->mode) {
+  switch (context->mode) {
     case UDP_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case TCP_CLIENT_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), nread_from_net );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case TCP_SERVER_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port), nread_from_net );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case NETWORK_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", *net2tun, inet_ntoa(context->remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, *net2tun, inet_ntoa(context->remote.sin_addr));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
@@ -306,7 +306,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
     do_debug(3, "%"PRIu64" Packet arrived from the network\n",now);         
   }
 
-  if(contextSimplemux->flavor == 'B') {
+  if(context->flavor == 'B') {
     // there should be a single packet
 
     // apply the structure of a blast mode packet
@@ -376,10 +376,10 @@ int demuxPacketFromNet( struct context* contextSimplemux,
         }
         
         // tun mode
-        if(contextSimplemux->tunnelMode == TUN_MODE) {
+        if(context->tunnelMode == TUN_MODE) {
            // write the demuxed packet to the tun interface
           do_debug (2, "%"PRIu64" Sending packet of %i bytes to the tun interface\n", now, length);
-          if (cwrite ( contextSimplemux->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
+          if (cwrite ( context->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
             perror("could not write the packet correctly");
           }
           else {
@@ -392,14 +392,14 @@ int demuxPacketFromNet( struct context* contextSimplemux,
           blastFlavorTimestamps[ntohs(blastHeader->identifier)] = now;
         }
         // tap mode
-        else if(contextSimplemux->tunnelMode == TAP_MODE) {
+        else if(context->tunnelMode == TAP_MODE) {
           if (blastHeader->protocolID != IPPROTO_ETHERNET) {
             do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", blastHeader->protocolID);              
           }
           else {
              // write the demuxed packet to the tap interface
             do_debug (2, " Sending frame of %i bytes to the tap interface\n", length);
-            if(cwrite ( contextSimplemux->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
+            if(cwrite ( context->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
               perror("could not write the packet correctly");
             }
             else {
@@ -433,16 +433,16 @@ int demuxPacketFromNet( struct context* contextSimplemux,
       ACK.header.ACK = THISISANACK;
 
       int fd;
-      if(contextSimplemux->mode==UDP_MODE)
-        fd = contextSimplemux->udp_mode_fd;
-      else if(contextSimplemux->mode==NETWORK_MODE)
-        fd = contextSimplemux->network_mode_fd;
+      if(context->mode==UDP_MODE)
+        fd = context->udp_mode_fd;
+      else if(context->mode==NETWORK_MODE)
+        fd = context->network_mode_fd;
 
       sendPacketBlastFlavor(fd,
-                          contextSimplemux->mode,
+                          context->mode,
                           &ACK,
-                          contextSimplemux->remote,
-                          contextSimplemux->local);
+                          context->remote,
+                          context->local);
 
       do_debug(1," Sent blast ACK to the network. ID %i, length %i\n", ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));
     }
@@ -466,7 +466,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
     int maximum_packet_length;              // the maximum length of a packet. It may be 64 (first header) or 128 (non-first header)
 
     while (position < nread_from_net) {   
-      if (contextSimplemux->flavor == 'N') {
+      if (context->flavor == 'N') {
         // normal flavor
 
         // check if this is the first separator or not
@@ -525,7 +525,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
       }
       else {
         // fast flavor
-        assert(contextSimplemux->flavor == 'F');
+        assert(context->flavor == 'F');
 
         // I have demuxed another packet
         num_demuxed_packets ++;
@@ -535,7 +535,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
       }
 
 
-      if (contextSimplemux->flavor == 'N') {
+      if (context->flavor == 'N') {
         // normal flavor
 
         if (LXT_first_byte == 0) {
@@ -682,9 +682,9 @@ int demuxPacketFromNet( struct context* contextSimplemux,
 
       else {
         // fast flavor
-        assert(contextSimplemux->flavor == 'F');
+        assert(context->flavor == 'F');
 
-        if ((contextSimplemux->mode == TCP_SERVER_MODE) || (contextSimplemux->mode == TCP_CLIENT_MODE)) {
+        if ((context->mode == TCP_SERVER_MODE) || (context->mode == TCP_CLIENT_MODE)) {
           // do nothing, because I have already read the length
           do_debug(1, " Length %i bytes\n", packet_length);
 
@@ -725,7 +725,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
 
         // this means that reception is desynchronized
         // in TCP mode, this will never recover, so abort
-        if ((contextSimplemux->mode == TCP_CLIENT_MODE) || (contextSimplemux->mode == TCP_CLIENT_MODE)) {
+        if ((context->mode == TCP_CLIENT_MODE) || (context->mode == TCP_CLIENT_MODE)) {
           do_debug (1, "ERROR: Length problem in TCP mode. Abort\n");
           return -1;
         }
@@ -756,7 +756,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
           // ROHC-compressed packet
 
           // I cannot decompress the packet if I am not in ROHC mode
-          if ( contextSimplemux->rohcMode == 0 ) {
+          if ( context->rohcMode == 0 ) {
             do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
 
             // write the log file
@@ -796,7 +796,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
             *status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
 
             // if bidirectional mode has been set, check the feedback
-            if ( contextSimplemux->rohcMode > 1 ) {
+            if ( context->rohcMode > 1 ) {
 
               // check if the decompressor has received feedback, and it has to be delivered to the local compressor
               if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
@@ -833,7 +833,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
 
 
                 // send the feedback packet to the peer
-                if (sendto(contextSimplemux->feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&(contextSimplemux->feedback_remote), sizeof(contextSimplemux->feedback_remote))==-1) {
+                if (sendto(context->feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&(context->feedback_remote), sizeof(context->feedback_remote))==-1) {
                   perror("sendto() failed when sending a ROHC packet");
                 }
                 else {
@@ -880,7 +880,7 @@ int demuxPacketFromNet( struct context* contextSimplemux,
 
                 // write the log file
                 if ( log_file != NULL ) {
-                  fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, *net2tun, inet_ntoa(contextSimplemux->remote.sin_addr), ntohs(contextSimplemux->remote.sin_port));  // the packet is bad so I add a line
+                  fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));  // the packet is bad so I add a line
                   fflush(log_file);
                 }
               }
@@ -964,20 +964,20 @@ int demuxPacketFromNet( struct context* contextSimplemux,
         if ( ( *protocol_rec != IPPROTO_ROHC ) || ((*protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
 
           // tun mode
-          if(contextSimplemux->tunnelMode == TUN_MODE) {
+          if(context->tunnelMode == TUN_MODE) {
              // write the demuxed packet to the tun interface
             do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
-            cwrite ( contextSimplemux->tun_fd, demuxed_packet, packet_length );
+            cwrite ( context->tun_fd, demuxed_packet, packet_length );
           }
           // tap mode
-          else if(contextSimplemux->tunnelMode == TAP_MODE) {
+          else if(context->tunnelMode == TAP_MODE) {
             if (*protocol_rec != IPPROTO_ETHERNET) {
               do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);              
             }
             else {
                // write the demuxed packet to the tap interface
               do_debug (2, " Sending frame of %i bytes to the tap interface\n", packet_length);
-              cwrite ( contextSimplemux->tun_fd, demuxed_packet, packet_length );
+              cwrite ( context->tun_fd, demuxed_packet, packet_length );
             }
           }
           else {
