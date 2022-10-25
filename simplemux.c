@@ -258,7 +258,7 @@ int main(int argc, char *argv[]) {
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 
-  uint64_t blastFlavorTimestamps[0xFFFF+1];   // I will store 65536 different timestamps: one for each possible identifier
+  //uint64_t blastFlavorTimestamps[0xFFFF+1];   // I will store 65536 different timestamps: one for each possible identifier
 
   // variables for controlling the arrival and departure of packets
   uint32_t tun2net = 0, net2tun = 0;     // number of packets read from tun and from net
@@ -276,8 +276,7 @@ int main(int argc, char *argv[]) {
   // very long unsigned integers for storing the system clock in microseconds
   uint64_t time_last_sent_in_microsec;            // moment when the last multiplexed packet was sent
   uint64_t now_microsec;                          // current time
-  uint64_t lastHeartBeatSent;                     // timestamp of the last heartbeat sent
-  uint64_t lastHeartBeatReceived;                 // timestamp of the last heartbeat received
+
 
   int option;                             // command line options
 
@@ -1191,7 +1190,7 @@ int main(int argc, char *argv[]) {
     // in blast flavor, fill the vector of timestamps with zeroes
     if(context.flavor == 'B') {
       for(int i=0;i<0xFFFF+1;i++)
-        blastFlavorTimestamps[i] = 0;
+        context.blastTimestamps[i] = 0;
     }
 
     /** prepare POLL structure **/
@@ -1226,8 +1225,8 @@ int main(int argc, char *argv[]) {
     time_last_sent_in_microsec = GetTimeStamp();
 
     if(context.flavor == 'B') {
-      lastHeartBeatSent = time_last_sent_in_microsec;
-      lastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
+      context.lastBlastHeartBeatSent = time_last_sent_in_microsec;
+      context.lastBlastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
     }
     
 
@@ -1267,7 +1266,7 @@ int main(int argc, char *argv[]) {
         // in blast flavor, heartbeats have to be sent periodically
         // if the time to the next heartbeat is smaller than the time to the next blast sent,
         //then the time has to be reduced
-        uint64_t microsecondsToNextHeartBeat = lastHeartBeatSent + HEARTBEATPERIOD - now_microsec;
+        uint64_t microsecondsToNextHeartBeat = context.lastBlastHeartBeatSent + HEARTBEATPERIOD - now_microsec;
 
         // choose the smallest one
         if(microsecondsToNextHeartBeat < microseconds_left)
@@ -1404,12 +1403,9 @@ int main(int argc, char *argv[]) {
                                 nread_from_net,
                                 packet_length,
                                 log_file,
-                                //&context.unconfirmedPacketsBlast,
-                                blastFlavorTimestamps,
                                 buffer_from_net,
                                 &protocol_rec,
                                 &status,
-                                &lastHeartBeatReceived,
                                 debug );
           }
   
@@ -1529,27 +1525,24 @@ int main(int argc, char *argv[]) {
 
           if (context.flavor == 'B') {
             tunToNetBlastFlavor(&context,
-                                tun2net,
-                                //&context.unconfirmedPacketsBlast,
-                                &lastHeartBeatReceived );
+                                tun2net );
           }
-
           else {
             // not in blast flavor
             tunToNetNoBlastFlavor(&context,
-                                tun2net,
-                                accepting_tcp_connections,
-                                &ipheader,
-                                ipprotocol,
-                                selected_mtu,
-                                &first_header_written,
-                                size_separator_fast_mode,
-                                size_max,
-                                &time_last_sent_in_microsec,
-                                limit_numpackets_tun,
-                                size_threshold,
-                                timeout,
-                                log_file );
+                                  tun2net,
+                                  accepting_tcp_connections,
+                                  &ipheader,
+                                  ipprotocol,
+                                  selected_mtu,
+                                  &first_header_written,
+                                  size_separator_fast_mode,
+                                  size_max,
+                                  &time_last_sent_in_microsec,
+                                  limit_numpackets_tun,
+                                  size_threshold,
+                                  timeout,
+                                  log_file );
           }
         }
       }  
@@ -1577,10 +1570,7 @@ int main(int argc, char *argv[]) {
           periodExpiredblastFlavor (&context,
                                     fd,
                                     &time_last_sent_in_microsec,
-                                    period,
-                                    lastHeartBeatReceived,
-                                    &lastHeartBeatSent/*,
-                                    context.unconfirmedPacketsBlast*/);
+                                    period );
 
         }
         else {

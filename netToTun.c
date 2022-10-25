@@ -249,12 +249,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                         int nread_from_net,
                         uint16_t packet_length,
                         FILE *log_file,
-                        //struct packet **unconfirmedPacketsBlastFlavor,
-                        uint64_t* blastFlavorTimestamps,
                         uint8_t* buffer_from_net,
                         uint8_t* protocol_rec,
                         rohc_status_t* status,
-                        uint64_t* lastHeartBeatReceived,
                         int debug )
 {
   /* increase the counter of the number of packets read from the network */
@@ -344,19 +341,19 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
       uint64_t now = GetTimeStamp();
 
-      if(blastFlavorTimestamps[ntohs(blastHeader->identifier)] == 0){
+      if(context->blastTimestamps[ntohs(blastHeader->identifier)] == 0){
         deliverThisPacket=true;
       }
       else {
 
-        if (now - blastFlavorTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
+        if (now - context->blastTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
           // the packet has been sent recently
           // do not send it again
           do_debug(1,"The packet with ID %i has been sent recently. Do not send it again\n", ntohs(blastHeader->identifier));
-          do_debug(2,"now (%"PRIu64") - blastFlavorTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
+          do_debug(2,"now (%"PRIu64") - blastTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
                     now,
                     ntohs(blastHeader->identifier),
-                    blastFlavorTimestamps[ntohs(blastHeader->identifier)],
+                    context->blastTimestamps[ntohs(blastHeader->identifier)],
                     TIME_UNTIL_SENDING_AGAIN_BLAST);
         }
         else {
@@ -389,7 +386,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
           // update the timestamp when a packet with this identifier has been sent
           uint64_t now = GetTimeStamp();
-          blastFlavorTimestamps[ntohs(blastHeader->identifier)] = now;
+          context->blastTimestamps[ntohs(blastHeader->identifier)] = now;
         }
         // tap mode
         else if(context->tunnelMode == TAP_MODE) {
@@ -409,7 +406,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
             // update the timestamp when a packet with this identifier has been sent
             uint64_t now = GetTimeStamp();
-            blastFlavorTimestamps[ntohs(blastHeader->identifier)] = now;
+            context->blastTimestamps[ntohs(blastHeader->identifier)] = now;
           }
         }
         else {
@@ -449,7 +446,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
     else if((blastHeader->ACK & MASK ) == HEARTBEAT) {
       do_debug(1," Arrived blast heartbeat\n");
       uint64_t now = GetTimeStamp();
-      *lastHeartBeatReceived = now;
+      context->lastBlastHeartBeatReceived = now;
     }
     else {
       perror("Unknown blast packet type\n");

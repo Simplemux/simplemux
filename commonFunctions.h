@@ -76,11 +76,12 @@ struct contextSimplemux {
 
   uint16_t length_muxed_packet;                     // length of the next TCP packet
 
+  // only for blast flavor
   struct packet *unconfirmedPacketsBlast;           // pointer to the list of unconfirmed packets (blast flavor)
+  uint64_t blastTimestamps[0xFFFF+1];         // I will store 65536 different timestamps: one for each possible identifier
+  uint64_t lastBlastHeartBeatSent;                     // timestamp of the last heartbeat sent
+  uint64_t lastBlastHeartBeatReceived;
   /*
-  uint64_t blastFlavorTimestamps[0xFFFF+1];   // I will store 65536 different timestamps: one for each possible identifier
-  uint64_t lastHeartBeatReceived;
-
   // variables for counting the arrived and sent packets
   uint32_t tun2net;           // number of packets read from tun
   uint32_t net2tun;           // number of packets read from net
@@ -117,8 +118,8 @@ struct contextSimplemux {
 
   // very long unsigned integers for storing the system clock in microseconds
   uint64_t time_last_sent_in_microsec;            // moment when the last multiplexed packet was sent
-  uint64_t lastHeartBeatSent;                     // timestamp of the last heartbeat sent
-  uint64_t lastHeartBeatReceived;                 // timestamp of the last heartbeat received
+
+
   */
 };
 

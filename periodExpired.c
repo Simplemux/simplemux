@@ -3,10 +3,7 @@
 void periodExpiredblastFlavor ( struct contextSimplemux* context,
                               int fd,
                               uint64_t* time_last_sent_in_microsec,
-                              uint64_t period,
-                              uint64_t lastHeartBeatReceived,
-                              uint64_t* lastHeartBeatSent/*,
-                              struct packet *unconfirmedPacketsBlastFlavor*/ )
+                              uint64_t period )
 {
 
   // I may be here because of two different causes (both may have been accomplished):
@@ -17,9 +14,9 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
 
   // - period expired
   if(now_microsec - (*time_last_sent_in_microsec) > period) {
-    if(now_microsec - lastHeartBeatReceived > HEARTBEATDEADLINE) {
+    if(now_microsec - context->lastBlastHeartBeatReceived > HEARTBEATDEADLINE) {
       // heartbeat from the other side not received recently
-      do_debug(2, " Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n", now_microsec - lastHeartBeatReceived);
+      do_debug(2, " Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n", now_microsec - context->lastBlastHeartBeatReceived);
     }
     else {
       // heartbeat from the other side received recently
@@ -38,7 +35,7 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
   }
 
   // heartbeat period expired: send a heartbeat to the other side
-  if(now_microsec - (*lastHeartBeatSent) > HEARTBEATPERIOD) {
+  if(now_microsec - (context->lastBlastHeartBeatSent) > HEARTBEATPERIOD) {
     struct packet heartBeat;
     heartBeat.header.packetSize = 0;
     heartBeat.header.protocolID = 0;
@@ -51,11 +48,11 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
                           context->remote,
                           context->local);
 
-    do_debug(1," Sent blast heartbeat to the network: %"PRIu64" > %"PRIu64"\n", now_microsec - (*lastHeartBeatSent), HEARTBEATPERIOD);
-    (*lastHeartBeatSent) = now_microsec;          
+    do_debug(1," Sent blast heartbeat to the network: %"PRIu64" > %"PRIu64"\n", now_microsec - context->lastBlastHeartBeatSent, HEARTBEATPERIOD);
+    context->lastBlastHeartBeatSent = now_microsec;          
   }
   else {
-    do_debug(2," Not sending blast heartbeat to the network: %"PRIu64" < %"PRIu64"\n", now_microsec - (*lastHeartBeatSent), HEARTBEATPERIOD);
+    do_debug(2," Not sending blast heartbeat to the network: %"PRIu64" < %"PRIu64"\n", now_microsec - context->lastBlastHeartBeatSent, HEARTBEATPERIOD);
   }
 }
 

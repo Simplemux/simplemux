@@ -2,9 +2,7 @@
 
 // packet/frame arrived at tun: read it, and send a blast packet to the network
 void tunToNetBlastFlavor (struct contextSimplemux* context,
-                          uint32_t tun2net,
-                          //struct packet **unconfirmedPacketsBlastFlavor,
-                          uint64_t* lastHeartBeatReceived )
+                          uint32_t tun2net )
 {
   uint64_t now = GetTimeStamp();
 
@@ -68,7 +66,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context,
   // the packet has been sent. Store the timestamp
   thisPacket->sentTimestamp = now;
 
-  if(now - (*lastHeartBeatReceived) > HEARTBEATDEADLINE) {
+  if(now - (context->lastBlastHeartBeatReceived) > HEARTBEATDEADLINE) {
     // heartbeat from the other side not received recently
     if(delete(&context->unconfirmedPacketsBlast,ntohs(thisPacket->header.identifier))==false) {
       do_debug(2," The packet had already been removed from the list\n");
@@ -76,7 +74,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context,
     else {
       do_debug(2," Packet with ID %i removed from the list\n", tun2net);
     }              
-    do_debug(2, "%"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n", now, now - (*lastHeartBeatReceived), length(&context->unconfirmedPacketsBlast));
+    do_debug(2, "%"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n", now, now - context->lastBlastHeartBeatReceived, length(&context->unconfirmedPacketsBlast));
   }
   else {
     do_debug(2, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&context->unconfirmedPacketsBlast));
