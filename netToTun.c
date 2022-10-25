@@ -245,7 +245,6 @@ int readPacketFromNet(struct contextSimplemux* context,
 }
 
 int demuxPacketFromNet( struct contextSimplemux* context,
-                        uint32_t* net2tun,
                         int nread_from_net,
                         uint16_t packet_length,
                         FILE *log_file,
@@ -255,44 +254,44 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                         int debug )
 {
   /* increase the counter of the number of packets read from the network */
-  (*net2tun)++;
+  (context->net2tun)++;
   switch (context->mode) {
     case UDP_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case TCP_CLIENT_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case TCP_SERVER_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case NETWORK_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", *net2tun, inet_ntoa(context->remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, *net2tun, inet_ntoa(context->remote.sin_addr));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
@@ -730,7 +729,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         // write the log file
         if ( log_file != NULL ) {
           // the packet is bad so I add a line
-          fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun );  
+          fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun );  
           fflush(log_file);
         }            
       }
@@ -758,7 +757,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
             // write the log file
             if ( log_file != NULL ) {
-              fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, *net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
+              fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, context->net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
               fflush(log_file);
             }
           }
@@ -877,7 +876,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
                 // write the log file
                 if ( log_file != NULL ) {
-                  fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, *net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));  // the packet is bad so I add a line
+                  fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));  // the packet is bad so I add a line
                   fflush(log_file);
                 }
               }
@@ -892,7 +891,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               // write the log file
               if ( log_file != NULL ) {
                 // the packet is bad
-                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun);  
+                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
                 fflush(log_file);
               }
             }
@@ -906,7 +905,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               // write the log file
               if ( log_file != NULL ) {
                 // the packet is bad
-                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun);  
+                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
                 fflush(log_file);
               }
             }
@@ -920,7 +919,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               // write the log file
               if ( log_file != NULL ) {
                 // the packet is bad
-                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun);  
+                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
                 fflush(log_file);
               }
             }
@@ -934,7 +933,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               // write the log file
               if ( log_file != NULL ) {
                 // the packet is bad
-                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun);  
+                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
                 fflush(log_file);
               }
             }
@@ -948,7 +947,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               // write the log file
               if ( log_file != NULL ) {
                 // the packet is bad
-                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun);  
+                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
                 fflush(log_file);
               }
             }
@@ -987,7 +986,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
           // write the log file
           if ( log_file != NULL ) {
-            fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, *net2tun);  // the packet is good
+            fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, context->net2tun);  // the packet is good
             fflush(log_file);
           }
         }

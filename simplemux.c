@@ -1,5 +1,5 @@
 /**************************************************************************
- * simplemux.c            version 2.1                                   *
+ * simplemux.c            version 3.0                                     *
  *                                                                        *
  * Simplemux multiplexes a number of packets between a pair of machines   *
  * (called ingress and egress). It also sends ethernet frames.            *
@@ -223,7 +223,9 @@ int main(int argc, char *argv[]) {
   context.num_pkts_stored_from_tun = 0; 
   context.size_muxed_packet = 0;
   context.unconfirmedPacketsBlast = NULL;
-
+  context.tun2net = 0;
+  context.net2tun = 0; 
+  context.feedback_pkts = 0;
 
 
   int fd2read;
@@ -260,9 +262,8 @@ int main(int argc, char *argv[]) {
 
   //uint64_t blastFlavorTimestamps[0xFFFF+1];   // I will store 65536 different timestamps: one for each possible identifier
 
-  // variables for controlling the arrival and departure of packets
-  uint32_t tun2net = 0, net2tun = 0;     // number of packets read from tun and from net
-  uint32_t feedback_pkts = 0;            // number of ROHC feedback packets
+
+
   int limit_numpackets_tun = 0;                   // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
 
   int size_threshold = 0;                         // if the number of bytes stored is higher than this, a muxed packet is sent
@@ -1399,7 +1400,7 @@ int main(int argc, char *argv[]) {
           
           else if (is_multiplexed_packet == 1) {
             demuxPacketFromNet( &context,
-                                &net2tun,
+                                //&net2tun,
                                 nread_from_net,
                                 packet_length,
                                 log_file,
@@ -1412,13 +1413,13 @@ int main(int argc, char *argv[]) {
           else { // is_multiplexed_packet == 0
             // packet with the correct destination port, but a source port different from the multiplexing one
             // if the packet does not come from the multiplexing port, write it directly into the tun interface
-            do_debug(1, "NON-SIMPLEMUX PACKET #%"PRIu32": Non-multiplexed packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
+            do_debug(1, "NON-SIMPLEMUX PACKET #%"PRIu32": Non-multiplexed packet. Writing %i bytes to tun\n", context.net2tun, nread_from_net);
             cwrite ( context.tun_fd, buffer_from_net, nread_from_net);
   
             // write the log file
             if ( log_file != NULL ) {
               // the packet is good
-              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
+              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context.net2tun, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
               fflush(log_file);
             }
           }
@@ -1451,13 +1452,13 @@ int main(int argc, char *argv[]) {
           if (port_feedback == ntohs(context.feedback_remote.sin_port)) {
   
             // the packet comes from the feedback port (default 55556)
-            do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", feedback_pkts, nread_from_net, inet_ntoa(context.feedback.sin_addr), ntohs(context.feedback.sin_port));
+            do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", context.feedback_pkts, nread_from_net, inet_ntoa(context.feedback.sin_addr), ntohs(context.feedback.sin_port));
   
-            feedback_pkts ++;
+            context.feedback_pkts ++;
   
             // write the log file
             if ( log_file != NULL ) {
-              fprintf (log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, feedback_pkts, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
+              fprintf (log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context.feedback_pkts, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
               fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
             }
   
@@ -1497,13 +1498,13 @@ int main(int argc, char *argv[]) {
   
             // packet with destination port 55556, but a source port different from the feedback one
             // if the packet does not come from the feedback port, write it directly into the tun interface
-            do_debug(1, "NON-FEEDBACK PACKET %"PRIu32": Non-feedback packet. Writing %i bytes to tun\n", net2tun, nread_from_net);
+            do_debug(1, "NON-FEEDBACK PACKET %"PRIu32": Non-feedback packet. Writing %i bytes to tun\n", context.net2tun, nread_from_net);
             cwrite ( context.tun_fd, buffer_from_net, nread_from_net);
   
             // write the log file
             if ( log_file != NULL ) {
               // the packet is good
-              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, net2tun, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
+              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context.net2tun, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
               fflush(log_file);
             }
           }
@@ -1521,16 +1522,14 @@ int main(int argc, char *argv[]) {
         //else if(FD_ISSET(context.tun_fd, &rd_set)) {
         else if(fds_poll[0].revents & POLLIN) {
           /* increase the counter of the number of packets read from tun*/
-          tun2net++;
+          context.tun2net++;
 
           if (context.flavor == 'B') {
-            tunToNetBlastFlavor(&context,
-                                tun2net );
+            tunToNetBlastFlavor(&context);
           }
           else {
             // not in blast flavor
             tunToNetNoBlastFlavor(&context,
-                                  tun2net,
                                   accepting_tcp_connections,
                                   &ipheader,
                                   ipprotocol,
@@ -1579,7 +1578,6 @@ int main(int argc, char *argv[]) {
             // There are some packets stored
 
             periodExpiredNoblastFlavor (&context,
-                                        tun2net,
                                         &first_header_written,
                                         &time_last_sent_in_microsec,
                                         ipprotocol,

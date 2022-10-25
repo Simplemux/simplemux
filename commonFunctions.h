@@ -81,12 +81,12 @@ struct contextSimplemux {
   uint64_t blastTimestamps[0xFFFF+1];         // I will store 65536 different timestamps: one for each possible identifier
   uint64_t lastBlastHeartBeatSent;                     // timestamp of the last heartbeat sent
   uint64_t lastBlastHeartBeatReceived;
-  /*
+
   // variables for counting the arrived and sent packets
   uint32_t tun2net;           // number of packets read from tun
   uint32_t net2tun;           // number of packets read from net
   uint32_t feedback_pkts;     // number of ROHC feedback packets
-
+  /*
   char remote_ip[16] = "";                  // dotted quad IP string with the IP of the remote machine
   char local_ip[16] = "";                   // dotted quad IP string with the IP of the local machine
   uint16_t port = PORT;                     // UDP/TCP port to be used for sending the multiplexed packets
