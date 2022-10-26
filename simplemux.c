@@ -99,34 +99,7 @@ static bool rtp_detect(const uint8_t *const ip __attribute__((unused)),
   return is_rtp;
 }
 
-/**************************************************************************
- * usage: prints usage and exits.                                         *
- **************************************************************************/
-void usage(void) {
-  fprintf(stderr, "Usage:\n");
-  fprintf(stderr, "%s -i <ifacename> -e <ifacename> -c <peerIP> -M <'network' or 'udp' or 'tcpclient' or 'tcpserver'> [-T 'tun' or 'tap'] [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-m <MTU>] [-B <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L] [-f] [-b]\n\n" , progname);
-  fprintf(stderr, "%s -h\n", progname);
-  fprintf(stderr, "\n");
-  fprintf(stderr, "-i <ifacename>: Name of tun/tap interface to be used for capturing native packets (mandatory)\n");
-  fprintf(stderr, "-e <ifacename>: Name of local interface which IP will be used for reception of muxed packets, i.e., the tunnel local end (mandatory)\n");
-  fprintf(stderr, "-c <peerIP>: specify peer destination IP address, i.e. the tunnel remote end (mandatory)\n");
-  fprintf(stderr, "-M <mode>: 'network' or 'udp' or 'tcpclient' or 'tcpserver' mode (mandatory)\n");
-  fprintf(stderr, "-T <tunnel mode>: 'tun' (default) or 'tap' mode\n");
-  fprintf(stderr, "-f: fast flavor (compression rate is lower, but it is faster). Compulsory for TCP mode\n");
-  fprintf(stderr, "-b: blast flavor (packets are sent until an application-level ACK is received from the other side). A period (-P) is needed in this case\n");
-  fprintf(stderr, "-p <port>: port to listen on, and to connect to (default 55555)\n");
-  fprintf(stderr, "-d <debug_level>: Debug level. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)\n");
-  fprintf(stderr, "-r <ROHC_option>: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)\n");
-  fprintf(stderr, "-n <num_mux_tun>: number of packets received, to be sent to the network at the same time, default 1, max 100\n");
-  fprintf(stderr, "-m <MTU>: Maximum Transmission Unit of the network path (by default the one of the local interface is taken)\n");
-  fprintf(stderr, "-B <num_bytes_threshold>: size threshold (bytes) to trigger the departure of packets (default MTU-28 in transport mode and MTU-20 in network mode)\n");
-  fprintf(stderr, "-t <timeout (microsec)>: timeout (in usec) to trigger the departure of packets\n");
-  fprintf(stderr, "-P <period (microsec)>: period (in usec) to trigger the departure of packets. If ( timeout < period ) then the timeout has no effect\n");
-  fprintf(stderr, "-l <log file name>: log file name. Use 'stdout' if you want the log data in standard output\n");
-  fprintf(stderr, "-L: use default log file name (day and hour Y-m-d_H.M.S)\n");
-  fprintf(stderr, "-h: prints this help text\n");
-  exit(1);
-}
+
 
 /**************************************************************************
  * tun_alloc: allocates or reconnects to a tun/tap device. The caller     *
@@ -301,7 +274,7 @@ int main(int argc, char *argv[]) {
 
   // no arguments specified by the user. Print usage and finish
   if (argc == 1 ) {
-    usage ();
+    usage (progname);
   }
   else {
     while((option = getopt(argc, argv, "i:e:M:T:c:p:n:B:t:P:l:d:r:m:fbhL")) > 0) {
@@ -314,7 +287,7 @@ int main(int argc, char *argv[]) {
           context.rohcMode = atoi(optarg);  /* 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)*/ 
           break;
         case 'h':            /* help */
-          usage();
+          usage(progname);
           break;
         case 'i':            /* put the name of the tun interface (e.g. "tun0") in "tun_if_name" */
           strncpy(tun_if_name, optarg, IFNAMSIZ-1);
@@ -367,7 +340,7 @@ int main(int argc, char *argv[]) {
           if(context.flavor == 'B') {
             // both -f and -b options have been selected
             my_err("fast ('-f') and blast (`-b') flavors are not compatible\n");
-            usage();
+            usage(progname);
           }
           else{
             context.flavor = 'F';
@@ -380,7 +353,7 @@ int main(int argc, char *argv[]) {
           if(context.flavor == 'F') {
             // both -f and -b options have been selected
             my_err("fast ('-f') and blast (`-b') flavors are not compatible\n");
-            usage();
+            usage(progname);
           }
           else{
             context.flavor = 'B';
@@ -425,7 +398,7 @@ int main(int argc, char *argv[]) {
           break;
         default:
           my_err("Unknown option %c\n", option);
-          usage();
+          usage(progname);
           break;
       }
     }
@@ -437,39 +410,39 @@ int main(int argc, char *argv[]) {
     /************* check command line options **************/
     if(argc > 0) {
       my_err("Too many options\n");
-      usage();
+      usage(progname);
     }
 
 
     // check interface options
     if(*tun_if_name == '\0') {
       my_err("Must specify a tun/tap interface name for native packets ('-i' option)\n");
-      usage();
+      usage(progname);
     } else if(*remote_ip == '\0') {
       my_err("Must specify the IP address of the peer\n");
-      usage();
+      usage(progname);
     } else if(*mux_if_name == '\0') {
       my_err("Must specify the local interface name for multiplexed packets\n");
-      usage();
+      usage(progname);
     } 
 
 
     // check if NETWORK or TRANSPORT mode have been selected (mandatory)
     else if((context.mode!= NETWORK_MODE) && (context.mode!= UDP_MODE) && (context.mode!= TCP_CLIENT_MODE) && (context.mode!= TCP_SERVER_MODE)) {
       my_err("Must specify a valid mode ('-M' option MUST either be 'network', 'udp', 'tcpserver' or 'tcpclient')\n");
-      usage();
+      usage(progname);
     } 
   
     // check if TUN or TAP mode have been selected (mandatory)
     else if((context.tunnelMode != TUN_MODE) && (context.tunnelMode != TAP_MODE)) {
       my_err("Must specify a valid tunnel mode ('-T' option MUST either be 'tun' or 'tap')\n");
-      usage();
+      usage(progname);
     } 
 
     // TAP mode requires fast flavor
     else if(((context.mode== TCP_SERVER_MODE) || (context.mode== TCP_CLIENT_MODE)) && (context.flavor != 'F')) {
       my_err("TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient') require fast flavor (option '-f')\n");
-      usage();
+      usage(progname);
     }
 
     else if(context.flavor == 'F') {
@@ -485,27 +458,27 @@ int main(int argc, char *argv[]) {
       }
       if((context.mode== TCP_SERVER_MODE) || (context.mode== TCP_CLIENT_MODE)){
         my_err("blast flavor (-b) is not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
-        usage();
+        usage(progname);
       }
       if(context.rohcMode!=0) {
         my_err("blast flavor (-b) is not compatible with ROHC (-r)\n");
-        usage();          
+        usage(progname);          
       }
       if(size_threshold!=0) {
         my_err("blast flavor (-b) is not compatible with size threshold (-B)\n");
-        usage();
+        usage(progname);
       }
       if(timeout!=MAXTIMEOUT) {
         my_err("blast flavor (-b) is not compatible with timeout (-t)\n");
-        usage();
+        usage(progname);
       }
       if(limit_numpackets_tun!=0) {
         my_err("blast flavor (-b) is not compatible with a limit of the number of packets. Only a packet is sent (-n)\n");
-        usage();
+        usage(progname);
       }
       if(period==MAXTIMEOUT) {
         my_err("In blast flavor (-b) you must specify a Period (-P)\n");
-        usage();        
+        usage(progname);        
       }
     }
 
