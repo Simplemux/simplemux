@@ -200,7 +200,11 @@ int main(int argc, char *argv[]) {
   context.net2tun = 0; 
   context.feedback_pkts = 0;
   context.acceptingTcpConnections = false;
-
+  context.remote_ip[0] = '\0';
+  context.local_ip[0] = '\0';
+  context.port = PORT;
+  context.port_feedback = PORT_FEEDBACK;
+  context.ipprotocol = IPPROTO_SIMPLEMUX;
 
   int fd2read;
   
@@ -220,11 +224,6 @@ int main(int argc, char *argv[]) {
   socklen_t slen = sizeof(context.remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
   socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
 
-  char remote_ip[16] = "";                  // dotted quad IP string with the IP of the remote machine
-  char local_ip[16] = "";                   // dotted quad IP string with the IP of the local machine
-  uint16_t port = PORT;                     // UDP/TCP port to be used for sending the multiplexed packets
-  uint16_t port_feedback = PORT_FEEDBACK;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
-  uint8_t ipprotocol = IPPROTO_SIMPLEMUX;
 
   uint8_t protocol_rec;                             // protocol field of the received muxed packet
 
@@ -344,8 +343,8 @@ int main(int argc, char *argv[]) {
           }
           else{
             context.flavor = 'F';
-            port = PORT_FAST;   // by default, port = PORT. In fast flavor, it is PORT_FAST
-            ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast flavor, use 254
+            context.port = PORT_FAST;   // by default, port = PORT. In fast flavor, it is PORT_FAST
+            context.ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast flavor, use 254
             do_debug(1, "Fast flavor engaged\n");            
           }
           break;
@@ -357,8 +356,8 @@ int main(int argc, char *argv[]) {
           }
           else{
             context.flavor = 'B';
-            port = PORT_BLAST;   // by default, port = PORT. In blast flavor, it is PORT_BLAST
-            ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast flavor, use 252
+            context.port = PORT_BLAST;   // by default, port = PORT. In blast flavor, it is PORT_BLAST
+            context.ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast flavor, use 252
             do_debug(1, "Blast flavor engaged\n");
           }
           break;
@@ -366,7 +365,7 @@ int main(int argc, char *argv[]) {
           strncpy(mux_if_name, optarg, IFNAMSIZ-1);
           break;
         case 'c':            /* destination address of the machine where the tunnel ends */
-          strncpy(remote_ip, optarg, 15);
+          strncpy(context.remote_ip, optarg, 15);
           break;
         case 'l':            /* name of the log file */
           strncpy(log_file_name, optarg, 100);
@@ -377,8 +376,8 @@ int main(int argc, char *argv[]) {
           file_logging = 1;
           break;
         case 'p':            /* port number */
-          port = atoi(optarg);    /* atoi Parses a string interpreting its content as an int */
-          port_feedback = port + 1;
+          context.port = atoi(optarg);    /* atoi Parses a string interpreting its content as an int */
+          context.port_feedback = context.port + 1;
           break;
         case 'n':            /* limit of the number of packets for triggering a muxed packet */
           limit_numpackets_tun = atoi(optarg);
@@ -418,7 +417,7 @@ int main(int argc, char *argv[]) {
     if(*tun_if_name == '\0') {
       my_err("Must specify a tun/tap interface name for native packets ('-i' option)\n");
       usage(progname);
-    } else if(*remote_ip == '\0') {
+    } else if(*context.remote_ip == '\0') {
       my_err("Must specify the IP address of the peer\n");
       usage(progname);
     } else if(*mux_if_name == '\0') {
@@ -538,279 +537,17 @@ int main(int argc, char *argv[]) {
     /************* end - initialize the tun/tap **************/
 
 
-    /* SOCKET REQUEST */
-    /*** Request a socket for writing and receiving muxed packets in Network mode ***/
-    if ( context.mode== NETWORK_MODE ) {
-      // initialize header IP to be used when receiving a packet in NETWORK mode
-      memset(&ipheader, 0, sizeof(struct iphdr));      
-      memset (&iface, 0, sizeof (iface));
-      snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
+    // Initialize the sockets
+    int correctSocket=0;
+    correctSocket = socketRequest(&context,
+                    &ipheader,
+                    &iface,
+                    mux_if_name,
+                    //ipprotocol,
+                    on);
+    if (correctSocket == -1)
+      exit(1);
 
-      // get the local IP address of the network interface 'mux_if_name'
-      // using 'getifaddrs()'   
-      struct ifaddrs *ifaddr, *ifa;
-      int /*family,*/ s;
-      char host[NI_MAXHOST];  // this will be the IP address
-  
-      if (getifaddrs(&ifaddr) == -1) {
-          perror("getifaddrs");
-          exit(EXIT_FAILURE);
-      }
-      
-      for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr == NULL)
-          continue;  
-        
-        s = getnameinfo(ifa->ifa_addr,sizeof(struct sockaddr_in),host, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
-        
-        if((strcmp(ifa->ifa_name,mux_if_name)==0)&&(ifa->ifa_addr->sa_family==AF_INET)) {
-          if (s != 0) {
-              printf("getnameinfo() failed: %s\n", gai_strerror(s));
-              exit(EXIT_FAILURE);
-          }
-          do_debug(1,"Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, ipprotocol);
-          break;
-        }
-      }
- 
-      // assign the local address for the multiplexed packets
-      memset(&(context.local), 0, sizeof(context.local));
-      context.local.sin_family = AF_INET;
-      context.local.sin_addr.s_addr = inet_addr(host);  // convert the string 'host' to an IP address
-
-      freeifaddrs(ifaddr);
-      
-       // assign the destination address for the multiplexed packets
-      memset(&(context.remote), 0, sizeof(context.remote));
-      context.remote.sin_family = AF_INET;
-      context.remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP. There are no ports in Network Mode
-  
-      // AF_INET (exactly the same as PF_INET)
-      // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // context.network_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
-      // create a raw socket for reading and writing multiplexed packets belonging to protocol Simplemux (protocol ID 253)
-      // Submit request for a raw socket descriptor
-      if ((context.network_mode_fd = socket (AF_INET, SOCK_RAW, ipprotocol)) < 0) {
-        perror ("Raw socket for sending muxed packets failed ");
-        exit (EXIT_FAILURE);
-      }
-      else {
-        do_debug(1,"Remote IP %s\n", inet_ntoa(context.remote.sin_addr));
-      }
-
-      // Set flag so socket expects us to provide IPv4 header
-      if (setsockopt (context.network_mode_fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof (on)) < 0) {
-        perror ("setsockopt() failed to set IP_HDRINCL ");
-        exit (EXIT_FAILURE);
-      }
-
-      // Bind the socket "context.network_mode_fd" to interface index
-      // bind socket descriptor "context.network_mode_fd" to specified interface with setsockopt() since
-      // none of the other arguments of sendto() specify which interface to use.
-      if (setsockopt (context.network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
-        perror ("setsockopt() failed to bind to interface (network mode) ");
-        exit (EXIT_FAILURE);
-      }  
-    }
-    
-    // UDP mode
-    // I use the same origin and destination port. The reason is that I am using the same socket for sending
-    //and receiving UDP simplemux packets
-    // The local port for Simplemux is PORT
-    // The remote port for Simplemux must also be PORT, because the packets go there
-    // Packets arriving to the local computer have dstPort = PORT, srcPort = PORT
-    // Packets sent from the local computer have srcPort = PORT, dstPort = PORT
-    else if ( context.mode== UDP_MODE ) {
-      /*** Request a socket for writing and receiving muxed packets in UDP mode ***/
-      // AF_INET (exactly the same as PF_INET)
-      // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // context.udp_mode_fd is the file descriptor of the socket for managing arrived multiplexed packets
-
-      /* creates an UN-named socket inside the kernel and returns
-       * an integer known as socket descriptor
-       * This function takes domain/family as its first argument.
-       * For Internet family of IPv4 addresses we use AF_INET
-       */
-      if ( ( context.udp_mode_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-        perror("socket() UDP mode");
-        exit(1);
-      }
-
-      // Use ioctl() to look up interface index which we will use to bind socket descriptor "context.udp_mode_fd" to
-      memset (&iface, 0, sizeof (iface));
-      snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
-      if (ioctl (context.udp_mode_fd, SIOCGIFINDEX, &iface) < 0) {
-        perror ("ioctl() failed to find interface (transport mode) ");
-        return (EXIT_FAILURE);
-      }
-
-      /*** get the IP address of the local interface ***/
-      if (ioctl(context.udp_mode_fd, SIOCGIFADDR, &iface) < 0) {
-        perror ("ioctl() failed to find the IP address for local interface ");
-        return (EXIT_FAILURE);
-      }
-      else {
-        // source IPv4 address: it is the one of the interface
-        strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
-        do_debug(1, "Local IP for multiplexing %s\n", local_ip);
-      }
-  
-      // assign the destination address and port for the multiplexed packets
-      memset(&(context.remote), 0, sizeof(context.remote));
-      context.remote.sin_family = AF_INET;
-      context.remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP
-      context.remote.sin_port = htons(port);            // remote port
-  
-      // assign the local address and port for the multiplexed packets
-      memset(&(context.local), 0, sizeof(context.local));
-      context.local.sin_family = AF_INET;
-      context.local.sin_addr.s_addr = inet_addr(local_ip);    // local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-      context.local.sin_port = htons(port);            // local port
-  
-      // bind the socket "context.udp_mode_fd" to the local address and port
-      if (bind(context.udp_mode_fd, (struct sockaddr *)&(context.local), sizeof(context.local))==-1) {
-        perror("bind");
-      }
-      else {
-        do_debug(1, "Socket for multiplexing over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context.remote.sin_addr), htons(context.remote.sin_port)); 
-      }
-    }
-
-    // TCP server mode
-    else if (context.mode== TCP_SERVER_MODE ) {
-      /*** Request a socket for writing and receiving muxed packets in TCP mode ***/
-      // AF_INET (exactly the same as PF_INET)
-      // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // context.tcp_welcoming_fd is the file descriptor of the socket for managing arrived multiplexed packets
-
-      /* creates an UN-named socket inside the kernel and returns
-       * an integer known as socket descriptor
-       * This function takes domain/family as its first argument.
-       * For Internet family of IPv4 addresses we use AF_INET
-       */
-      if ( ( context.tcp_welcoming_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
-        perror("socket() TCP server mode");
-        exit(1);
-      }      
-
-      // Use ioctl() to look up interface index which we will use to bind socket descriptor "context.udp_mode_fd" to
-      memset (&iface, 0, sizeof (iface));
-      snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
-                
-      /*** get the IP address of the local interface ***/
-      if (ioctl(context.tcp_welcoming_fd, SIOCGIFADDR, &iface) < 0) {
-        perror ("ioctl() failed to find the IP address for local interface ");
-        return (EXIT_FAILURE);
-      }
-      else {
-        // source IPv4 address: it is the one of the interface
-        strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
-        do_debug(1, "Local IP for multiplexing %s\n", local_ip);
-      }
-
-      // assign the destination address and port for the multiplexed packets
-      memset(&(context.remote), 0, sizeof(context.remote));
-      context.remote.sin_family = AF_INET;
-      context.remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP
-      context.remote.sin_port = htons(port);            // remote port
-  
-      // assign the local address and port for the multiplexed packets
-      memset(&(context.local), 0, sizeof(context.local));
-      context.local.sin_family = AF_INET;
-      context.local.sin_addr.s_addr = inet_addr(local_ip);    // local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-      context.local.sin_port = htons(port);            // local port
-
-      /* The call to the function "bind()" assigns the details specified
-       * in the structure 'sockaddr' to the socket created above
-       */  
-      if (bind(context.tcp_welcoming_fd, (struct sockaddr *)&(context.local), sizeof(context.local))==-1) {
-        perror("bind");
-      }
-      else {
-        do_debug(1, "Welcoming TCP socket open. Remote IP %s. Port %i\n", inet_ntoa(context.remote.sin_addr), htons(context.remote.sin_port)); 
-      }
-
-      /* The call to the function "listen()" with second argument as 1 specifies
-       * maximum number of client connections that the server will queue for this listening
-       * socket.
-       */
-      listen(context.tcp_welcoming_fd, 1);
-      
-      // from now on, I will accept a TCP connection
-      context.acceptingTcpConnections = true;
-    }
-
-    // TCP client mode
-    else if ( context.mode== TCP_CLIENT_MODE ) {
-      /*** Request a socket for writing and receiving muxed packets in TCP mode ***/
-      // AF_INET (exactly the same as PF_INET)
-      // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // context.tcp_client_fd is the file descriptor of the socket for managing arrived multiplexed packets
-
-      /* creates an UN-named socket inside the kernel and returns
-       * an integer known as socket descriptor
-       * This function takes domain/family as its first argument.
-       * For Internet family of IPv4 addresses we use AF_INET
-       */
-      if ( ( context.tcp_client_fd = socket(AF_INET, SOCK_STREAM, 0) ) < 0) {
-        perror("socket() TCP mode");
-        exit(1);
-      }
-      
-      // Use ioctl() to look up interface index which we will use to bind socket descriptor "context.udp_mode_fd" to
-      memset (&iface, 0, sizeof (iface));
-      snprintf (iface.ifr_name, sizeof (iface.ifr_name), "%s", mux_if_name);
-      
-      /*** get the IP address of the local interface ***/
-      if (ioctl(context.tcp_client_fd, SIOCGIFADDR, &iface) < 0) {
-        perror ("ioctl() failed to find the IP address for local interface ");
-        return (EXIT_FAILURE);
-      }
-      else {
-        // source IPv4 address: it is the one of the interface
-        strcpy (local_ip, inet_ntoa(((struct sockaddr_in *)&iface.ifr_addr)->sin_addr));
-        do_debug(1, "Local IP for multiplexing %s\n", local_ip);
-      }
-
-      // assign the local address and port for the multiplexed packets
-      memset(&(context.local), 0, sizeof(context.local));
-      context.local.sin_family = AF_INET;
-      context.local.sin_addr.s_addr = inet_addr(local_ip);    // local IP; "htonl(INADDR_ANY)" would take the IP address of any interface
-      context.local.sin_port = htons(port);            // local port
-      
-      // assign the destination address and port for the multiplexed packets
-      memset(&(context.remote), 0, sizeof(context.remote));
-      context.remote.sin_family = AF_INET;
-      context.remote.sin_addr.s_addr = inet_addr(remote_ip);    // remote IP
-      context.remote.sin_port = htons(port);            // remote port
-
-
-      /* Information like IP address of the remote host and its port is
-       * bundled up in a structure and a call to function connect() is made
-       * which tries to connect this socket with the socket (IP address and port)
-       * of the remote host
-       */
-      if( connect(context.tcp_client_fd, (struct sockaddr *)&(context.remote), sizeof(context.remote)) < 0) {
-        do_debug(1, "Trying to connect to the TCP server at %s:%i\n", inet_ntoa(context.remote.sin_addr), htons(context.remote.sin_port));
-        perror("connect() error: TCP connect Failed. The TCP server did not accept the connection");
-        return 1;
-      }
-      else {
-        do_debug(1, "Successfully connected to the TCP server at %s:%i\n", inet_ntoa(context.remote.sin_addr), htons(context.remote.sin_port));
-
-        if ( DISABLE_NAGLE == 1 ) {
-          // disable NAGLE algorigthm, see https://holmeshe.me/network-essentials-setsockopt-TCP_NODELAY/
-          int flags =1;
-          setsockopt(context.tcp_client_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags));          
-        }
-        if ( QUICKACK == 1 ) {
-          // enable quick ACK, i.e. avoid delayed ACKs
-          int flags =1;
-          setsockopt(context.tcp_client_fd, IPPROTO_TCP, TCP_QUICKACK, (void *)&flags, sizeof(flags));          
-        }
-      }
-    }
-    /* END OF SOCKET REQUEST */
 
     /*** get the MTU of the local interface ***/
     if ( context.mode== UDP_MODE)  {
@@ -946,14 +683,14 @@ int main(int argc, char *argv[]) {
       // assign the destination address and port for the feedback packets
       memset(&(context.feedback_remote), 0, sizeof(context.feedback_remote));
       context.feedback_remote.sin_family = AF_INET;
-      context.feedback_remote.sin_addr.s_addr = inet_addr(remote_ip);  // remote feedback IP (the same IP as the remote one)
-      context.feedback_remote.sin_port = htons(port_feedback);    // remote feedback port
+      context.feedback_remote.sin_addr.s_addr = inet_addr(context.remote_ip);  // remote feedback IP (the same IP as the remote one)
+      context.feedback_remote.sin_port = htons(context.port_feedback);    // remote feedback port
   
       // assign the source address and port to the feedback packets
       memset(&(context.feedback), 0, sizeof(context.feedback));
       context.feedback.sin_family = AF_INET;
-      context.feedback.sin_addr.s_addr = inet_addr(local_ip);    // local IP
-      context.feedback.sin_port = htons(port_feedback);      // local port (feedback)
+      context.feedback.sin_addr.s_addr = inet_addr(context.local_ip);    // local IP
+      context.feedback.sin_port = htons(context.port_feedback);      // local port (feedback)
   
       // bind the socket "context.feedback_fd" to the local feedback address (the same used for multiplexing) and port
        if (bind(context.feedback_fd, (struct sockaddr *)&(context.feedback), sizeof(context.feedback))==-1) {
@@ -1355,9 +1092,9 @@ int main(int argc, char *argv[]) {
           is_multiplexed_packet = readPacketFromNet(&context,
                                                     buffer_from_net,
                                                     slen,
-                                                    port,
+                                                    //port,
                                                     ipheader,
-                                                    ipprotocol,
+                                                    //ipprotocol,
                                                     &protocol_rec,
                                                     &nread_from_net,
                                                     &packet_length,
@@ -1423,7 +1160,7 @@ int main(int argc, char *argv[]) {
           // now buffer_from_net contains a full packet or frame.
           // check if the packet comes (source port) from the feedback port (default 55556).  (Its destination port IS the feedback port)
   
-          if (port_feedback == ntohs(context.feedback_remote.sin_port)) {
+          if (context.port_feedback == ntohs(context.feedback_remote.sin_port)) {
   
             // the packet comes from the feedback port (default 55556)
             do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n", context.feedback_pkts, nread_from_net, inet_ntoa(context.feedback.sin_addr), ntohs(context.feedback.sin_port));
@@ -1505,7 +1242,7 @@ int main(int argc, char *argv[]) {
             // not in blast flavor
             tunToNetNoBlastFlavor(&context,
                                   &ipheader,
-                                  ipprotocol,
+                                  //ipprotocol,
                                   selected_mtu,
                                   &first_header_written,
                                   size_separator_fast_mode,
@@ -1551,7 +1288,7 @@ int main(int argc, char *argv[]) {
 
             periodExpiredNoblastFlavor (&context,
                                         &first_header_written,
-                                        ipprotocol,
+                                        //ipprotocol,
                                         &ipheader,
                                         log_file );
 

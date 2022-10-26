@@ -87,7 +87,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 // - a multiplexed packet has to be sent through the network
 void tunToNetNoBlastFlavor (struct contextSimplemux* context,
                             struct iphdr* ipheader,
-                            uint8_t ipprotocol,
+                            //uint8_t ipprotocol,
                             int selected_mtu,
                             int* first_header_written,
                             int size_separator_fast_mode,
@@ -540,7 +540,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
         
         case NETWORK_MODE:
           // build the header
-          BuildIPHeader(ipheader, total_length, ipprotocol, context->local, context->remote);
+          BuildIPHeader(ipheader, total_length, context->ipprotocol, context->local, context->remote);
 
           // build the full IP multiplexed packet
           uint8_t full_ip_packet[BUFSIZE];
@@ -1024,7 +1024,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
         
         case NETWORK_MODE:
           // build the header
-          BuildIPHeader(ipheader, total_length, ipprotocol, context->local, context->remote);
+          BuildIPHeader(ipheader, total_length, context->ipprotocol, context->local, context->remote);
 
           // build full IP multiplexed packet
           uint8_t full_ip_packet[BUFSIZE];

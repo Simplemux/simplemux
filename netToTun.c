@@ -11,9 +11,9 @@
 int readPacketFromNet(struct contextSimplemux* context,
                       uint8_t* buffer_from_net,
                       socklen_t slen,
-                      uint16_t port,
+                      //uint16_t port,
                       struct iphdr ipheader,
-                      uint8_t ipprotocol,
+                      //uint8_t ipprotocol,
                       uint8_t* protocol_rec,
                       int* nread_from_net,
                       uint16_t* packet_length,
@@ -42,7 +42,7 @@ int readPacketFromNet(struct contextSimplemux* context,
     // I don't have the IP and UDP headers
 
     // check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
-    if (port == ntohs(context->received.sin_port)) 
+    if (context->port == ntohs(context->received.sin_port)) 
       is_multiplexed_packet = 1;
     else
       is_multiplexed_packet = 0;
@@ -67,7 +67,7 @@ int readPacketFromNet(struct contextSimplemux* context,
 
     // Get IP Header of received packet
     GetIpHeader(&ipheader,buffer_from_net_aux);
-    if (ipheader.protocol == ipprotocol )
+    if (ipheader.protocol == context->ipprotocol )
       is_multiplexed_packet = 1;
     else
       is_multiplexed_packet = 0;

@@ -58,7 +58,7 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
 
 void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
                                   int* first_header_written,
-                                  uint8_t ipprotocol,
+                                  //uint8_t ipprotocol,
                                   struct iphdr* ipheader,
                                   FILE *log_file )
 {
@@ -167,7 +167,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
     
     case NETWORK_MODE:
       // build the header
-      BuildIPHeader(ipheader, total_length, ipprotocol, context->local, context->remote);
+      BuildIPHeader(ipheader, total_length, context->ipprotocol, context->local, context->remote);
 
       // build the full IP multiplexed packet
       uint8_t full_ip_packet[BUFSIZE];

@@ -32,16 +32,9 @@
 //#include "netToTun.c"
 //#include "tunToNet.c"
 //#include "periodExpired.c"
-#include "help.c"
+//#include "help.c"
+#include "socketRequest.c"
 
 #define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program
 
-#define PORT 55555              // default port
-#define PORT_FEEDBACK 55556     // port for sending ROHC feedback
-#define PORT_FAST 55557         // port for sending Simplemux fast
-#define PORT_BLAST 55558         // port for sending Simplemux fast
-
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
-
-#define DISABLE_NAGLE 1         // disable TCP Nagle algorithm
-#define QUICKACK 1              // enable TCP quick ACKs (non delayed)

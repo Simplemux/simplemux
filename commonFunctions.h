@@ -21,6 +21,14 @@
 #define IPPROTO_ROHC 142          // ROHC Protocol ID
 #define IPPROTO_ETHERNET 143      // Ethernet Protocol ID
 
+#define PORT 55555              // default port
+#define PORT_FEEDBACK 55556     // port for sending ROHC feedback
+#define PORT_FAST 55557         // port for sending Simplemux fast
+#define PORT_BLAST 55558         // port for sending Simplemux fast
+
+#define DISABLE_NAGLE 1         // disable TCP Nagle algorithm
+#define QUICKACK 1              // enable TCP quick ACKs (non delayed)
+
 #define Linux_TTL 64            // the initial value of the TTL IP field in Linux
 
 #define NETWORK_MODE    'N'     // N: network mode
@@ -93,13 +101,12 @@ struct contextSimplemux {
   uint32_t net2tun;           // number of packets read from net
   uint32_t feedback_pkts;     // number of ROHC feedback packets
 
+  char remote_ip[16];       // dotted quad IP string with the IP of the remote machine
+  char local_ip[16];        // dotted quad IP string with the IP of the local machine
+  uint16_t port;            // UDP/TCP port to be used for sending the multiplexed packets
+  uint16_t port_feedback;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
+  uint8_t ipprotocol;
   /*
-  char remote_ip[16] = "";                  // dotted quad IP string with the IP of the remote machine
-  char local_ip[16] = "";                   // dotted quad IP string with the IP of the local machine
-  uint16_t port = PORT;                     // UDP/TCP port to be used for sending the multiplexed packets
-  uint16_t port_feedback = PORT_FEEDBACK;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
-  uint8_t ipprotocol = IPPROTO_SIMPLEMUX;
-
   struct iphdr ipheader;              // IP header
   struct ifreq iface;                 // network interface
 
