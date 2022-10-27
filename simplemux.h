@@ -33,7 +33,8 @@
 //#include "tunToNet.c"
 //#include "periodExpired.c"
 //#include "help.c"
-#include "socketRequest.c"
+//#include "socketRequest.c"
+#include "rohc.c"
 
 #define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program
 
