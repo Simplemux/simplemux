@@ -4,15 +4,14 @@ int socketRequest(struct contextSimplemux* context,
                   struct iphdr* ipheader,
                   struct ifreq* iface,
                   char mux_if_name[IFNAMSIZ],
-                  //uint8_t ipprotocol,
                   const int on)
 {
   /* SOCKET REQUEST */
   /*** Request a socket for writing and receiving muxed packets in Network mode ***/
   if ( context->mode== NETWORK_MODE ) {
     // initialize header IP to be used when receiving a packet in NETWORK mode
-    memset(&ipheader, 0, sizeof(struct iphdr));      
-    memset (&iface, 0, sizeof (iface));
+    memset(ipheader, 0, sizeof(struct iphdr));      
+    memset (iface, 0, sizeof (*iface));
     snprintf (iface->ifr_name, sizeof (iface->ifr_name), "%s", mux_if_name);
 
     // get the local IP address of the network interface 'mux_if_name'
@@ -76,7 +75,7 @@ int socketRequest(struct contextSimplemux* context,
     // Bind the socket "context->network_mode_fd" to interface index
     // bind socket descriptor "context->network_mode_fd" to specified interface with setsockopt() since
     // none of the other arguments of sendto() specify which interface to use.
-    if (setsockopt (context->network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &iface, sizeof (iface)) < 0) {
+    if (setsockopt (context->network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, iface, sizeof (*iface)) < 0) {
       perror ("setsockopt() failed to bind to interface (network mode) ");
       exit (EXIT_FAILURE);
     }  
@@ -106,15 +105,15 @@ int socketRequest(struct contextSimplemux* context,
     }
 
     // Use ioctl() to look up interface index which we will use to bind socket descriptor "context->udp_mode_fd" to
-    memset (&iface, 0, sizeof (iface));
+    memset (iface, 0, sizeof (*iface));
     snprintf (iface->ifr_name, sizeof (iface->ifr_name), "%s", mux_if_name);
-    if (ioctl (context->udp_mode_fd, SIOCGIFINDEX, &iface) < 0) {
-      perror ("ioctl() failed to find interface (transport mode) ");
+    if (ioctl (context->udp_mode_fd, SIOCGIFINDEX, iface) < 0) {
+      perror ("ioctl() failed to find interface (UDP mode) ");
       return (EXIT_FAILURE);
     }
 
     /*** get the IP address of the local interface ***/
-    if (ioctl(context->udp_mode_fd, SIOCGIFADDR, &iface) < 0) {
+    if (ioctl(context->udp_mode_fd, SIOCGIFADDR, iface) < 0) {
       perror ("ioctl() failed to find the IP address for local interface ");
       return (EXIT_FAILURE);
     }
@@ -163,11 +162,11 @@ int socketRequest(struct contextSimplemux* context,
     }      
 
     // Use ioctl() to look up interface index which we will use to bind socket descriptor "context->udp_mode_fd" to
-    memset (&iface, 0, sizeof (iface));
+    memset (iface, 0, sizeof (*iface));
     snprintf (iface->ifr_name, sizeof (iface->ifr_name), "%s", mux_if_name);
               
     /*** get the IP address of the local interface ***/
-    if (ioctl(context->tcp_welcoming_fd, SIOCGIFADDR, &iface) < 0) {
+    if (ioctl(context->tcp_welcoming_fd, SIOCGIFADDR, iface) < 0) {
       perror ("ioctl() failed to find the IP address for local interface ");
       return (EXIT_FAILURE);
     }
@@ -227,11 +226,11 @@ int socketRequest(struct contextSimplemux* context,
     }
     
     // Use ioctl() to look up interface index which we will use to bind socket descriptor "context->udp_mode_fd" to
-    memset (&iface, 0, sizeof (iface));
+    memset (iface, 0, sizeof (*iface));
     snprintf (iface->ifr_name, sizeof (iface->ifr_name), "%s", mux_if_name);
     
     /*** get the IP address of the local interface ***/
-    if (ioctl(context->tcp_client_fd, SIOCGIFADDR, &iface) < 0) {
+    if (ioctl(context->tcp_client_fd, SIOCGIFADDR, iface) < 0) {
       perror ("ioctl() failed to find the IP address for local interface ");
       return (EXIT_FAILURE);
     }
@@ -279,5 +278,5 @@ int socketRequest(struct contextSimplemux* context,
       }
     }
   }
-  return -1;
+  return 0;
 }

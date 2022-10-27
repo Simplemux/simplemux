@@ -538,15 +538,16 @@ int main(int argc, char *argv[]) {
 
 
     // Initialize the sockets
-    int correctSocket=0;
+    int correctSocket = 1;
     correctSocket = socketRequest(&context,
-                    &ipheader,
-                    &iface,
-                    mux_if_name,
-                    //ipprotocol,
-                    on);
-    if (correctSocket == -1)
+                                  &ipheader,
+                                  &iface,
+                                  mux_if_name,
+                                  on);
+    if (correctSocket == 1) {
+      my_err("Error creating the sockets\n");
       exit(1);
+    }
 
 
     /*** get the MTU of the local interface ***/
