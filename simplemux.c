@@ -140,15 +140,12 @@ int main(int argc, char *argv[]) {
   context.port = PORT;
   context.port_feedback = PORT_FEEDBACK;
   context.ipprotocol = IPPROTO_SIMPLEMUX;
+  context.tun_if_name[0] = '\0';
+  context.mux_if_name[0] = '\0';
+
 
   int fd2read;
   
-  char tun_if_name[IFNAMSIZ] = "";    // name of the tun interface (e.g. "tun0")
-  char mux_if_name[IFNAMSIZ] = "";    // name of the network interface (e.g. "eth0")
-
-  char mode_string[10];
-  char tunnel_mode_string[4];
-
   const int on = 1;                   // needed when creating a socket
 
   struct sockaddr_in TCPpair;
@@ -209,6 +206,9 @@ int main(int argc, char *argv[]) {
   }
   else {
     int option; // command line options
+    char mode_string[10];
+    char tunnel_mode_string[4];
+
     while((option = getopt(argc, argv, "i:e:M:T:c:p:n:B:t:P:l:d:r:m:fbhL")) > 0) {
 
       switch(option) {
@@ -222,7 +222,7 @@ int main(int argc, char *argv[]) {
           usage(progname);
           break;
         case 'i':            /* put the name of the tun interface (e.g. "tun0") in "tun_if_name" */
-          strncpy(tun_if_name, optarg, IFNAMSIZ-1);
+          strncpy(context.tun_if_name, optarg, IFNAMSIZ-1);
           break;
         case 'M':            /* network (N) or udp (U) or tcpclient (T) or tcpserver (S) mode */
           strcpy(mode_string, optarg);
@@ -295,10 +295,10 @@ int main(int argc, char *argv[]) {
           }
           break;
         case 'e':            /* the name of the network interface (e.g. "eth0") in "mux_if_name" */
-          strncpy(mux_if_name, optarg, IFNAMSIZ-1);
+          strncpy(context.mux_if_name, optarg, IFNAMSIZ-1);
           break;
         case 'c':            /* destination address of the machine where the tunnel ends */
-          strncpy(context.remote_ip, optarg, 15);
+          strncpy(context.remote_ip, optarg, 16);
           break;
         case 'l':            /* name of the log file */
           strncpy(log_file_name, optarg, 100);
@@ -345,15 +345,14 @@ int main(int argc, char *argv[]) {
       usage(progname);
     }
 
-
     // check interface options
-    if(*tun_if_name == '\0') {
+    if(context.tun_if_name[0] == '\0') {
       my_err("Must specify a tun/tap interface name for native packets ('-i' option)\n");
       usage(progname);
-    } else if(*context.remote_ip == '\0') {
+    } else if(context.remote_ip[0] == '\0') {
       my_err("Must specify the IP address of the peer\n");
       usage(progname);
-    } else if(*mux_if_name == '\0') {
+    } else if(context.mux_if_name[0] == '\0') {
       my_err("Must specify the local interface name for multiplexed packets\n");
       usage(progname);
     } 
@@ -444,11 +443,11 @@ int main(int argc, char *argv[]) {
     if (context.tunnelMode == TUN_MODE) {
       // tun tunnel mode (i.e. send IP packets)
       // initialize tun interface for native packets
-      if ( (context.tun_fd = tun_alloc(tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
-        my_err("Error connecting to tun interface for capturing native packets %s\n", tun_if_name);
+      if ( (context.tun_fd = tun_alloc(context.tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
+        my_err("Error connecting to tun interface for capturing native packets %s\n", context.tun_if_name);
         exit(1);
       }
-      do_debug(1, "Successfully connected to interface for native packets %s\n", tun_if_name);    
+      do_debug(1, "Successfully connected to interface for native packets %s\n", context.tun_if_name);    
     }
     else if (context.tunnelMode == TAP_MODE) {
       // tap tunnel mode (i.e. send Ethernet frames)
@@ -460,11 +459,11 @@ int main(int argc, char *argv[]) {
       }        
 
       // initialize tap interface for native packets
-      if ( (context.tun_fd = tun_alloc(tun_if_name, IFF_TAP | IFF_NO_PI)) < 0 ) {
-        my_err("Error connecting to tap interface for capturing native Ethernet frames %s\n", tun_if_name);
+      if ( (context.tun_fd = tun_alloc(context.tun_if_name, IFF_TAP | IFF_NO_PI)) < 0 ) {
+        my_err("Error connecting to tap interface for capturing native Ethernet frames %s\n", context.tun_if_name);
         exit(1);
       }
-      do_debug(1, "Successfully connected to interface for Ethernet frames %s\n", tun_if_name);    
+      do_debug(1, "Successfully connected to interface for Ethernet frames %s\n", context.tun_if_name);    
     }
     else exit(1); // this would be a failure
     /************* end - initialize the tun/tap **************/
@@ -475,7 +474,7 @@ int main(int argc, char *argv[]) {
     correctSocket = socketRequest(&context,
                                   &ipheader,
                                   &iface,
-                                  mux_if_name,
+                                  //mux_if_name,
                                   on);
     if (correctSocket == 1) {
       my_err("Error creating the sockets\n");
@@ -655,7 +654,8 @@ int main(int argc, char *argv[]) {
     // If ROHC has been selected, I have to initialize it
     // see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
     initRohc( &context,
-              compressor,
+              //compressor,
+              //decompressor,
               log_file);
 
     do_debug(1, "\n");

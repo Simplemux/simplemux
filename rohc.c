@@ -77,7 +77,8 @@ static bool rtp_detect( const uint8_t *const ip __attribute__((unused)),
 
 
 int initRohc( struct contextSimplemux* context,
-              struct rohc_comp *compressor,
+              //struct rohc_comp *compressor,
+              //struct rohc_decomp *decompressor,
               FILE *log_file )
 
 {
@@ -91,7 +92,12 @@ int initRohc( struct contextSimplemux* context,
      * possible for large CIDs */
     compressor = rohc_comp_new2(ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, gen_random_num, NULL);
     if(compressor == NULL) {
-      fprintf(stderr, "failed create the ROHC compressor\n");
+      fprintf(stderr, "failed to create the ROHC compressor\n");
+      /*fprintf(stderr, "an error occurred during program execution, "
+      "abort program\n");
+      if ( log_file != NULL )
+        fclose (log_file);
+      return 1;*/
       goto error;
     }
     
@@ -102,6 +108,11 @@ int initRohc( struct contextSimplemux* context,
     // In our case we will consider as RTP the UDP packets belonging to certain ports
     if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL)) {
       fprintf(stderr, "failed to set RTP detection callback\n");
+      /*fprintf(stderr, "an error occurred during program execution, "
+      "abort program\n");
+      if ( log_file != NULL )
+        fclose (log_file);
+      return 1;*/
       goto error;
     }
 
@@ -258,16 +269,21 @@ int initRohc( struct contextSimplemux* context,
     do_debug(1, "\n");
   }
 
+  return 1;
+
   /******* labels ************/
   release_compressor:
     rohc_comp_free(compressor);
+    return -1;
 
   release_decompressor:
     rohc_decomp_free(decompressor);
-
+    return -1;
+  
   error:
     fprintf(stderr, "an error occurred during program execution, "
       "abort program\n");
-    if ( log_file != NULL ) fclose (log_file);
-    return 1;
+    if ( log_file != NULL )
+      fclose (log_file);
+    return -1;
 }

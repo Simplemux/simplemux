@@ -106,6 +106,9 @@ struct contextSimplemux {
   uint16_t port;            // UDP/TCP port to be used for sending the multiplexed packets
   uint16_t port_feedback;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
   uint8_t ipprotocol;
+
+  char tun_if_name[IFNAMSIZ];    // name of the tun interface (e.g. "tun0")
+  char mux_if_name[IFNAMSIZ];    // name of the network interface (e.g. "eth0")
   /*
   struct iphdr ipheader;              // IP header
   struct ifreq iface;                 // network interface
