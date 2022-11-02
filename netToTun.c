@@ -1,4 +1,4 @@
-#include "commonFunctions.h"
+//#include "commonFunctions.h"
 //#include "packetsToSend.c"
 #include "buildMuxedPacket.c"
 
@@ -8,36 +8,30 @@
  * 0  a correct but not multiplexed packet has been read from the network
  * -1 error. Incorrect read
  */
-int readPacketFromNet(char mode,
-                      int udp_mode_fd,
-                      int network_mode_fd,
+int readPacketFromNet(struct contextSimplemux* context,
                       uint8_t* buffer_from_net,
-                      struct sockaddr_in received,
                       socklen_t slen,
-                      uint16_t port,
+                      //uint16_t port,
                       struct iphdr ipheader,
-                      uint8_t ipprotocol,
+                      //uint8_t ipprotocol,
                       uint8_t* protocol_rec,
                       int* nread_from_net,
                       uint16_t* packet_length,
                       uint16_t* pending_bytes_muxed_packet,
-                      int tcp_server_fd,
-                      int tcp_client_fd,
                       int size_separator_fast_mode,
                       uint8_t* read_tcp_bytes_separator,
-                      uint16_t* read_tcp_bytes,
-                      uint16_t* length_muxed_packet )
+                      uint16_t* read_tcp_bytes )
 
 {
   int is_multiplexed_packet = -1;
   uint8_t buffer_from_net_aux[BUFSIZE];
 
-  if (mode == UDP_MODE) {
+  if (context->mode == UDP_MODE) {
     // a packet has been received from the network, destined to the multiplexing port
     // 'slen' is the length of the IP address
     // I cannot use 'remote' because it would replace the IP address and port. I use 'received'
 
-    *nread_from_net = recvfrom ( udp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&received, &slen );
+    *nread_from_net = recvfrom ( context->udp_mode_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(context->received), &slen );
     if (*nread_from_net==-1) {
       perror ("[readPacketFromNet] recvfrom() UDP error");
     }
@@ -48,15 +42,15 @@ int readPacketFromNet(char mode,
     // I don't have the IP and UDP headers
 
     // check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
-    if (port == ntohs(received.sin_port)) 
+    if (context->port == ntohs(context->received.sin_port)) 
       is_multiplexed_packet = 1;
     else
       is_multiplexed_packet = 0;
   }
 
-  else if (mode == NETWORK_MODE) {
+  else if (context->mode  == NETWORK_MODE) {
     // a packet has been received from the network, destined to the local interface for muxed packets
-    *nread_from_net = cread ( network_mode_fd, buffer_from_net_aux, BUFSIZE);
+    *nread_from_net = cread ( context->network_mode_fd, buffer_from_net_aux, BUFSIZE);
 
     if (*nread_from_net==-1) {
       perror ("[readPacketFromNet] cread error in network mode");
@@ -73,13 +67,13 @@ int readPacketFromNet(char mode,
 
     // Get IP Header of received packet
     GetIpHeader(&ipheader,buffer_from_net_aux);
-    if (ipheader.protocol == ipprotocol )
+    if (ipheader.protocol == context->ipprotocol )
       is_multiplexed_packet = 1;
     else
       is_multiplexed_packet = 0;
   }
 
-  else if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
+  else if ((context->mode  == TCP_SERVER_MODE) || (context->mode  == TCP_CLIENT_MODE)) {
 
     // some bytes have been received from the network, destined to the TCP socket
     
@@ -89,7 +83,7 @@ int readPacketFromNet(char mode,
      * This call returns up to N bytes of data. If there are fewer 
      *bytes available than requested, the call returns the number currently available.
      */
-    //*nread_from_net = read(tcp_server_fd, buffer_from_net, sizeof(buffer_from_net));
+    //*nread_from_net = read(context->tcp_server_fd, buffer_from_net, sizeof(buffer_from_net));
     
     // I only read one packet (at most) each time the program goes through this part
 
@@ -98,11 +92,11 @@ int readPacketFromNet(char mode,
       do_debug(3, "[readPacketFromNet] Reading TCP. No pending bytes of the muxed packet. Start reading a new separator\n");
 
       // read a separator (3 or 4 bytes), or a part of it
-      if (mode == TCP_SERVER_MODE) {
-        *nread_from_net = read(tcp_server_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
+      if (context->mode  == TCP_SERVER_MODE) {
+        *nread_from_net = read(context->tcp_server_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
       }
       else {
-        *nread_from_net = read(tcp_client_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
+        *nread_from_net = read(context->tcp_client_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
       }
       do_debug(3, "[readPacketFromNet]  %i bytes of the separator read from the TCP socket", *nread_from_net);
 
@@ -131,10 +125,10 @@ int readPacketFromNet(char mode,
         // I can now obtain the length of the packet
         // the first byte is the Most Significant Byte of the length
         // the second byte is the Less Significant Byte of the length
-        *length_muxed_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
-        *pending_bytes_muxed_packet = *length_muxed_packet;
+        context->length_muxed_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
+        *pending_bytes_muxed_packet = context->length_muxed_packet;
 
-        do_debug(2, " Read separator: Length %i (0x%02x%02x)", *length_muxed_packet, buffer_from_net[0], buffer_from_net[1]);
+        do_debug(2, " Read separator: Length %i (0x%02x%02x)", context->length_muxed_packet, buffer_from_net[0], buffer_from_net[1]);
 
         // read the Protocol field
         if ( SIZE_PROTOCOL_FIELD == 1 ) {
@@ -148,11 +142,11 @@ int readPacketFromNet(char mode,
 
         // read the packet itself (without the separator)
         // I only read the length of the packet
-        if (mode == TCP_SERVER_MODE) {
-          *nread_from_net = read(tcp_server_fd, buffer_from_net, *pending_bytes_muxed_packet);
+        if (context->mode  == TCP_SERVER_MODE) {
+          *nread_from_net = read(context->tcp_server_fd, buffer_from_net, *pending_bytes_muxed_packet);
         }
         else {
-          *nread_from_net = read(tcp_client_fd, buffer_from_net, *pending_bytes_muxed_packet);
+          *nread_from_net = read(context->tcp_client_fd, buffer_from_net, *pending_bytes_muxed_packet);
         }
         do_debug(3, "[readPacketFromNet]  %i bytes of the muxed packet read from the TCP socket", *nread_from_net);
 
@@ -191,11 +185,11 @@ int readPacketFromNet(char mode,
       // I try to read 'pending_bytes_muxed_packet' and to put them at position '*read_tcp_bytes'
       do_debug(3, "[readPacketFromNet] Reading TCP. %i TCP bytes pending of the previous payload\n", *pending_bytes_muxed_packet);
 
-      if (mode == TCP_SERVER_MODE) {
-        *nread_from_net = read(tcp_server_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
+      if (context->mode  == TCP_SERVER_MODE) {
+        *nread_from_net = read(context->tcp_server_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
       }
       else {
-        *nread_from_net = read(tcp_client_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
+        *nread_from_net = read(context->tcp_client_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
       }
       do_debug(3, "[readPacketFromNet]  %i bytes read from the TCP socket ", *nread_from_net);
 
@@ -209,10 +203,10 @@ int readPacketFromNet(char mode,
       }
 
       else if(*nread_from_net < *pending_bytes_muxed_packet) {
-        do_debug(3, "[readPacketFromNet] (I have not yet read the whole muxed packet: pending %i bytes)\n", *length_muxed_packet - *nread_from_net);
+        do_debug(3, "[readPacketFromNet] (I have not yet read the whole muxed packet: pending %i bytes)\n", context->length_muxed_packet - *nread_from_net);
         // I have not read the whole packet
         // next time I will have to keep on reading
-        *pending_bytes_muxed_packet = *length_muxed_packet - *nread_from_net;
+        *pending_bytes_muxed_packet = context->length_muxed_packet - *nread_from_net;
         *read_tcp_bytes = *read_tcp_bytes + *nread_from_net;
 
         //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", *nread_from_net, *read_tcp_bytes, *pending_bytes_muxed_packet);
@@ -221,7 +215,7 @@ int readPacketFromNet(char mode,
         is_multiplexed_packet = -1;
       }
       else if(*nread_from_net == *pending_bytes_muxed_packet) {
-        do_debug(3, "[readPacketFromNet]  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n", *nread_from_net, *length_muxed_packet);
+        do_debug(3, "[readPacketFromNet]  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n", *nread_from_net, context->length_muxed_packet);
         // I have read the pending bytes of this packet
         *pending_bytes_muxed_packet = 0;
         //*read_tcp_bytes = *read_tcp_bytes + *nread_from_net;
@@ -250,69 +244,54 @@ int readPacketFromNet(char mode,
   return is_multiplexed_packet;
 }
 
-int demuxPacketFromNet( uint32_t* net2tun,
-                        char mode,
-                        char tunnel_mode,
-                        bool blastMode,
-                        bool fast_mode,
-                        int ROHC_mode,
-                        struct sockaddr_in local,
-                        struct sockaddr_in remote,
-                        struct sockaddr_in feedback_remote,
+int demuxPacketFromNet( struct contextSimplemux* context,
                         int nread_from_net,
                         uint16_t packet_length,
                         FILE *log_file,
-                        struct packet **packetsToSend,
-                        int tun_fd,
-                        int udp_mode_fd,
-                        int network_mode_fd,
-                        int feedback_fd,
-                        uint64_t* blastModeTimestamps,
                         uint8_t* buffer_from_net,
                         uint8_t* protocol_rec,
                         rohc_status_t* status,
-                        uint64_t* lastHeartBeatReceived,
                         int debug )
 {
   /* increase the counter of the number of packets read from the network */
-  (*net2tun)++;
-  switch (mode) {
+  (context->net2tun)++;
+  switch (context->mode) {
     case UDP_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case TCP_CLIENT_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case TCP_SERVER_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), nread_from_net );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
 
     case NETWORK_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", *net2tun, inet_ntoa(remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
 
       // write the log file
       if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, *net2tun, inet_ntoa(remote.sin_addr));
+        fprintf (log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr));
         fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
       }
     break;
@@ -323,7 +302,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
     do_debug(3, "%"PRIu64" Packet arrived from the network\n",now);         
   }
 
-  if(blastMode) {
+  if(context->flavor == 'B') {
     // there should be a single packet
 
     // apply the structure of a blast mode packet
@@ -344,8 +323,8 @@ int demuxPacketFromNet( uint32_t* net2tun,
       // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
       do_debug(2," Removing packet with ID %i from the list\n", ntohs(blastHeader->identifier));
       if(debug>2)
-        printList(packetsToSend);
-      if(delete(packetsToSend,ntohs(blastHeader->identifier))==false) {
+        printList(&context->unconfirmedPacketsBlast);
+      if(delete(&context->unconfirmedPacketsBlast,ntohs(blastHeader->identifier))==false) {
         do_debug(2,"The packet had already been removed from the list\n");
       }
       else {
@@ -361,19 +340,19 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
       uint64_t now = GetTimeStamp();
 
-      if(blastModeTimestamps[ntohs(blastHeader->identifier)] == 0){
+      if(context->blastTimestamps[ntohs(blastHeader->identifier)] == 0){
         deliverThisPacket=true;
       }
       else {
 
-        if (now - blastModeTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
+        if (now - context->blastTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
           // the packet has been sent recently
           // do not send it again
           do_debug(1,"The packet with ID %i has been sent recently. Do not send it again\n", ntohs(blastHeader->identifier));
-          do_debug(2,"now (%"PRIu64") - blastModeTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
+          do_debug(2,"now (%"PRIu64") - blastTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
                     now,
                     ntohs(blastHeader->identifier),
-                    blastModeTimestamps[ntohs(blastHeader->identifier)],
+                    context->blastTimestamps[ntohs(blastHeader->identifier)],
                     TIME_UNTIL_SENDING_AGAIN_BLAST);
         }
         else {
@@ -393,10 +372,10 @@ int demuxPacketFromNet( uint32_t* net2tun,
         }
         
         // tun mode
-        if(tunnel_mode == TUN_MODE) {
+        if(context->tunnelMode == TUN_MODE) {
            // write the demuxed packet to the tun interface
           do_debug (2, "%"PRIu64" Sending packet of %i bytes to the tun interface\n", now, length);
-          if (cwrite ( tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
+          if (cwrite ( context->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
             perror("could not write the packet correctly");
           }
           else {
@@ -406,17 +385,17 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
           // update the timestamp when a packet with this identifier has been sent
           uint64_t now = GetTimeStamp();
-          blastModeTimestamps[ntohs(blastHeader->identifier)] = now;
+          context->blastTimestamps[ntohs(blastHeader->identifier)] = now;
         }
         // tap mode
-        else if(tunnel_mode == TAP_MODE) {
+        else if(context->tunnelMode == TAP_MODE) {
           if (blastHeader->protocolID != IPPROTO_ETHERNET) {
             do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", blastHeader->protocolID);              
           }
           else {
              // write the demuxed packet to the tap interface
             do_debug (2, " Sending frame of %i bytes to the tap interface\n", length);
-            if(cwrite ( tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
+            if(cwrite ( context->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
               perror("could not write the packet correctly");
             }
             else {
@@ -426,11 +405,11 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
             // update the timestamp when a packet with this identifier has been sent
             uint64_t now = GetTimeStamp();
-            blastModeTimestamps[ntohs(blastHeader->identifier)] = now;
+            context->blastTimestamps[ntohs(blastHeader->identifier)] = now;
           }
         }
         else {
-          perror ("wrong value of 'tunnel_mode'");
+          perror ("wrong value of 'tunnelMode'");
           exit (EXIT_FAILURE);
         }
         
@@ -450,17 +429,23 @@ int demuxPacketFromNet( uint32_t* net2tun,
       ACK.header.ACK = THISISANACK;
 
       int fd;
-      if(mode==UDP_MODE)
-        fd = udp_mode_fd;
-      else if(mode==NETWORK_MODE)
-        fd = network_mode_fd;
-      sendPacketBlastMode( fd, mode, &ACK, remote, local);
+      if(context->mode==UDP_MODE)
+        fd = context->udp_mode_fd;
+      else if(context->mode==NETWORK_MODE)
+        fd = context->network_mode_fd;
+
+      sendPacketBlastFlavor(fd,
+                          context->mode,
+                          &ACK,
+                          context->remote,
+                          context->local);
+
       do_debug(1," Sent blast ACK to the network. ID %i, length %i\n", ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));
     }
     else if((blastHeader->ACK & MASK ) == HEARTBEAT) {
       do_debug(1," Arrived blast heartbeat\n");
       uint64_t now = GetTimeStamp();
-      *lastHeartBeatReceived = now;
+      context->lastBlastHeartBeatReceived = now;
     }
     else {
       perror("Unknown blast packet type\n");
@@ -477,7 +462,9 @@ int demuxPacketFromNet( uint32_t* net2tun,
     int maximum_packet_length;              // the maximum length of a packet. It may be 64 (first header) or 128 (non-first header)
 
     while (position < nread_from_net) {   
-      if (!fast_mode) {
+      if (context->flavor == 'N') {
+        // normal flavor
+
         // check if this is the first separator or not
         if (first_header_read == 0) {
 
@@ -532,7 +519,9 @@ int demuxPacketFromNet( uint32_t* net2tun,
         do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
         do_debug(2, ": ");
       }
-      else {  // fast mode
+      else {
+        // fast flavor
+        assert(context->flavor == 'F');
 
         // I have demuxed another packet
         num_demuxed_packets ++;
@@ -542,7 +531,8 @@ int demuxPacketFromNet( uint32_t* net2tun,
       }
 
 
-      if (!fast_mode) {
+      if (context->flavor == 'N') {
+        // normal flavor
 
         if (LXT_first_byte == 0) {
           // the LXT bit of the first byte is 0 => the separator is one-byte long
@@ -686,9 +676,11 @@ int demuxPacketFromNet( uint32_t* net2tun,
         do_debug(1, ". Length %i bytes\n", packet_length);
       }
 
-      else {  // fast mode
+      else {
+        // fast flavor
+        assert(context->flavor == 'F');
 
-        if ((mode == TCP_SERVER_MODE) || (mode == TCP_CLIENT_MODE)) {
+        if ((context->mode == TCP_SERVER_MODE) || (context->mode == TCP_CLIENT_MODE)) {
           // do nothing, because I have already read the length
           do_debug(1, " Length %i bytes\n", packet_length);
 
@@ -729,7 +721,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
         // this means that reception is desynchronized
         // in TCP mode, this will never recover, so abort
-        if ((mode == TCP_CLIENT_MODE) || (mode == TCP_CLIENT_MODE)) {
+        if ((context->mode == TCP_CLIENT_MODE) || (context->mode == TCP_CLIENT_MODE)) {
           do_debug (1, "ERROR: Length problem in TCP mode. Abort\n");
           return -1;
         }
@@ -737,7 +729,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
         // write the log file
         if ( log_file != NULL ) {
           // the packet is bad so I add a line
-          fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun );  
+          fprintf (log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun );  
           fflush(log_file);
         }            
       }
@@ -760,12 +752,12 @@ int demuxPacketFromNet( uint32_t* net2tun,
           // ROHC-compressed packet
 
           // I cannot decompress the packet if I am not in ROHC mode
-          if ( ROHC_mode == 0 ) {
+          if ( context->rohcMode == 0 ) {
             do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
 
             // write the log file
             if ( log_file != NULL ) {
-              fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, *net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
+              fprintf (log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, context->net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
               fflush(log_file);
             }
           }
@@ -800,7 +792,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
             *status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
 
             // if bidirectional mode has been set, check the feedback
-            if ( ROHC_mode > 1 ) {
+            if ( context->rohcMode > 1 ) {
 
               // check if the decompressor has received feedback, and it has to be delivered to the local compressor
               if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
@@ -837,7 +829,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
 
                 // send the feedback packet to the peer
-                if (sendto(feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&feedback_remote, sizeof(feedback_remote))==-1) {
+                if (sendto(context->feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&(context->feedback_remote), sizeof(context->feedback_remote))==-1) {
                   perror("sendto() failed when sending a ROHC packet");
                 }
                 else {
@@ -884,7 +876,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
                 // write the log file
                 if ( log_file != NULL ) {
-                  fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, *net2tun, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port));  // the packet is bad so I add a line
+                  fprintf (log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));  // the packet is bad so I add a line
                   fflush(log_file);
                 }
               }
@@ -899,7 +891,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
               // write the log file
               if ( log_file != NULL ) {
                 // the packet is bad
-                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun);  
+                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
                 fflush(log_file);
               }
             }
@@ -913,7 +905,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
               // write the log file
               if ( log_file != NULL ) {
                 // the packet is bad
-                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun);  
+                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
                 fflush(log_file);
               }
             }
@@ -927,7 +919,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
               // write the log file
               if ( log_file != NULL ) {
                 // the packet is bad
-                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun);  
+                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
                 fflush(log_file);
               }
             }
@@ -941,7 +933,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
               // write the log file
               if ( log_file != NULL ) {
                 // the packet is bad
-                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun);  
+                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
                 fflush(log_file);
               }
             }
@@ -955,7 +947,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
               // write the log file
               if ( log_file != NULL ) {
                 // the packet is bad
-                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, *net2tun);  
+                fprintf (log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
                 fflush(log_file);
               }
             }
@@ -968,24 +960,24 @@ int demuxPacketFromNet( uint32_t* net2tun,
         if ( ( *protocol_rec != IPPROTO_ROHC ) || ((*protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
 
           // tun mode
-          if(tunnel_mode == TUN_MODE) {
+          if(context->tunnelMode == TUN_MODE) {
              // write the demuxed packet to the tun interface
             do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
-            cwrite ( tun_fd, demuxed_packet, packet_length );
+            cwrite ( context->tun_fd, demuxed_packet, packet_length );
           }
           // tap mode
-          else if(tunnel_mode == TAP_MODE) {
+          else if(context->tunnelMode == TAP_MODE) {
             if (*protocol_rec != IPPROTO_ETHERNET) {
               do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);              
             }
             else {
                // write the demuxed packet to the tap interface
               do_debug (2, " Sending frame of %i bytes to the tap interface\n", packet_length);
-              cwrite ( tun_fd, demuxed_packet, packet_length );
+              cwrite ( context->tun_fd, demuxed_packet, packet_length );
             }
           }
           else {
-            perror ("wrong value of 'tunnel_mode'");
+            perror ("wrong value of 'tunnelMode'");
             exit (EXIT_FAILURE);
           }
           
@@ -994,7 +986,7 @@ int demuxPacketFromNet( uint32_t* net2tun,
 
           // write the log file
           if ( log_file != NULL ) {
-            fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, *net2tun);  // the packet is good
+            fprintf (log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, context->net2tun);  // the packet is good
             fflush(log_file);
           }
         }
