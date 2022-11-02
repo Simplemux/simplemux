@@ -442,16 +442,8 @@ int main(int argc, char *argv[]) {
     context.timeLastSent = GetTimeStamp();  
       
     // initializations for blast flavor
-    if(context.flavor == 'B') {
-      // fill the vector of timestamps with zeroes
-      for(int i=0; i < 0xFFFF + 1; i++) {
-        context.blastTimestamps[i] = 0;
-      }
-      // fill the variables 'lastBlastHeartBeatSent' and 'lastBlastHeartBeatReceived'
-      context.lastBlastHeartBeatSent = context.timeLastSent;
-      context.lastBlastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
-    }
-    
+    if(context->flavor == 'B')
+      initBlastFlavor(&context);
 
 
     /*****************************************/

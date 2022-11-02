@@ -30,6 +30,19 @@ void initContext(struct contextSimplemux* context)
 }
 
 
+// initializations for blast flavor
+void initBlastFlavor(struct contextSimplemux* context)
+{
+  // fill the vector of timestamps with zeroes
+  for(int i=0; i < 0xFFFF + 1; i++) {
+    context->blastTimestamps[i] = 0;
+  }
+  // fill the variables 'lastBlastHeartBeatSent' and 'lastBlastHeartBeatReceived'
+  context->lastBlastHeartBeatSent = context.timeLastSent;
+  context->lastBlastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
+}
+
+
 void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
 {
   int option; // command line options
