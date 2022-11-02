@@ -46,6 +46,7 @@
 
 #define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
 #define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
+#define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
 
 struct contextSimplemux {
   char mode;        // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode
@@ -109,22 +110,24 @@ struct contextSimplemux {
 
   char tun_if_name[IFNAMSIZ];    // name of the tun interface (e.g. "tun0")
   char mux_if_name[IFNAMSIZ];    // name of the network interface (e.g. "eth0")
+
+  // variables for the log file
+  char log_file_name[100];       // name of the log file  
+  FILE *log_file;              // file descriptor of the log file
+  int file_logging;               // it is set to 1 if logging into a file is enabled
+
+  // parameters that control the multiplexing
+  uint64_t timeout;             // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
+                                //previous sending), the sending is triggered. default 100 seconds
+  uint64_t period;              // (microseconds). If the 'period' expires, a packet is sent
+  int limit_numpackets_tun;     // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
+  int size_threshold;           // if the number of bytes stored is higher than this, a muxed packet is sent
+  int user_mtu;                 // the MTU specified by the user (it must be <= interface_mtu) 
   /*
   struct iphdr ipheader;              // IP header
   struct ifreq iface;                 // network interface
 
-  int size_threshold = 0;                         // if the number of bytes stored is higher than this, a muxed packet is sent
   int size_max;                                   // maximum value of the packet size
-
-  uint64_t timeout = MAXTIMEOUT;                  // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
-                                                  //previous sending), the sending is triggered. default 100 seconds
-  uint64_t period= MAXTIMEOUT;                    // (microseconds). If the 'period' expires, a packet is sent
-
-
-  int limit_numpackets_tun,
-  int size_threshold,
-  uint64_t timeout,
-  FILE *log_fileS
 
   int first_header_written = 0;           // it indicates if the first header has been written or not
 

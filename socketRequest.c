@@ -4,7 +4,6 @@
 int socketRequest(struct contextSimplemux* context,
                   struct iphdr* ipheader,
                   struct ifreq* iface,
-                  //char mux_if_name[IFNAMSIZ],
                   const int on)
 {
   if ( context->mode== NETWORK_MODE ) {
