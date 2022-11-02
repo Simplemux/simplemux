@@ -1,8 +1,8 @@
 #include "rohc.c"
 
+// set the initial values of some context variables
 void initContext(struct contextSimplemux* context)
 {
-  // set the initial values of some context variables
   context->flavor = 'N';  // by default 'normal flavor' is selected
   context->rohcMode = 0;  // by default it is 0: ROHC is not used
   context->num_pkts_stored_from_tun = 0; 
@@ -38,11 +38,12 @@ void initBlastFlavor(struct contextSimplemux* context)
     context->blastTimestamps[i] = 0;
   }
   // fill the variables 'lastBlastHeartBeatSent' and 'lastBlastHeartBeatReceived'
-  context->lastBlastHeartBeatSent = context.timeLastSent;
+  context->lastBlastHeartBeatSent = context->timeLastSent;
   context->lastBlastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
 }
 
 
+// parse the command line options
 void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
 {
   int option; // command line options
@@ -177,6 +178,7 @@ void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
 }
 
 
+// check the correctness of the command line options
 void checkCommandLineOptions(int argc, char *progname, struct contextSimplemux* context)
 {
 

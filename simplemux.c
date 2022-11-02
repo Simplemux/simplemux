@@ -347,47 +347,7 @@ int main(int argc, char *argv[]) {
     do_debug (1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %"PRIu64"us. period: %"PRIu64"us\n",
               context.size_threshold, context.limit_numpackets_tun, context.timeout, context.period);
     
-    
-    // I only need the feedback socket if ROHC is activated
-    //but I create it in case the other extreme sends ROHC packets
-    if(1) {
-      /*** Request a socket for feedback packets ***/
-      // AF_INET (exactly the same as PF_INET)
-      // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // context.feedback_fd is the file descriptor of the socket for managing arrived feedback packets
-      if ( ( context.feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-        perror("socket()");
-        exit(1);
-      }
-  
-      if (ioctl (context.feedback_fd, SIOCGIFINDEX, &iface) < 0) {
-        perror ("ioctl() failed to find interface (feedback)");
-        return (EXIT_FAILURE);
-      }
-      
-      // assign the destination address and port for the feedback packets
-      memset(&(context.feedback_remote), 0, sizeof(context.feedback_remote));
-      context.feedback_remote.sin_family = AF_INET;
-      context.feedback_remote.sin_addr.s_addr = inet_addr(context.remote_ip);  // remote feedback IP (the same IP as the remote one)
-      context.feedback_remote.sin_port = htons(context.port_feedback);    // remote feedback port
-  
-      // assign the source address and port to the feedback packets
-      memset(&(context.feedback), 0, sizeof(context.feedback));
-      context.feedback.sin_family = AF_INET;
-      context.feedback.sin_addr.s_addr = inet_addr(context.local_ip);    // local IP
-      context.feedback.sin_port = htons(context.port_feedback);      // local port (feedback)
-  
-      // bind the socket "context.feedback_fd" to the local feedback address (the same used for multiplexing) and port
-       if (bind(context.feedback_fd, (struct sockaddr *)&(context.feedback), sizeof(context.feedback))==-1) {
-        perror("bind");
-      }
-      else {
-        do_debug(1, "Socket for ROHC feedback over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context.feedback_remote.sin_addr), htons(context.feedback_remote.sin_port)); 
-      }
-    }
 
-    //do_debug(1,"tun_fd: %d; network_mode_fd: %d; context.udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n", context.tun_fd, context.network_mode_fd, context.udp_mode_fd, context.feedback_fd, context.tcp_welcoming_fd, context.tcp_client_fd);
-    
     switch(context.rohcMode) {
       case 0:
         do_debug ( 1 , "ROHC not activated\n", debug);
@@ -403,14 +363,20 @@ int main(int argc, char *argv[]) {
         break;*/
     }
 
+    // I only need the feedback socket if ROHC is activated
+    //but I create it in case the other extreme sends ROHC packets
+    feedbackSocketRequest(&context, &iface);
+
+    //do_debug(1,"tun_fd: %d; network_mode_fd: %d; context.udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n",
+    //  context.tun_fd, context.network_mode_fd, context.udp_mode_fd, context.feedback_fd, context.tcp_welcoming_fd, context.tcp_client_fd);
+    
     // If ROHC has been selected, I have to initialize it
     // see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
-    initRohc( &context );
+    initRohc(&context);
 
     do_debug(1, "\n");
     
-
-    /** prepare POLL structure **/
+    /** prepare the POLL structure **/
     // it has size 3 (NUMBER_OF_SOCKETS), because it handles 3 sockets
     // - tun/tap socket where demuxed packets are sent/received
     // - feedback socket
@@ -442,7 +408,7 @@ int main(int argc, char *argv[]) {
     context.timeLastSent = GetTimeStamp();  
       
     // initializations for blast flavor
-    if(context->flavor == 'B')
+    if(context.flavor == 'B')
       initBlastFlavor(&context);
 
 

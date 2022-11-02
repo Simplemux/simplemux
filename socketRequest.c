@@ -278,3 +278,43 @@ int socketRequest(struct contextSimplemux* context,
   }
   return 0;
 }
+
+
+/*** Request a socket for feedback packets ***/
+int feedbackSocketRequest(struct contextSimplemux* context,
+                          struct ifreq* iface)
+{
+  // AF_INET (exactly the same as PF_INET)
+  // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
+  // context->feedback_fd is the file descriptor of the socket for managing arrived feedback packets
+  if ( ( context->feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
+    perror("socket()");
+    exit(1);
+  }
+
+  if (ioctl (context->feedback_fd, SIOCGIFINDEX, iface) < 0) {
+    perror ("ioctl() failed to find interface (feedback)");
+    return (EXIT_FAILURE);
+  }
+  
+  // assign the destination address and port for the feedback packets
+  memset(&(context->feedback_remote), 0, sizeof(context->feedback_remote));
+  context->feedback_remote.sin_family = AF_INET;
+  context->feedback_remote.sin_addr.s_addr = inet_addr(context->remote_ip);  // remote feedback IP (the same IP as the remote one)
+  context->feedback_remote.sin_port = htons(context->port_feedback);    // remote feedback port
+
+  // assign the source address and port to the feedback packets
+  memset(&(context->feedback), 0, sizeof(context->feedback));
+  context->feedback.sin_family = AF_INET;
+  context->feedback.sin_addr.s_addr = inet_addr(context->local_ip);    // local IP
+  context->feedback.sin_port = htons(context->port_feedback);      // local port (feedback)
+
+  // bind the socket "context->feedback_fd" to the local feedback address (the same used for multiplexing) and port
+   if (bind(context->feedback_fd, (struct sockaddr *)&(context->feedback), sizeof(context->feedback))==-1) {
+    perror("bind");
+  }
+  else {
+    do_debug(1, "Socket for ROHC feedback over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context->feedback_remote.sin_addr), htons(context->feedback_remote.sin_port)); 
+  }
+  return 0;
+}
