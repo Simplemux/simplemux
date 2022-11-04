@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <unistd.h> // for using getopt()
 #include <net/if.h>
 #include <linux/if_tun.h>
 #include <sys/types.h>
@@ -34,8 +34,7 @@
 //#include "periodExpired.c"
 //#include "help.c"
 //#include "socketRequest.c"
-#include "rohc.c"
+//#include "rohc.c"
+#include "init.c"
 
 #define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program
-
-#define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)

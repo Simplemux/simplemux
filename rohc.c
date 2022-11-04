@@ -76,11 +76,7 @@ static bool rtp_detect( const uint8_t *const ip __attribute__((unused)),
 }
 
 
-int initRohc( struct contextSimplemux* context,
-              //struct rohc_comp *compressor,
-              //struct rohc_decomp *decompressor,
-              FILE *log_file )
-
+int initRohc( struct contextSimplemux* context )
 {
   if ( context->rohcMode > 0 ) {
 
@@ -95,8 +91,8 @@ int initRohc( struct contextSimplemux* context,
       fprintf(stderr, "failed to create the ROHC compressor\n");
       /*fprintf(stderr, "an error occurred during program execution, "
       "abort program\n");
-      if ( log_file != NULL )
-        fclose (log_file);
+      if ( context->log_file != NULL )
+        fclose (context->log_file);
       return 1;*/
       goto error;
     }
@@ -110,8 +106,8 @@ int initRohc( struct contextSimplemux* context,
       fprintf(stderr, "failed to set RTP detection callback\n");
       /*fprintf(stderr, "an error occurred during program execution, "
       "abort program\n");
-      if ( log_file != NULL )
-        fclose (log_file);
+      if ( context->log_file != NULL )
+        fclose (context->log_file);
       return 1;*/
       goto error;
     }
@@ -283,7 +279,7 @@ int initRohc( struct contextSimplemux* context,
   error:
     fprintf(stderr, "an error occurred during program execution, "
       "abort program\n");
-    if ( log_file != NULL )
-      fclose (log_file);
+    if ( context->log_file != NULL )
+      fclose (context->log_file);
     return -1;
 }

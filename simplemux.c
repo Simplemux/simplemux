@@ -58,10 +58,6 @@
 char *progname;
 
 
-
-
-
-
 /**************************************************************************
  * tun_alloc: allocates or reconnects to a tun/tap device. The caller     *
  *            must reserve enough space in *dev.                          *
@@ -111,12 +107,6 @@ int tun_alloc(char *dev,    // the name of an interface (or '\0')
 }
 
 
-/************ Prototypes of functions used in the program ****************/
-
-//static int gen_random_num(const struct rohc_comp *const comp, void *const user_context);
-
-
-
 
 /**************************************************************************
  ************************ main program ************************************
@@ -126,23 +116,7 @@ int main(int argc, char *argv[]) {
   struct contextSimplemux context;
 
   // set the initial values of some context variables
-  context.flavor = 'N';  // by default 'normal flavor' is selected
-  context.rohcMode = 0;  // by default it is 0: ROHC is not used
-  context.num_pkts_stored_from_tun = 0; 
-  context.size_muxed_packet = 0;
-  context.unconfirmedPacketsBlast = NULL;
-  context.tun2net = 0;
-  context.net2tun = 0; 
-  context.feedback_pkts = 0;
-  context.acceptingTcpConnections = false;
-  context.remote_ip[0] = '\0';
-  context.local_ip[0] = '\0';
-  context.port = PORT;
-  context.port_feedback = PORT_FEEDBACK;
-  context.ipprotocol = IPPROTO_SIMPLEMUX;
-  context.tun_if_name[0] = '\0';
-  context.mux_if_name[0] = '\0';
-
+  initContext(&context);
 
   int fd2read;
   
@@ -156,34 +130,18 @@ int main(int argc, char *argv[]) {
   socklen_t slen = sizeof(context.remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
   socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
 
-
   uint8_t protocol_rec;                             // protocol field of the received muxed packet
-
-
 
   uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast flavor)
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 
-  //uint64_t blastFlavorTimestamps[0xFFFF+1];   // I will store 65536 different timestamps: one for each possible identifier
-
-
-
-  int limit_numpackets_tun = 0;                   // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
-
-  int size_threshold = 0;                         // if the number of bytes stored is higher than this, a muxed packet is sent
   int size_max;                                   // maximum value of the packet size
 
-  uint64_t timeout = MAXTIMEOUT;                  // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
-                                                  //previous sending), the sending is triggered. default 100 seconds
-  uint64_t period= MAXTIMEOUT;                    // (microseconds). If the 'period' expires, a packet is sent
- 
-
-  // very long unsigned integers for storing the system clock in microseconds
-  uint64_t now_microsec;                          // current time
+  uint64_t now_microsec;                  // current time
 
   int interface_mtu;                      // the maximum transfer unit of the interface
-  int user_mtu = 0;                       // the MTU specified by the user (it must be <= interface_mtu)
+
   int selected_mtu;                       // the MTU that will be used in the program
 
   int first_header_written = 0;           // it indicates if the first header has been written or not
@@ -191,10 +149,6 @@ int main(int argc, char *argv[]) {
   // fixed size of the separator in fast flavor
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
 
-  // variables for the log file
-  char log_file_name[100] = "";       // name of the log file  
-  FILE *log_file = NULL;              // file descriptor of the log file
-  int file_logging = 0;               // it is set to 1 if logging into a file is enabled
 
 
   /************** read command line options *********************/
@@ -205,222 +159,21 @@ int main(int argc, char *argv[]) {
     usage (progname);
   }
   else {
-    int option; // command line options
-    char mode_string[10];
-    char tunnel_mode_string[4];
 
-    while((option = getopt(argc, argv, "i:e:M:T:c:p:n:B:t:P:l:d:r:m:fbhL")) > 0) {
-
-      switch(option) {
-        case 'd':
-          debug = atoi(optarg);    /* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
-          break;
-        case 'r':
-          context.rohcMode = atoi(optarg);  /* 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)*/ 
-          break;
-        case 'h':            /* help */
-          usage(progname);
-          break;
-        case 'i':            /* put the name of the tun interface (e.g. "tun0") in "tun_if_name" */
-          strncpy(context.tun_if_name, optarg, IFNAMSIZ-1);
-          break;
-        case 'M':            /* network (N) or udp (U) or tcpclient (T) or tcpserver (S) mode */
-          strcpy(mode_string, optarg);
-
-          // check the 'mode' string and fill 'mode'
-          if (strcmp(mode_string, "network") == 0) {
-            do_debug(3, "the mode string is network\n");
-            context.mode = 'N';
-          }
-          else if (strcmp(mode_string, "udp") == 0){
-            do_debug(3, "the mode string is udp\n");
-            context.mode= 'U';
-          }
-          else if (strcmp(mode_string, "tcpserver") == 0){
-            do_debug(3, "the mode string is tcpserver\n");
-            context.mode= 'S';
-          }
-          else if (strcmp(mode_string, "tcpclient") == 0){
-            do_debug(3, "the mode string is tcpclient\n");
-            context.mode= 'T';
-          }
-          else {
-            do_debug(3, "the mode string is not valid\n");
-          }
-          do_debug(3, "mode_string: %s\n", mode_string);
-
-          break;
-        case 'T':            /* TUN (U) or TAP (A) tunnel mode */
-          strcpy(tunnel_mode_string, optarg);
-
-          // check the 'tunnel_mode' string and fill 'tunnelMode'
-          if (strcmp(tunnel_mode_string, "tun") == 0) {
-            do_debug(3, "the tunnel mode string is tun\n");
-            context.tunnelMode = 'U';
-          }
-          else if (strcmp(tunnel_mode_string, "tap") == 0){
-            do_debug(3, "the tunnel mode string is tap\n");
-            context.tunnelMode = 'A';
-          }
-          else {
-            do_debug(3, "the tunnel mode string is not valid\n");
-          }
-          do_debug(3, "tunnel_mode_string: %s\n", tunnel_mode_string);
-
-          break;
-        case 'f':            /* fast flavor */
-          if(context.flavor == 'B') {
-            // both -f and -b options have been selected
-            my_err("fast ('-f') and blast (`-b') flavors are not compatible\n");
-            usage(progname);
-          }
-          else{
-            context.flavor = 'F';
-            context.port = PORT_FAST;   // by default, port = PORT. In fast flavor, it is PORT_FAST
-            context.ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast flavor, use 254
-            do_debug(1, "Fast flavor engaged\n");            
-          }
-          break;
-        case 'b':            /* blast flavor */
-          if(context.flavor == 'F') {
-            // both -f and -b options have been selected
-            my_err("fast ('-f') and blast (`-b') flavors are not compatible\n");
-            usage(progname);
-          }
-          else{
-            context.flavor = 'B';
-            context.port = PORT_BLAST;   // by default, port = PORT. In blast flavor, it is PORT_BLAST
-            context.ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast flavor, use 252
-            do_debug(1, "Blast flavor engaged\n");
-          }
-          break;
-        case 'e':            /* the name of the network interface (e.g. "eth0") in "mux_if_name" */
-          strncpy(context.mux_if_name, optarg, IFNAMSIZ-1);
-          break;
-        case 'c':            /* destination address of the machine where the tunnel ends */
-          strncpy(context.remote_ip, optarg, 16);
-          break;
-        case 'l':            /* name of the log file */
-          strncpy(log_file_name, optarg, 100);
-          file_logging = 1;
-          break;
-        case 'L':            /* name of the log file assigned automatically */
-          date_and_time(log_file_name);
-          file_logging = 1;
-          break;
-        case 'p':            /* port number */
-          context.port = atoi(optarg);    /* atoi Parses a string interpreting its content as an int */
-          context.port_feedback = context.port + 1;
-          break;
-        case 'n':            /* limit of the number of packets for triggering a muxed packet */
-          limit_numpackets_tun = atoi(optarg);
-          break;
-        case 'm':            /* MTU forced by the user */
-          user_mtu = atoi(optarg);
-          break;
-        case 'B':            /* size threshold (in bytes) for triggering a muxed packet */
-          size_threshold = atoi(optarg);
-          break;
-        case 't':            /* timeout for triggering a muxed packet */
-          timeout = atoll(optarg);
-          break;
-        case 'P':            /* Period for triggering a muxed packet */
-          period = atoll(optarg);
-          context.microsecondsLeft = period; 
-          break;
-        default:
-          my_err("Unknown option %c\n", option);
-          usage(progname);
-          break;
-      }
-    }
+    parseCommandLine(argc, argv, &context);
 
     argv += optind;
     argc -= optind;
 
-
-    /************* check command line options **************/
-    if(argc > 0) {
-      my_err("Too many options\n");
-      usage(progname);
-    }
-
-    // check interface options
-    if(context.tun_if_name[0] == '\0') {
-      my_err("Must specify a tun/tap interface name for native packets ('-i' option)\n");
-      usage(progname);
-    } else if(context.remote_ip[0] == '\0') {
-      my_err("Must specify the IP address of the peer\n");
-      usage(progname);
-    } else if(context.mux_if_name[0] == '\0') {
-      my_err("Must specify the local interface name for multiplexed packets\n");
-      usage(progname);
-    } 
-
-
-    // check if NETWORK or TRANSPORT mode have been selected (mandatory)
-    else if((context.mode!= NETWORK_MODE) && (context.mode!= UDP_MODE) && (context.mode!= TCP_CLIENT_MODE) && (context.mode!= TCP_SERVER_MODE)) {
-      my_err("Must specify a valid mode ('-M' option MUST either be 'network', 'udp', 'tcpserver' or 'tcpclient')\n");
-      usage(progname);
-    } 
-  
-    // check if TUN or TAP mode have been selected (mandatory)
-    else if((context.tunnelMode != TUN_MODE) && (context.tunnelMode != TAP_MODE)) {
-      my_err("Must specify a valid tunnel mode ('-T' option MUST either be 'tun' or 'tap')\n");
-      usage(progname);
-    } 
-
-    // TAP mode requires fast flavor
-    else if(((context.mode== TCP_SERVER_MODE) || (context.mode== TCP_CLIENT_MODE)) && (context.flavor != 'F')) {
-      my_err("TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient') require fast flavor (option '-f')\n");
-      usage(progname);
-    }
-
-    else if(context.flavor == 'F') {
-      if(SIZE_PROTOCOL_FIELD!=1) {
-        my_err("fast flavor (-f) only allows a protocol field of size 1. Please revise the value of 'SIZE_PROTOCOL_FIELD'\n");        
-      }
-    }
-
-    // blast flavor is restricted
-    else if(context.flavor == 'B') {
-      if(SIZE_PROTOCOL_FIELD!=1) {
-        my_err("blast flavor (-f) only allows a protocol field of size 1. Please revise the value of 'SIZE_PROTOCOL_FIELD'\n");        
-      }
-      if((context.mode== TCP_SERVER_MODE) || (context.mode== TCP_CLIENT_MODE)){
-        my_err("blast flavor (-b) is not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
-        usage(progname);
-      }
-      if(context.rohcMode!=0) {
-        my_err("blast flavor (-b) is not compatible with ROHC (-r)\n");
-        usage(progname);          
-      }
-      if(size_threshold!=0) {
-        my_err("blast flavor (-b) is not compatible with size threshold (-B)\n");
-        usage(progname);
-      }
-      if(timeout!=MAXTIMEOUT) {
-        my_err("blast flavor (-b) is not compatible with timeout (-t)\n");
-        usage(progname);
-      }
-      if(limit_numpackets_tun!=0) {
-        my_err("blast flavor (-b) is not compatible with a limit of the number of packets. Only a packet is sent (-n)\n");
-        usage(progname);
-      }
-      if(period==MAXTIMEOUT) {
-        my_err("In blast flavor (-b) you must specify a Period (-P)\n");
-        usage(progname);        
-      }
-    }
-
+    checkCommandLineOptions(argc, progname, &context);
 
     // open the log file
-    if ( file_logging == 1 ) {
-      if (strcmp(log_file_name, "stdout") == 0) {
-        log_file = stdout;
+    if ( context.file_logging == 1 ) {
+      if (strcmp(context.log_file_name, "stdout") == 0) {
+        context.log_file = stdout;
       } else {
-        log_file = fopen(log_file_name, "w");
-        if (log_file == NULL) my_err("Error: cannot open the log file!\n");
+        context.log_file = fopen(context.log_file_name, "w");
+        if (context.log_file == NULL) my_err("Error: cannot open the log file!\n");
       }
     }
 
@@ -474,7 +227,6 @@ int main(int argc, char *argv[]) {
     correctSocket = socketRequest(&context,
                                   &ipheader,
                                   &iface,
-                                  //mux_if_name,
                                   on);
     if (correctSocket == 1) {
       my_err("Error creating the sockets\n");
@@ -505,22 +257,22 @@ int main(int argc, char *argv[]) {
     }
     /*** check if the user has specified a bad MTU ***/
     do_debug (1, "Local interface MTU: %i\t ", interface_mtu);
-    if ( user_mtu > 0 ) {
-      do_debug (1, "User-selected MTU: %i\n", user_mtu);
+    if ( context.user_mtu > 0 ) {
+      do_debug (1, "User-selected MTU: %i\n", context.user_mtu);
     }
     else {
       do_debug (1, "\n");
     }
 
-    if (user_mtu > interface_mtu) {
+    if (context.user_mtu > interface_mtu) {
       perror ("Error: The MTU specified by the user is higher than the MTU of the interface\n");
       exit (1);
     }
     else {
 
       // if the user has specified a MTU, I use it instead of network MTU
-      if (user_mtu > 0) {
-        selected_mtu = user_mtu;
+      if (context.user_mtu > 0) {
+        selected_mtu = context.user_mtu;
 
       // otherwise, use the MTU of the local interface
       }
@@ -555,15 +307,15 @@ int main(int argc, char *argv[]) {
     }
 
     // the size threshold has not been established by the user 
-    if (size_threshold == 0 ) {
-      size_threshold = size_max;
+    if (context.size_threshold == 0 ) {
+      context.size_threshold = size_max;
       //do_debug (1, "Size threshold established to the maximum: %i.", size_max);
     }
 
     // the user has specified a too big size threshold
-    if (size_threshold > size_max ) {
-      do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", size_threshold, size_max);
-      size_threshold = size_max;
+    if (context.size_threshold > size_max ) {
+      do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", context.size_threshold, size_max);
+      context.size_threshold = size_max;
     }
 
     /*** set the triggering parameters according to user selections (or default values) ***/
@@ -584,58 +336,18 @@ int main(int argc, char *argv[]) {
     // as soon as one of the conditions is accomplished, all the accumulated packets are sent
 
     // if no limit of the number of packets is set, then it is set to the maximum
-    if (( (size_threshold < size_max) || (timeout < MAXTIMEOUT) || (period < MAXTIMEOUT) ) && (limit_numpackets_tun == 0))
-      limit_numpackets_tun = MAXPKTS;
+    if (( (context.size_threshold < size_max) || (context.timeout < MAXTIMEOUT) || (context.period < MAXTIMEOUT) ) && (context.limit_numpackets_tun == 0))
+      context.limit_numpackets_tun = MAXPKTS;
 
     // if no option is set by the user, it is assumed that every packet will be sent immediately
-    if (( (size_threshold == size_max) && (timeout == MAXTIMEOUT) && (period == MAXTIMEOUT)) && (limit_numpackets_tun == 0))
-      limit_numpackets_tun = 1;
+    if (( (context.size_threshold == size_max) && (context.timeout == MAXTIMEOUT) && (context.period == MAXTIMEOUT)) && (context.limit_numpackets_tun == 0))
+      context.limit_numpackets_tun = 1;
   
 
     do_debug (1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %"PRIu64"us. period: %"PRIu64"us\n",
-              size_threshold, limit_numpackets_tun, timeout, period);
+              context.size_threshold, context.limit_numpackets_tun, context.timeout, context.period);
     
-    
-    // I only need the feedback socket if ROHC is activated
-    //but I create it in case the other extreme sends ROHC packets
-    if(1) {
-      /*** Request a socket for feedback packets ***/
-      // AF_INET (exactly the same as PF_INET)
-      // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
-      // context.feedback_fd is the file descriptor of the socket for managing arrived feedback packets
-      if ( ( context.feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
-        perror("socket()");
-        exit(1);
-      }
-  
-      if (ioctl (context.feedback_fd, SIOCGIFINDEX, &iface) < 0) {
-        perror ("ioctl() failed to find interface (feedback)");
-        return (EXIT_FAILURE);
-      }
-      
-      // assign the destination address and port for the feedback packets
-      memset(&(context.feedback_remote), 0, sizeof(context.feedback_remote));
-      context.feedback_remote.sin_family = AF_INET;
-      context.feedback_remote.sin_addr.s_addr = inet_addr(context.remote_ip);  // remote feedback IP (the same IP as the remote one)
-      context.feedback_remote.sin_port = htons(context.port_feedback);    // remote feedback port
-  
-      // assign the source address and port to the feedback packets
-      memset(&(context.feedback), 0, sizeof(context.feedback));
-      context.feedback.sin_family = AF_INET;
-      context.feedback.sin_addr.s_addr = inet_addr(context.local_ip);    // local IP
-      context.feedback.sin_port = htons(context.port_feedback);      // local port (feedback)
-  
-      // bind the socket "context.feedback_fd" to the local feedback address (the same used for multiplexing) and port
-       if (bind(context.feedback_fd, (struct sockaddr *)&(context.feedback), sizeof(context.feedback))==-1) {
-        perror("bind");
-      }
-      else {
-        do_debug(1, "Socket for ROHC feedback over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context.feedback_remote.sin_addr), htons(context.feedback_remote.sin_port)); 
-      }
-    }
 
-    //do_debug(1,"tun_fd: %d; network_mode_fd: %d; context.udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n", context.tun_fd, context.network_mode_fd, context.udp_mode_fd, context.feedback_fd, context.tcp_welcoming_fd, context.tcp_client_fd);
-    
     switch(context.rohcMode) {
       case 0:
         do_debug ( 1 , "ROHC not activated\n", debug);
@@ -651,17 +363,20 @@ int main(int argc, char *argv[]) {
         break;*/
     }
 
+    // I only need the feedback socket if ROHC is activated
+    //but I create it in case the other extreme sends ROHC packets
+    feedbackSocketRequest(&context, &iface);
+
+    //do_debug(1,"tun_fd: %d; network_mode_fd: %d; context.udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n",
+    //  context.tun_fd, context.network_mode_fd, context.udp_mode_fd, context.feedback_fd, context.tcp_welcoming_fd, context.tcp_client_fd);
+    
     // If ROHC has been selected, I have to initialize it
     // see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
-    initRohc( &context,
-              //compressor,
-              //decompressor,
-              log_file);
+    initRohc(&context);
 
     do_debug(1, "\n");
     
-
-    /** prepare POLL structure **/
+    /** prepare the POLL structure **/
     // it has size 3 (NUMBER_OF_SOCKETS), because it handles 3 sockets
     // - tun/tap socket where demuxed packets are sent/received
     // - feedback socket
@@ -693,16 +408,8 @@ int main(int argc, char *argv[]) {
     context.timeLastSent = GetTimeStamp();  
       
     // initializations for blast flavor
-    if(context.flavor == 'B') {
-      // fill the vector of timestamps with zeroes
-      for(int i=0; i < 0xFFFF + 1; i++) {
-        context.blastTimestamps[i] = 0;
-      }
-      // fill the variables 'lastBlastHeartBeatSent' and 'lastBlastHeartBeatReceived'
-      context.lastBlastHeartBeatSent = context.timeLastSent;
-      context.lastBlastHeartBeatReceived = 0; // this means that I have received no heartbeats yet
-    }
-    
+    if(context.flavor == 'B')
+      initBlastFlavor(&context);
 
 
     /*****************************************/
@@ -727,8 +434,8 @@ int main(int argc, char *argv[]) {
           do_debug(2, "%"PRIu64" No blast packet is waiting to be sent to the network\n", now_microsec);
         }
 
-        if(context.timeLastSent + period > now_microsec) {
-          context.microsecondsLeft = context.timeLastSent + period - now_microsec;
+        if(context.timeLastSent + context.period > now_microsec) {
+          context.microsecondsLeft = context.timeLastSent + context.period - now_microsec;
           do_debug(2, "%"PRIu64" The next blast packet will be sent in %"PRIu64" us\n", now_microsec, context.microsecondsLeft);         
         }
         else {
@@ -752,9 +459,9 @@ int main(int argc, char *argv[]) {
 
         now_microsec = GetTimeStamp();
 
-        if ( period > (now_microsec - context.timeLastSent)) {
+        if ( context.period > (now_microsec - context.timeLastSent)) {
           // the period is not expired
-          context.microsecondsLeft = (period - (now_microsec - context.timeLastSent));
+          context.microsecondsLeft = (context.period - (now_microsec - context.timeLastSent));
         }
         else {
           // the period is expired
@@ -851,9 +558,7 @@ int main(int argc, char *argv[]) {
           is_multiplexed_packet = readPacketFromNet(&context,
                                                     buffer_from_net,
                                                     slen,
-                                                    //port,
                                                     ipheader,
-                                                    //ipprotocol,
                                                     &protocol_rec,
                                                     &nread_from_net,
                                                     &packet_length,
@@ -870,10 +575,8 @@ int main(int argc, char *argv[]) {
           
           else if (is_multiplexed_packet == 1) {
             demuxPacketFromNet( &context,
-                                //&net2tun,
                                 nread_from_net,
                                 packet_length,
-                                log_file,
                                 buffer_from_net,
                                 &protocol_rec,
                                 &status,
@@ -883,14 +586,16 @@ int main(int argc, char *argv[]) {
           else { // is_multiplexed_packet == 0
             // packet with the correct destination port, but a source port different from the multiplexing one
             // if the packet does not come from the multiplexing port, write it directly into the tun interface
-            do_debug(1, "NON-SIMPLEMUX PACKET #%"PRIu32": Non-multiplexed packet. Writing %i bytes to tun\n", context.net2tun, nread_from_net);
+            do_debug(1, "NON-SIMPLEMUX PACKET #%"PRIu32": Non-multiplexed packet. Writing %i bytes to tun\n",
+              context.net2tun, nread_from_net);
             cwrite ( context.tun_fd, buffer_from_net, nread_from_net);
   
             // write the log file
-            if ( log_file != NULL ) {
+            if ( context.log_file != NULL ) {
               // the packet is good
-              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context.net2tun, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
-              fflush(log_file);
+              fprintf (context.log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(),
+                nread_from_net, context.net2tun, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
+              fflush(context.log_file);
             }
           }
         }
@@ -926,9 +631,9 @@ int main(int argc, char *argv[]) {
             context.feedback_pkts ++;
   
             // write the log file
-            if ( log_file != NULL ) {
-              fprintf (log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context.feedback_pkts, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
-              fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
+            if ( context.log_file != NULL ) {
+              fprintf (context.log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context.feedback_pkts, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
+              fflush(context.log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
             }
   
             // reset the buffer where the packet is to be stored
@@ -971,10 +676,10 @@ int main(int argc, char *argv[]) {
             cwrite ( context.tun_fd, buffer_from_net, nread_from_net);
   
             // write the log file
-            if ( log_file != NULL ) {
+            if ( context.log_file != NULL ) {
               // the packet is good
-              fprintf (log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context.net2tun, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
-              fflush(log_file);
+              fprintf (context.log_file, "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context.net2tun, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
+              fflush(context.log_file);
             }
           }
         }
@@ -999,15 +704,10 @@ int main(int argc, char *argv[]) {
             // not in blast flavor
             tunToNetNoBlastFlavor(&context,
                                   &ipheader,
-                                  //ipprotocol,
                                   selected_mtu,
                                   &first_header_written,
                                   size_separator_fast_mode,
-                                  size_max,
-                                  limit_numpackets_tun,
-                                  size_threshold,
-                                  timeout,
-                                  log_file );
+                                  size_max );
           }
         }
       }  
@@ -1032,9 +732,7 @@ int main(int argc, char *argv[]) {
             fd = context.network_mode_fd;
 
           periodExpiredblastFlavor (&context,
-                                    fd,
-                                    //&time_last_sent_in_microsec,
-                                    period );
+                                    fd );
 
         }
         else {
@@ -1044,9 +742,7 @@ int main(int argc, char *argv[]) {
 
             periodExpiredNoblastFlavor (&context,
                                         &first_header_written,
-                                        //ipprotocol,
-                                        &ipheader,
-                                        log_file );
+                                        &ipheader );
 
           }
           else {

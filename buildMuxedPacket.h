@@ -5,9 +5,6 @@
 uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
                                           int single_prot);
 
-// FIXME: is this used anywhere?
-//uint16_t predictSizeMultiplexedPacket (struct packet* storedPackets);
-
 uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
                                     int single_prot,
                                     uint8_t mux_packet[BUFSIZE]);
