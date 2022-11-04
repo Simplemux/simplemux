@@ -24,7 +24,7 @@
 #include <ifaddrs.h>            // required for using getifaddrs()
 #include <netdb.h>              // required for using getifaddrs()
 #include <poll.h>
-#include <assert.h>
+
 #include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
 //#include "packetsToSend.c"      // FIXME: Why not .h ¿?
 //#include "buildMuxedPacket.c"   // FIXME: Why not .h ¿?

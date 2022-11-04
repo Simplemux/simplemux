@@ -34,7 +34,9 @@ int readPacketFromNet(struct contextSimplemux* context,
       perror ("[readPacketFromNet] recvfrom() UDP error");
     }
     else {
-      do_debug(3, "[readPacketFromNet] Read %i bytes from the UDP socket\n");
+      #ifdef DEBUG
+        do_debug(3, "[readPacketFromNet] Read %i bytes from the UDP socket\n");
+      #endif
     }
     // now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
     // I don't have the IP and UDP headers
@@ -54,7 +56,9 @@ int readPacketFromNet(struct contextSimplemux* context,
       perror ("[readPacketFromNet] cread error in network mode");
     }
     else {
-      do_debug(3, "[readPacketFromNet] Read %i bytes from the network socket\n");
+      #ifdef DEBUG
+        do_debug(3, "[readPacketFromNet] Read %i bytes from the network socket\n");
+      #endif
     }    
     // now buffer_from_net contains the headers (IP and Simplemux) and the payload of a full packet or frame.
 
@@ -87,7 +91,9 @@ int readPacketFromNet(struct contextSimplemux* context,
 
     if (*pending_bytes_muxed_packet == 0) {
       // I have to start reading a new muxed packet: separator and payload
-      do_debug(3, "[readPacketFromNet] Reading TCP. No pending bytes of the muxed packet. Start reading a new separator\n");
+      #ifdef DEBUG
+        do_debug(3, "[readPacketFromNet] Reading TCP. No pending bytes of the muxed packet. Start reading a new separator\n");
+      #endif
 
       // read a separator (3 or 4 bytes), or a part of it
       if (context->mode  == TCP_SERVER_MODE) {
@@ -96,7 +102,9 @@ int readPacketFromNet(struct contextSimplemux* context,
       else {
         *nread_from_net = read(context->tcp_client_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
       }
-      do_debug(3, "[readPacketFromNet]  %i bytes of the separator read from the TCP socket", *nread_from_net);
+      #ifdef DEBUG
+        do_debug(3, "[readPacketFromNet]  %i bytes of the separator read from the TCP socket", *nread_from_net);
+      #endif
 
       if(*nread_from_net < 0)  {
         perror("[readPacketFromNet] read() error TCP mode");
@@ -108,7 +116,10 @@ int readPacketFromNet(struct contextSimplemux* context,
       }
 
       else if (*nread_from_net < size_separator_fast_mode - *read_tcp_bytes_separator) {
-        do_debug(3, "[readPacketFromNet] (part of the separator. Still %i bytes missing)\n", size_separator_fast_mode - *read_tcp_bytes_separator - *nread_from_net);
+        #ifdef DEBUG
+          do_debug(3, "[readPacketFromNet] (part of the separator. Still %i bytes missing)\n", size_separator_fast_mode - *read_tcp_bytes_separator - *nread_from_net);
+        #endif
+
         // I have read part of the separator
         *read_tcp_bytes_separator = *read_tcp_bytes_separator + *nread_from_net;
 
@@ -117,7 +128,10 @@ int readPacketFromNet(struct contextSimplemux* context,
       }
 
       else if(*nread_from_net == size_separator_fast_mode - *read_tcp_bytes_separator) {
-        do_debug(3, "[readPacketFromNet] (the complete separator of %i bytes)\n", size_separator_fast_mode);
+        #ifdef DEBUG
+          do_debug(3, "[readPacketFromNet] (the complete separator of %i bytes)\n", size_separator_fast_mode);
+        #endif
+
         // I have read the complete separator
 
         // I can now obtain the length of the packet
@@ -126,16 +140,22 @@ int readPacketFromNet(struct contextSimplemux* context,
         context->length_muxed_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
         *pending_bytes_muxed_packet = context->length_muxed_packet;
 
-        do_debug(2, " Read separator: Length %i (0x%02x%02x)", context->length_muxed_packet, buffer_from_net[0], buffer_from_net[1]);
+        #ifdef DEBUG
+          do_debug(2, " Read separator: Length %i (0x%02x%02x)", context->length_muxed_packet, buffer_from_net[0], buffer_from_net[1]);
+        #endif
 
         // read the Protocol field
         if ( SIZE_PROTOCOL_FIELD == 1 ) {
           *protocol_rec = buffer_from_net[2];
-          do_debug(2, ". Protocol %i (0x%02x)\n", *protocol_rec, buffer_from_net[2]);
+          #ifdef DEBUG
+            do_debug(2, ". Protocol %i (0x%02x)\n", *protocol_rec, buffer_from_net[2]);
+          #endif
         }
         else {  // SIZE_PROTOCOL_FIELD == 2
           *protocol_rec = (buffer_from_net[2] << 8) + buffer_from_net[3];
-          do_debug(2, ". Protocol %i (0x%02x%02x)\n", *protocol_rec, buffer_from_net[2], buffer_from_net[3]);
+          #ifdef DEBUG
+            do_debug(2, ". Protocol %i (0x%02x%02x)\n", *protocol_rec, buffer_from_net[2], buffer_from_net[3]);
+          #endif
         }
 
         // read the packet itself (without the separator)
@@ -146,14 +166,19 @@ int readPacketFromNet(struct contextSimplemux* context,
         else {
           *nread_from_net = read(context->tcp_client_fd, buffer_from_net, *pending_bytes_muxed_packet);
         }
-        do_debug(3, "[readPacketFromNet]  %i bytes of the muxed packet read from the TCP socket", *nread_from_net);
+        #ifdef DEBUG
+          do_debug(3, "[readPacketFromNet]  %i bytes of the muxed packet read from the TCP socket", *nread_from_net);
+        #endif
 
         if(*nread_from_net < 0)  {
           perror("[readPacketFromNet] read() error TCP server mode");
         }
 
         else if (*nread_from_net < *pending_bytes_muxed_packet) {
-          do_debug(3, "  (part of a muxed packet). Pending %i bytes\n", *pending_bytes_muxed_packet - *nread_from_net);
+          #ifdef DEBUG
+            do_debug(3, "  (part of a muxed packet). Pending %i bytes\n", *pending_bytes_muxed_packet - *nread_from_net);
+          #endif
+
           // I have not read the whole packet
           // next time I will have to keep on reading
           *pending_bytes_muxed_packet = *pending_bytes_muxed_packet - *nread_from_net;
@@ -166,7 +191,10 @@ int readPacketFromNet(struct contextSimplemux* context,
         else if (*nread_from_net == *pending_bytes_muxed_packet) {
           // I have read a complete packet
           *packet_length = *read_tcp_bytes + *nread_from_net;
-          do_debug(3, " (complete muxed packet of %i bytes)\n", packet_length);
+
+          #ifdef DEBUG
+            do_debug(3, " (complete muxed packet of %i bytes)\n", packet_length);
+          #endif
 
           // reset the variables
           *read_tcp_bytes_separator = 0;
@@ -181,7 +209,9 @@ int readPacketFromNet(struct contextSimplemux* context,
     else { // *pending_bytes_muxed_packet > 0
       // I have to finish reading the TCP payload
       // I try to read 'pending_bytes_muxed_packet' and to put them at position '*read_tcp_bytes'
-      do_debug(3, "[readPacketFromNet] Reading TCP. %i TCP bytes pending of the previous payload\n", *pending_bytes_muxed_packet);
+      #ifdef DEBUG
+        do_debug(3, "[readPacketFromNet] Reading TCP. %i TCP bytes pending of the previous payload\n", *pending_bytes_muxed_packet);
+      #endif
 
       if (context->mode  == TCP_SERVER_MODE) {
         *nread_from_net = read(context->tcp_server_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
@@ -189,31 +219,44 @@ int readPacketFromNet(struct contextSimplemux* context,
       else {
         *nread_from_net = read(context->tcp_client_fd, &(buffer_from_net[(*read_tcp_bytes)]), *pending_bytes_muxed_packet);
       }
-      do_debug(3, "[readPacketFromNet]  %i bytes read from the TCP socket ", *nread_from_net);
+      #ifdef DEBUG
+        do_debug(3, "[readPacketFromNet]  %i bytes read from the TCP socket ", *nread_from_net);
+      #endif
 
       if(*nread_from_net < 0)  {
         perror("[readPacketFromNet] read() error TCP mode");
       }
 
       else if(*nread_from_net == 0) {
-        do_debug(3, "[readPacketFromNet] (I have read 0 bytes)\n");
+        #ifdef DEBUG
+          do_debug(3, "[readPacketFromNet] (I have read 0 bytes)\n");
+        #endif
         is_multiplexed_packet = -1;
       }
 
       else if(*nread_from_net < *pending_bytes_muxed_packet) {
-        do_debug(3, "[readPacketFromNet] (I have not yet read the whole muxed packet: pending %i bytes)\n", context->length_muxed_packet - *nread_from_net);
+        #ifdef DEBUG
+          do_debug(3, "[readPacketFromNet] (I have not yet read the whole muxed packet: pending %i bytes)\n", context->length_muxed_packet - *nread_from_net);
+        #endif
+
         // I have not read the whole packet
         // next time I will have to keep on reading
         *pending_bytes_muxed_packet = context->length_muxed_packet - *nread_from_net;
         *read_tcp_bytes = *read_tcp_bytes + *nread_from_net;
 
+        //#ifdef DEBUG
         //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", *nread_from_net, *read_tcp_bytes, *pending_bytes_muxed_packet);
+        //#endif
 
-        // I have not finishing read the pending bytes of this packet
+        // I have not finished to read the pending bytes of this packet
         is_multiplexed_packet = -1;
       }
       else if(*nread_from_net == *pending_bytes_muxed_packet) {
-        do_debug(3, "[readPacketFromNet]  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n", *nread_from_net, context->length_muxed_packet);
+        #ifdef DEBUG
+          do_debug(3, "[readPacketFromNet]  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n",
+            *nread_from_net, context->length_muxed_packet);
+        #endif
+
         // I have read the pending bytes of this packet
         *pending_bytes_muxed_packet = 0;
         //*read_tcp_bytes = *read_tcp_bytes + *nread_from_net;
@@ -227,7 +270,11 @@ int readPacketFromNet(struct contextSimplemux* context,
       }
       
       else /*if(*nread_from_net > *pending_bytes_muxed_packet) */ {
-        do_debug(1, "ERROR: I have read all the pending bytes (%i) of this muxed packet, and some more. Abort\n", *pending_bytes_muxed_packet, *nread_from_net - *pending_bytes_muxed_packet);
+        #ifdef DEBUG
+          do_debug(1, "ERROR: I have read all the pending bytes (%i) of this muxed packet, and some more. Abort\n",
+            *pending_bytes_muxed_packet, *nread_from_net - *pending_bytes_muxed_packet);
+        #endif
+
         // I have read the pending bytes of this packet, plus some more bytes
         // it doesn't make sense, because I have only read '*pending_bytes_muxed_packet'
         return(-1);
@@ -242,62 +289,93 @@ int readPacketFromNet(struct contextSimplemux* context,
   return is_multiplexed_packet;
 }
 
+
 int demuxPacketFromNet( struct contextSimplemux* context,
                         int nread_from_net,
                         uint16_t packet_length,
                         uint8_t* buffer_from_net,
                         uint8_t* protocol_rec,
-                        rohc_status_t* status,
-                        int debug )
+                        rohc_status_t* status )
 {
-  /* increase the counter of the number of packets read from the network */
+  // increase the counter of the number of packets read from the network
   (context->net2tun)++;
+
   switch (context->mode) {
     case UDP_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
+      #ifdef DEBUG
+      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n",
+        context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port),
+        nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
+      #endif
 
-      // write the log file
-      if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
-        fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
-      }
+      #ifdef LOGFILE
+        // write the log file
+        if ( context->log_file != NULL ) {
+          fprintf (context->log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
+            GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, context->net2tun,
+            inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
+          fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
+        }
+      #endif
     break;
 
     case TCP_CLIENT_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
+      #ifdef DEBUG
+        do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n",
+          context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
+      #endif
 
-      // write the log file
-      if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
-        fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
-      }
+      #ifdef LOGFILE
+        // write the log file
+        if ( context->log_file != NULL ) {
+          fprintf (context->log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
+            GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->net2tun,
+            inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
+          fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
+        }
+      #endif
     break;
 
     case TCP_SERVER_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
+      #ifdef DEBUG
+        do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n",
+          context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
+      #endif
 
-      // write the log file
-      if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
-        fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
-      }
+      #ifdef LOGFILE
+        // write the log file
+        if ( context->log_file != NULL ) {
+          fprintf (context->log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
+            GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
+            context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
+          fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
+        }
+      #endif
     break;
 
     case NETWORK_MODE:
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n", context->net2tun, inet_ntoa(context->remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
+      #ifdef DEBUG
+        do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n",
+          context->net2tun, inet_ntoa(context->remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
+      #endif
 
-      // write the log file
-      if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n", GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr));
-        fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
-      }
+      #ifdef LOGFILE
+        // write the log file
+        if ( context->log_file != NULL ) {
+          fprintf (context->log_file, "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n",
+            GetTimeStamp(), nread_from_net  + IPv4_HEADER_SIZE, context->net2tun, inet_ntoa(context->remote.sin_addr));
+          fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
+        }
+      #endif
     break;
   }
 
-  if(debug>0) {
-    uint64_t now = GetTimeStamp();
-    do_debug(3, "%"PRIu64" Packet arrived from the network\n",now);         
-  }
+  #ifdef DEBUG
+    if(debug>0) {
+      uint64_t now = GetTimeStamp();
+      do_debug(3, "%"PRIu64" Packet arrived from the network\n",now);         
+    }
+  #endif
 
   if(context->flavor == 'B') {
     // there should be a single packet
@@ -309,28 +387,39 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
     if (length > BUFSIZE) {
       perror("Problem with the length of the received packet\n");
-      do_debug(1," Length is %i, but the maximum allowed size is %i\n", length, BUFSIZE);
+      #ifdef DEBUG
+        do_debug(1," Length is %i, but the maximum allowed size is %i\n", length, BUFSIZE);
+      #endif
     }
 
     // check if this is an ACK or not
     if((blastHeader->ACK & MASK ) == THISISANACK) {
 
-      do_debug(1," Arrived blast ACK packet ID %i\n", ntohs(blastHeader->identifier));
+      #ifdef DEBUG
+        do_debug(1," Arrived blast ACK packet ID %i\n", ntohs(blastHeader->identifier));
 
-      // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
-      do_debug(2," Removing packet with ID %i from the list\n", ntohs(blastHeader->identifier));
-      if(debug>2)
-        printList(&context->unconfirmedPacketsBlast);
+        // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
+        do_debug(2," Removing packet with ID %i from the list\n", ntohs(blastHeader->identifier));
+
+        if(debug>2)
+          printList(&context->unconfirmedPacketsBlast);
+      #endif
+
       if(delete(&context->unconfirmedPacketsBlast,ntohs(blastHeader->identifier))==false) {
-        do_debug(2,"The packet had already been removed from the list\n");
+        #ifdef DEBUG
+          do_debug(2,"The packet had already been removed from the list\n");
+        #endif
       }
       else {
-        do_debug(2," Packet with ID %i removed from the list\n", ntohs(blastHeader->identifier));
+        #ifdef DEBUG
+          do_debug(2," Packet with ID %i removed from the list\n", ntohs(blastHeader->identifier));
+        #endif
       }
     }
     else if((blastHeader->ACK & MASK ) == ACKNEEDED) {
-
-      do_debug(1," Arrived blast packet ID %i, Length %i\n", ntohs(blastHeader->identifier), length);
+      #ifdef DEBUG
+        do_debug(1," Arrived blast packet ID %i, Length %i\n", ntohs(blastHeader->identifier), length);
+      #endif
 
       // if this packet has arrived for the first time, deliver it to the destination
       bool deliverThisPacket=false;
@@ -345,12 +434,15 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         if (now - context->blastTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
           // the packet has been sent recently
           // do not send it again
-          do_debug(1,"The packet with ID %i has been sent recently. Do not send it again\n", ntohs(blastHeader->identifier));
-          do_debug(2,"now (%"PRIu64") - blastTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
-                    now,
-                    ntohs(blastHeader->identifier),
-                    context->blastTimestamps[ntohs(blastHeader->identifier)],
-                    TIME_UNTIL_SENDING_AGAIN_BLAST);
+          #ifdef DEBUG
+            do_debug(1,"The packet with ID %i has been sent recently. Do not send it again\n",
+              ntohs(blastHeader->identifier));
+            do_debug(2,"now (%"PRIu64") - blastTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
+                      now,
+                      ntohs(blastHeader->identifier),
+                      context->blastTimestamps[ntohs(blastHeader->identifier)],
+                      TIME_UNTIL_SENDING_AGAIN_BLAST);
+          #endif
         }
         else {
           deliverThisPacket=true;
@@ -359,25 +451,32 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
       if(deliverThisPacket) {
 
-        do_debug(2, " DEMUXED PACKET: ID %i", ntohs(blastHeader->identifier));
-        if(debug>1) {
-          do_debug(2, ":");
-          dump_packet (length, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);                    
-        }
-        else {
-          do_debug(2, "\n");
-        }
-        
+        #ifdef DEBUG
+          do_debug(2, " DEMUXED PACKET: ID %i", ntohs(blastHeader->identifier));
+          if(debug>1) {
+            do_debug(2, ":");
+            dump_packet (length, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);                    
+          }
+          else {
+            do_debug(2, "\n");
+          }
+        #endif
+
         // tun mode
         if(context->tunnelMode == TUN_MODE) {
            // write the demuxed packet to the tun interface
-          do_debug (2, "%"PRIu64" Sending packet of %i bytes to the tun interface\n", now, length);
+          #ifdef DEBUG
+            do_debug (2, "%"PRIu64" Sending packet of %i bytes to the tun interface\n", now, length);
+          #endif
+
           if (cwrite ( context->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
             perror("could not write the packet correctly");
           }
           else {
-            do_debug(1, " Packet with ID %i sent to the tun interface\n", ntohs(blastHeader->identifier));
-            do_debug(2, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
+            #ifdef DEBUG
+              do_debug(1, " Packet with ID %i sent to the tun interface\n", ntohs(blastHeader->identifier));
+              do_debug(2, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
+            #endif
           }
 
           // update the timestamp when a packet with this identifier has been sent
@@ -387,17 +486,24 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         // tap mode
         else if(context->tunnelMode == TAP_MODE) {
           if (blastHeader->protocolID != IPPROTO_ETHERNET) {
-            do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", blastHeader->protocolID);              
+            #ifdef DEBUG
+              do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", blastHeader->protocolID);
+            #endif            
           }
           else {
              // write the demuxed packet to the tap interface
-            do_debug (2, " Sending frame of %i bytes to the tap interface\n", length);
+            #ifdef DEBUG
+              do_debug (2, " Sending frame of %i bytes to the tap interface\n", length);
+            #endif
+
             if(cwrite ( context->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
               perror("could not write the packet correctly");
             }
             else {
-              do_debug(1, " Packet with ID %i sent to the tun interface", ntohs(blastHeader->identifier));
-              do_debug(2, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
+              #ifdef DEBUG
+                do_debug(1, " Packet with ID %i sent to the tun interface", ntohs(blastHeader->identifier));
+                do_debug(2, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
+              #endif
             }
 
             // update the timestamp when a packet with this identifier has been sent
@@ -410,18 +516,22 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           exit (EXIT_FAILURE);
         }
         
-        do_debug(2, "\n");
-        //do_debug(2, "packet length (without separator): %i\n", packet_length);
+        #ifdef DEBUG
+          do_debug(2, "\n");
+          //do_debug(2, "packet length (without separator): %i\n", packet_length);
+        #endif
       }
 
-      do_debug(2," Sending a blast ACK\n");
       // this packet requires an ACK
+      #ifdef DEBUG
+        do_debug(2," Sending a blast ACK\n");
+      #endif
+
       // send the ACK as soon as the packet arrives
       // send an ACK per arrived packet. Do not check if this is the first time it has arrived
       struct packet ACK;
-      ACK.header.packetSize = 0; // htons(sizeof(struct simplemuxBlastHeader)); The length is only that of the payload
-      //ACK.header.protocolID = blastHeader->protocolID;  // the ACK does not have a payload, so no protocolID is needed
-      ACK.header.protocolID = 0;
+      ACK.header.packetSize = 0; // the length is only that of the payload 
+      ACK.header.protocolID = 0; // the ACK does not have a payload, so no protocolID is needed
       ACK.header.identifier = blastHeader->identifier;
       ACK.header.ACK = THISISANACK;
 
@@ -432,15 +542,20 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         fd = context->network_mode_fd;
 
       sendPacketBlastFlavor(fd,
-                          context->mode,
-                          &ACK,
-                          context->remote,
-                          context->local);
+                            context->mode,
+                            &ACK,
+                            context->remote,
+                            context->local);
 
-      do_debug(1," Sent blast ACK to the network. ID %i, length %i\n", ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));
+      #ifdef DEBUG
+        do_debug(1," Sent blast ACK to the network. ID %i, length %i\n", ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));
+      #endif
     }
     else if((blastHeader->ACK & MASK ) == HEARTBEAT) {
-      do_debug(1," Arrived blast heartbeat\n");
+      #ifdef DEBUG
+        do_debug(1," Arrived blast heartbeat\n");
+      #endif
+
       uint64_t now = GetTimeStamp();
       context->lastBlastHeartBeatReceived = now;
     }
@@ -513,18 +628,23 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         // I have demuxed another packet
         num_demuxed_packets ++;
 
-        do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
-        do_debug(2, ": ");
+        #ifdef DEBUG
+          do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
+          do_debug(2, ": ");
+        #endif
       }
       else {
         // fast flavor
-        assert(context->flavor == 'F');
+        #ifdef ASSERT
+          assert(context->flavor == 'F');
+        #endif
 
         // I have demuxed another packet
         num_demuxed_packets ++;
-
-        do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
-        do_debug(2, ":");   
+        #ifdef DEBUG
+          do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
+          do_debug(2, ":");
+        #endif
       }
 
 
@@ -539,16 +659,18 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           packet_length = buffer_from_net[position] % maximum_packet_length;
           //packet_length = buffer_from_net[position] & maximum_packet_length;
 
-          if (debug>0) {
-            do_debug(2, " buffer from net: %d\n", buffer_from_net[position]);
-            do_debug(2, "max packet length: %d\n", maximum_packet_length);
-            do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
+          #ifdef DEBUG
+            if (debug>0) {
+              do_debug(2, " buffer from net: %d\n", buffer_from_net[position]);
+              do_debug(2, "max packet length: %d\n", maximum_packet_length);
+              do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
 
-            bool bits[8];   // used for printing the bits of a byte in debug mode
-            FromByte(buffer_from_net[position], bits);
-            PrintByte(2, 8, bits);
-            do_debug(2, ")");
-          }
+              bool bits[8];   // used for printing the bits of a byte in debug mode
+              FromByte(buffer_from_net[position], bits);
+              PrintByte(2, 8, bits);
+              do_debug(2, ")");
+            }
+          #endif
           position ++;
         }
 
@@ -564,7 +686,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
             // I do the product by 128, because the next byte includes 7 bits of the length
             packet_length = ((buffer_from_net[position] % maximum_packet_length) * 128 );
-            do_debug(3, "initial packet_length (only most significant bits): %d\n", packet_length);
+            #ifdef DEBUG
+              do_debug(3, "initial packet_length (only most significant bits): %d\n", packet_length);
+            #endif
             /*
             uint8_t mask;
             if (maximum_packet_length == 64)
@@ -575,9 +699,12 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
             // I add the value of the 7 less significant bits of the second byte
             packet_length = packet_length + (buffer_from_net[position + 1] % 128);
-            do_debug(3, "packet_length (all the bits): %d\n", packet_length);
+            #ifdef DEBUG
+              do_debug(3, "packet_length (all the bits): %d\n", packet_length);
+            #endif
             //packet_length = packet_length + (buffer_from_net[position+1] & 0x7F);
 
+            #ifdef DEBUG
             if (debug>0) {
               bool bits[8];   // used for printing the bits of a byte in debug mode
 
@@ -591,7 +718,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               do_debug(2, ") 0x%02x (",buffer_from_net[position+1]);
               PrintByte(2, 8, bits);
               do_debug(2,")");
-            }          
+            }
+            #endif
+
             position = position + 2;
           }
 
@@ -611,6 +740,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             //packet_length = packet_length + (buffer_from_net[position+2] % 128);
             packet_length = packet_length + (buffer_from_net[position+2] & 0x7F);
 
+            #ifdef DEBUG
             if (debug>0) {
               bool bits[8];   // used for printing the bits of a byte in debug mode
 
@@ -628,7 +758,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               FromByte(buffer_from_net[position+2], bits);
               do_debug(2, " %02x ",buffer_from_net[position+2]);
               PrintByte(2, 8, bits);
-            }          
+            }
+            #endif
+
             position = position + 3;
           }
         }
@@ -640,12 +772,16 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           // the next thing I expect is a 'protocol' field
           if ( SIZE_PROTOCOL_FIELD == 1 ) {
             *protocol_rec = buffer_from_net[position];
-            do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+            #ifdef DEBUG
+              do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+            #endif
             position ++;
           }
           else {  // SIZE_PROTOCOL_FIELD == 2
             *protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-            do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
+            #ifdef DEBUG
+              do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
+            #endif
             position = position + 2;
           }
 
@@ -658,28 +794,40 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
             if ( SIZE_PROTOCOL_FIELD == 1 ) {
               *protocol_rec = buffer_from_net[position];
-              if(single_protocol_rec == 0)
-                do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+              if(single_protocol_rec == 0) {
+                #ifdef DEBUG
+                  do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+                #endif
+              }
               position ++;
             }
             else {  // SIZE_PROTOCOL_FIELD == 2
               *protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-              if(single_protocol_rec == 0)
-                do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
+              if(single_protocol_rec == 0) {
+                #ifdef DEBUG
+                  do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
+                #endif
+              }
               position = position + 2;
             }
           }
         }
-        do_debug(1, ". Length %i bytes\n", packet_length);
+        #ifdef DEBUG
+          do_debug(1, ". Length %i bytes\n", packet_length);
+        #endif
       }
 
       else {
         // fast flavor
-        assert(context->flavor == 'F');
+        #ifdef ASSERT
+          assert(context->flavor == 'F');
+        #endif
 
         if ((context->mode == TCP_SERVER_MODE) || (context->mode == TCP_CLIENT_MODE)) {
           // do nothing, because I have already read the length
-          do_debug(1, " Length %i bytes\n", packet_length);
+          #ifdef DEBUG
+            do_debug(1, " Length %i bytes\n", packet_length);
+          #endif
 
           // do nothing, because I have already read the Protocol
         }
@@ -693,12 +841,16 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           packet_length = ntohs(fastHeader->packetSize);
           //packet_length = (buffer_from_net[position] << 8 ) + buffer_from_net[position+1];
 
-          //position = position + 2;
-          do_debug(1, " Length %i bytes. ", packet_length);
+          #ifdef DEBUG
+            do_debug(1, " Length %i bytes. ", packet_length);
+          #endif
 
           // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
           *protocol_rec = fastHeader->protocolID;
-          do_debug(1, "Protocol 0x%02x\n", protocol_rec);
+
+          #ifdef DEBUG
+            do_debug(1, "Protocol 0x%02x\n", protocol_rec);
+          #endif
 
           // move 'position' to the end of the simplemuxFast header
           position = position + sizeof(struct simplemuxFastHeader);
@@ -714,21 +866,29 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       // Check if the position has gone beyond the size of the packet (wrong packet)
       if (position > nread_from_net) {
         // The last length read from the separator goes beyond the end of the packet
-        do_debug (1, "  ERROR: The length of the packet does not fit. Packet discarded\n");
+
+        #ifdef DEBUG
+          do_debug (1, "  ERROR: The length of the packet does not fit. Packet discarded\n");
+        #endif
 
         // this means that reception is desynchronized
         // in TCP mode, this will never recover, so abort
         if ((context->mode == TCP_CLIENT_MODE) || (context->mode == TCP_CLIENT_MODE)) {
-          do_debug (1, "ERROR: Length problem in TCP mode. Abort\n");
+          #ifdef DEBUG
+            do_debug (1, "ERROR: Length problem in TCP mode. Abort\n");
+          #endif
+
           return -1;
         }
 
-        // write the log file
-        if ( context->log_file != NULL ) {
-          // the packet is bad so I add a line
-          fprintf (context->log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun );  
-          fflush(context->log_file);
-        }            
+        #ifdef LOGFILE
+          // write the log file
+          if ( context->log_file != NULL ) {
+            // the packet is bad so I add a line
+            fprintf (context->log_file, "%"PRIu64"\terror\tdemux_bad_length\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun );  
+            fflush(context->log_file);
+          }
+        #endif     
       }
       
       else {
@@ -738,25 +898,32 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         // if the number of the protocol is NOT 142 (ROHC) I do not decompress the packet
         if ( *protocol_rec != IPPROTO_ROHC ) {
           // non-compressed packet
-          // dump the received packet on terminal
-          if (debug>0) {
-            //do_debug(1, " Received ");
-            //do_debug(2, "   ");
-            dump_packet ( packet_length, demuxed_packet );
-          }
+            #ifdef DEBUG
+            // dump the received packet on terminal
+            if (debug>0) {
+              //do_debug(1, " Received ");
+              //do_debug(2, "   ");
+              dump_packet ( packet_length, demuxed_packet );
+            }
+          #endif
         }
         else {
           // ROHC-compressed packet
 
           // I cannot decompress the packet if I am not in ROHC mode
           if ( context->rohcMode == 0 ) {
-            do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
+            #ifdef DEBUG
+              do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
+            #endif
 
-            // write the log file
-            if ( context->log_file != NULL ) {
-              fprintf (context->log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, context->net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
-              fflush(context->log_file);
-            }
+            #ifdef LOGFILE
+              // write the log file
+              if ( context->log_file != NULL ) {
+                fprintf (context->log_file, "%"PRIu64"\tdrop\tno_ROHC_mode\t%i\t%"PRIu32"\n",
+                  GetTimeStamp(), packet_length, context->net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
+                fflush(context->log_file);
+              }
+            #endif
           }
           else {
             // reset the buffers where the rohc packets, ip packets and feedback info are to be stored
@@ -775,15 +942,17 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             // I try to use memcpy instead, but it does not work properly
             // memcpy(demuxed_packet, rohc_buf_data_at(rohc_packet_d, 0), packet_length);
 
-            // dump the ROHC packet on terminal
-            if (debug>0) {
-              do_debug(1, " ROHC. ");
-            }
-            if (debug == 2) {
-              do_debug(2, " ");
-              do_debug(2, " ROHC packet\n");
-              dump_packet (packet_length, demuxed_packet);
-            }
+            #ifdef DEBUG
+              // dump the ROHC packet on terminal
+              if (debug>0) {
+                do_debug(1, " ROHC. ");
+              }
+              if (debug == 2) {
+                do_debug(2, " ");
+                do_debug(2, " ROHC packet\n");
+                dump_packet (packet_length, demuxed_packet);
+              }
+            #endif
 
             // decompress the packet
             *status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
@@ -792,49 +961,62 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             if ( context->rohcMode > 1 ) {
 
               // check if the decompressor has received feedback, and it has to be delivered to the local compressor
-              if ( !rohc_buf_is_empty( rcvd_feedback) ) { 
-                do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
-                // dump the feedback packet on terminal
-                if (debug>0) {
-                  do_debug(2, "  ROHC feedback packet received\n");
+              if ( !rohc_buf_is_empty( rcvd_feedback) ) {
+                #ifdef DEBUG
+                  do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
+                  // dump the feedback packet on terminal
+                  if (debug>0) {
+                    do_debug(2, "  ROHC feedback packet received\n");
 
-                  dump_packet (rcvd_feedback.len, rcvd_feedback.data );
-                }
+                    dump_packet (rcvd_feedback.len, rcvd_feedback.data );
+                  }
+                #endif
 
                 // deliver the feedback received to the local compressor
                 //https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
                 if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
-                  do_debug(3, "Error delivering feedback received from the remote compressor to the compressor\n");
+                  #ifdef DEBUG
+                    do_debug(3, "Error delivering feedback received from the remote compressor to the compressor\n");
+                  #endif
                 }
                 else {
-                  do_debug(3, "Feedback from the remote compressor delivered to the compressor: %i bytes\n", rcvd_feedback.len);
+                  #ifdef DEBUG
+                    do_debug(3, "Feedback from the remote compressor delivered to the compressor: %i bytes\n", rcvd_feedback.len);
+                  #endif
                 }
               }
               else {
-                do_debug(3, "No feedback received by the decompressor from the remote compressor\n");
+                #ifdef DEBUG
+                  do_debug(3, "No feedback received by the decompressor from the remote compressor\n");
+                #endif
               }
 
               // check if the decompressor has generated feedback to be sent by the feedback channel to the other peer
-              if ( !rohc_buf_is_empty( feedback_send ) ) { 
-                do_debug(3, "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n", feedback_send.len);
+              if ( !rohc_buf_is_empty( feedback_send ) ) {
+                #ifdef DEBUG
+                  do_debug(3, "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n", feedback_send.len);
 
-                // dump the ROHC packet on terminal
-                if (debug>0) {
-                  do_debug(2, "  ROHC feedback packet generated\n");
-                  dump_packet (feedback_send.len, feedback_send.data );
-                }
-
+                  // dump the ROHC packet on terminal
+                  if (debug>0) {
+                    do_debug(2, "  ROHC feedback packet generated\n");
+                    dump_packet (feedback_send.len, feedback_send.data );
+                  }
+                #endif
 
                 // send the feedback packet to the peer
                 if (sendto(context->feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&(context->feedback_remote), sizeof(context->feedback_remote))==-1) {
                   perror("sendto() failed when sending a ROHC packet");
                 }
                 else {
-                  do_debug(3, "Feedback generated by the decompressor (%i bytes), sent to the compressor\n", feedback_send.len);
+                  #ifdef DEBUG
+                    do_debug(3, "Feedback generated by the decompressor (%i bytes), sent to the compressor\n", feedback_send.len);
+                  #endif
                 }
               }
               else {
-                do_debug(3, "No feedback generated by the decompressor\n");
+                #ifdef DEBUG
+                  do_debug(3, "No feedback generated by the decompressor\n");
+                #endif
               }
             }
 
@@ -851,15 +1033,17 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                 // copy the packet
                 memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
 
-                //dump the IP packet on the standard output
-                do_debug(2, "  ");
-                do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
-                //do_debug(2, "   ");
+                #ifdef DEBUG
+                  //dump the IP packet on the standard output
+                  do_debug(2, "  ");
+                  do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
+                  //do_debug(2, "   ");
 
-                if (debug>0) {
-                  // dump the decompressed IP packet on terminal
-                  dump_packet (ip_packet_d.len, ip_packet_d.data );
-                }
+                  if (debug>0) {
+                    // dump the decompressed IP packet on terminal
+                    dump_packet (ip_packet_d.len, ip_packet_d.data );
+                  }
+                #endif
               }
               else {
                 /* no IP packet was decompressed because of ROHC segmentation or
@@ -869,84 +1053,108 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                  *    ROHC packet
                  *  - the ROHC packet was a feedback-only packet, it contained only
                  *    feedback information, so there was nothing to decompress */
-                do_debug(1, "  no IP packet decompressed\n");
+                #ifdef DEBUG
+                  do_debug(1, "  no IP packet decompressed\n");
+                #endif
 
-                // write the log file
-                if ( context->log_file != NULL ) {
-                  fprintf (context->log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n", GetTimeStamp(), nread_from_net, context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));  // the packet is bad so I add a line
-                  fflush(context->log_file);
-                }
+                #ifdef LOGFILE
+                  // write the log file
+                  if ( context->log_file != NULL ) {
+                    fprintf (context->log_file, "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
+                      GetTimeStamp(), nread_from_net, context->net2tun, inet_ntoa(context->remote.sin_addr),
+                      ntohs(context->remote.sin_port));  // the packet is bad so I add a line
+                    fflush(context->log_file);
+                  }
+                #endif
               }
             }
 
             else if ( *status == ROHC_STATUS_NO_CONTEXT ) {
+              // failure: decompressor failed to decompress the ROHC packet
+              #ifdef DEBUG
+                do_debug(1, "  decompression of ROHC packet failed. No context\n");
+                //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+              #endif
 
-              // failure: decompressor failed to decompress the ROHC packet 
-              do_debug(1, "  decompression of ROHC packet failed. No context\n");
-              //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
-
-              // write the log file
-              if ( context->log_file != NULL ) {
-                // the packet is bad
-                fprintf (context->log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
-                fflush(context->log_file);
-              }
+              #ifdef LOGFILE
+                // write the log file
+                if ( context->log_file != NULL ) {
+                  // the packet is bad
+                  fprintf (context->log_file, "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
+                  fflush(context->log_file);
+                }
+              #endif
             }
 
             else if ( *status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {  // the output buffer is too small for the compressed packet
-
               // failure: decompressor failed to decompress the ROHC packet 
-              do_debug(1, "  decompression of ROHC packet failed. Output buffer is too small\n");
-              //fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
+              #ifdef DEBUG
+                do_debug(1, "  decompression of ROHC packet failed. Output buffer is too small\n");
+                //fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
+              #endif
 
-              // write the log file
-              if ( context->log_file != NULL ) {
-                // the packet is bad
-                fprintf (context->log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
-                fflush(context->log_file);
-              }
+              #ifdef LOGFILE
+                // write the log file
+                if ( context->log_file != NULL ) {
+                  // the packet is bad
+                  fprintf (context->log_file, "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
+                  fflush(context->log_file);
+                }
+              #endif
             }
 
             else if ( *status == ROHC_STATUS_MALFORMED ) {      // the decompression failed because the ROHC packet is malformed 
+              // failure: decompressor failed to decompress the ROHC packet
 
-              // failure: decompressor failed to decompress the ROHC packet 
-              do_debug(1, "  decompression of ROHC packet failed. No context\n");
-              //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+              #ifdef DEBUG 
+                do_debug(1, "  decompression of ROHC packet failed. No context\n");
+                //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+              #endif
 
-              // write the log file
-              if ( context->log_file != NULL ) {
-                // the packet is bad
-                fprintf (context->log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
-                fflush(context->log_file);
-              }
+              #ifdef LOGFILE
+                // write the log file
+                if ( context->log_file != NULL ) {
+                  // the packet is bad
+                  fprintf (context->log_file, "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
+                  fflush(context->log_file);
+                }
+              #endif
             }
 
             else if ( *status == ROHC_STATUS_BAD_CRC ) {      // the CRC detected a transmission or decompression problem
-
               // failure: decompressor failed to decompress the ROHC packet 
-              do_debug(1, "  decompression of ROHC packet failed. Bad CRC\n");
-              //fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
 
-              // write the log file
-              if ( context->log_file != NULL ) {
-                // the packet is bad
-                fprintf (context->log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
-                fflush(context->log_file);
-              }
+              #ifdef DEBUG
+                do_debug(1, "  decompression of ROHC packet failed. Bad CRC\n");
+                //fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
+              #endif
+
+              #ifdef LOGFILE
+                // write the log file
+                if ( context->log_file != NULL ) {
+                  // the packet is bad
+                  fprintf (context->log_file, "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
+                  fflush(context->log_file);
+                }
+              #endif
             }
 
             else if ( *status == ROHC_STATUS_ERROR ) {        // another problem occurred
+              // failure: decompressor failed to decompress the ROHC packet
 
-              // failure: decompressor failed to decompress the ROHC packet 
-              do_debug(1, "  decompression of ROHC packet failed. Other error\n");
-              //fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
+              #ifdef DEBUG
+                do_debug(1, "  decompression of ROHC packet failed. Other error\n");
+                //fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
+              #endif
 
-              // write the log file
-              if ( context->log_file != NULL ) {
-                // the packet is bad
-                fprintf (context->log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
-                fflush(context->log_file);
-              }
+              #ifdef LOGFILE
+                // write the log file
+                if ( context->log_file != NULL ) {
+                  // the packet is bad
+                  fprintf (context->log_file, "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n", GetTimeStamp(), nread_from_net, context->net2tun);  
+                  fflush(context->log_file);
+                }
+              #endif
             }
           }
         }
@@ -959,17 +1167,25 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           // tun mode
           if(context->tunnelMode == TUN_MODE) {
              // write the demuxed packet to the tun interface
-            do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
+            #ifdef DEBUG
+              do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
+            #endif
+
             cwrite ( context->tun_fd, demuxed_packet, packet_length );
           }
           // tap mode
           else if(context->tunnelMode == TAP_MODE) {
             if (*protocol_rec != IPPROTO_ETHERNET) {
-              do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);              
+              #ifdef DEBUG
+                do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", protocol_rec);
+              #endif            
             }
             else {
                // write the demuxed packet to the tap interface
-              do_debug (2, " Sending frame of %i bytes to the tap interface\n", packet_length);
+              #ifdef DEBUG
+                do_debug (2, " Sending frame of %i bytes to the tap interface\n", packet_length);
+              #endif
+
               cwrite ( context->tun_fd, demuxed_packet, packet_length );
             }
           }
@@ -978,14 +1194,18 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             exit (EXIT_FAILURE);
           }
           
-          do_debug(2, "\n");
-          //do_debug(2, "packet length (without separator): %i\n", packet_length);
+          #ifdef DEBUG
+            do_debug(2, "\n");
+            //do_debug(2, "packet length (without separator): %i\n", packet_length);
+          #endif
 
-          // write the log file
-          if ( context->log_file != NULL ) {
-            fprintf (context->log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, context->net2tun);  // the packet is good
-            fflush(context->log_file);
-          }
+          #ifdef LOGFILE
+            // write the log file
+            if ( context->log_file != NULL ) {
+              fprintf (context->log_file, "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n", GetTimeStamp(), packet_length, context->net2tun);  // the packet is good
+              fflush(context->log_file);
+            }
+          #endif
         }
       }
     }              

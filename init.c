@@ -70,43 +70,62 @@ void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
 
         // check the 'mode' string and fill 'mode'
         if (strcmp(mode_string, "network") == 0) {
-          do_debug(3, "the mode string is network\n");
+          #ifdef DEBUG
+            do_debug(3, "the mode string is network\n");
+          #endif
           context->mode = 'N';
         }
-        else if (strcmp(mode_string, "udp") == 0){
-          do_debug(3, "the mode string is udp\n");
+        else if (strcmp(mode_string, "udp") == 0) {
+          #ifdef DEBUG
+            do_debug(3, "the mode string is udp\n");
+          #endif
           context->mode= 'U';
         }
-        else if (strcmp(mode_string, "tcpserver") == 0){
-          do_debug(3, "the mode string is tcpserver\n");
+        else if (strcmp(mode_string, "tcpserver") == 0) {
+          #ifdef DEBUG
+            do_debug(3, "the mode string is tcpserver\n");
+          #endif
           context->mode= 'S';
         }
-        else if (strcmp(mode_string, "tcpclient") == 0){
-          do_debug(3, "the mode string is tcpclient\n");
+        else if (strcmp(mode_string, "tcpclient") == 0) {
+          #ifdef DEBUG
+            do_debug(3, "the mode string is tcpclient\n");
+          #endif
           context->mode= 'T';
         }
         else {
-          do_debug(3, "the mode string is not valid\n");
+          #ifdef DEBUG
+            do_debug(3, "the mode string is not valid\n");
+          #endif
         }
-        do_debug(3, "mode_string: %s\n", mode_string);
-
+        #ifdef DEBUG
+          do_debug(3, "mode_string: %s\n", mode_string);
+        #endif
         break;
       case 'T':            /* TUN (U) or TAP (A) tunnel mode */
         strcpy(tunnel_mode_string, optarg);
 
         // check the 'tunnel_mode' string and fill 'tunnelMode'
         if (strcmp(tunnel_mode_string, "tun") == 0) {
-          do_debug(3, "the tunnel mode string is tun\n");
+          #ifdef DEBUG
+            do_debug(3, "the tunnel mode string is tun\n");
+          #endif
           context->tunnelMode = 'U';
         }
         else if (strcmp(tunnel_mode_string, "tap") == 0){
-          do_debug(3, "the tunnel mode string is tap\n");
+          #ifdef DEBUG
+            do_debug(3, "the tunnel mode string is tap\n");
+          #endif
           context->tunnelMode = 'A';
         }
         else {
-          do_debug(3, "the tunnel mode string is not valid\n");
+          #ifdef DEBUG
+            do_debug(3, "the tunnel mode string is not valid\n");
+          #endif
         }
-        do_debug(3, "tunnel_mode_string: %s\n", tunnel_mode_string);
+        #ifdef DEBUG
+          do_debug(3, "tunnel_mode_string: %s\n", tunnel_mode_string);
+        #endif
 
         break;
       case 'f':            /* fast flavor */
@@ -119,7 +138,9 @@ void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
           context->flavor = 'F';
           context->port = PORT_FAST;   // by default, port = PORT. In fast flavor, it is PORT_FAST
           context->ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast flavor, use 254
-          do_debug(1, "Fast flavor selected\n");            
+          #ifdef DEBUG
+            do_debug(1, "Fast flavor selected\n");
+          #endif        
         }
         break;
       case 'b':            /* blast flavor */
@@ -132,7 +153,9 @@ void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
           context->flavor = 'B';
           context->port = PORT_BLAST;   // by default, port = PORT. In blast flavor, it is PORT_BLAST
           context->ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast flavor, use 252
-          do_debug(1, "Blast flavor selected\n");
+          #ifdef DEBUG
+            do_debug(1, "Blast flavor selected\n");
+          #endif
         }
         break;
       case 'e':            /* the name of the network interface (e.g. "eth0") in "mux_if_name" */

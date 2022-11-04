@@ -97,7 +97,9 @@ int initRohc( struct contextSimplemux* context )
       goto error;
     }
     
-    do_debug(1, "ROHC compressor created. Profiles: ");
+    #ifdef DEBUG
+      do_debug(1, "ROHC compressor created. Profiles: ");
+    #endif
     
     // Set the callback function to be used for detecting RTP.
     // RTP is not detected automatically. So you have to create a callback function "rtp_detect" where you specify the conditions.
@@ -124,7 +126,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_compressor;
     }
     else {
-      do_debug(1, "Uncompressed. ");
+      #ifdef DEBUG
+        do_debug(1, "Uncompressed. ");
+      #endif
     }
 
     if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_IP)) {
@@ -132,7 +136,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_compressor;
     }
     else {
-      do_debug(1, "IP-only. ");
+      #ifdef DEBUG
+        do_debug(1, "IP-only. ");
+      #endif
     }
 
     if(!rohc_comp_enable_profiles(compressor, ROHC_PROFILE_UDP, ROHC_PROFILE_UDPLITE, -1)) {
@@ -140,7 +146,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_compressor;
     }
     else {
-      do_debug(1, "IP/UDP. IP/UDP-Lite. ");
+      #ifdef DEBUG
+        do_debug(1, "IP/UDP. IP/UDP-Lite. ");
+      #endif
     }
 
     if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_RTP)) {
@@ -148,7 +156,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_compressor;
     }
     else {
-      do_debug(1, "RTP (UDP ports 1234, 36780, 33238, 5020, 5002). ");
+      #ifdef DEBUG
+        do_debug(1, "RTP (UDP ports 1234, 36780, 33238, 5020, 5002). ");
+      #endif
     }
 
     if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_ESP)) {
@@ -156,7 +166,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_compressor;
     }
     else {
-      do_debug(1, "ESP. ");
+      #ifdef DEBUG
+        do_debug(1, "ESP. ");
+      #endif
     }
 
     if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_TCP)) {
@@ -164,9 +176,13 @@ int initRohc( struct contextSimplemux* context )
       goto release_compressor;
     }
     else {
-      do_debug(1, "TCP. ");
+      #ifdef DEBUG
+        do_debug(1, "TCP. ");
+      #endif
     }
-    do_debug(1, "\n");
+    #ifdef DEBUG
+      do_debug(1, "\n");
+    #endif
 
 
     /* Create a ROHC decompressor to operate:
@@ -190,7 +206,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_decompressor;
     }
 
-    do_debug(1, "ROHC decompressor created. Profiles: ");
+    #ifdef DEBUG
+      do_debug(1, "ROHC decompressor created. Profiles: ");
+    #endif
 
     // set the function that will manage the ROHC decompressing traces (it will be 'print_rohc_traces')
     if(!rohc_decomp_set_traces_cb2(decompressor, print_rohc_traces, NULL)) {
@@ -205,7 +223,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_decompressor;
     }
     else {
-      do_debug(1, "Uncompressed. ");
+      #ifdef DEBUG
+        do_debug(1, "Uncompressed. ");
+      #endif
     }
 
     status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_IP, -1);
@@ -214,7 +234,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_decompressor;
     }
     else {
-      do_debug(1, "IP-only. ");
+      #ifdef DEBUG
+        do_debug(1, "IP-only. ");
+      #endif
     }
 
     status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDP, -1);
@@ -223,7 +245,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_decompressor;
     }
     else {
-      do_debug(1, "IP/UDP. ");
+      #ifdef DEBUG
+        do_debug(1, "IP/UDP. ");
+      #endif
     }
 
     status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDPLITE, -1);
@@ -231,8 +255,11 @@ int initRohc( struct contextSimplemux* context )
     {
       fprintf(stderr, "failed to enable the IP/UDP-Lite decompression profile\n");
       goto release_decompressor;
-    } else {
-      do_debug(1, "IP/UDP-Lite. ");
+    }
+    else {
+      #ifdef DEBUG
+        do_debug(1, "IP/UDP-Lite. ");
+      #endif
     }
 
     status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_RTP, -1);
@@ -241,7 +268,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_decompressor;
     }
     else {
-      do_debug(1, "RTP. ");
+      #ifdef DEBUG
+        do_debug(1, "RTP. ");
+      #endif
     }
 
     status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_ESP,-1);
@@ -250,7 +279,9 @@ int initRohc( struct contextSimplemux* context )
       goto release_decompressor;
     }
     else {
-      do_debug(1, "ESP. ");
+      #ifdef DEBUG
+        do_debug(1, "ESP. ");
+      #endif
     }
 
     status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_TCP, -1);
@@ -259,10 +290,14 @@ int initRohc( struct contextSimplemux* context )
       goto release_decompressor;
     }
     else {
-      do_debug(1, "TCP. ");
+      #ifdef DEBUG
+        do_debug(1, "TCP. ");
+      #endif
     }
 
-    do_debug(1, "\n");
+    #ifdef DEBUG
+      do_debug(1, "\n");
+    #endif
   }
 
   return 1;
