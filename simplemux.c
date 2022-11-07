@@ -444,8 +444,10 @@ int main(int argc, char *argv[]) {
 
         context.timeLastSent = findLastSentTimestamp(context.unconfirmedPacketsBlast);
 
-        if(debug>1)
-          printList(&context.unconfirmedPacketsBlast);
+        #ifdef DEBUG
+          if(debug>1)
+            printList(&context.unconfirmedPacketsBlast);
+        #endif
 
         now_microsec = GetTimeStamp();
         //do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);

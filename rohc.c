@@ -26,12 +26,14 @@ static void print_rohc_traces(void *const priv_ctxt,
                               ...)
 {
   // Only prints ROHC messages if debug level is > 2
-  if ( debug > 2 ) {
-    va_list args;
-    va_start(args, format);
-    vfprintf(stdout, format, args);
-    va_end(args);
-  }
+  #ifdef DEBUG
+    if ( debug > 2 ) {
+      va_list args;
+      va_start(args, format);
+      vfprintf(stdout, format, args);
+      va_end(args);
+    }
+  #endif
 }
 
 
