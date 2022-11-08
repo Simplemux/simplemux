@@ -4,7 +4,7 @@
 int debug;            // 0:no debug; 1:minimum debug; 2:maximum debug 
 
 
-// functions related to ROHC compression
+// variables related to ROHC compression
 struct rohc_comp *compressor;         // the ROHC compressor
 uint8_t ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
 struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);  
