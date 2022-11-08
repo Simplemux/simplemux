@@ -9,11 +9,32 @@ In other cases it is necessary to send tunneled packets or frames between differ
 
 Simplemux is a protocol able to encapsulate a number of packets belonging to different protocols into a single packet. It includes the "Protocol" field on each multiplexing header, thus allowing the inclusion of a number of packets belonging to different protocols on a packet of another protocol.
 
-The size of the multiplexing headers is kept very low (it may be a single byte when multiplexing small packets) in order to reduce the overhead.
+```
+
+         +--------------------------------+
+         |       Multiplexed Packet       |     Multiplexed protocol
+         +--------------------------------+
+         |           Simplemux            |     Multiplexing protocol
+         +--------------------------------+
+         |       Tunneling header         |     Tunneling protocol
+         +--------------------------------+
+```
+
+This is the structure of a packet including three multilplexed packets:
+
+```
++-----------------+---------+----------------+---------+----------------+---------+----------------+
+|Tunneling header |simplemux| muxed packet 1 |simplemux| muxed packet 2 |simplemux| muxed packet 3 |
++-----------------+---------+----------------+---------+----------------+---------+----------------+
+```
+
+The size of the simplemux separators is kept very low (it may be a single byte when multiplexing small packets) in order to reduce the overhead.
 
 This repository includes a Linux user-space implementation of Simplemux, written in C. It uses Simplemux as the multiplexing protocol.
 
+
 # Modes and flavors
+
 
 ## Tunnel modes
 
@@ -31,6 +52,7 @@ It includes the next options for the *tunneling* protocol, which correspond to f
 - **UDP mode**: the multiplexed packet is sent in an **UDP/IP** datagram. In this case, the protocol number in the outer IP header is that of UDP (17) and both ends must agree on a UDP port (the implementation uses 55555 or 55557 by default).
 - **TCP server mode**: the multiplexed packet is sent in a **TCP/IP** datagram. In this case, the protocol number in the outer IP header is that of TCP (4) and both ends must agree on a TCP port (the implementation uses 55555 or 55557 by default).
 - **TCP client mode**: as it happens in TCP server mode, **TCP/IP** datagrams are sent.
+
 
 ## Flavors
 
