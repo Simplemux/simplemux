@@ -27,10 +27,10 @@ Simplemux has two *tunnel modes*, so it can include the next multiplexed protoco
 
 It includes the next options for the *tunneling* protocol, which correspond to four *modes*:
 
-- **IP: Network mode**: the multiplexed packet is sent in an IP datagram using Protocol Number 253 or 254 (according to IANA, these numbers can be used for experimentation and testing ).
-- **UDP/IP: UDP mode**: the multiplexed packet is sent in an UDP/IP datagram. In this case, the protocol number in the outer IP header is that of UDP (17) and both ends must agree on a UDP port (the implementation uses 55555 or 55557 by default).
-- **TCP/IP: TCP server mode**: the multiplexed packet is sent in a TCP/IP datagram. In this case, the protocol number in the outer IP header is that of TCP (4) and both ends must agree on a TCP port (the implementation uses 55555 or 55557 by default).
-- **TCP/IP: TCP client mode**: same as TCP server mode, but it is the TCP client.
+- **Network mode**: the multiplexed packet is sent in an **IP datagram** using Protocol Number 253 or 254 (according to IANA, these numbers can be used for experimentation and testing ).
+- **UDP mode**: the multiplexed packet is sent in an **UDP/IP** datagram. In this case, the protocol number in the outer IP header is that of UDP (17) and both ends must agree on a UDP port (the implementation uses 55555 or 55557 by default).
+- **TCP server mode**: the multiplexed packet is sent in a **TCP/IP** datagram. In this case, the protocol number in the outer IP header is that of TCP (4) and both ends must agree on a TCP port (the implementation uses 55555 or 55557 by default).
+- **TCP client mode**: as it happens in TCP server mode, **TCP/IP** datagrams are sent.
 
 ## Flavors
 
