@@ -58,10 +58,20 @@ sudo make install
 cd ..
 ```
 
-And now, you can download and compile simplemux:
+And now, you can clone Simplemux:
 ```
 git clone https://github.com/Simplemux/simplemux.git
-cd simplemux
+```
+
+Set the value of the compiler options in `commonFunctions.h`. You can define the next three values, in order to make Simplemux faster:
+```
+#define DEBUG 1   // if you comment this line, debug info is not allowed
+#define LOGFILE 1 // if you comment this line, logs are not allowed
+#define ASSERT 1  // if you comment this line, assertions are not allowed
+```
+
+And now, you can compile Simplemux:
+```
 gcc -o simplemux -g -Wall $(pkg-config rohc --cflags) simplemux.c $(pkg-config rohc --libs )
 ```
 
@@ -73,6 +83,7 @@ Usage examples:
 ./simplemux/simplemux -i tap3 -e eth1 -M tcpserver -T tap -c 192.168.3.172 -d 3 -n 1 -f
 ./simplemux/simplemux -i tap3 -e eth1 -M tcpclient -T tap -c 192.168.3.171 -d 2 -n 1 -f
 ```
+
 ACKNOWLEDGEMENTS
 ----------------
 This work has been partially financed by the **EU H2020 Wi-5 project** (G.A. no: 644262, see http://www.wi5.eu/ and https://github.com/Wi5), and the Spanish Ministry of Economy and Competitiveness project TIN2015-64770-R, in cooperation with the European Regional Development Fund.

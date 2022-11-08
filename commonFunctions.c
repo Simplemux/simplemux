@@ -27,6 +27,7 @@ uint8_t feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the RO
 struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
 
 
+#ifdef DEBUG
 /**************************************************************************
  * do_debug: prints debugging stuff (doh!)                                *
  **************************************************************************/
@@ -40,6 +41,7 @@ void do_debug(int level, char *msg, ...) {
     va_end(argp);
   }
 }
+#endif
 
 
 /**************************************************************************
@@ -105,6 +107,7 @@ void BuildIPHeader( struct iphdr *iph,
   counter ++;
 }
 
+
 // Buid a Full IP Packet
 void BuildFullIPPacket(struct iphdr iph, uint8_t *data_packet, uint16_t len_data, uint8_t *full_ip_packet) {
   memset(full_ip_packet, 0, BUFSIZE);
@@ -123,6 +126,7 @@ void SetIpHeader(struct iphdr iph, uint8_t *ip_packet) {
   memcpy((struct iphdr*)ip_packet,&iph,sizeof(struct iphdr));
 }
 
+
 /**************************************************************************
  * cread: read routine that checks for errors and exits if an error is    *
  *        returned.                                                       *
@@ -138,6 +142,7 @@ int cread(int fd, uint8_t *buf, int n) {
   return nread;
 }
 
+
 /**************************************************************************
  * cwrite: write routine that checks for errors and exits if an error is  *
  *         returned.                                                      *
@@ -152,6 +157,7 @@ int cwrite(int fd, uint8_t *buf, int n) {
   }
   return nwritten;
 }
+
 
 /**************************************************************************
  * read_n: ensures we read exactly n bytes, and puts them into "buf".     *
@@ -172,6 +178,7 @@ int read_n(int fd, uint8_t *buf, int n) {
   return n;
 }
 
+
 /**************************************************************************
  * my_err: prints custom error messages on stderr.                        *
  **************************************************************************/
@@ -184,6 +191,7 @@ void my_err(char *msg, ...) {
   va_end(argp);
 }
 
+
 /**************************************************************************
  * GetTimeStamp: Get a timestamp in microseconds from the OS              *
  **************************************************************************/
@@ -192,6 +200,7 @@ uint64_t GetTimeStamp() {
   gettimeofday(&tv,NULL);
   return tv.tv_sec*(uint64_t)1000000+tv.tv_usec;
 }
+
 
 /**************************************************************************
  * ToByte: convert an array of booleans to a char                         *
@@ -224,6 +233,8 @@ void FromByte(uint8_t c, bool b[8]) {
     b[i] = (c & (1<<i)) != 0;
 }
 
+
+#ifdef DEBUG
 /**************************************************************************
  * PrintByte: prints the bits of a byte                                   *
  **************************************************************************/
@@ -233,7 +244,7 @@ void PrintByte(int debug_level, int num_bits, bool b[8]) {
 
   int i;
   for (i= 7 ; i>= num_bits ; i--) {
-      do_debug(debug_level, "_");
+    do_debug(debug_level, "_");
   }
   for (i= num_bits -1 ; i>=0; i--) {
     if (b[i]) {
@@ -243,8 +254,10 @@ void PrintByte(int debug_level, int num_bits, bool b[8]) {
     }
   }
 }
+#endif
 
 
+#ifdef DEBUG
 /**************************************************************************
 ************ dump a packet ************************************************
 **************************************************************************/
@@ -268,6 +281,7 @@ void dump_packet (int packet_size, uint8_t packet[BUFSIZE]) {
     do_debug(2, "\n");
   }
 }
+#endif
 
 
 /**************************************************************************

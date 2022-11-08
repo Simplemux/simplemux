@@ -176,8 +176,11 @@ void sendPacketBlastFlavor(int fd,
 
    switch (mode) {
       case UDP_MODE:
-         do_debug(3, "[sendPacketBlastFlavor] Sending to the network a UDP blast packet with ID %i: %i bytes\n", ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-         do_debug(3, "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+         #ifdef DEBUG
+            do_debug(3, "[sendPacketBlastFlavor] Sending to the network a UDP blast packet with ID %i: %i bytes\n",
+               ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+            do_debug(3, "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+         #endif
 
         // send the packet
         if (sendto(fd, &(packetToSend->header), total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
@@ -192,30 +195,33 @@ void sendPacketBlastFlavor(int fd,
         }*/
       break;
 
-      case NETWORK_MODE:
-         do_debug(3, "[sendPacketBlastFlavor] Sending to the network an IP blast packet with ID %i: %i bytes\n", ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE );
-         do_debug(3, "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+      case NETWORK_MODE: ; // I add a semicolon because the next command can be a statement
+         #ifdef DEBUG
+            do_debug(3, "[sendPacketBlastFlavor] Sending to the network an IP blast packet with ID %i: %i bytes\n",
+               ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE );
+            do_debug(3, "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+         #endif
 
-        // build the header
-        struct iphdr ipheader;  
-        uint8_t ipprotocol = IPPROTO_SIMPLEMUX_BLAST;
-        BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
+         // build the header
+         struct iphdr ipheader;  
+         uint8_t ipprotocol = IPPROTO_SIMPLEMUX_BLAST;
+         BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
 
-        // build the full IP multiplexed packet
-        uint8_t full_ip_packet[BUFSIZE]; // the full IP packet will be stored here
-        BuildFullIPPacket(ipheader, (uint8_t *)&(packetToSend->header), total_length, full_ip_packet);
+         // build the full IP multiplexed packet
+         uint8_t full_ip_packet[BUFSIZE]; // the full IP packet will be stored here
+         BuildFullIPPacket(ipheader, (uint8_t *)&(packetToSend->header), total_length, full_ip_packet);
 
-        // send the packet
-        if (sendto (fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
-          perror ("sendto() in Network mode failed");
-          exit (EXIT_FAILURE);
-        }
-        /*
-        // write in the log file
-        if ( log_file != NULL ) {
+         // send the packet
+         if (sendto (fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+            perror ("sendto() in Network mode failed");
+            exit (EXIT_FAILURE);
+         }
+         /*
+         // write in the log file
+         if ( log_file != NULL ) {
           fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
           fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-        }*/
+         }*/
       break;
    }
 }
@@ -230,19 +236,24 @@ int sendExpiredPackects(struct packet* head_ref,
                         struct sockaddr_in remote,
                         struct sockaddr_in local)
 {
-
-   //do_debug(3,"[sendExpiredPackects] starting\n");
+   #ifdef DEBUG
+      //do_debug(3,"[sendExpiredPackects] starting\n");
+   #endif
    
    int sentPackets = 0; // number of packets sent
    struct packet *current = head_ref;
    
    while(current != NULL) {
-      do_debug(3,"[sendExpiredPackects] Packet %d. Stored timestamp: %"PRIu64" us\n", ntohs(current->header.identifier),current->sentTimestamp);
+      #ifdef DEBUG
+         do_debug(3,"[sendExpiredPackects] Packet %d. Stored timestamp: %"PRIu64" us\n", ntohs(current->header.identifier),current->sentTimestamp);
+      #endif
          
       if(current->sentTimestamp + period < now) {
 
-         do_debug(3,"[sendExpiredPackects]  Sending packet %d. Updated timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), now); 
-         do_debug(3,"                        Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") < now (%"PRIu64")\n", current->sentTimestamp, period, now);
+         #ifdef DEBUG
+            do_debug(3,"[sendExpiredPackects]  Sending packet %d. Updated timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), now); 
+            do_debug(3,"                        Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") < now (%"PRIu64")\n", current->sentTimestamp, period, now);
+         #endif
 
          // this packet has to be sent
          current->sentTimestamp = now;
@@ -253,8 +264,10 @@ int sendExpiredPackects(struct packet* head_ref,
          sentPackets++;
       }
       else {
-         do_debug(3,"[sendExpiredPackects]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), current->sentTimestamp);
-         do_debug(3,"                        Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") >= now (%"PRIu64")\n", current->sentTimestamp, period, now);
+         #ifdef DEBUG
+            do_debug(3,"[sendExpiredPackects]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), current->sentTimestamp);
+            do_debug(3,"                        Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") >= now (%"PRIu64")\n", current->sentTimestamp, period, now);
+         #endif
       }
 
       current = current->next;
@@ -264,12 +277,14 @@ int sendExpiredPackects(struct packet* head_ref,
 }
 
 
-uint64_t findLastSentTimestamp(struct packet* head_ref) {
-  
+uint64_t findLastSentTimestamp (struct packet* head_ref)
+{
    //start from the first link
    struct packet* current = head_ref;
 
-   //printList(&head_ref);
+   #ifdef DEBUG
+      //printList(&head_ref);
+   #endif
 
    if(head_ref == NULL) {
       return 0;
@@ -278,32 +293,46 @@ uint64_t findLastSentTimestamp(struct packet* head_ref) {
    // I take the first packet of the list as the initial value of 'lastSentTimestamp'
 
    // first packet: it has been sent for sure
-   do_debug(3,"[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
+   #ifdef DEBUG
+      do_debug(3,"[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
+   #endif
 
    // this packet has been sent before
    uint64_t lastSentTimestamp = current->sentTimestamp;
-   uint16_t lastSentIdentifier = ntohs(current->header.identifier);
 
-   do_debug(3,"[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+   #ifdef DEBUG
+      uint16_t lastSentIdentifier = ntohs(current->header.identifier);
+      do_debug(3,"[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+   #endif
 
    // move to the second packet
    current=current->next;
 
    // navigate through the rest of the list
-   while(current!=NULL) {
-      do_debug(3,"[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
+   while(current != NULL) {
+      #ifdef DEBUG
+         do_debug(3,"[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
+      #endif
+
       if(current->sentTimestamp < lastSentTimestamp) {
          // this packet has been sent even before
          lastSentTimestamp = current->sentTimestamp;
-         lastSentIdentifier = ntohs(current->header.identifier);
+         
+         #ifdef DEBUG
+            lastSentIdentifier = ntohs(current->header.identifier);
+         #endif
       }
-      do_debug(3,"[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+
+      #ifdef DEBUG
+         do_debug(3,"[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+      #endif
 
       current=current->next;
    }
 
-
-   do_debug(3,"[findLastSentTimestamp] Oldest timestamp: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+   #ifdef DEBUG
+      do_debug(3,"[findLastSentTimestamp] Oldest timestamp: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+   #endif
 
    return lastSentTimestamp;
 }
@@ -356,6 +385,7 @@ void reverse(struct packet** head_ref) {
   
    *head_ref = prev;
 }
+
 
 void test() {
    struct packet *head = NULL;
