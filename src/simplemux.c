@@ -138,8 +138,6 @@ int main(int argc, char *argv[]) {
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 
-  int size_max;                           // maximum value of the packet size
-
   uint64_t now_microsec;                  // current time
 
   int interface_mtu;                      // the maximum transfer unit of the interface
@@ -242,26 +240,27 @@ int main(int argc, char *argv[]) {
 
 
     /*** get the MTU of the local interface ***/
-    if ( context.mode== UDP_MODE)  {
+    if ( context.mode == UDP_MODE)  {
       if (ioctl(context.udp_mode_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
-    else if ( context.mode== NETWORK_MODE) {
+    else if ( context.mode == NETWORK_MODE) {
       if (ioctl(context.network_mode_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
-    else if ( context.mode== TCP_SERVER_MODE ) {
+    else if ( context.mode == TCP_SERVER_MODE ) {
       if (ioctl(context.tcp_welcoming_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
-    else if ( context.mode== TCP_CLIENT_MODE ) {
+    else if ( context.mode == TCP_CLIENT_MODE ) {
       if (ioctl(context.tcp_client_fd, SIOCGIFMTU, &iface) == -1)
         interface_mtu = 0;
       else interface_mtu = iface.ifr_mtu;
     }
+
     /*** check if the user has specified a bad MTU ***/
     #ifdef DEBUG
       do_debug (1, "Local interface MTU: %i\t ", interface_mtu);
@@ -301,36 +300,36 @@ int main(int argc, char *argv[]) {
     // define the maximum size threshold
     switch ( context.mode) {
       case NETWORK_MODE:
-        size_max = selected_mtu - IPv4_HEADER_SIZE ;
+        context.sizeMax = selected_mtu - IPv4_HEADER_SIZE ;
       break;
       
       case UDP_MODE:
-        size_max = selected_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
+        context.sizeMax = selected_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
       break;
       
       case TCP_CLIENT_MODE:
-        size_max = selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
+        context.sizeMax = selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
       break;
       
       case TCP_SERVER_MODE:
-        size_max = selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
+        context.sizeMax = selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
       break;
     }
 
     // the size threshold has not been established by the user 
     if (context.size_threshold == 0 ) {
-      context.size_threshold = size_max;
+      context.size_threshold = context.sizeMax;
       #ifdef DEBUG
-        //do_debug (1, "Size threshold established to the maximum: %i.", size_max);
+        //do_debug (1, "Size threshold established to the maximum: %i.", context.sizeMax);
       #endif
     }
 
     // the user has specified a too big size threshold
-    if (context.size_threshold > size_max ) {
+    if (context.size_threshold > context.sizeMax ) {
       #ifdef DEBUG
-        do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", context.size_threshold, size_max);
+        do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", context.size_threshold, context.sizeMax);
       #endif
-      context.size_threshold = size_max;
+      context.size_threshold = context.sizeMax;
     }
 
     /*** set the triggering parameters according to user selections (or default values) ***/
@@ -351,11 +350,11 @@ int main(int argc, char *argv[]) {
     // as soon as one of the conditions is accomplished, all the accumulated packets are sent
 
     // if no limit of the number of packets is set, then it is set to the maximum
-    if (( (context.size_threshold < size_max) || (context.timeout < MAXTIMEOUT) || (context.period < MAXTIMEOUT) ) && (context.limit_numpackets_tun == 0))
+    if (( (context.size_threshold < context.sizeMax) || (context.timeout < MAXTIMEOUT) || (context.period < MAXTIMEOUT) ) && (context.limit_numpackets_tun == 0))
       context.limit_numpackets_tun = MAXPKTS;
 
     // if no option is set by the user, it is assumed that every packet will be sent immediately
-    if (( (context.size_threshold == size_max) && (context.timeout == MAXTIMEOUT) && (context.period == MAXTIMEOUT)) && (context.limit_numpackets_tun == 0))
+    if (( (context.size_threshold == context.sizeMax) && (context.timeout == MAXTIMEOUT) && (context.period == MAXTIMEOUT)) && (context.limit_numpackets_tun == 0))
       context.limit_numpackets_tun = 1;
   
     #ifdef DEBUG
@@ -744,8 +743,7 @@ int main(int argc, char *argv[]) {
             tunToNetNoBlastFlavor(&context,
                                   &ipheader,
                                   selected_mtu,
-                                  size_separator_fast_mode,
-                                  size_max );
+                                  size_separator_fast_mode);
           }
         }
       }  

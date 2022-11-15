@@ -99,8 +99,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 void tunToNetNoBlastFlavor (struct contextSimplemux* context,
                             struct iphdr* ipheader,
                             int selected_mtu,
-                            int size_separator_fast_mode,
-                            int size_max )
+                            int size_separator_fast_mode )
 {
   // normal or fast flavor
   #ifdef ASSERT
@@ -395,7 +394,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
     }
 
 
-    if (predicted_size_muxed_packet > size_max ) {
+    if (predicted_size_muxed_packet > context->sizeMax ) {
       // if the present packet is muxed, the max size of the packet will be overriden. So I first empty the buffer
       //i.e. I build and send a multiplexed packet not including the current one
 
