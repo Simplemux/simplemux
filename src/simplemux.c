@@ -54,13 +54,9 @@
 
 #include "simplemux.h"
 
-
-
-/**************************************************************************
- ************************ main program ************************************
- **************************************************************************/
 int main(int argc, char *argv[]) {
 
+  // almost all the variables are stored in 'context'
   struct contextSimplemux context;
 
   // set the initial values of some context variables
@@ -72,34 +68,34 @@ int main(int argc, char *argv[]) {
 
   struct sockaddr_in TCPpair;
 
-  struct iphdr ipheader;              // IP header
+  struct iphdr ipheader;              // Variable used to create an IP header when needed
 
   socklen_t slen = sizeof(context.remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
   socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
 
-  uint8_t protocol_rec;                             // protocol field of the received muxed packet
+  uint8_t protocol_rec;                     // protocol field of the received muxed packet
 
-  uint16_t pending_bytes_muxed_packet = 0;           // number of bytes that still have to be read (TCP, fast flavor)
+  uint16_t pending_bytes_muxed_packet = 0;  // number of bytes that still have to be read (TCP, fast flavor)
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 
-  uint64_t now_microsec;                  // current time
+  uint64_t now_microsec;                    // current time
 
   // fixed size of the separator in fast flavor
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
 
 
 
-  /************** read command line options *********************/
+  // read command line options
   char *progname;
   progname = argv[0];    // argument used when calling the program
 
   // no arguments specified by the user. Print usage and finish
   if (argc == 1 ) {
+    // print the instructions
     usage (progname);
   }
   else {
-
     parseCommandLine(argc, argv, &context);
 
     argv += optind;
@@ -131,16 +127,14 @@ int main(int argc, char *argv[]) {
     else if ( context.rohcMode > 2 ) { 
       context.rohcMode = 2;
     }
-    /************* end - check command line options **************/
+
 
     // initialize the tun/tap interface
     initTunTapInterface(&context);
 
     // Initialize the sockets
     int correctSocket = 1;
-    correctSocket = socketRequest(&context,
-                                  &ipheader,
-                                  on);
+    correctSocket = socketRequest(&context, &ipheader, on);
     if (correctSocket == 1) {
       my_err("Error creating the sockets\n");
       exit(1);
@@ -190,9 +184,9 @@ int main(int argc, char *argv[]) {
     fds_poll[0].events = POLLIN;
     fds_poll[1].events = POLLIN;
     fds_poll[2].events = POLLIN;
-    /** END prepare POLL structure **/
 
-    // I calculate 'now' as the moment of the last sending
+
+    // set the current moment as the moment of the last sending
     context.timeLastSent = GetTimeStamp();  
       
     // initializations for blast flavor
@@ -205,7 +199,7 @@ int main(int argc, char *argv[]) {
     /*****************************************/
     while(1) {
     
-      /* Initialize the timeout data structure. */
+      /* Initialize the timeout data structure */
 
       if(context.flavor == 'B') {
 
