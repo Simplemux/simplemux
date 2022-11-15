@@ -1,4 +1,4 @@
-#include <netinet/ip.h>         // for using iphdr type
+#include <netinet/ip.h>       // for using iphdr type
 
 // If you comment the next lines, the program will be a bit faster
 #define DEBUG 1   // if you comment this line, debug info is not allowed

@@ -1,4 +1,5 @@
 #include "rohc.c"
+//#include <linux/if_tun.h>     // for using tun/tap interfaces
 
 // set the initial values of some context variables
 void initContext(struct contextSimplemux* context)
@@ -29,6 +30,97 @@ void initContext(struct contextSimplemux* context)
   context->user_mtu = 0;
   context->firstHeaderWritten = 0;
 }
+
+
+/**************************************************************************
+ * tun_alloc: allocates or reconnects to a tun/tap device. The caller     *
+ *            must reserve enough space in *dev.                          *
+ *          flags can be IFF_TUN (1) or IFF_TAP (2)                       *
+ **************************************************************************/
+// explained here https://www.fatalerrors.org/a/tun-tap-interface-usage-guidance.html
+int tun_alloc(char *dev,    // the name of an interface (or '\0')
+              int flags)
+{
+  struct ifreq ifr;
+  int fd, err;
+  char *clonedev = "/dev/net/tun";
+
+  // open the clone device
+  // it is used as a starting point for creating any tun/tap virtual interface
+  if( (fd = open(clonedev , O_RDWR)) < 0 ) { // Open with Read-Write
+    #ifdef DEBUG
+    //#if (defined (DEBUG))
+      do_debug(0, "[tun_alloc] Could not open the Clone device ");
+    #endif
+    perror("Opening /dev/net/tun");
+    return fd;
+  }
+  // if I am here, then the clone device has been opened for read/write
+  #ifdef DEBUG
+    do_debug(3, "[tun_alloc] Clone device open correctly\n");
+  #endif
+
+  // preparation of the struct ifr, of type "struct ifreq"
+  memset(&ifr, 0, sizeof(ifr));
+
+  ifr.ifr_flags = flags;
+
+  if (*dev) {
+    // if a device name was specified, put it in the structure; otherwise,
+    //the kernel will try to allocate the "next" device of the
+    //specified type
+    strncpy(ifr.ifr_name, dev, IFNAMSIZ);
+  }
+
+  // try to create the device
+  if( (err = ioctl(fd, TUNSETIFF, (void *)&ifr)) < 0 ) {
+    perror("ioctl(TUNSETIFF)");
+    close(fd);
+    return err;
+  }
+
+  strcpy(dev, ifr.ifr_name);
+
+  // return the file descriptor of the created device
+  return fd;
+}
+
+
+// initialize tun/tap interface
+void initTunTapInterface(struct contextSimplemux* context)
+{
+  if (context->tunnelMode == TUN_MODE) {
+    // tun tunnel mode (i.e. send IP packets)
+    // initialize tun interface for native packets
+    if ( (context->tun_fd = tun_alloc(context->tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
+      my_err("Error connecting to tun interface for capturing native packets %s\n", context->tun_if_name);
+      exit(1);
+    }
+    #ifdef DEBUG
+      do_debug(1, "Successfully connected to interface for native packets %s\n", context->tun_if_name);
+    #endif 
+  }
+  else if (context->tunnelMode == TAP_MODE) {
+    // tap tunnel mode (i.e. send Ethernet frames)
+    
+    // ROHC mode cannot be used in tunnel mode TAP, because Ethernet headers cannot be compressed
+    if (context->rohcMode != 0) {
+      my_err("Error ROHC cannot be used in 'tap' mode (Ethernet headers cannot be compressed)\n");
+      exit(1);          
+    }        
+
+    // initialize tap interface for native packets
+    if ( (context->tun_fd = tun_alloc(context->tun_if_name, IFF_TAP | IFF_NO_PI)) < 0 ) {
+      my_err("Error connecting to tap interface for capturing native Ethernet frames %s\n", context->tun_if_name);
+      exit(1);
+    }
+    #ifdef DEBUG
+      do_debug(1, "Successfully connected to interface for Ethernet frames %s\n", context->tun_if_name);
+    #endif   
+  }
+  else exit(1); // this would be a failure
+}
+
 
 // it starts the context variables
 // - selected_mtu

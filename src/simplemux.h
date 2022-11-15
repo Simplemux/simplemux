@@ -3,7 +3,7 @@
 #include <string.h>
 #include <unistd.h> // for using getopt()
 #include <net/if.h>
-#include <linux/if_tun.h>
+#include <linux/if_tun.h>     // for using tun/tap interfaces
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
