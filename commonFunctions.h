@@ -1,5 +1,14 @@
 #include <netinet/ip.h>         // for using iphdr type
 
+// If you comment the next lines, the program will be a bit faster
+#define DEBUG 1   // if you comment this line, debug info is not allowed
+#define LOGFILE 1 // if you comment this line, logs are not allowed
+#define ASSERT 1  // if you comment this line, assertions are not allowed
+
+#ifdef ASSERT
+  #include <assert.h>           // for using assert()
+#endif
+
 #define BUFSIZE 2304
 #define IPv4_HEADER_SIZE 20
 #define UDP_HEADER_SIZE 8
@@ -136,7 +145,9 @@ struct contextSimplemux {
   */
 };
 
+#ifdef DEBUG
 void do_debug(int level, char *msg, ...);
+#endif
 
 unsigned short in_cksum(unsigned short *addr, int len);
 

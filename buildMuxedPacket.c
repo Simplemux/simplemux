@@ -15,6 +15,11 @@
 uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
                                           int single_prot)
 {
+  // only used in normal or fast flavor
+  #ifdef ASSERT
+    assert( (context->flavor == 'N') || (context->flavor == 'F') ) ;
+  #endif
+
   int length = 0;
 
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
@@ -39,7 +44,6 @@ uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
   }
   else {
     // fast flavor
-    assert(context->flavor == 'F');
 
     // count the separator and the protocol field
     length = length + (context->num_pkts_stored_from_tun * size_separator_fast_mode);
@@ -77,20 +81,25 @@ uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
   // for each packet, write the protocol field (if required), the separator and the packet itself
   for (int k = 0; k < context->num_pkts_stored_from_tun ; k++) {
 
-    if (k == 0)
-      // add a tab before the first separator
-      do_debug(2, "   Separators: ");
-    else
-      // add a semicolon before the 2nd and subsequent separators
-      do_debug(2, "; ");
+    #ifdef DEBUG
+      if (k == 0)
+        // add a tab before the first separator
+        do_debug(2, "   Separators: ");
+      else
+        // add a semicolon before the 2nd and subsequent separators
+        do_debug(2, "; ");
+        
+      do_debug(2, "#%d: ", k+1);
       
-    do_debug(2, "#%d: ", k+1);
-    
-    // add the separator
-    do_debug(2, "0x");
+      // add the separator
+      do_debug(2, "0x");
+    #endif
 
     for (int l = 0; l < context->size_separators_to_multiplex[k] ; l++) {
-      do_debug(2, "%02x", context->separators_to_multiplex[k][l]);
+      #ifdef DEBUG
+        do_debug(2, "%02x", context->separators_to_multiplex[k][l]);
+      #endif
+
       mux_packet[length] = context->separators_to_multiplex[k][l];
       length ++;
     }
@@ -102,8 +111,10 @@ uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
           mux_packet[length] = context->protocol[k][m];
           length ++;
         }
-        //do_debug(2, "Protocol field: %02x ", context->protocol[k][0]);
-        do_debug(2, "%02x", context->protocol[k][0]);
+        #ifdef DEBUG
+          //do_debug(2, "Protocol field: %02x ", context->protocol[k][0]);
+          do_debug(2, "%02x", context->protocol[k][0]);
+        #endif
       }      
     }
     else {  // fast mode
@@ -112,8 +123,10 @@ uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
         mux_packet[length] = context->protocol[k][m];
         length ++;
       }
-      //do_debug(2, "Protocol field: %02x ", context->protocol[k][0]);
-      do_debug(2, "%02x", context->protocol[k][0]);
+      #ifdef DEBUG
+        //do_debug(2, "Protocol field: %02x ", context->protocol[k][0]);
+        do_debug(2, "%02x", context->protocol[k][0]);
+      #endif
     }
     
     // add the bytes of the packet itself
@@ -122,6 +135,9 @@ uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
       length ++;
     }
   }
-  do_debug(2,"\n");
+  #ifdef DEBUG
+    do_debug(2,"\n");
+  #endif
+
   return length;
 }

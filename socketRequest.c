@@ -34,7 +34,10 @@ int socketRequest(struct contextSimplemux* context,
             printf("getnameinfo() failed: %s\n", gai_strerror(s));
             exit(EXIT_FAILURE);
         }
-        do_debug(1,"Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, context->ipprotocol);
+        #ifdef DEBUG
+          do_debug(1,"Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, context->ipprotocol);
+        #endif
+
         break;
       }
     }
@@ -61,7 +64,9 @@ int socketRequest(struct contextSimplemux* context,
       exit (EXIT_FAILURE);
     }
     else {
-      do_debug(1,"Remote IP %s\n", inet_ntoa(context->remote.sin_addr));
+      #ifdef DEBUG
+        do_debug(1,"Remote IP %s\n", inet_ntoa(context->remote.sin_addr));
+      #endif
     }
 
     // Set flag so socket expects us to provide IPv4 header
@@ -118,7 +123,9 @@ int socketRequest(struct contextSimplemux* context,
     else {
       // source IPv4 address: it is the one of the interface
       strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&iface->ifr_addr)->sin_addr));
-      do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
+      #ifdef DEBUG
+        do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
+      #endif
     }
 
     // assign the destination address and port for the multiplexed packets
@@ -138,7 +145,9 @@ int socketRequest(struct contextSimplemux* context,
       perror("bind");
     }
     else {
-      do_debug(1, "Socket for multiplexing over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port)); 
+      #ifdef DEBUG
+        do_debug(1, "Socket for multiplexing over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
+      #endif
     }
   }
 
@@ -171,7 +180,9 @@ int socketRequest(struct contextSimplemux* context,
     else {
       // source IPv4 address: it is the one of the interface
       strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&iface->ifr_addr)->sin_addr));
-      do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
+      #ifdef DEBUG
+        do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
+      #endif
     }
 
     // assign the destination address and port for the multiplexed packets
@@ -193,7 +204,9 @@ int socketRequest(struct contextSimplemux* context,
       perror("bind");
     }
     else {
-      do_debug(1, "Welcoming TCP socket open. Remote IP %s. Port %i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port)); 
+      #ifdef DEBUG
+        do_debug(1, "Welcoming TCP socket open. Remote IP %s. Port %i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
+      #endif
     }
 
     /* The call to the function "listen()" with second argument as 1 specifies
@@ -235,7 +248,9 @@ int socketRequest(struct contextSimplemux* context,
     else {
       // source IPv4 address: it is the one of the interface
       strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&iface->ifr_addr)->sin_addr));
-      do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
+      #ifdef DEBUG
+        do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
+      #endif
     }
 
     // assign the local address and port for the multiplexed packets
@@ -257,12 +272,16 @@ int socketRequest(struct contextSimplemux* context,
      * of the remote host
      */
     if( connect(context->tcp_client_fd, (struct sockaddr *)&(context->remote), sizeof(context->remote)) < 0) {
-      do_debug(1, "Trying to connect to the TCP server at %s:%i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
+      #ifdef DEBUG
+        do_debug(1, "Trying to connect to the TCP server at %s:%i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
+      #endif
       perror("connect() error: TCP connect Failed. The TCP server did not accept the connection");
       return 1;
     }
     else {
-      do_debug(1, "Successfully connected to the TCP server at %s:%i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
+      #ifdef DEBUG
+        do_debug(1, "Successfully connected to the TCP server at %s:%i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
+      #endif
 
       if ( DISABLE_NAGLE == 1 ) {
         // disable NAGLE algorigthm, see https://holmeshe.me/network-essentials-setsockopt-TCP_NODELAY/
@@ -314,7 +333,9 @@ int feedbackSocketRequest(struct contextSimplemux* context,
     perror("bind");
   }
   else {
-    do_debug(1, "Socket for ROHC feedback over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context->feedback_remote.sin_addr), htons(context->feedback_remote.sin_port)); 
+    #ifdef DEBUG
+      do_debug(1, "Socket for ROHC feedback over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context->feedback_remote.sin_addr), htons(context->feedback_remote.sin_port));
+    #endif
   }
   return 0;
 }
