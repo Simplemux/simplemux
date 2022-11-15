@@ -265,31 +265,12 @@ int main(int argc, char *argv[]) {
                 context.size_threshold, context.limit_numpackets_tun, context.timeout, context.period);
     #endif
 
-    #ifdef DEBUG
-      switch(context.rohcMode) {
-        case 0:
-          do_debug ( 1 , "ROHC not activated\n", debug);
-          break;
-        case 1:
-          do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
-          break;
-        case 2:
-          do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
-          break;
-        /*case 3:
-          do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
-          break;*/
-    }
-    #endif
 
     // I only need the feedback socket if ROHC is activated
     //but I create it in case the other extreme sends ROHC packets
     feedbackSocketRequest(&context);
-
-    //do_debug(1,"tun_fd: %d; network_mode_fd: %d; context.udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n",
-    //  context.tun_fd, context.network_mode_fd, context.udp_mode_fd, context.feedback_fd, context.tcp_welcoming_fd, context.tcp_client_fd);
     
-    // If ROHC has been selected, I have to initialize it
+    // If ROHC has been selected, it has to be initialized
     // see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
     initRohc(&context);
 

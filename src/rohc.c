@@ -82,6 +82,24 @@ int initRohc( struct contextSimplemux* context )
 {
   if ( context->rohcMode > 0 ) {
 
+    // present some debug info
+    #ifdef DEBUG
+      switch(context->rohcMode) {
+        case 0:
+          do_debug ( 1 , "ROHC not activated\n", debug);
+          break;
+        case 1:
+          do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
+          break;
+        case 2:
+          do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
+          break;
+        /*case 3:
+          do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
+          break;*/
+    }
+    #endif
+
     /* initialize the random generator */
     seed = time(NULL);
     srand(seed);
