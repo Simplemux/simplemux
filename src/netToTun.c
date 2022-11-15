@@ -534,7 +534,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       ACK.header.protocolID = 0; // the ACK does not have a payload, so no protocolID is needed
       ACK.header.identifier = blastHeader->identifier;
       ACK.header.ACK = THISISANACK;
-
+/*
       int fd;
       if(context->mode==UDP_MODE)
         fd = context->udp_mode_fd;
@@ -546,6 +546,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                             &ACK,
                             context->remote,
                             context->local);
+*/
+      sendPacketBlastFlavor(context, &ACK);
 
       #ifdef DEBUG
         do_debug(1," Sent blast ACK to the network. ID %i, length %i\n", ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));

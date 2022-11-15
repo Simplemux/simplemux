@@ -768,14 +768,15 @@ int main(int argc, char *argv[]) {
         if(context.flavor == 'B') {
 
           // go through the list and send all the packets with now_microsec > sentTimestamp + period
+          /*
           int fd;
           if(context.mode==UDP_MODE)
             fd = context.udp_mode_fd;
           else if(context.mode==NETWORK_MODE)
             fd = context.network_mode_fd;
-
-          periodExpiredblastFlavor (&context,
-                                    fd );
+          */
+          periodExpiredblastFlavor (&context/*,
+                                    fd */);
 
         }
         else {

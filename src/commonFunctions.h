@@ -101,9 +101,9 @@ struct contextSimplemux {
   bool acceptingTcpConnections;     // it is set to '1' if this is a TCP server and no connections have started
 
   // only for blast flavor
-  struct packet *unconfirmedPacketsBlast;           // pointer to the list of unconfirmed packets (blast flavor)
+  struct packet *unconfirmedPacketsBlast;     // pointer to the list of unconfirmed packets (blast flavor)
   uint64_t blastTimestamps[0xFFFF+1];         // I will store 65536 different timestamps: one for each possible identifier
-  uint64_t lastBlastHeartBeatSent;                     // timestamp of the last heartbeat sent
+  uint64_t lastBlastHeartBeatSent;            // timestamp of the last heartbeat sent
   uint64_t lastBlastHeartBeatReceived;
 
   // variables for counting the arrived and sent packets
@@ -136,9 +136,9 @@ struct contextSimplemux {
   struct iphdr ipheader;              // IP header
   struct ifreq iface;                 // network interface
 
-  int size_max;                                   // maximum value of the packet size
+  int size_max;                       // maximum value of the packet size
 
-  int first_header_written = 0;           // it indicates if the first header has been written or not
+  int first_header_written = 0;       // it indicates if the first header has been written or not
 
   // fixed size of the separator in fast flavor
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;

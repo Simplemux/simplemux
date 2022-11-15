@@ -159,12 +159,15 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
    return current;
 }
 
-
+/*
 void sendPacketBlastFlavor(int fd,
                            int mode,
                            struct packet* packetToSend,
                            struct sockaddr_in remote,
                            struct sockaddr_in local)
+*/
+void sendPacketBlastFlavor(struct contextSimplemux* context,
+                           struct packet* packetToSend)
 {
    // send the tunneled packet
    // fd is the file descriptor of the socket
@@ -173,8 +176,14 @@ void sendPacketBlastFlavor(int fd,
 
    // calculate the length of the Simplemux header + the tunneled packet
    int total_length = sizeof(struct simplemuxBlastHeader) + ntohs(packetToSend->header.packetSize);
-
-   switch (mode) {
+/*
+   int fd;
+   if(context->mode==UDP_MODE)
+     fd = context->udp_mode_fd;
+   else if(context->mode==NETWORK_MODE)
+     fd = context->network_mode_fd;
+*/
+   switch (context->mode) {
       case UDP_MODE:
          #ifdef DEBUG
             do_debug(3, "[sendPacketBlastFlavor] Sending to the network a UDP blast packet with ID %i: %i bytes\n",
@@ -183,14 +192,14 @@ void sendPacketBlastFlavor(int fd,
          #endif
 
         // send the packet
-        if (sendto(fd, &(packetToSend->header), total_length, 0, (struct sockaddr *)&remote, sizeof(remote))==-1) {
+        if (sendto(context->udp_mode_fd, &(packetToSend->header), total_length, 0, (struct sockaddr *)&(context->remote), sizeof(context->remote))==-1) {
           perror("sendto() in UDP mode failed");
           exit (EXIT_FAILURE);
         }
         /*
         // write in the log file
         if ( log_file != NULL ) {
-          fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), ntohs(remote.sin_port), num_pkts_stored_from_tun);
+          fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), num_pkts_stored_from_tun);
           fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
         }*/
       break;
@@ -205,21 +214,21 @@ void sendPacketBlastFlavor(int fd,
          // build the header
          struct iphdr ipheader;  
          uint8_t ipprotocol = IPPROTO_SIMPLEMUX_BLAST;
-         BuildIPHeader(&ipheader, total_length, ipprotocol, local, remote);
+         BuildIPHeader(&ipheader, total_length, ipprotocol, context->local, context->remote);
 
          // build the full IP multiplexed packet
          uint8_t full_ip_packet[BUFSIZE]; // the full IP packet will be stored here
          BuildFullIPPacket(ipheader, (uint8_t *)&(packetToSend->header), total_length, full_ip_packet);
 
          // send the packet
-         if (sendto (fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&remote, sizeof (struct sockaddr)) < 0)  {
+         if (sendto (context->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&(context->remote), sizeof (struct sockaddr)) < 0)  {
             perror ("sendto() in Network mode failed");
             exit (EXIT_FAILURE);
          }
          /*
          // write in the log file
          if ( log_file != NULL ) {
-          fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(remote.sin_addr), num_pkts_stored_from_tun);
+          fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, tun2net, inet_ntoa(context->remote.sin_addr), num_pkts_stored_from_tun);
           fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
          }*/
       break;
@@ -228,45 +237,48 @@ void sendPacketBlastFlavor(int fd,
 
 
 // send again the packets which sentTimestamp + period >= now
-int sendExpiredPackects(struct packet* head_ref,
-                        uint64_t now,
-                        uint64_t period,
-                        int fd,
-                        int mode,
-                        struct sockaddr_in remote,
-                        struct sockaddr_in local)
+int sendExpiredPackects(struct contextSimplemux* context,
+                        //struct packet* head_ref,
+                        uint64_t now//,
+                        //uint64_t period,
+                        //int fd,
+                        //int mode,
+                        //struct sockaddr_in remote,
+                        //struct sockaddr_in local
+                        )
 {
    #ifdef DEBUG
       //do_debug(3,"[sendExpiredPackects] starting\n");
    #endif
    
    int sentPackets = 0; // number of packets sent
-   struct packet *current = head_ref;
+   struct packet *current = context->unconfirmedPacketsBlast;
    
    while(current != NULL) {
       #ifdef DEBUG
          do_debug(3,"[sendExpiredPackects] Packet %d. Stored timestamp: %"PRIu64" us\n", ntohs(current->header.identifier),current->sentTimestamp);
       #endif
          
-      if(current->sentTimestamp + period < now) {
+      if(current->sentTimestamp + context->period < now) {
 
          #ifdef DEBUG
             do_debug(3,"[sendExpiredPackects]  Sending packet %d. Updated timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), now); 
-            do_debug(3,"                        Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") < now (%"PRIu64")\n", current->sentTimestamp, period, now);
+            do_debug(3,"                        Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") < now (%"PRIu64")\n", current->sentTimestamp, context->period, now);
          #endif
 
          // this packet has to be sent
          current->sentTimestamp = now;
 
          // send the packet
-         sendPacketBlastFlavor( fd, mode, current, remote, local);
+         //sendPacketBlastFlavor( fd, mode, current, remote, local);
+         sendPacketBlastFlavor(context, current);
 
          sentPackets++;
       }
       else {
          #ifdef DEBUG
             do_debug(3,"[sendExpiredPackects]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), current->sentTimestamp);
-            do_debug(3,"                        Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") >= now (%"PRIu64")\n", current->sentTimestamp, period, now);
+            do_debug(3,"                        Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") >= now (%"PRIu64")\n", current->sentTimestamp, context->period, now);
          #endif
       }
 

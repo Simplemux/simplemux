@@ -1,7 +1,7 @@
 #include "tunToNet.c"
 
-void periodExpiredblastFlavor ( struct contextSimplemux* context,
-                                int fd )
+void periodExpiredblastFlavor ( struct contextSimplemux* context/*,
+                                int fd */)
 {
   // blast flavor
   #ifdef ASSERT
@@ -24,6 +24,7 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
     }
     else {
       // heartbeat from the other side received recently
+      /*
       int n = sendExpiredPackects(context->unconfirmedPacketsBlast,
                                   now_microsec,
                                   context->period,
@@ -31,7 +32,10 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
                                   context->mode,
                                   context->remote,
                                   context->local);
-      
+      */
+      int n = sendExpiredPackects(context,
+                                  now_microsec);
+
       if (n > 0) {
         #ifdef DEBUG
           do_debug(1, " Period expired: Sent %d blast packets (copies) at the end of the period\n", n);
@@ -52,12 +56,14 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context,
     heartBeat.header.protocolID = 0;
     heartBeat.header.identifier = 0;
     heartBeat.header.ACK = HEARTBEAT;
-
+    /*
     sendPacketBlastFlavor(fd,
                           context->mode,
                           &heartBeat,
                           context->remote,
                           context->local);
+    */
+    sendPacketBlastFlavor(context, &heartBeat);
 
     #ifdef DEBUG
       do_debug(1," Sent blast heartbeat to the network: %"PRIu64" > %"PRIu64"\n", now_microsec - context->lastBlastHeartBeatSent, HEARTBEATPERIOD);
