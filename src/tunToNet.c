@@ -99,7 +99,6 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 void tunToNetNoBlastFlavor (struct contextSimplemux* context,
                             struct iphdr* ipheader,
                             int selected_mtu,
-                            int* first_header_written,
                             int size_separator_fast_mode,
                             int size_max )
 {
@@ -368,7 +367,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
     if (context->flavor == 'N') {
       // normal flavor
 
-      if ((*first_header_written) == 0) {
+      if (context->firstHeaderWritten == 0) {
         // this is the first header, so the maximum length to be expressed in 1 byte is 64
         if (context->size_packets_to_multiplex[context->num_pkts_stored_from_tun] < 64 ) {
           predicted_size_muxed_packet = predicted_size_muxed_packet + 1 + context->size_packets_to_multiplex[context->num_pkts_stored_from_tun];
@@ -621,8 +620,8 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
       // move the size of the separator to the first position of the array
       context->size_separators_to_multiplex[0] = context->size_separators_to_multiplex[context->num_pkts_stored_from_tun];
 
-      // I have sent a packet, so I set to 0 the "(*first_header_written)" bit
-      (*first_header_written) = 0;
+      // I have sent a packet, so I set to 0 the "context->firstHeaderWritten" bit
+      context->firstHeaderWritten = 0;
 
       // reset the length and the number of packets
       (context->size_muxed_packet) = 0;
@@ -645,7 +644,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
       int maximum_packet_length;  // the maximum length of a packet. It may be 64 (first header) or 128 (non-first header)
       int limit_length_two_bytes;             // the maximum length of a packet in order to express it in 2 bytes. It may be 8192 or 16384 (non-first header)
 
-      if ((*first_header_written) == 0) {
+      if (context->firstHeaderWritten == 0) {
         // this is the first header
         maximum_packet_length = 64;
         limit_length_two_bytes = 8192;
@@ -686,7 +685,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
             FromByte(context->separators_to_multiplex[context->num_pkts_stored_from_tun][0], bits);
             do_debug(2, " Mux separator of 1 byte (plus Protocol): 0x%02x (", context->separators_to_multiplex[context->num_pkts_stored_from_tun][0]);
             //do_debug(2, " Mux separator of 1 byte (plus Protocol): ");
-            if ((*first_header_written) == 0) {
+            if (context->firstHeaderWritten == 0) {
               PrintByte(2, 7, bits);      // first header
               do_debug(2, ", SPB field not included)\n");
             }
@@ -713,7 +712,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
         
         // fill the LXT field of the first byte
         // first header
-        if ((*first_header_written) == 0) {
+        if (context->firstHeaderWritten == 0) {
           // add 64 (0100 0000) to the header, i.e., set the value of LXT to '1' (7th bit)
           context->separators_to_multiplex[context->num_pkts_stored_from_tun][0] = (context->size_packets_to_multiplex[context->num_pkts_stored_from_tun] / 128 ) + 64;  // first header
         }
@@ -752,7 +751,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
             FromByte(context->separators_to_multiplex[context->num_pkts_stored_from_tun][0], bits);
             do_debug(2, " Mux separator of 2 bytes (plus Protocol): 0x%02x (", context->separators_to_multiplex[context->num_pkts_stored_from_tun][0]);
             //do_debug(2, " Mux separator of 2 bytes (plus Protocol). First byte: ");
-            if ((*first_header_written) == 0) {
+            if (context->firstHeaderWritten == 0) {
               PrintByte(2, 7, bits);      // first header
               do_debug(2, ", SPB field not included)");
             }
@@ -785,7 +784,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
         // get the most significant bits by dividing by 128 (the 7 less significant bits will go in the second byte)
         // add 64 (or 128) in order to put a '1' in the second (or first) bit
 
-        if ((*first_header_written) == 0) {
+        if (context->firstHeaderWritten == 0) {
           // first header
           context->separators_to_multiplex[context->num_pkts_stored_from_tun][0] = (context->size_packets_to_multiplex[context->num_pkts_stored_from_tun] / 16384 ) + 64;
 
@@ -823,7 +822,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
             // first byte
             FromByte(context->separators_to_multiplex[context->num_pkts_stored_from_tun][0], bits);
             do_debug(2, " Mux separator of 3 bytes: (0x%02x) ", context->separators_to_multiplex[context->num_pkts_stored_from_tun][0]);
-            if ((*first_header_written) == 0) {
+            if (context->firstHeaderWritten == 0) {
               PrintByte(2, 7, bits);      // first header
             }
             else {
@@ -893,7 +892,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
     if (context->flavor == 'N') {
       // normal flavor
       // I have written a header of the multiplexed bundle, so I have to set to 1 the "first header written bit"
-      if ((*first_header_written) == 0) (*first_header_written) = 1; 
+      if (context->firstHeaderWritten == 0) context->firstHeaderWritten = 1; 
       #ifdef DEBUG
         do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Protocol not included).",
           context->num_pkts_stored_from_tun , (context->size_muxed_packet));
@@ -1189,7 +1188,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
       #endif
 
       // I have sent a packet, so I set to 0 the "first_header_written" bit
-      (*first_header_written) = 0;
+      context->firstHeaderWritten = 0;
 
       // reset the length and the number of packets
       (context->size_muxed_packet) = 0 ;

@@ -27,6 +27,7 @@ void initContext(struct contextSimplemux* context)
   context->limit_numpackets_tun = 0;
   context->size_threshold = 0;
   context->user_mtu = 0;
+  context->firstHeaderWritten = 0;
 }
 
 

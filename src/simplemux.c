@@ -138,15 +138,13 @@ int main(int argc, char *argv[]) {
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 
-  int size_max;                                   // maximum value of the packet size
+  int size_max;                           // maximum value of the packet size
 
   uint64_t now_microsec;                  // current time
 
   int interface_mtu;                      // the maximum transfer unit of the interface
 
   int selected_mtu;                       // the MTU that will be used in the program
-
-  int first_header_written = 0;           // it indicates if the first header has been written or not
 
   // fixed size of the separator in fast flavor
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
@@ -746,7 +744,6 @@ int main(int argc, char *argv[]) {
             tunToNetNoBlastFlavor(&context,
                                   &ipheader,
                                   selected_mtu,
-                                  &first_header_written,
                                   size_separator_fast_mode,
                                   size_max );
           }
@@ -775,7 +772,6 @@ int main(int argc, char *argv[]) {
             // There are some packets stored
             // send them
             periodExpiredNoblastFlavor (&context,
-                                        &first_header_written,
                                         &ipheader );
           }
           else {

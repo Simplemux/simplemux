@@ -64,7 +64,6 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
 
 
 void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
-                                  int* first_header_written,
                                   struct iphdr* ipheader )
 {
   // normal or fast flavor
@@ -236,7 +235,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
   }
 
   // I have sent a packet, so I set to 0 the "first_header_written" bit
-  (*first_header_written) = 0;
+  context->firstHeaderWritten = 0;
 
   // reset the length and the number of packets
   (context->size_muxed_packet) = 0 ;

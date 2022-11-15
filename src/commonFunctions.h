@@ -132,13 +132,14 @@ struct contextSimplemux {
   int limit_numpackets_tun;     // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
   int size_threshold;           // if the number of bytes stored is higher than this, a muxed packet is sent
   int user_mtu;                 // the MTU specified by the user (it must be <= interface_mtu) 
+
+  int firstHeaderWritten;       // it indicates if the first header has been written or not
+
   /*
   struct iphdr ipheader;              // IP header
   struct ifreq iface;                 // network interface
 
   int size_max;                       // maximum value of the packet size
-
-  int first_header_written = 0;       // it indicates if the first header has been written or not
 
   // fixed size of the separator in fast flavor
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
