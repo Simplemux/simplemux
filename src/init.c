@@ -133,6 +133,39 @@ void initSizeMax(struct contextSimplemux* context)
   }
 }
 
+// initialize trigger paramteter
+// set the triggering parameters according to user selections (or default values)
+void initTriggerParameters(struct contextSimplemux* context)
+{
+  // there are four possibilities for triggering the sending of the packets:
+  // - a threshold of the accumulated packet size. Two different options apply:
+  //    - the size of the multiplexed packet has exceeded the size threshold specified by the user,
+  //      but not the MTU. In this case, a packet is sent and a new period is started with the
+  //      buffer empty.
+  //    - the size of the multiplexed packet has exceeded the MTU (and the size threshold consequently).
+  //      In this case, a packet is sent without the last one. A new period is started, and the last 
+  //      packet is stored as the first packet to be sent at the end of the next period.
+  // - a number of packets
+  // - a timeout. A packet arrives. If the timeout has been reached, a muxed packet is triggered
+  // - a period. If the period has been reached, a muxed packet is triggered
+
+  // if ( timeout < period ) then the timeout has no effect
+  // as soon as one of the conditions is accomplished, all the accumulated packets are sent
+
+  // if no limit of the number of packets is set, then it is set to the maximum
+  if (( (context->size_threshold < context->sizeMax) || (context->timeout < MAXTIMEOUT) || (context->period < MAXTIMEOUT) ) && (context->limit_numpackets_tun == 0))
+    context->limit_numpackets_tun = MAXPKTS;
+
+  // if no option is set by the user, it is assumed that every packet will be sent immediately
+  if (( (context->size_threshold == context->sizeMax) && (context->timeout == MAXTIMEOUT) && (context->period == MAXTIMEOUT)) && (context->limit_numpackets_tun == 0))
+    context->limit_numpackets_tun = 1;
+
+  #ifdef DEBUG
+    do_debug (1, "Multiplexing policies: size threshold:%i. numpackets:%i. timeout:%"PRIu64"us. period:%"PRIu64"us\n",
+              context->size_threshold, context->limit_numpackets_tun, context->timeout, context->period);
+  #endif
+}
+
 // initializations for blast flavor
 void initBlastFlavor(struct contextSimplemux* context)
 {
