@@ -98,7 +98,6 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 // - a multiplexed packet has to be sent through the network
 void tunToNetNoBlastFlavor (struct contextSimplemux* context,
                             struct iphdr* ipheader,
-                            int selected_mtu,
                             int size_separator_fast_mode )
 {
   // normal or fast flavor
@@ -136,10 +135,10 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
   bool drop_packet = false;
   if (context->mode == UDP_MODE) {
 
-    if ( size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3 > selected_mtu ) {
+    if ( size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3 > context->selected_mtu ) {
       drop_packet = true;
       #ifdef DEBUG
-        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, selected_mtu);
+        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, context->selected_mtu);
       #endif
 
       #ifdef LOGFILE
@@ -154,11 +153,11 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
   
   // TCP client mode or TCP server mode
   else if ((context->mode == TCP_CLIENT_MODE) || (context->mode == TCP_SERVER_MODE)) {          
-    if ( size + IPv4_HEADER_SIZE + TCP_HEADER_SIZE + 3 > selected_mtu ) {
+    if ( size + IPv4_HEADER_SIZE + TCP_HEADER_SIZE + 3 > context->selected_mtu ) {
       drop_packet = true;
 
       #ifdef DEBUG
-        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, selected_mtu);
+        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, context->selected_mtu);
       #endif
 
       #ifdef LOGFILE
@@ -173,11 +172,11 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
   
   // network mode
   else {
-    if ( size + IPv4_HEADER_SIZE + 3 > selected_mtu ) {
+    if ( size + IPv4_HEADER_SIZE + 3 > context->selected_mtu ) {
       drop_packet = true;
 
       #ifdef DEBUG
-        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + 3, selected_mtu);
+        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + 3, context->selected_mtu);
       #endif
 
       #ifdef LOGFILE

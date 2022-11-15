@@ -127,7 +127,6 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in TCPpair;
 
   struct iphdr ipheader;              // IP header
-  struct ifreq iface;                 // network interface
 
   socklen_t slen = sizeof(context.remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
   socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
@@ -139,10 +138,6 @@ int main(int argc, char *argv[]) {
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 
   uint64_t now_microsec;                  // current time
-
-  int interface_mtu;                      // the maximum transfer unit of the interface
-
-  int selected_mtu;                       // the MTU that will be used in the program
 
   // fixed size of the separator in fast flavor
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
@@ -231,106 +226,14 @@ int main(int argc, char *argv[]) {
     int correctSocket = 1;
     correctSocket = socketRequest(&context,
                                   &ipheader,
-                                  &iface,
                                   on);
     if (correctSocket == 1) {
       my_err("Error creating the sockets\n");
       exit(1);
     }
 
-
-    /*** get the MTU of the local interface ***/
-    if ( context.mode == UDP_MODE)  {
-      if (ioctl(context.udp_mode_fd, SIOCGIFMTU, &iface) == -1)
-        interface_mtu = 0;
-      else interface_mtu = iface.ifr_mtu;
-    }
-    else if ( context.mode == NETWORK_MODE) {
-      if (ioctl(context.network_mode_fd, SIOCGIFMTU, &iface) == -1)
-        interface_mtu = 0;
-      else interface_mtu = iface.ifr_mtu;
-    }
-    else if ( context.mode == TCP_SERVER_MODE ) {
-      if (ioctl(context.tcp_welcoming_fd, SIOCGIFMTU, &iface) == -1)
-        interface_mtu = 0;
-      else interface_mtu = iface.ifr_mtu;
-    }
-    else if ( context.mode == TCP_CLIENT_MODE ) {
-      if (ioctl(context.tcp_client_fd, SIOCGIFMTU, &iface) == -1)
-        interface_mtu = 0;
-      else interface_mtu = iface.ifr_mtu;
-    }
-
-    /*** check if the user has specified a bad MTU ***/
-    #ifdef DEBUG
-      do_debug (1, "Local interface MTU: %i\t ", interface_mtu);
-      if ( context.user_mtu > 0 ) {
-        do_debug (1, "User-selected MTU: %i\n", context.user_mtu);
-      }
-      else {
-        do_debug (1, "\n");
-      }
-    #endif
-
-    if (context.user_mtu > interface_mtu) {
-      perror ("Error: The MTU specified by the user is higher than the MTU of the interface\n");
-      exit (1);
-    }
-    else {
-
-      // if the user has specified a MTU, I use it instead of network MTU
-      if (context.user_mtu > 0) {
-        selected_mtu = context.user_mtu;
-
-      // otherwise, use the MTU of the local interface
-      }
-      else {
-        selected_mtu = interface_mtu;
-      }
-    }
-
-    if (selected_mtu > BUFSIZE ) {
-      #ifdef DEBUG
-        do_debug (1, "Selected MTU: %i\t Size of the buffer for packet storage: %i\n", selected_mtu, BUFSIZE);
-      #endif
-      perror ("Error: The MTU selected is higher than the size of the buffer defined.\nCheck #define BUFSIZE at the beginning of this application\n");
-      exit (1);
-    }
-
-    // define the maximum size threshold
-    switch ( context.mode) {
-      case NETWORK_MODE:
-        context.sizeMax = selected_mtu - IPv4_HEADER_SIZE ;
-      break;
-      
-      case UDP_MODE:
-        context.sizeMax = selected_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
-      break;
-      
-      case TCP_CLIENT_MODE:
-        context.sizeMax = selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
-      break;
-      
-      case TCP_SERVER_MODE:
-        context.sizeMax = selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
-      break;
-    }
-
-    // the size threshold has not been established by the user 
-    if (context.size_threshold == 0 ) {
-      context.size_threshold = context.sizeMax;
-      #ifdef DEBUG
-        //do_debug (1, "Size threshold established to the maximum: %i.", context.sizeMax);
-      #endif
-    }
-
-    // the user has specified a too big size threshold
-    if (context.size_threshold > context.sizeMax ) {
-      #ifdef DEBUG
-        do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", context.size_threshold, context.sizeMax);
-      #endif
-      context.size_threshold = context.sizeMax;
-    }
+    // calculate the MTU
+    initSizeMax(&context);
 
     /*** set the triggering parameters according to user selections (or default values) ***/
   
@@ -381,7 +284,7 @@ int main(int argc, char *argv[]) {
 
     // I only need the feedback socket if ROHC is activated
     //but I create it in case the other extreme sends ROHC packets
-    feedbackSocketRequest(&context, &iface);
+    feedbackSocketRequest(&context);
 
     //do_debug(1,"tun_fd: %d; network_mode_fd: %d; context.udp_mode_fd: %d; feedback_fd: %d; tcp_welcoming_fd: %d; tcp_client_fd: %d\n",
     //  context.tun_fd, context.network_mode_fd, context.udp_mode_fd, context.feedback_fd, context.tcp_welcoming_fd, context.tcp_client_fd);
@@ -742,7 +645,6 @@ int main(int argc, char *argv[]) {
             // not in blast flavor
             tunToNetNoBlastFlavor(&context,
                                   &ipheader,
-                                  selected_mtu,
                                   size_separator_fast_mode);
           }
         }

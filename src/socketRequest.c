@@ -3,14 +3,14 @@
 /*** Request a socket for writing and receiving muxed packets ***/
 int socketRequest(struct contextSimplemux* context,
                   struct iphdr* ipheader,
-                  struct ifreq* iface,
+                  //struct ifreq* iface,
                   const int on)
 {
   if ( context->mode== NETWORK_MODE ) {
     // initialize header IP to be used when receiving a packet in NETWORK mode
     memset(ipheader, 0, sizeof(struct iphdr));      
-    memset (iface, 0, sizeof (*iface));
-    snprintf (iface->ifr_name, sizeof (iface->ifr_name), "%s", context->mux_if_name);
+    memset (&(context->iface), 0, sizeof (context->iface));
+    snprintf (context->iface.ifr_name, sizeof (context->iface.ifr_name), "%s", context->mux_if_name);
 
     // get the local IP address of the network interface 'mux_if_name'
     // using 'getifaddrs()'   
@@ -78,7 +78,7 @@ int socketRequest(struct contextSimplemux* context,
     // Bind the socket "context->network_mode_fd" to interface index
     // bind socket descriptor "context->network_mode_fd" to specified interface with setsockopt() since
     // none of the other arguments of sendto() specify which interface to use.
-    if (setsockopt (context->network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, iface, sizeof (*iface)) < 0) {
+    if (setsockopt (context->network_mode_fd, SOL_SOCKET, SO_BINDTODEVICE, &(context->iface), sizeof (context->iface)) < 0) {
       perror ("setsockopt() failed to bind to interface (network mode) ");
       exit (EXIT_FAILURE);
     }  
@@ -108,21 +108,21 @@ int socketRequest(struct contextSimplemux* context,
     }
 
     // Use ioctl() to look up interface index which we will use to bind socket descriptor "context->udp_mode_fd" to
-    memset (iface, 0, sizeof (*iface));
-    snprintf (iface->ifr_name, sizeof (iface->ifr_name), "%s", context->mux_if_name);
-    if (ioctl (context->udp_mode_fd, SIOCGIFINDEX, iface) < 0) {
+    memset (&(context->iface), 0, sizeof (context->iface));
+    snprintf (context->iface.ifr_name, sizeof (context->iface.ifr_name), "%s", context->mux_if_name);
+    if (ioctl (context->udp_mode_fd, SIOCGIFINDEX, &(context->iface)) < 0) {
       perror ("ioctl() failed to find interface (UDP mode) ");
       return (EXIT_FAILURE);
     }
 
     /*** get the IP address of the local interface ***/
-    if (ioctl(context->udp_mode_fd, SIOCGIFADDR, iface) < 0) {
+    if (ioctl(context->udp_mode_fd, SIOCGIFADDR, &(context->iface)) < 0) {
       perror ("ioctl() failed to find the IP address for local interface ");
       return (EXIT_FAILURE);
     }
     else {
       // source IPv4 address: it is the one of the interface
-      strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&iface->ifr_addr)->sin_addr));
+      strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&context->iface.ifr_addr)->sin_addr));
       #ifdef DEBUG
         do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
       #endif
@@ -169,17 +169,17 @@ int socketRequest(struct contextSimplemux* context,
     }      
 
     // Use ioctl() to look up interface index which we will use to bind socket descriptor "context->udp_mode_fd" to
-    memset (iface, 0, sizeof (*iface));
-    snprintf (iface->ifr_name, sizeof (iface->ifr_name), "%s", context->mux_if_name);
+    memset (&(context->iface), 0, sizeof (context->iface));
+    snprintf (context->iface.ifr_name, sizeof (context->iface.ifr_name), "%s", context->mux_if_name);
               
     /*** get the IP address of the local interface ***/
-    if (ioctl(context->tcp_welcoming_fd, SIOCGIFADDR, iface) < 0) {
+    if (ioctl(context->tcp_welcoming_fd, SIOCGIFADDR, &(context->iface)) < 0) {
       perror ("ioctl() failed to find the IP address for local interface ");
       return (EXIT_FAILURE);
     }
     else {
       // source IPv4 address: it is the one of the interface
-      strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&iface->ifr_addr)->sin_addr));
+      strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&context->iface.ifr_addr)->sin_addr));
       #ifdef DEBUG
         do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
       #endif
@@ -237,17 +237,17 @@ int socketRequest(struct contextSimplemux* context,
     }
     
     // Use ioctl() to look up interface index which we will use to bind socket descriptor "context->udp_mode_fd" to
-    memset (iface, 0, sizeof (*iface));
-    snprintf (iface->ifr_name, sizeof (iface->ifr_name), "%s", context->mux_if_name);
+    memset (&(context->iface), 0, sizeof (context->iface));
+    snprintf (context->iface.ifr_name, sizeof (context->iface.ifr_name), "%s", context->mux_if_name);
     
     /*** get the IP address of the local interface ***/
-    if (ioctl(context->tcp_client_fd, SIOCGIFADDR, iface) < 0) {
+    if (ioctl(context->tcp_client_fd, SIOCGIFADDR, &(context->iface)) < 0) {
       perror ("ioctl() failed to find the IP address for local interface ");
       return (EXIT_FAILURE);
     }
     else {
       // source IPv4 address: it is the one of the interface
-      strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&iface->ifr_addr)->sin_addr));
+      strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&context->iface.ifr_addr)->sin_addr));
       #ifdef DEBUG
         do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
       #endif
@@ -300,8 +300,7 @@ int socketRequest(struct contextSimplemux* context,
 
 
 /*** Request a socket for feedback packets ***/
-int feedbackSocketRequest(struct contextSimplemux* context,
-                          struct ifreq* iface)
+int feedbackSocketRequest(struct contextSimplemux* context)
 {
   // AF_INET (exactly the same as PF_INET)
   // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
@@ -311,7 +310,7 @@ int feedbackSocketRequest(struct contextSimplemux* context,
     exit(1);
   }
 
-  if (ioctl (context->feedback_fd, SIOCGIFINDEX, iface) < 0) {
+  if (ioctl (context->feedback_fd, SIOCGIFINDEX, &(context->iface)) < 0) {
     perror ("ioctl() failed to find interface (feedback)");
     return (EXIT_FAILURE);
   }

@@ -81,7 +81,10 @@ struct contextSimplemux {
   struct sockaddr_in remote;
   struct sockaddr_in feedback;
   struct sockaddr_in feedback_remote;
-  struct sockaddr_in received;  
+  struct sockaddr_in received;
+
+  // network interface
+  struct ifreq iface;
 
   // variables for storing the packets to multiplex
   int num_pkts_stored_from_tun;                     // number of packets received and not sent from tun (stored)
@@ -131,14 +134,15 @@ struct contextSimplemux {
   uint64_t period;              // (microseconds). If the 'period' expires, a packet is sent
   int limit_numpackets_tun;     // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
   int size_threshold;           // if the number of bytes stored is higher than this, a muxed packet is sent
-  int user_mtu;                 // the MTU specified by the user (it must be <= interface_mtu) 
-  int sizeMax;                  // maximum value of the packet size. It depends on 'user_mtu'
+  int user_mtu;                 // the MTU specified by the user (it must be <= interface_mtu)
+  int selected_mtu;             // the MTU that will be used in the program
+  int sizeMax;                  // threshold for the packet size
 
   int firstHeaderWritten;       // it indicates if the first header has been written or not
 
   /*
   struct iphdr ipheader;              // IP header
-  struct ifreq iface;                 // network interface
+
 
   // fixed size of the separator in fast flavor
   int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;

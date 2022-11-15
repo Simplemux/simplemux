@@ -30,6 +30,108 @@ void initContext(struct contextSimplemux* context)
   context->firstHeaderWritten = 0;
 }
 
+// it starts the context variables
+// - selected_mtu
+// - user_mtu
+// - sizeMax
+void initSizeMax(struct contextSimplemux* context)
+{
+  // the real MTU of the interface
+  int interface_mtu;
+
+  /*** get the MTU of the local interface ***/
+  if ( context->mode == UDP_MODE)  {
+    if (ioctl(context->udp_mode_fd, SIOCGIFMTU, &context->iface) == -1)
+      interface_mtu = 0;
+    else interface_mtu = context->iface.ifr_mtu;
+  }
+  else if ( context->mode == NETWORK_MODE) {
+    if (ioctl(context->network_mode_fd, SIOCGIFMTU, &context->iface) == -1)
+      interface_mtu = 0;
+    else interface_mtu = context->iface.ifr_mtu;
+  }
+  else if ( context->mode == TCP_SERVER_MODE ) {
+    if (ioctl(context->tcp_welcoming_fd, SIOCGIFMTU, &context->iface) == -1)
+      interface_mtu = 0;
+    else interface_mtu = context->iface.ifr_mtu;
+  }
+  else if ( context->mode == TCP_CLIENT_MODE ) {
+    if (ioctl(context->tcp_client_fd, SIOCGIFMTU, &context->iface) == -1)
+      interface_mtu = 0;
+    else interface_mtu = context->iface.ifr_mtu;
+  }
+
+  /*** check if the user has specified a bad MTU ***/
+  #ifdef DEBUG
+    do_debug (1, "Local interface MTU: %i\t ", interface_mtu);
+    if ( context->user_mtu > 0 ) {
+      do_debug (1, "User-selected MTU: %i\n", context->user_mtu);
+    }
+    else {
+      do_debug (1, "\n");
+    }
+  #endif
+
+  if (context->user_mtu > interface_mtu) {
+    perror ("Error: The MTU specified by the user is higher than the MTU of the interface\n");
+    exit (1);
+  }
+  else {
+
+    // if the user has specified a MTU, I use it instead of network MTU
+    if (context->user_mtu > 0) {
+      context->selected_mtu = context->user_mtu;
+
+    // otherwise, use the MTU of the local interface
+    }
+    else {
+      context->selected_mtu = interface_mtu;
+    }
+  }
+
+  if (context->selected_mtu > BUFSIZE ) {
+    #ifdef DEBUG
+      do_debug (1, "Selected MTU: %i\t Size of the buffer for packet storage: %i\n", context->selected_mtu, BUFSIZE);
+    #endif
+    perror ("Error: The MTU selected is higher than the size of the buffer defined.\nCheck #define BUFSIZE at the beginning of this application\n");
+    exit (1);
+  }
+
+  // define the maximum size threshold
+  switch ( context->mode) {
+    case NETWORK_MODE:
+      context->sizeMax = context->selected_mtu - IPv4_HEADER_SIZE ;
+    break;
+    
+    case UDP_MODE:
+      context->sizeMax = context->selected_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
+    break;
+    
+    case TCP_CLIENT_MODE:
+      context->sizeMax = context->selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
+    break;
+    
+    case TCP_SERVER_MODE:
+      context->sizeMax = context->selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
+    break;
+  }
+
+  // the size threshold has not been established by the user 
+  if (context->size_threshold == 0 ) {
+    context->size_threshold = context->sizeMax;
+    #ifdef DEBUG
+      //do_debug (1, "Size threshold established to the maximum: %i.", context->sizeMax);
+    #endif
+  }
+
+  // the user has specified a too big size threshold
+  if (context->size_threshold > context->sizeMax ) {
+    #ifdef DEBUG
+      do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", context->size_threshold, context->sizeMax);
+    #endif
+    context->size_threshold = context->sizeMax;
+  }
+}
 
 // initializations for blast flavor
 void initBlastFlavor(struct contextSimplemux* context)
