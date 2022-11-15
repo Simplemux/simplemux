@@ -1,7 +1,6 @@
 #include "tunToNet.c"
 
-void periodExpiredblastFlavor ( struct contextSimplemux* context/*,
-                                int fd */)
+void periodExpiredblastFlavor (struct contextSimplemux* context)
 {
   // blast flavor
   #ifdef ASSERT
@@ -18,21 +17,13 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context/*,
   if(now_microsec - context->timeLastSent > context->period) {
     if(now_microsec - context->lastBlastHeartBeatReceived > HEARTBEATDEADLINE) {
       // heartbeat from the other side not received recently
+      //so it seems there are problems at the other side
       #ifdef DEBUG
         do_debug(2, " Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n", now_microsec - context->lastBlastHeartBeatReceived);
       #endif
     }
     else {
       // heartbeat from the other side received recently
-      /*
-      int n = sendExpiredPackects(context->unconfirmedPacketsBlast,
-                                  now_microsec,
-                                  context->period,
-                                  fd,
-                                  context->mode,
-                                  context->remote,
-                                  context->local);
-      */
       int n = sendExpiredPackects(context,
                                   now_microsec);
 
@@ -56,13 +47,7 @@ void periodExpiredblastFlavor ( struct contextSimplemux* context/*,
     heartBeat.header.protocolID = 0;
     heartBeat.header.identifier = 0;
     heartBeat.header.ACK = HEARTBEAT;
-    /*
-    sendPacketBlastFlavor(fd,
-                          context->mode,
-                          &heartBeat,
-                          context->remote,
-                          context->local);
-    */
+
     sendPacketBlastFlavor(context, &heartBeat);
 
     #ifdef DEBUG
@@ -112,7 +97,6 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
     else {
       (context->size_muxed_packet) = (context->size_muxed_packet) + context->num_pkts_stored_from_tun;    // one byte per packet, corresponding to the 'protocol' field
     }
-
 
     #ifdef DEBUG
       // calculate the time difference
@@ -257,5 +241,4 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
   // reset the length and the number of packets
   (context->size_muxed_packet) = 0 ;
   context->num_pkts_stored_from_tun = 0;
-
 }

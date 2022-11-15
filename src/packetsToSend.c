@@ -159,30 +159,16 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
    return current;
 }
 
-/*
-void sendPacketBlastFlavor(int fd,
-                           int mode,
-                           struct packet* packetToSend,
-                           struct sockaddr_in remote,
-                           struct sockaddr_in local)
-*/
+
 void sendPacketBlastFlavor(struct contextSimplemux* context,
                            struct packet* packetToSend)
 {
    // send the tunneled packet
-   // fd is the file descriptor of the socket
-   // 'mode' is UDP_MODE or NETWORK_MODE
    // 'packetToSend' is a pointer to the packet
 
    // calculate the length of the Simplemux header + the tunneled packet
    int total_length = sizeof(struct simplemuxBlastHeader) + ntohs(packetToSend->header.packetSize);
-/*
-   int fd;
-   if(context->mode==UDP_MODE)
-     fd = context->udp_mode_fd;
-   else if(context->mode==NETWORK_MODE)
-     fd = context->network_mode_fd;
-*/
+
    switch (context->mode) {
       case UDP_MODE:
          #ifdef DEBUG
@@ -238,14 +224,7 @@ void sendPacketBlastFlavor(struct contextSimplemux* context,
 
 // send again the packets which sentTimestamp + period >= now
 int sendExpiredPackects(struct contextSimplemux* context,
-                        //struct packet* head_ref,
-                        uint64_t now//,
-                        //uint64_t period,
-                        //int fd,
-                        //int mode,
-                        //struct sockaddr_in remote,
-                        //struct sockaddr_in local
-                        )
+                        uint64_t now)
 {
    #ifdef DEBUG
       //do_debug(3,"[sendExpiredPackects] starting\n");
@@ -270,7 +249,6 @@ int sendExpiredPackects(struct contextSimplemux* context,
          current->sentTimestamp = now;
 
          // send the packet
-         //sendPacketBlastFlavor( fd, mode, current, remote, local);
          sendPacketBlastFlavor(context, current);
 
          sentPackets++;

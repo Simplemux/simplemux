@@ -41,20 +41,6 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   thisPacket->header.ACK = ACKNEEDED;
 
   // send the packet to the network
-  /*
-  int fd;
-  if(context->mode==UDP_MODE)
-    fd = context->udp_mode_fd;
-  else if(context->mode==NETWORK_MODE)
-    fd = context->network_mode_fd;
-
-
-  sendPacketBlastFlavor(fd,
-                      context->mode,
-                      thisPacket,
-                      context->remote,
-                      context->local);
-  */
   sendPacketBlastFlavor(context, thisPacket);
 
   #ifdef DEBUG

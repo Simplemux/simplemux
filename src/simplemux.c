@@ -766,28 +766,17 @@ int main(int argc, char *argv[]) {
         #endif
         
         if(context.flavor == 'B') {
-
           // go through the list and send all the packets with now_microsec > sentTimestamp + period
-          /*
-          int fd;
-          if(context.mode==UDP_MODE)
-            fd = context.udp_mode_fd;
-          else if(context.mode==NETWORK_MODE)
-            fd = context.network_mode_fd;
-          */
-          periodExpiredblastFlavor (&context/*,
-                                    fd */);
-
+          periodExpiredblastFlavor (&context);
         }
         else {
           // not in blast flavor
           if ( context.num_pkts_stored_from_tun > 0 ) {
             // There are some packets stored
-
+            // send them
             periodExpiredNoblastFlavor (&context,
                                         &first_header_written,
                                         &ipheader );
-
           }
           else {
             // No packet arrived
