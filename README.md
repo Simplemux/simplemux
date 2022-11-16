@@ -80,7 +80,7 @@ A presentation about Simplemux can be found here: http://es.slideshare.net/josem
 
 # How to install and compile
 
-[How to install Rohc and compile Simplemux](https://gitlab.com/josemariasaldana/simplemux/-/blob/tun_to_net_separation/documentation/how_to_install_and_compile.md).
+[How to install RoHC and compile Simplemux](https://gitlab.com/josemariasaldana/simplemux/-/blob/tun_to_net_separation/documentation/how_to_install_and_compile.md).
 
 
 # Usage examples:
@@ -92,7 +92,7 @@ A presentation about Simplemux can be found here: http://es.slideshare.net/josem
 ./simplemux -i tap3 -e eth1 -M tcpclient -T tap -c 192.168.3.171 -d 2 -n 1 -f
 ```
 
-# ACKNOWLEDGEMENTS
+# Acknowledgements
 
 This work has been partially financed by the **EU H2020 Wi-5 project** (G.A. no: 644262, see http://www.wi5.eu/ and https://github.com/Wi5), and the Spanish Ministry of Economy and Competitiveness project TIN2015-64770-R, in cooperation with the European Regional Development Fund.
 
