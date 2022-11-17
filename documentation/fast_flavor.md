@@ -1,3 +1,6 @@
+Simplemux fast flavor
+---------------------
+
 In fast flavor, all the separators have the same structure:
 
 - **Length** (LEN, 16 bits). This is the length of the multiplexed packet (in bytes).

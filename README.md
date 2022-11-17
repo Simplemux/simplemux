@@ -37,9 +37,20 @@ The size of the simplemux separators is kept very low (it may be a single byte w
 This repository includes a Linux user-space implementation of Simplemux, written in C. It uses Simplemux as the multiplexing protocol, and different options for the multiplexed and tunneling protocols:
 - Multiplexed protocol: Ethernet, IP, RoHC (RFC 5795).
 - Multiplexing protocol: Simplemux.
-- Tunneling protocol: IP, TCP/IP or UDP/IP,
+- Tunneling protocol: IP, TCP/IP or UDP/IP.
 
 IPv6 is not supported in this implementation.
+
+## Folders
+
+You will find the next folders:
+- `src`. It includes the `.c` and `.h` files.
+- `lua`. LUA scripts that can be added to Wireshark as plug-ins, which enable the dissection of Simplemux.
+- `perl`. Perl scripts for extracting information from the log files.
+- `documentation`.
+- `simplemux_captures`. `.pcap` files captured with Wireshark.
+- `rohc_library`. A copy of Didier Balvraux's RoHC library, version 1.7.0.
+
 
 # Modes and flavors
 
@@ -105,6 +116,7 @@ Jose Saldana (working at University of Zaragoza) wrote this program in 2015, pub
 Thanks to Davide Brini for his simpletun.c program. (2010) http://backreference.org/wp-content/uploads/2010/03/simpletun.tar.bz2
 
 This program uses an implementation of ROHC by Didier Barvaux (https://rohc-lib.org/).
+
 
 # Disclaimer
 

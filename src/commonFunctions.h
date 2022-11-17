@@ -135,8 +135,8 @@ struct contextSimplemux {
   int limit_numpackets_tun;     // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
   int size_threshold;           // if the number of bytes stored is higher than this, a muxed packet is sent
   int user_mtu;                 // the MTU specified by the user (it must be <= interface_mtu)
-  int selected_mtu;             // the MTU that will be used in the program
-  int sizeMax;                  // threshold for the packet size
+  int selected_mtu;             // the MTU that will be used in the program ('-m' option)
+  int sizeMax;                  // threshold for the packet size ('-b' option)
 
   int firstHeaderWritten;       // it indicates if the first header has been written or not
 
