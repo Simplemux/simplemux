@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
   
   const int on = 1;   // needed when creating a socket
 
-  struct sockaddr_in TCPpair;
+
 
   socklen_t slen = sizeof(context.remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
   socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
@@ -243,6 +243,7 @@ int main(int argc, char *argv[]) {
         if ((fds_poll[2].revents & POLLIN) && (context.mode==TCP_SERVER_MODE) && (context.acceptingTcpConnections == true) ) {
 
           // accept the connection
+          struct sockaddr_in TCPpair;
           unsigned int len = sizeof(struct sockaddr);
           context.tcp_server_fd = accept(context.tcp_welcoming_fd, (struct sockaddr*)&TCPpair, &len);
           
