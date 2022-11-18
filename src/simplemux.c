@@ -13,10 +13,6 @@ int main(int argc, char *argv[]) {
   const int on = 1;   // needed when creating a socket
 
 
-
-  socklen_t slen = sizeof(context.remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
-  socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
-
   uint8_t protocol_rec;                     // protocol field of the received muxed packet
 
   uint16_t pending_bytes_muxed_packet = 0;  // number of bytes that still have to be read (TCP, fast flavor)
@@ -291,7 +287,7 @@ int main(int argc, char *argv[]) {
 
           is_multiplexed_packet = readPacketFromNet(&context,
                                                     buffer_from_net,
-                                                    slen,
+                                                    //slen,
                                                     &protocol_rec,
                                                     &nread_from_net,
                                                     &packet_length,
@@ -349,6 +345,7 @@ int main(int argc, char *argv[]) {
           uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
 
           // a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
+          socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
           nread_from_net = recvfrom ( context.feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(context.feedback_remote), &slen_feedback );
   
           if (nread_from_net == -1) perror ("recvfrom()");
