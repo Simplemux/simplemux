@@ -50,7 +50,8 @@
 
 #define MAXPKTS 100             // maximum number of packets to store
 #define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
-                                // 2: protocol field of two bytes
+                                // 2: protocol field of two bytes (not allowed in blast flavor)
+
 #define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
 
 #define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
