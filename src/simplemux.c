@@ -10,7 +10,9 @@ int main(int argc, char *argv[]) {
 
   const int on = 1;   // needed when creating a socket
 
-  //uint8_t protocol_rec;                     // protocol field of the received muxed packet
+  uint8_t protocol_rec; // protocol field of the received muxed packet
+                        // this varialbe has to be here: in case of TCP, it may be
+                        //necessary to store the value of the protocol between packets
 
   uint16_t pending_bytes_muxed_packet = 0;  // number of bytes that still have to be read (TCP, fast flavor)
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
@@ -280,11 +282,9 @@ int main(int argc, char *argv[]) {
           int nread_from_net;                 // number of bytes read from network which will be demultiplexed
           uint8_t buffer_from_net[BUFSIZE];   // stores the packet received from the network, before sending it to tun
           uint16_t packet_length;
-          uint8_t protocol_rec;                     // protocol field of the received muxed packet
 
           is_multiplexed_packet = readPacketFromNet(&context,
                                                     buffer_from_net,
-                                                    //slen,
                                                     &protocol_rec,
                                                     &nread_from_net,
                                                     &packet_length,

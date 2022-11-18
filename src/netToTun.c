@@ -16,9 +16,7 @@ int readPacketFromNet(struct contextSimplemux* context,
                       uint16_t* pending_bytes_muxed_packet,
                       uint8_t* read_tcp_bytes_separator,
                       uint16_t* read_tcp_bytes )
-
 {
-  //uint8_t protocol_rec[1];
   int is_multiplexed_packet = -1;
   uint8_t buffer_from_net_aux[BUFSIZE];
 
@@ -305,8 +303,6 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                         uint8_t* protocol_rec,
                         rohc_status_t* status )
 {
-  //uint8_t protocol_rec[1];
-
   // increase the counter of the number of packets read from the network
   (context->net2tun)++;
 
