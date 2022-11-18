@@ -8,18 +8,13 @@ int main(int argc, char *argv[]) {
   // set the initial values of some context variables
   initContext(&context);
 
-  int fd2read;
-  
   const int on = 1;   // needed when creating a socket
-
 
   uint8_t protocol_rec;                     // protocol field of the received muxed packet
 
   uint16_t pending_bytes_muxed_packet = 0;  // number of bytes that still have to be read (TCP, fast flavor)
   uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
-
-  uint64_t now_microsec;                    // current time
 
   // read command line options
   char *progname;
@@ -128,7 +123,8 @@ int main(int argc, char *argv[]) {
     if(context.flavor == 'B')
       initBlastFlavor(&context);
 
-
+    uint64_t now_microsec; // variable to store current timestamps
+    
     /*****************************************/
     /************** Main loop ****************/
     /*****************************************/
@@ -210,7 +206,7 @@ int main(int argc, char *argv[]) {
       // - the second argument is '3', i.e. the number of sockets NUMBER_OF_SOCKETS
       // - third argument: the timeout specifies the number of milliseconds that
       //   poll() should block waiting for a file descriptor to become ready.
-      fd2read = poll(fds_poll, NUMBER_OF_SOCKETS, milliseconds_left);
+      int fd2read = poll(fds_poll, NUMBER_OF_SOCKETS, milliseconds_left);
 
       /********************************/
       /**** Error in poll function ****/
