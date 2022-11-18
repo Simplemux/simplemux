@@ -11,12 +11,11 @@
 int readPacketFromNet(struct contextSimplemux* context,
                       uint8_t* buffer_from_net,
                       socklen_t slen,
-                      struct iphdr ipheader,
+                      //struct iphdr ipheader, // CONFIRM
                       uint8_t* protocol_rec,
                       int* nread_from_net,
                       uint16_t* packet_length,
                       uint16_t* pending_bytes_muxed_packet,
-                      int size_separator_fast_mode,
                       uint8_t* read_tcp_bytes_separator,
                       uint16_t* read_tcp_bytes )
 
@@ -68,6 +67,7 @@ int readPacketFromNet(struct contextSimplemux* context,
     *nread_from_net = *nread_from_net - sizeof(struct iphdr);
 
     // Get IP Header of received packet
+    struct iphdr ipheader; //CONFIRM
     GetIpHeader(&ipheader,buffer_from_net_aux);
     if (ipheader.protocol == context->ipprotocol )
       is_multiplexed_packet = 1;
@@ -90,6 +90,7 @@ int readPacketFromNet(struct contextSimplemux* context,
     // I only read one packet (at most) each time the program goes through this part
 
     if (*pending_bytes_muxed_packet == 0) {
+
       // I have to start reading a new muxed packet: separator and payload
       #ifdef DEBUG
         do_debug(3, "[readPacketFromNet] Reading TCP. No pending bytes of the muxed packet. Start reading a new separator\n");
@@ -97,10 +98,10 @@ int readPacketFromNet(struct contextSimplemux* context,
 
       // read a separator (3 or 4 bytes), or a part of it
       if (context->mode  == TCP_SERVER_MODE) {
-        *nread_from_net = read(context->tcp_server_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
+        *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->sizeSeparatorFastMode - *read_tcp_bytes_separator);
       }
       else {
-        *nread_from_net = read(context->tcp_client_fd, buffer_from_net, size_separator_fast_mode - *read_tcp_bytes_separator);
+        *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->sizeSeparatorFastMode - *read_tcp_bytes_separator);
       }
       #ifdef DEBUG
         do_debug(3, "[readPacketFromNet]  %i bytes of the separator read from the TCP socket", *nread_from_net);
@@ -115,9 +116,9 @@ int readPacketFromNet(struct contextSimplemux* context,
         is_multiplexed_packet = -1;
       }
 
-      else if (*nread_from_net < size_separator_fast_mode - *read_tcp_bytes_separator) {
+      else if (*nread_from_net < context->sizeSeparatorFastMode - *read_tcp_bytes_separator) {
         #ifdef DEBUG
-          do_debug(3, "[readPacketFromNet] (part of the separator. Still %i bytes missing)\n", size_separator_fast_mode - *read_tcp_bytes_separator - *nread_from_net);
+          do_debug(3, "[readPacketFromNet] (part of the separator. Still %i bytes missing)\n", context->sizeSeparatorFastMode - *read_tcp_bytes_separator - *nread_from_net);
         #endif
 
         // I have read part of the separator
@@ -127,9 +128,9 @@ int readPacketFromNet(struct contextSimplemux* context,
         is_multiplexed_packet = -1;
       }
 
-      else if(*nread_from_net == size_separator_fast_mode - *read_tcp_bytes_separator) {
+      else if(*nread_from_net == context->sizeSeparatorFastMode - *read_tcp_bytes_separator) {
         #ifdef DEBUG
-          do_debug(3, "[readPacketFromNet] (the complete separator of %i bytes)\n", size_separator_fast_mode);
+          do_debug(3, "[readPacketFromNet] (the complete separator of %i bytes)\n", context->sizeSeparatorFastMode);
         #endif
 
         // I have read the complete separator

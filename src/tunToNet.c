@@ -96,9 +96,9 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 // packet/frame arrived at tun: read it, and check if:
 // - the packet has to be stored
 // - a multiplexed packet has to be sent through the network
-void tunToNetNoBlastFlavor (struct contextSimplemux* context,
-                            struct iphdr* ipheader,
-                            int size_separator_fast_mode )
+void tunToNetNoBlastFlavor (struct contextSimplemux* context
+                            //struct iphdr* ipheader, CONFIRM
+                            )
 {
   // normal or fast flavor
   #ifdef ASSERT
@@ -388,7 +388,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
       // fast flavor
       // the header is always fixed: the size of the length field + the size of the protocol field 
       predicted_size_muxed_packet = predicted_size_muxed_packet +
-                                    size_separator_fast_mode +
+                                    context->sizeSeparatorFastMode +
                                     context->size_packets_to_multiplex[context->num_pkts_stored_from_tun];
     }
 
@@ -571,13 +571,14 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
           }
         break;
         
-        case NETWORK_MODE:
+        case NETWORK_MODE: ;
           // build the header
-          BuildIPHeader(ipheader, total_length, context->ipprotocol, context->local, context->remote);
+          struct iphdr ipheader;  // CONFIRM
+          BuildIPHeader(&ipheader, total_length, context->ipprotocol, context->local, context->remote); // CONFIRM
 
           // build the full IP multiplexed packet
           uint8_t full_ip_packet[BUFSIZE];
-          BuildFullIPPacket(*ipheader, muxed_packet, total_length, full_ip_packet);
+          BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);  // CONFIRM
 
           // send the packet
           if (sendto (context->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&(context->remote), sizeof (struct sockaddr)) < 0)  {
@@ -1070,13 +1071,14 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context,
           }
         break;
         
-        case NETWORK_MODE:
+        case NETWORK_MODE: ;
           // build the header
-          BuildIPHeader(ipheader, total_length, context->ipprotocol, context->local, context->remote);
+          struct iphdr ipheader; // CONFIRM
+          BuildIPHeader(&ipheader, total_length, context->ipprotocol, context->local, context->remote); // CONFIRM
 
           // build full IP multiplexed packet
           uint8_t full_ip_packet[BUFSIZE];
-          BuildFullIPPacket(*ipheader, muxed_packet, total_length, full_ip_packet);
+          BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);  // CONFIRM
 
           // send the multiplexed packet
           if (sendto (context->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&(context->remote), sizeof (struct sockaddr)) < 0)  {

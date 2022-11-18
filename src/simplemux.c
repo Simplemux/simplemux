@@ -10,11 +10,9 @@ int main(int argc, char *argv[]) {
 
   int fd2read;
   
-  const int on = 1;                   // needed when creating a socket
+  const int on = 1;   // needed when creating a socket
 
   struct sockaddr_in TCPpair;
-
-  struct iphdr ipheader;              // Variable used to create an IP header when needed
 
   socklen_t slen = sizeof(context.remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
   socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
@@ -26,11 +24,6 @@ int main(int argc, char *argv[]) {
   uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 
   uint64_t now_microsec;                    // current time
-
-  // fixed size of the separator in fast flavor
-  int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
-
-
 
   // read command line options
   char *progname;
@@ -80,7 +73,7 @@ int main(int argc, char *argv[]) {
 
     // Initialize the sockets
     int correctSocket = 1;
-    correctSocket = socketRequest(&context, &ipheader, on);
+    correctSocket = socketRequest(&context, /*&ipheader,*/ on);
     if (correctSocket == 1) {
       my_err("Error creating the sockets\n");
       exit(1);
@@ -298,12 +291,11 @@ int main(int argc, char *argv[]) {
           is_multiplexed_packet = readPacketFromNet(&context,
                                                     buffer_from_net,
                                                     slen,
-                                                    ipheader,
+                                                    //ipheader,  // CONFIRM
                                                     &protocol_rec,
                                                     &nread_from_net,
                                                     &packet_length,
                                                     &pending_bytes_muxed_packet,
-                                                    size_separator_fast_mode,
                                                     &read_tcp_bytes_separator,
                                                     &read_tcp_bytes );
     
@@ -341,9 +333,9 @@ int main(int argc, char *argv[]) {
           }
         }
   
-        /****************************************************************************************************************************/    
-        /******* NET to tun. ROHC feedback packet from the remote decompressor to be delivered to the local compressor **************/
-        /****************************************************************************************************************************/
+        /****************************************************************************************************************/    
+        /******* ROHC feedback packet from the remote decompressor to be delivered to the local compressor **************/
+        /****************************************************************************************************************/
   
         /*** ROHC feedback data arrived at the network interface: read it in order to deliver it to the local compressor ***/
   
@@ -450,9 +442,7 @@ int main(int argc, char *argv[]) {
           }
           else {
             // not in blast flavor
-            tunToNetNoBlastFlavor(&context,
-                                  &ipheader,
-                                  size_separator_fast_mode);
+            tunToNetNoBlastFlavor(&context);
           }
         }
       }  
@@ -478,8 +468,8 @@ int main(int argc, char *argv[]) {
           if ( context.num_pkts_stored_from_tun > 0 ) {
             // There are some packets stored
             // send them
-            periodExpiredNoblastFlavor (&context,
-                                        &ipheader );
+            periodExpiredNoblastFlavor (&context/*,     // CONFIRM
+                                        &ipheader*/ );
           }
           else {
             // No packet arrived

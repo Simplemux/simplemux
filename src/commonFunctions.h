@@ -57,6 +57,8 @@
 #define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
 
+// this struct includes all the variables used in different places of the code
+// it is passed to the different functions
 struct contextSimplemux {
   char mode;        // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode
   char tunnelMode;  // TUN (U, default) or TAP (T) tunnel mode
@@ -140,13 +142,9 @@ struct contextSimplemux {
 
   int firstHeaderWritten;       // it indicates if the first header has been written or not
 
-  /*
-  struct iphdr ipheader;              // IP header
-
-
   // fixed size of the separator in fast flavor
-  int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
-  */
+  // added to the context in order to make this calculation only once
+  int sizeSeparatorFastMode;
 };
 
 #ifdef DEBUG

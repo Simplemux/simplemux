@@ -29,6 +29,7 @@ void initContext(struct contextSimplemux* context)
   context->size_threshold = 0;
   context->user_mtu = 0;
   context->firstHeaderWritten = 0;
+  context->sizeSeparatorFastMode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
 }
 
 
