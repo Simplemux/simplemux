@@ -146,6 +146,14 @@ struct contextSimplemux {
   // fixed size of the separator in fast flavor
   // added to the context in order to make this calculation only once
   int sizeSeparatorFastMode;
+
+  // variables needed for TCP mode
+  uint8_t protocol_rec[SIZE_PROTOCOL_FIELD];  // protocol field of the received muxed packet
+                                              // this varialbe has to be here: in case of TCP, it may be
+                                              //necessary to store the value of the protocol between packets
+  uint16_t pending_bytes_muxed_packet;  // number of bytes that still have to be read (TCP, fast flavor)
+  uint16_t read_tcp_bytes;              // number of bytes of the content that have been read (TCP, fast flavor)
+  uint8_t read_tcp_bytes_separator;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 };
 
 #ifdef DEBUG

@@ -10,14 +10,6 @@ int main(int argc, char *argv[]) {
 
   const int on = 1;   // needed when creating a socket
 
-  uint8_t protocol_rec[SIZE_PROTOCOL_FIELD];  // protocol field of the received muxed packet
-                                              // this varialbe has to be here: in case of TCP, it may be
-                                              //necessary to store the value of the protocol between packets
-
-  uint16_t pending_bytes_muxed_packet = 0;  // number of bytes that still have to be read (TCP, fast flavor)
-  uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
-  uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
-
   // read command line options
   char *progname;
   progname = argv[0];    // argument used when calling the program
@@ -287,12 +279,12 @@ int main(int argc, char *argv[]) {
 
           is_multiplexed_packet = readPacketFromNet(&context,
                                                     buffer_from_net,
-                                                    protocol_rec,
+                                                    //protocol_rec,
                                                     &nread_from_net,
-                                                    &packet_length,
+                                                    &packet_length/*,
                                                     &pending_bytes_muxed_packet,
                                                     &read_tcp_bytes_separator,
-                                                    &read_tcp_bytes );
+                                                    &read_tcp_bytes*/ );
     
           // now 'buffer_from_net' may contain a full packet or frame.
           // check if the packet is a multiplexed one
@@ -305,7 +297,7 @@ int main(int argc, char *argv[]) {
                                 nread_from_net,
                                 packet_length,
                                 buffer_from_net,
-                                protocol_rec,
+                                //protocol_rec,
                                 &status );
           }
   

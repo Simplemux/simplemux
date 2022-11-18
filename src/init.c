@@ -30,6 +30,9 @@ void initContext(struct contextSimplemux* context)
   context->user_mtu = 0;
   context->firstHeaderWritten = 0;
   context->sizeSeparatorFastMode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
+  context->pending_bytes_muxed_packet = 0;
+  context->read_tcp_bytes = 0;
+  context->read_tcp_bytes_separator = 0;
 }
 
 
