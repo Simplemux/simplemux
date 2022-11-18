@@ -175,12 +175,12 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
     
     case NETWORK_MODE: ;
       // build the header
-      struct iphdr ipheader;  // CONFIRM
-      BuildIPHeader(&ipheader, total_length, context->ipprotocol, context->local, context->remote);  // CONFIRM
+      struct iphdr ipheader;
+      BuildIPHeader(&ipheader, total_length, context->ipprotocol, context->local, context->remote);
 
       // build the full IP multiplexed packet
       uint8_t full_ip_packet[BUFSIZE];
-      BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);   // CONFIRM
+      BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
 
       // send the packet
       if (sendto (context->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &(context->remote), sizeof (struct sockaddr)) < 0)  {

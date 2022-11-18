@@ -11,7 +11,6 @@
 int readPacketFromNet(struct contextSimplemux* context,
                       uint8_t* buffer_from_net,
                       socklen_t slen,
-                      //struct iphdr ipheader, // CONFIRM
                       uint8_t* protocol_rec,
                       int* nread_from_net,
                       uint16_t* packet_length,
@@ -67,7 +66,7 @@ int readPacketFromNet(struct contextSimplemux* context,
     *nread_from_net = *nread_from_net - sizeof(struct iphdr);
 
     // Get IP Header of received packet
-    struct iphdr ipheader; //CONFIRM
+    struct iphdr ipheader;
     GetIpHeader(&ipheader,buffer_from_net_aux);
     if (ipheader.protocol == context->ipprotocol )
       is_multiplexed_packet = 1;

@@ -291,7 +291,6 @@ int main(int argc, char *argv[]) {
           is_multiplexed_packet = readPacketFromNet(&context,
                                                     buffer_from_net,
                                                     slen,
-                                                    //ipheader,  // CONFIRM
                                                     &protocol_rec,
                                                     &nread_from_net,
                                                     &packet_length,
@@ -468,8 +467,7 @@ int main(int argc, char *argv[]) {
           if ( context.num_pkts_stored_from_tun > 0 ) {
             // There are some packets stored
             // send them
-            periodExpiredNoblastFlavor (&context/*,     // CONFIRM
-                                        &ipheader*/ );
+            periodExpiredNoblastFlavor (&context);
           }
           else {
             // No packet arrived
