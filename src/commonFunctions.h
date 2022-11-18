@@ -50,7 +50,7 @@
 
 #define MAXPKTS 100             // maximum number of packets to store
 #define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
-                                // 2: protocol field of two bytes (not allowed in blast flavor)
+                                // 2: protocol field of two bytes (only allowed in normal flavor)
 
 #define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
 

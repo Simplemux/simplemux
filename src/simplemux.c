@@ -33,7 +33,9 @@ int main(int argc, char *argv[]) {
     argv += optind;
     argc -= optind;
 
-    checkCommandLineOptions(argc, progname, &context);
+    int correctOptions = checkCommandLineOptions(argc, progname, &context);
+    if (correctOptions == 0)
+      exit(1);
 
     // open the log file
     if ( context.file_logging == 1 ) {

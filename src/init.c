@@ -431,24 +431,28 @@ void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
 
 
 // check the correctness of the command line options
-void checkCommandLineOptions(int argc, char *progname, struct contextSimplemux* context)
+int checkCommandLineOptions(int argc, char *progname, struct contextSimplemux* context)
 {
 
   if(argc > 0) {
     my_err("Too many options\n");
     usage(progname);
+    return 0;
   }
 
   // check interface options
   if(context->tun_if_name[0] == '\0') {
     my_err("Must specify a tun/tap interface name for native packets ('-i' option)\n");
     usage(progname);
+    return 0;
   } else if(context->remote_ip[0] == '\0') {
     my_err("Must specify the IP address of the peer\n");
     usage(progname);
+    return 0;
   } else if(context->mux_if_name[0] == '\0') {
     my_err("Must specify the local interface name for multiplexed packets\n");
     usage(progname);
+    return 0;
   } 
 
 
@@ -456,54 +460,68 @@ void checkCommandLineOptions(int argc, char *progname, struct contextSimplemux* 
   else if((context->mode!= NETWORK_MODE) && (context->mode!= UDP_MODE) && (context->mode!= TCP_CLIENT_MODE) && (context->mode!= TCP_SERVER_MODE)) {
     my_err("Must specify a valid mode ('-M' option MUST either be 'network', 'udp', 'tcpserver' or 'tcpclient')\n");
     usage(progname);
+    return 0;
   } 
 
   // check if TUN or TAP mode have been selected (mandatory)
   else if((context->tunnelMode != TUN_MODE) && (context->tunnelMode != TAP_MODE)) {
     my_err("Must specify a valid tunnel mode ('-T' option MUST either be 'tun' or 'tap')\n");
     usage(progname);
+    return 0;
   } 
 
   // TAP mode requires fast flavor
   else if(((context->mode== TCP_SERVER_MODE) || (context->mode== TCP_CLIENT_MODE)) && (context->flavor != 'F')) {
     my_err("TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient') require fast flavor (option '-f')\n");
     usage(progname);
+    return 0;
   }
 
-  else if(context->flavor == 'F') {
+  else if(context->flavor != 'N') {
     if(SIZE_PROTOCOL_FIELD!=1) {
-      my_err("fast flavor (-f) only allows a protocol field of size 1. Please revise the value of 'SIZE_PROTOCOL_FIELD'\n");        
+      my_err("fast flavor (-f) and blast flavor (-b) only allow a protocol field of size 1. Please revise the value of 'SIZE_PROTOCOL_FIELD'\n");
+      usage(progname);
+      return 0;    
     }
   }
 
   // blast flavor is restricted
   else if(context->flavor == 'B') {
     if(SIZE_PROTOCOL_FIELD!=1) {
-      my_err("blast flavor (-f) only allows a protocol field of size 1. Please revise the value of 'SIZE_PROTOCOL_FIELD'\n");        
+      my_err("blast flavor (-f) only allows a protocol field of size 1. Please revise the value of 'SIZE_PROTOCOL_FIELD'\n");
+      usage(progname);
+      return 0;   
     }
     if((context->mode== TCP_SERVER_MODE) || (context->mode== TCP_CLIENT_MODE)){
       my_err("blast flavor (-b) is not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
       usage(progname);
+      return 0;
     }
     if(context->rohcMode!=0) {
       my_err("blast flavor (-b) is not compatible with ROHC (-r)\n");
-      usage(progname);          
+      usage(progname);
+      return 0;     
     }
     if(context->size_threshold!=0) {
       my_err("blast flavor (-b) is not compatible with size threshold (-B)\n");
       usage(progname);
+      return 0;     
     }
     if(context->timeout!=MAXTIMEOUT) {
       my_err("blast flavor (-b) is not compatible with timeout (-t)\n");
       usage(progname);
+      return 0;     
     }
     if(context->limit_numpackets_tun!=0) {
       my_err("blast flavor (-b) is not compatible with a limit of the number of packets. Only a packet is sent (-n)\n");
       usage(progname);
+      return 0;     
     }
     if(context->period==MAXTIMEOUT) {
       my_err("In blast flavor (-b) you must specify a Period (-P)\n");
-      usage(progname);        
+      usage(progname);
+      return 0;      
     }
   }
+  return 1;
 }
