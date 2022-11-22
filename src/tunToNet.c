@@ -368,6 +368,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       //do_debug(2, "\n");
 
       #ifdef DEBUG
+        do_debug(2, "\n");
         switch (context->mode) {
           case UDP_MODE:
             do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predicted_size_muxed_packet + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
@@ -915,7 +916,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       #ifdef DEBUG
         // write the debug information
         if (debug > 0) {
-          //do_debug(2, "\n");
+          do_debug(2, "\n");
           do_debug(1, "SENDING TRIGGERED: ");
           if (context->num_pkts_stored_from_tun == context->limit_numpackets_tun)
             do_debug(1, "num packet limit reached\n");
@@ -924,11 +925,25 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
           if (time_difference > context->timeout)
             do_debug(1, "timeout reached\n");
 
-          if (single_protocol) {
-            do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", context->protocol[0]);
+          if (context->flavor == 'N') {
+            // normal flavor
+            if (single_protocol) {
+              do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x", context->protocol[0]);
+              if(context->protocol[0] == IPPROTO_IP_ON_IP)
+                do_debug(2, ", IP)");
+              else if(context->protocol[0] == IPPROTO_ROHC)
+                do_debug(2, ", RoHC)");
+              else if(context->protocol[0] == IPPROTO_ETHERNET)
+                do_debug(2, ", Ethernet)");
+              do_debug(2, " in the first separator\n", context->protocol[0]);
+            }
+            else {
+              do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", context->num_pkts_stored_from_tun);
+            }
           }
           else {
-            do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", context->num_pkts_stored_from_tun);
+            // fast flavor
+            // say nothing here. The sending of 'protocol (1 byte) in each separator' has already been said when each packet is stored
           }
 
           switch(context->tunnelMode) {

@@ -101,7 +101,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
       uint64_t now_microsec = GetTimeStamp();
       uint64_t time_difference = now_microsec - context->timeLastSent; 
       if (debug>0) {
-        //do_debug(2, "\n");
+        do_debug(2, "\n");
         do_debug(1, "SENDING TRIGGERED (Period expired). Time since last trigger: %"PRIu64" us\n", time_difference);
         if (single_protocol) {
           do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
@@ -139,7 +139,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
       uint64_t now_microsec = GetTimeStamp();
       uint64_t time_difference = now_microsec - context->timeLastSent;
       if (debug>0) {
-        //do_debug(2, "\n");
+        do_debug(2, "\n");
         do_debug(1, "SENDING TRIGGERED (Period expired). Time since last trigger: %" PRIu64 " usec\n", time_difference);
         do_debug(2, "   Fast mode: Added 1 Protocol byte in each separator. Total %i bytes\n",context->num_pkts_stored_from_tun);
 

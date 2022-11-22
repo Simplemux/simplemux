@@ -760,6 +760,12 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           context->protocol_rec = buffer_from_net[position];
           #ifdef DEBUG
             do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+            if(context->protocol_rec == IPPROTO_IP_ON_IP)
+              do_debug(2, " (IP)");
+            else if(context->protocol_rec == IPPROTO_ROHC)
+              do_debug(2, " (RoHC)");
+            else if(context->protocol_rec == IPPROTO_ETHERNET)
+              do_debug(2, " (Ethernet)");
           #endif
           position ++;
 
@@ -773,6 +779,12 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             if(single_protocol_rec == 0) {
               #ifdef DEBUG
                 do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+                if(context->protocol_rec == IPPROTO_IP_ON_IP)
+                  do_debug(2, " (IP)");
+                if(context->protocol_rec == IPPROTO_ROHC)
+                  do_debug(2, " (RoHC)");
+                if(context->protocol_rec == IPPROTO_ETHERNET)
+                  do_debug(2, " (Ethernet)");
               #endif
             }
             position ++;
@@ -815,7 +827,15 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           context->protocol_rec = fastHeader->protocolID;
 
           #ifdef DEBUG
-            do_debug(1, "Protocol 0x%02x\n", context->protocol_rec);
+            do_debug(1, "Protocol 0x%02x", context->protocol_rec);
+            if(context->protocol_rec == IPPROTO_IP_ON_IP)
+              do_debug(1, " (IP)\n");
+            else if(context->protocol_rec == IPPROTO_ROHC)
+              do_debug(1, " (RoHC)\n");
+            else if(context->protocol_rec == IPPROTO_ETHERNET)
+              do_debug(1, " (Ethernet)\n");
+            else
+              do_debug(1, "\n");          
           #endif
 
           // move 'position' to the end of the simplemuxFast header
@@ -911,11 +931,10 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             #ifdef DEBUG
               // dump the ROHC packet on terminal
               if (debug>0) {
-                do_debug(1, " ROHC. ");
+                do_debug(1, " RoHC packet");
               }
               if (debug == 2) {
-                do_debug(2, " ");
-                do_debug(2, " ROHC packet\n");
+                do_debug(2, "\n");
                 dump_packet (packet_length, demuxed_packet);
               }
             #endif
@@ -1002,7 +1021,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                 #ifdef DEBUG
                   //dump the IP packet on the standard output
                   do_debug(2, "  ");
-                  do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
+                  do_debug(1, ". IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
                   //do_debug(2, "   ");
 
                   if (debug>0) {

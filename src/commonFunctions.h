@@ -23,12 +23,12 @@
 // Protocol IDs, according to IANA
 // see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 #define IPPROTO_IP_ON_IP 4          // IP on IP Protocol ID
+#define IPPROTO_ROHC 142          // ROHC Protocol ID
+#define IPPROTO_ETHERNET 143      // Ethernet Protocol ID
+
 #define IPPROTO_SIMPLEMUX 253       // Simplemux Protocol ID (experimental number according to IANA)
 #define IPPROTO_SIMPLEMUX_FAST 254  // Simplemux Protocol ID (experimental number according to IANA)
 #define IPPROTO_SIMPLEMUX_BLAST 252
-
-#define IPPROTO_ROHC 142          // ROHC Protocol ID
-#define IPPROTO_ETHERNET 143      // Ethernet Protocol ID
 
 #define PORT 55555              // default port
 #define PORT_FEEDBACK 55556     // port for sending ROHC feedback
@@ -48,7 +48,7 @@
 #define TUN_MODE 'U'            // T: tun mode, i.e. IP packets will be tunneled inside Simplemux
 #define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
 
-#define MAXPKTS 100             // maximum number of packets to store
+#define MAXPKTS 100             // maximum number of packets to store in normal and fast flavor
 
 #define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
 
