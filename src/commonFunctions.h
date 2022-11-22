@@ -49,8 +49,6 @@
 #define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
 
 #define MAXPKTS 100             // maximum number of packets to store
-#define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
-                                // 2: protocol field of two bytes (only allowed in normal flavor)
 
 #define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
 
@@ -91,7 +89,7 @@ struct contextSimplemux {
 
   // variables for storing the packets to multiplex
   int num_pkts_stored_from_tun;                     // number of packets received and not sent from tun (stored)
-  uint8_t protocol[MAXPKTS][SIZE_PROTOCOL_FIELD];   // protocol field of each packet
+  uint8_t protocol[MAXPKTS];                        // protocol field of each packet (1 byte)
   uint16_t size_separators_to_multiplex[MAXPKTS];   // stores the size of the Simplemux separator. It does not include the "Protocol" field
   uint8_t separators_to_multiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
   uint16_t size_packets_to_multiplex[MAXPKTS];      // stores the size of the received packet
@@ -148,9 +146,9 @@ struct contextSimplemux {
   int sizeSeparatorFastMode;
 
   // variables needed for TCP mode
-  uint8_t protocol_rec[SIZE_PROTOCOL_FIELD];  // protocol field of the received muxed packet
-                                              // this varialbe has to be here: in case of TCP, it may be
-                                              //necessary to store the value of the protocol between packets
+  uint8_t protocol_rec;                 // protocol field of the received muxed packet
+                                        // this varialbe has to be here: in case of TCP, it may be
+                                        //necessary to store the value of the protocol between packets
   uint16_t pending_bytes_muxed_packet;  // number of bytes that still have to be read (TCP, fast flavor)
   uint16_t read_tcp_bytes;              // number of bytes of the content that have been read (TCP, fast flavor)
   uint8_t read_tcp_bytes_separator;     // number of bytes of the fast separator that have been read (TCP, fast flavor)

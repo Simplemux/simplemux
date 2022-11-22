@@ -26,10 +26,6 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
     do_debug(1, "NATIVE PACKET arrived from tun: ID %i, length %i bytes\n", ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
   #endif
 
-  #ifdef ASSERT
-    assert ( SIZE_PROTOCOL_FIELD == 1 );
-  #endif
-
   if (context->tunnelMode == TAP_MODE) {
     thisPacket->header.protocolID = IPPROTO_ETHERNET;
   }
@@ -224,13 +220,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
 
         // since this packet has been compressed with ROHC, its protocol number must be 142
         // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-        if ( SIZE_PROTOCOL_FIELD == 1 ) {
-          context->protocol[context->num_pkts_stored_from_tun][0] = IPPROTO_ROHC;
-        }
-        else {  // SIZE_PROTOCOL_FIELD == 2 
-          context->protocol[context->num_pkts_stored_from_tun][0] = 0;
-          context->protocol[context->num_pkts_stored_from_tun][1] = IPPROTO_ROHC;
-        }
+        context->protocol[context->num_pkts_stored_from_tun] = IPPROTO_ROHC;
 
         // Copy the compressed length and the compressed packet over the packet read from tun
         context->size_packets_to_multiplex[context->num_pkts_stored_from_tun] = rohc_packet.len;
@@ -261,13 +251,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
 
         // since this packet is NOT compressed, its protocol number has to be 4: 'IP on IP'
         // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-        if ( SIZE_PROTOCOL_FIELD == 1 ) {
-          context->protocol[context->num_pkts_stored_from_tun][0] = IPPROTO_IP_ON_IP;
-        }
-        else {  // SIZE_PROTOCOL_FIELD == 2 
-          context->protocol[context->num_pkts_stored_from_tun][0] = 0;
-          context->protocol[context->num_pkts_stored_from_tun][1] = IPPROTO_IP_ON_IP;
-        }
+        context->protocol[context->num_pkts_stored_from_tun] = IPPROTO_IP_ON_IP;
 
         fprintf(stderr, "compression of IP packet failed\n");
 
@@ -291,26 +275,14 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         
         // since this frame CANNOT be compressed, its protocol number has to be 143: 'Ethernet on IP' 
         // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-        if ( SIZE_PROTOCOL_FIELD == 1 ) {
-          context->protocol[context->num_pkts_stored_from_tun][0] = IPPROTO_ETHERNET;
-        }
-        else {  // SIZE_PROTOCOL_FIELD == 2 
-          context->protocol[context->num_pkts_stored_from_tun][0] = 0;
-          context->protocol[context->num_pkts_stored_from_tun][1] = IPPROTO_ETHERNET;
-        }               
+        context->protocol[context->num_pkts_stored_from_tun] = IPPROTO_ETHERNET;             
       }
       else if (context->tunnelMode == TUN_MODE) {
         // tun mode
       
         // since this IP packet is NOT compressed, its protocol number has to be 4: 'IP on IP' 
         // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
-        if ( SIZE_PROTOCOL_FIELD == 1 ) {
-          context->protocol[context->num_pkts_stored_from_tun][0] = IPPROTO_IP_ON_IP;
-        }
-        else {  // SIZE_PROTOCOL_FIELD == 2 
-          context->protocol[context->num_pkts_stored_from_tun][0] = 0;
-          context->protocol[context->num_pkts_stored_from_tun][1] = IPPROTO_IP_ON_IP;
-        }
+        context->protocol[context->num_pkts_stored_from_tun] = IPPROTO_IP_ON_IP;
       }
 
       else {
@@ -337,10 +309,8 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       //or they belong to different protocols (single_protocol = 0)
       single_protocol = 1;
       for (int k = 1; k < context->num_pkts_stored_from_tun ; k++) {
-        for (int l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-          if (context->protocol[k][l] != context->protocol[k-1][l])
-            single_protocol = 0;
-        }
+        if (context->protocol[k] != context->protocol[k-1])
+          single_protocol = 0;
       }              
     } 
     else {
@@ -424,7 +394,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       }
       else { 
         // fast flavor
-        context->size_muxed_packet = context->size_muxed_packet + (context->num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD);
+        context->size_muxed_packet = context->size_muxed_packet + context->num_pkts_stored_from_tun;
       }
 
       // build the multiplexed packet without the current one
@@ -440,16 +410,10 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
           // normal flavor
 
           if (single_protocol) {
-            if (SIZE_PROTOCOL_FIELD == 1)
-              do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
-            else
-              do_debug(2, "   All packets belong to the same protocol. Added 2 Protocol bytes in the first separator\n");
+            do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
           }
           else {
-            if (SIZE_PROTOCOL_FIELD == 1)
-              do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", context->num_pkts_stored_from_tun);
-            else
-              do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n", 2 * context->num_pkts_stored_from_tun);
+            do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", context->num_pkts_stored_from_tun);
           }                
         }
         else {
@@ -875,8 +839,8 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
           do_debug(2, ")");
 
           // third byte: protocol
-          FromByte(context->protocol[context->num_pkts_stored_from_tun][0], bits);
-          do_debug(2, ". Protocol: 0x%02x (", context->protocol[context->num_pkts_stored_from_tun][0]);
+          FromByte(context->protocol[context->num_pkts_stored_from_tun], bits);
+          do_debug(2, ". Protocol: 0x%02x (", context->protocol[context->num_pkts_stored_from_tun]);
           PrintByte(2, 8, bits);
           do_debug(2, ")\n");
         }
@@ -899,7 +863,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       // fast flavor
       #ifdef DEBUG
         do_debug(1, " Packet stopped and multiplexed: accumulated %i pkts: %i bytes (Separator(s) included).",
-          context->num_pkts_stored_from_tun , (context->size_muxed_packet) + (context->num_pkts_stored_from_tun * SIZE_PROTOCOL_FIELD));
+          context->num_pkts_stored_from_tun , (context->size_muxed_packet) + context->num_pkts_stored_from_tun);
       #endif
     }
    
@@ -923,10 +887,8 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         // calculate if all the packets belong to the same protocol
         single_protocol = 1;
         for (int k = 1; k < context->num_pkts_stored_from_tun ; k++) {
-          for (int l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-            if (context->protocol[k][l] != context->protocol[k-1][l])
-              single_protocol = 0;
-          }
+          if (context->protocol[k] != context->protocol[k-1])
+            single_protocol = 0;
         }
 
         // Add the Single Protocol Bit in the first header (the most significant bit)
@@ -934,17 +896,17 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         if (single_protocol == 1) {
           context->separators_to_multiplex[0][0] = context->separators_to_multiplex[0][0] + 128;  // this puts a 1 in the most significant bit position
           // one or two bytes corresponding to the 'protocol' field of the first header
-          (context->size_muxed_packet) = (context->size_muxed_packet) + SIZE_PROTOCOL_FIELD;
+          context->size_muxed_packet = context->size_muxed_packet + 1;
         }
         else {
           // add the size that corresponds to the Protocol field of all the separators
-          (context->size_muxed_packet) = (context->size_muxed_packet) + ( SIZE_PROTOCOL_FIELD * context->num_pkts_stored_from_tun);
+          context->size_muxed_packet = context->size_muxed_packet + context->num_pkts_stored_from_tun;
         }               
       }
       else {
         // fast flavor
         // add the size that corresponds to the Protocol field of all the separators
-        (context->size_muxed_packet) = (context->size_muxed_packet) + ( SIZE_PROTOCOL_FIELD * context->num_pkts_stored_from_tun);
+        context->size_muxed_packet = context->size_muxed_packet + context->num_pkts_stored_from_tun;
         #ifdef DEBUG
           do_debug(2, "   Fast mode. Added header: length (2 bytes) + protocol (1 byte) in each separator. Total %i bytes\n", 3 * context->num_pkts_stored_from_tun); 
         #endif           
@@ -962,23 +924,11 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
           if (time_difference > context->timeout)
             do_debug(1, "timeout reached\n");
 
-          if ( SIZE_PROTOCOL_FIELD == 1 ) {
-            if (single_protocol) {
-              do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", context->protocol[0][0]);
-            }
-            else {
-              do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", context->num_pkts_stored_from_tun);
-            }
+          if (single_protocol) {
+            do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte (0x%02x) in the first separator\n", context->protocol[0]);
           }
-
           else {
-            // SIZE_PROTOCOL_FIELD == 2
-            if (single_protocol) {
-              do_debug(2, "   All packets belong to the same protocol. Added 2 Protocol bytes (0x%02x%02x) in the first separator\n", context->protocol[0][0], context->protocol[0][1]);
-            }
-            else {
-              do_debug(2, "   Not all packets belong to the same protocol. Added 2 Protocol bytes in each separator. Total %i bytes\n", 2 * context->num_pkts_stored_from_tun);
-            }
+            do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", context->num_pkts_stored_from_tun);
           }
 
           switch(context->tunnelMode) {

@@ -82,9 +82,8 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
     // calculate if all the packets belong to the same protocol
     single_protocol = 1;
     for (int k = 1; k < context->num_pkts_stored_from_tun ; k++) {
-      for (int l = 0 ; l < SIZE_PROTOCOL_FIELD ; l++) {
-        if (context->protocol[k][l] != context->protocol[k-1][l]) single_protocol = 0;
-      }
+      if (context->protocol[k] != context->protocol[k-1])
+        single_protocol = 0;
     }
 
     // Add the Single Protocol Bit in the first header (the most significant bit)

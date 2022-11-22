@@ -29,7 +29,7 @@ void initContext(struct contextSimplemux* context)
   context->size_threshold = 0;
   context->user_mtu = 0;
   context->firstHeaderWritten = 0;
-  context->sizeSeparatorFastMode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
+  context->sizeSeparatorFastMode = 1 + SIZE_LENGTH_FIELD_FAST_MODE;
   context->pending_bytes_muxed_packet = 0;
   context->read_tcp_bytes = 0;
   context->read_tcp_bytes_separator = 0;
@@ -480,21 +480,8 @@ int checkCommandLineOptions(int argc, char *progname, struct contextSimplemux* c
     return 0;
   }
 
-  else if(context->flavor != 'N') {
-    if(SIZE_PROTOCOL_FIELD!=1) {
-      my_err("fast flavor (-f) and blast flavor (-b) only allow a protocol field of size 1. Please revise the value of 'SIZE_PROTOCOL_FIELD'\n");
-      usage(progname);
-      return 0;    
-    }
-  }
-
   // blast flavor is restricted
   else if(context->flavor == 'B') {
-    if(SIZE_PROTOCOL_FIELD!=1) {
-      my_err("blast flavor (-f) only allows a protocol field of size 1. Please revise the value of 'SIZE_PROTOCOL_FIELD'\n");
-      usage(progname);
-      return 0;   
-    }
     if((context->mode== TCP_SERVER_MODE) || (context->mode== TCP_CLIENT_MODE)){
       my_err("blast flavor (-b) is not allowed in TCP server ('-M tcpserver') and TCP client mode ('-M tcpclient')\n");
       usage(progname);

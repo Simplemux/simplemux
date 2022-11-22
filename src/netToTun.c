@@ -146,21 +146,10 @@ int readPacketFromNet(struct contextSimplemux* context,
         #endif
 
         // read the Protocol field
-        if ( SIZE_PROTOCOL_FIELD == 1 ) {
-          context->protocol_rec[0] = buffer_from_net[2];
-          #ifdef DEBUG
-            do_debug(2, ". Protocol %i (0x%02x)\n", context->protocol_rec[0], buffer_from_net[2]);
-          #endif
-        }
-        else {  // SIZE_PROTOCOL_FIELD == 2
-          context->protocol_rec[0] = buffer_from_net[2];
-          context->protocol_rec[1] = buffer_from_net[3];  // FIXME test this
-          //context->protocol_rec = (&buffer_from_net[2] << 8) + &buffer_from_net[3];
-          #ifdef DEBUG
-            do_debug(2, ". Protocol %i (0x%02x%02x)\n",
-              (uint16_t)context->protocol_rec[0], buffer_from_net[2], buffer_from_net[3]);
-          #endif
-        }
+        context->protocol_rec = buffer_from_net[2];
+        #ifdef DEBUG
+          do_debug(2, ". Protocol %i (0x%02x)\n", context->protocol_rec, buffer_from_net[2]);
+        #endif
 
         // read the packet itself (without the separator)
         // I only read the length of the packet
@@ -768,50 +757,25 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         // check if this is the first separator or not
         if (first_header_read == 0) {    // this is the first separator. The protocol field will always be present
           // the next thing I expect is a 'protocol' field
-          if ( SIZE_PROTOCOL_FIELD == 1 ) {
-            context->protocol_rec[0] = buffer_from_net[position];
-            #ifdef DEBUG
-              do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
-            #endif
-            position ++;
-          }
-          else {  // SIZE_PROTOCOL_FIELD == 2
-            //context->protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-            context->protocol_rec[0] = buffer_from_net[position];
-            context->protocol_rec[1] = buffer_from_net[position+1];
-            #ifdef DEBUG
-              do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
-            #endif
-            position = position + 2;
-          }
+          context->protocol_rec = buffer_from_net[position];
+          #ifdef DEBUG
+            do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+          #endif
+          position ++;
 
           // if I am here, it means that I have read the first separator
           first_header_read = 1;
-
         }
         else {      // non-first separator. The protocol field may or may not be present
           if ( single_protocol_rec == 0 ) {
             // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
-            if ( SIZE_PROTOCOL_FIELD == 1 ) {
-              context->protocol_rec[0] = buffer_from_net[position];
-              if(single_protocol_rec == 0) {
-                #ifdef DEBUG
-                  do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
-                #endif
-              }
-              position ++;
+            context->protocol_rec = buffer_from_net[position];
+            if(single_protocol_rec == 0) {
+              #ifdef DEBUG
+                do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+              #endif
             }
-            else {  // SIZE_PROTOCOL_FIELD == 2
-              //context->protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-              context->protocol_rec[0] = buffer_from_net[position];
-              context->protocol_rec[1] = buffer_from_net[position+1];
-              if(single_protocol_rec == 0) {
-                #ifdef DEBUG
-                  do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
-                #endif
-              }
-              position = position + 2;
-            }
+            position ++;
           }
         }
         #ifdef DEBUG
@@ -848,10 +812,10 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           #endif
 
           // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
-          context->protocol_rec[0] = fastHeader->protocolID;
+          context->protocol_rec = fastHeader->protocolID;
 
           #ifdef DEBUG
-            do_debug(1, "Protocol 0x%02x\n", context->protocol_rec[0]);
+            do_debug(1, "Protocol 0x%02x\n", context->protocol_rec);
           #endif
 
           // move 'position' to the end of the simplemuxFast header
@@ -898,7 +862,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         /************ decompress the packet if needed ***************/
 
         // if the number of the protocol is NOT 142 (ROHC) I do not decompress the packet
-        if ( context->protocol_rec[0] != IPPROTO_ROHC ) {
+        if ( context->protocol_rec != IPPROTO_ROHC ) {
           // non-compressed packet
             #ifdef DEBUG
             // dump the received packet on terminal
@@ -1164,7 +1128,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
         // write the demuxed (and perhaps decompressed) packet to the tun interface
         // if compression is used, check that ROHC has decompressed correctly
-        if ( ( context->protocol_rec[0] != IPPROTO_ROHC ) || ((context->protocol_rec[0] == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
+        if ( ( context->protocol_rec != IPPROTO_ROHC ) || ((context->protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
 
           // tun mode
           if(context->tunnelMode == TUN_MODE) {
@@ -1177,7 +1141,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           }
           // tap mode
           else if(context->tunnelMode == TAP_MODE) {
-            if (context->protocol_rec[0] != IPPROTO_ETHERNET) {
+            if (context->protocol_rec != IPPROTO_ETHERNET) {
               #ifdef DEBUG
                 do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", context->protocol_rec);
               #endif            
