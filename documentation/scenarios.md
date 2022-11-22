@@ -142,7 +142,7 @@ $ ip tuntap add dev tun0 mode tun user root
 Note: `$ openvpn --mktun --dev tun0 --user root` will also work.
 
 ```
-4 ip link set tun0 up
+$ ip link set tun0 up
 $ ip addr add 192.168.100.5/24 dev tun0
 ```
 
@@ -219,3 +219,88 @@ Show the table:
 ```
 iptables -t mangle –L
 ```
+
+# Scenario 3: Simplemux between two Virtual Machines in the same computer
+
+Run Simplemux between two VMs 192.168.129.129 and 192.168.129.134
+
+
+## tun mode
+
+To create a tun, run these commands as root
+(To test, you can add an IP address to `tun0`)
+
+```
+sudo ip tuntap add dev tun0 mode tun user root
+sudo ip link set tun0 up
+sudo ip addr add 192.168.100.1/24 dev tun0
+sudo route -nn
+```
+
+Do the same in the other machine, but using 192.168.100.2:
+
+```
+sudo ip tuntap add dev tun0 mode tun user root
+sudo ip link set tun0 up
+sudo ip addr add 192.168.100.2/24 dev tun0
+sudo route -nn
+```
+
+Run 'simplemux' in tun mode ('-T tun' option):
+```
+sudo ./simplemux -i tun0 -e ens33 -M udp -T tun -c 192.168.129.132 -d 2
+sudo ./simplemux -i tun0 -e ens33 -M udp -T tun -c 192.168.129.131 -d 2
+
+sudo ./simplemux -i tun0 -e ens33 -M network -T tun -c 192.168.129.132 -d 2
+sudo ./simplemux -i tun0 -e ens33 -M network -T tun -c 192.168.129.131 -d 2
+
+sudo ./simplemux -i tun0 -e ens33 -M tcpserver -f -T tun -c 192.168.129.132 -d 2
+sudo ./simplemux -i tun0 -e ens33 -M tcpclient -f -T tun -c 192.168.129.131 -d 2
+```
+
+Test
+```
+ping 192.168.100.2
+```
+If the ping works, it means it sends traffic to the other machine, so Simplemux is working.
+
+
+## tap mode
+
+Note: RoHC cannot be used in TAP mode (`-r 0` option).
+
+To create a tap, run these commands as root:
+
+```
+sudo ip tuntap add dev tap0 mode tap user root
+sudo ip link set tap0 up
+sudo ip addr add 192.168.200.1/24 dev tap0
+```
+
+Do the same in the other machine, but using `192.168.100.2`:
+```
+sudo ip tuntap add dev tap0 mode tap user root
+sudo ip link set tap0 up
+sudo ip addr add 192.168.200.2/24 dev tap0
+```
+
+
+Run 'simplemux' in tap mode ('-T A' option):
+```
+sudo ./simplemux -i tap0 -e ens33 -M udp -T tap -c 192.168.129.132 -d 2
+sudo ./simplemux -i tap0 -e ens33 -M udp -T tap -c 192.168.129.131 -d 2
+
+sudo ./simplemux -i tap0 -e ens33 -M network -T tap -c 192.168.129.132 -d 2
+sudo ./simplemux -i tap0 -e ens33 -M network -T tap -c 192.168.129.131 -d 2
+
+sudo ./simplemux -i tap0 -e ens33 -M tcpserver -f -T tap -c 192.168.129.132 -d 2
+sudo ./simplemux -i tap0 -e ens33 -M tcpclient -f -T tap -c 192.168.129.131 -d 2
+```
+
+Test
+```
+ping 192.168.100.2
+```
+If the ping works, it means it sends traffic to the other machine, so Simplemux is working.
+
+
