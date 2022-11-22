@@ -222,10 +222,10 @@ iptables -t mangle –L
 
 # Scenario 3: Simplemux between two Virtual Machines in the same computer
 
-Run Simplemux between two VMs 192.168.129.129 and 192.168.129.134
+Run Simplemux between two VMs with IP addresses `192.168.129.131` and `192.168.129.132`
 
 
-## tun mode
+## tun tunnel mode
 
 To create a tun, run these commands as root
 (To test, you can add an IP address to `tun0`)
@@ -237,7 +237,7 @@ sudo ip addr add 192.168.100.1/24 dev tun0
 sudo route -nn
 ```
 
-Do the same in the other machine, but using 192.168.100.2:
+Do the same in the other machine, but using `192.168.100.2`:
 
 ```
 sudo ip tuntap add dev tun0 mode tun user root
@@ -246,7 +246,7 @@ sudo ip addr add 192.168.100.2/24 dev tun0
 sudo route -nn
 ```
 
-Run 'simplemux' in tun mode ('-T tun' option):
+Run Simplemux in tun tunnel mode (`-T tun` option):
 ```
 sudo ./simplemux -i tun0 -e ens33 -M udp -T tun -c 192.168.129.132 -d 2
 sudo ./simplemux -i tun0 -e ens33 -M udp -T tun -c 192.168.129.131 -d 2
@@ -265,9 +265,9 @@ ping 192.168.100.2
 If the ping works, it means it sends traffic to the other machine, so Simplemux is working.
 
 
-## tap mode
+## tap tunnel mode
 
-Note: RoHC cannot be used in TAP mode (`-r 0` option).
+Note: RoHC cannot be used in tap tunnel mode (`-r 0` option).
 
 To create a tap, run these commands as root:
 
@@ -285,7 +285,7 @@ sudo ip addr add 192.168.200.2/24 dev tap0
 ```
 
 
-Run 'simplemux' in tap mode ('-T A' option):
+Run Simplemux in tap mode (`-T tap` option):
 ```
 sudo ./simplemux -i tap0 -e ens33 -M udp -T tap -c 192.168.129.132 -d 2
 sudo ./simplemux -i tap0 -e ens33 -M udp -T tap -c 192.168.129.131 -d 2
