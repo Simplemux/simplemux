@@ -1,57 +1,3 @@
-/**************************************************************************
- * simplemux.c            version 3.0                                     *
- *                                                                        *
- * Simplemux multiplexes a number of packets between a pair of machines   *
- * (called ingress and egress). It also sends ethernet frames.            *
- *                                                                        *
- * Simplemux is described here:                                           *
- *  http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/        *
- *                                                                        *
- * Multiplexing can be combined with Tunneling and Header Compression     *
- * for the optimization of small-packet flows. This is called TCM.        *
- * Different algorithms for header compression, multiplexing and          *
- * tunneling can be combined in a similar way to RFC 4170.                *
- *                                                                        *
- * This code runs a combination of three protocols:                       *
- *      - ROHC header compression (RFC 5225)                              *
- *      - Simplemux, which is used for multiplexing                       *
- *      - a tunneling protocol. In this implementation, the multiplexed   *
- *      bundle can be sent:                                               *
- *          - in an IPv4 packet with protocol 253 or 254 (network mode)   *
- *          - in an IPv4/UDP packet (transport mode). Port 55555 or 55557 *
- *          - in an IPv4/TCP packet (transport mode). Port 55555 or 55557 *
- *                                                                        *
- * IPv6 is not supported in this implementation                           *
- *                                                                        *
- * Jose Saldana (working at CIRCE Foundation), improved it in 2021-2022   *
- *                                                                        *
- * Jose Saldana (working at University of Zaragoza) wrote this program    *
- * in 2015, published under GNU GENERAL                                   *
- * PUBLIC LICENSE, Version 3, 29 June 2007                                *
- * Copyright (C) 2007 Free Software Foundation, Inc.                      *
- *                                                                        *
- * Thanks to Davide Brini for his simpletun.c program. (2010)             *
- * http://backreference.org/wp-content/uploads/2010/03/simpletun.tar.bz2  *
- *                                                                        *
- * This program uses an implementation of ROHC by Didier Barvaux          *
- * (https://rohc-lib.org/).                                               *
- *                                                                        *
- * This program has been written for research purposes, so if you find it *
- * useful, I would appreciate that you send a message sharing your        *
- * experiences, and your improvement suggestions.                         *
- *                                                                        *
- * DISCLAIMER AND WARNING: this is all work in progress. The code is      *
- * ugly, the algorithms are naive, error checking and input validation    *
- * are very basic, and of course there can be bugs. If that's not enough, *
- * the program has not been thoroughly tested, so it might even fail at   *
- * the few simple things it should be supposed to do right.               *
- * Needless to say, I take no responsibility whatsoever for what the      *
- * program might do. The program has been written mostly for research     *
- * purposes, and can be used in the hope that is useful, but everything   *
- * is to be taken "as is" and without any kind of warranty, implicit or   *
- * explicit. See the file LICENSE for further details.                    *
- *************************************************************************/ 
-
 #include "simplemux.h"
 
 int main(int argc, char *argv[]) {
@@ -62,29 +8,7 @@ int main(int argc, char *argv[]) {
   // set the initial values of some context variables
   initContext(&context);
 
-  int fd2read;
-  
-  const int on = 1;                   // needed when creating a socket
-
-  struct sockaddr_in TCPpair;
-
-  struct iphdr ipheader;              // Variable used to create an IP header when needed
-
-  socklen_t slen = sizeof(context.remote);              // size of the socket. The type is like an int, but adequate for the size of the socket
-  socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
-
-  uint8_t protocol_rec;                     // protocol field of the received muxed packet
-
-  uint16_t pending_bytes_muxed_packet = 0;  // number of bytes that still have to be read (TCP, fast flavor)
-  uint16_t read_tcp_bytes = 0;              // number of bytes of the content that have been read (TCP, fast flavor)
-  uint8_t read_tcp_bytes_separator = 0;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
-
-  uint64_t now_microsec;                    // current time
-
-  // fixed size of the separator in fast flavor
-  int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
-
-
+  const int on = 1;   // needed when creating a socket
 
   // read command line options
   char *progname;
@@ -101,7 +25,9 @@ int main(int argc, char *argv[]) {
     argv += optind;
     argc -= optind;
 
-    checkCommandLineOptions(argc, progname, &context);
+    int correctOptions = checkCommandLineOptions(argc, progname, &context);
+    if (correctOptions == 0)
+      exit(1);
 
     // open the log file
     if ( context.file_logging == 1 ) {
@@ -134,7 +60,7 @@ int main(int argc, char *argv[]) {
 
     // Initialize the sockets
     int correctSocket = 1;
-    correctSocket = socketRequest(&context, &ipheader, on);
+    correctSocket = socketRequest(&context, /*&ipheader,*/ on);
     if (correctSocket == 1) {
       my_err("Error creating the sockets\n");
       exit(1);
@@ -193,6 +119,7 @@ int main(int argc, char *argv[]) {
     if(context.flavor == 'B')
       initBlastFlavor(&context);
 
+    uint64_t now_microsec; // variable to store current timestamps
 
     /*****************************************/
     /************** Main loop ****************/
@@ -275,7 +202,7 @@ int main(int argc, char *argv[]) {
       // - the second argument is '3', i.e. the number of sockets NUMBER_OF_SOCKETS
       // - third argument: the timeout specifies the number of milliseconds that
       //   poll() should block waiting for a file descriptor to become ready.
-      fd2read = poll(fds_poll, NUMBER_OF_SOCKETS, milliseconds_left);
+      int fd2read = poll(fds_poll, NUMBER_OF_SOCKETS, milliseconds_left);
 
       /********************************/
       /**** Error in poll function ****/
@@ -304,6 +231,7 @@ int main(int argc, char *argv[]) {
         if ((fds_poll[2].revents & POLLIN) && (context.mode==TCP_SERVER_MODE) && (context.acceptingTcpConnections == true) ) {
 
           // accept the connection
+          struct sockaddr_in TCPpair;
           unsigned int len = sizeof(struct sockaddr);
           context.tcp_server_fd = accept(context.tcp_welcoming_fd, (struct sockaddr*)&TCPpair, &len);
           
@@ -351,15 +279,12 @@ int main(int argc, char *argv[]) {
 
           is_multiplexed_packet = readPacketFromNet(&context,
                                                     buffer_from_net,
-                                                    slen,
-                                                    ipheader,
-                                                    &protocol_rec,
+                                                    //protocol_rec,
                                                     &nread_from_net,
-                                                    &packet_length,
+                                                    &packet_length/*,
                                                     &pending_bytes_muxed_packet,
-                                                    size_separator_fast_mode,
                                                     &read_tcp_bytes_separator,
-                                                    &read_tcp_bytes );
+                                                    &read_tcp_bytes*/ );
     
           // now 'buffer_from_net' may contain a full packet or frame.
           // check if the packet is a multiplexed one
@@ -372,7 +297,7 @@ int main(int argc, char *argv[]) {
                                 nread_from_net,
                                 packet_length,
                                 buffer_from_net,
-                                &protocol_rec,
+                                //protocol_rec,
                                 &status );
           }
   
@@ -395,9 +320,9 @@ int main(int argc, char *argv[]) {
           }
         }
   
-        /****************************************************************************************************************************/    
-        /******* NET to tun. ROHC feedback packet from the remote decompressor to be delivered to the local compressor **************/
-        /****************************************************************************************************************************/
+        /****************************************************************************************************************/    
+        /******* ROHC feedback packet from the remote decompressor to be delivered to the local compressor **************/
+        /****************************************************************************************************************/
   
         /*** ROHC feedback data arrived at the network interface: read it in order to deliver it to the local compressor ***/
   
@@ -411,6 +336,7 @@ int main(int argc, char *argv[]) {
           uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
 
           // a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
+          socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
           nread_from_net = recvfrom ( context.feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(context.feedback_remote), &slen_feedback );
   
           if (nread_from_net == -1) perror ("recvfrom()");
@@ -504,9 +430,7 @@ int main(int argc, char *argv[]) {
           }
           else {
             // not in blast flavor
-            tunToNetNoBlastFlavor(&context,
-                                  &ipheader,
-                                  size_separator_fast_mode);
+            tunToNetNoBlastFlavor(&context);
           }
         }
       }  
@@ -532,8 +456,7 @@ int main(int argc, char *argv[]) {
           if ( context.num_pkts_stored_from_tun > 0 ) {
             // There are some packets stored
             // send them
-            periodExpiredNoblastFlavor (&context,
-                                        &ipheader );
+            periodExpiredNoblastFlavor (&context);
           }
           else {
             // No packet arrived
