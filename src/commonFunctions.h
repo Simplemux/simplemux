@@ -56,6 +56,15 @@
 #define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
 
+#define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program:
+                                // - one for tun/tap: 'context.tun_fd'
+                                // - one for connecting to the network. It may be
+                                //     - context.network_mode_fd
+                                //     - context.udp_mode_fd
+                                //     - context.tcp_welcoming_fd and later context.tcp_server_fd
+                                //     - context.tcp_client_fd
+                                // - one for feedback packets: 'context.feedback_fd'
+
 // this struct includes all the variables used in different places of the code
 // it is passed to the different functions
 struct contextSimplemux {
