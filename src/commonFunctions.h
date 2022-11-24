@@ -133,7 +133,7 @@ struct contextSimplemux {
   uint64_t timeout;             // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
                                 //previous sending), the sending is triggered. default 100 seconds
   uint64_t period;              // (microseconds). If the 'period' expires, a packet is sent
-  int limit_numpackets_tun;     // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
+  int limitNumpackets;     // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
   int size_threshold;           // if the number of bytes stored is higher than this, a muxed packet is sent
   int user_mtu;                 // the MTU specified by the user (it must be <= interface_mtu)
   int selected_mtu;             // the MTU that will be used in the program ('-m' option)

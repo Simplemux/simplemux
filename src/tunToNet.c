@@ -99,30 +99,30 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
     assert( (context->flavor == 'N') || (context->flavor == 'F') ) ;
   #endif
 
-  /* read the packet from context->tun_fd, store it in the array, and store its size */
+  // read the packet from context->tun_fd, store it in the array, and store its size
   context->size_packets_to_multiplex[context->num_pkts_stored_from_tun] = cread (context->tun_fd, context->packets_to_multiplex[context->num_pkts_stored_from_tun], BUFSIZE);
   uint16_t size = context->size_packets_to_multiplex[context->num_pkts_stored_from_tun];  
 
   #ifdef DEBUG
-  // print the native packet/frame received
-  if (debug>0) {
-    if (context->tunnelMode == TUN_MODE)
-      do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tun: %i bytes\n", context->tun2net, size);
-    else if (context->tunnelMode == TAP_MODE)
-      do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tap: %i bytes\n", context->tun2net, size);
+    // print the native packet/frame received
+    if (debug>0) {
+      if (context->tunnelMode == TUN_MODE)
+        do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tun: %i bytes\n", context->tun2net, size);
+      else if (context->tunnelMode == TAP_MODE)
+        do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tap: %i bytes\n", context->tun2net, size);
 
-    //do_debug(2, "   ");
-    // dump the newly-created IP packet on terminal
-    dump_packet ( context->size_packets_to_multiplex[context->num_pkts_stored_from_tun], context->packets_to_multiplex[context->num_pkts_stored_from_tun] );
-  }
+      //do_debug(2, "   ");
+      // dump the newly-created IP packet on terminal
+      dump_packet ( context->size_packets_to_multiplex[context->num_pkts_stored_from_tun], context->packets_to_multiplex[context->num_pkts_stored_from_tun] );
+    }
   #endif
 
   #ifdef LOGFILE
-  // write in the log file
-  if ( context->log_file != NULL ) {
-    fprintf (context->log_file, "%"PRIu64"\trec\tnative\t%i\t%"PRIu32"\n", GetTimeStamp(), size, context->tun2net);
-    fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-  }
+    // write in the log file
+    if ( context->log_file != NULL ) {
+      fprintf (context->log_file, "%"PRIu64"\trec\tnative\t%i\t%"PRIu32"\n", GetTimeStamp(), size, context->tun2net);
+      fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+    }
   #endif
 
   // check if this packet (plus the tunnel and simplemux headers ) is bigger than the MTU. Drop it in that case
@@ -879,7 +879,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
 
     // if the packet limit or the size threshold are reached, send all the stored packets to the network
     // do not worry about the MTU. if it is reached, a number of packets will be sent
-    if ((context->num_pkts_stored_from_tun == context->limit_numpackets_tun) || ((context->size_muxed_packet) > context->size_threshold) || (time_difference > context->timeout )) {
+    if ((context->num_pkts_stored_from_tun == context->limitNumpackets) || ((context->size_muxed_packet) > context->size_threshold) || (time_difference > context->timeout )) {
       // a multiplexed packet has to be sent
       if (context->flavor == 'N') {
         // normal flavor
@@ -918,7 +918,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         if (debug > 0) {
           do_debug(2, "\n");
           do_debug(1, "SENDING TRIGGERED: ");
-          if (context->num_pkts_stored_from_tun == context->limit_numpackets_tun)
+          if (context->num_pkts_stored_from_tun == context->limitNumpackets)
             do_debug(1, "num packet limit reached\n");
           if ((context->size_muxed_packet) > context->size_threshold)
             do_debug(1," size threshold reached\n");
@@ -1139,7 +1139,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
               fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i", GetTimeStamp(), (context->size_muxed_packet) + IPv4_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->num_pkts_stored_from_tun);
             break;
           }
-          if (context->num_pkts_stored_from_tun == context->limit_numpackets_tun)
+          if (context->num_pkts_stored_from_tun == context->limitNumpackets)
             fprintf(context->log_file, "\tnumpacket_limit");
           if ((context->size_muxed_packet) > context->size_threshold)
             fprintf(context->log_file, "\tsize_limit");
