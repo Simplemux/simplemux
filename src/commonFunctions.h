@@ -97,13 +97,13 @@ struct contextSimplemux {
   struct ifreq iface;
 
   // variables for storing the packets to multiplex
-  int num_pkts_stored_from_tun;                     // number of packets received and not sent from tun (stored)
+  int numPktsStoredFromTun;                     // number of packets received and not sent from tun (stored)
   uint8_t protocol[MAXPKTS];                        // protocol field of each packet (1 byte)
-  uint16_t size_separators_to_multiplex[MAXPKTS];   // stores the size of the Simplemux separator. It does not include the "Protocol" field
-  uint8_t separators_to_multiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
-  uint16_t size_packets_to_multiplex[MAXPKTS];      // stores the size of the received packet
-  uint8_t packets_to_multiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network 
-  int size_muxed_packet;                            // accumulated size of the multiplexed packet
+  uint16_t sizeSeparatorsToMultiplex[MAXPKTS];   // stores the size of the Simplemux separator. It does not include the "Protocol" field
+  uint8_t separatorsToMultiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
+  uint16_t sizePacketsToMultiplex[MAXPKTS];      // stores the size of the received packet
+  uint8_t packetsToMultiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network 
+  int sizeMuxedPacket;                            // accumulated size of the multiplexed packet
 
   uint16_t length_muxed_packet;                     // length of the next TCP packet
 
@@ -139,14 +139,14 @@ struct contextSimplemux {
   int file_logging;               // it is set to 1 if logging into a file is enabled
 
   // parameters that control the multiplexing
-  uint64_t timeout;             // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
-                                //previous sending), the sending is triggered. default 100 seconds
-  uint64_t period;              // (microseconds). If the 'period' expires, a packet is sent
-  int limitNumpackets;     // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
-  int size_threshold;           // if the number of bytes stored is higher than this, a muxed packet is sent
-  int user_mtu;                 // the MTU specified by the user (it must be <= interface_mtu)
-  int selected_mtu;             // the MTU that will be used in the program ('-m' option)
-  int sizeMax;                  // threshold for the packet size ('-b' option)
+  uint64_t timeout;           // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
+                              //previous sending), the sending is triggered. default 100 seconds
+  uint64_t period;            // (microseconds). If the 'period' expires, a packet is sent
+  int limitNumpackets;        // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
+  int sizeThreshold;          // if the number of bytes stored is higher than this, a muxed packet is sent
+  int userMtu;                // the MTU specified by the user (it must be <= interface_mtu)
+  int selectedMtu;            // the MTU that will be used in the program ('-m' option)
+  int sizeMax;                // threshold for the packet size ('-b' option)
 
   int firstHeaderWritten;       // it indicates if the first header has been written or not
 
@@ -158,9 +158,9 @@ struct contextSimplemux {
   uint8_t protocol_rec;                 // protocol field of the received muxed packet
                                         // this varialbe has to be here: in case of TCP, it may be
                                         //necessary to store the value of the protocol between packets
-  uint16_t pending_bytes_muxed_packet;  // number of bytes that still have to be read (TCP, fast flavor)
-  uint16_t read_tcp_bytes;              // number of bytes of the content that have been read (TCP, fast flavor)
-  uint8_t read_tcp_bytes_separator;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
+  uint16_t pendingBytesMuxedPacket;  // number of bytes that still have to be read (TCP, fast flavor)
+  uint16_t readTcpBytes;              // number of bytes of the content that have been read (TCP, fast flavor)
+  uint8_t readTcpSeparatorBytes;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 };
 
 #ifdef DEBUG

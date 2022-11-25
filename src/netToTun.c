@@ -10,12 +10,8 @@
  */
 int readPacketFromNet(struct contextSimplemux* context,
                       uint8_t* buffer_from_net,
-                      //uint8_t* protocol_rec,
                       int* nread_from_net,
-                      uint16_t* packet_length/*,
-                      //uint16_t* pending_bytes_muxed_packet,
-                      //uint8_t* read_tcp_bytes_separator,
-                      uint16_t* read_tcp_bytes*/ )
+                      uint16_t* packet_length )
 {
   int is_multiplexed_packet = -1;
   uint8_t buffer_from_net_aux[BUFSIZE];
@@ -86,7 +82,7 @@ int readPacketFromNet(struct contextSimplemux* context,
     
     // I only read one packet (at most) each time the program goes through this part
 
-    if (context->pending_bytes_muxed_packet == 0) {
+    if (context->pendingBytesMuxedPacket == 0) {
 
       // I have to start reading a new muxed packet: separator and payload
       #ifdef DEBUG
@@ -95,10 +91,10 @@ int readPacketFromNet(struct contextSimplemux* context,
 
       // read a separator (3 or 4 bytes), or a part of it
       if (context->mode  == TCP_SERVER_MODE) {
-        *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->sizeSeparatorFastMode - context->read_tcp_bytes_separator);
+        *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->sizeSeparatorFastMode - context->readTcpSeparatorBytes);
       }
       else {
-        *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->sizeSeparatorFastMode - context->read_tcp_bytes_separator);
+        *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->sizeSeparatorFastMode - context->readTcpSeparatorBytes);
       }
       #ifdef DEBUG
         do_debug(3, "[readPacketFromNet]  %i bytes of the separator read from the TCP socket", *nread_from_net);
@@ -113,20 +109,20 @@ int readPacketFromNet(struct contextSimplemux* context,
         is_multiplexed_packet = -1;
       }
 
-      else if (*nread_from_net < context->sizeSeparatorFastMode - context->read_tcp_bytes_separator) {
+      else if (*nread_from_net < context->sizeSeparatorFastMode - context->readTcpSeparatorBytes) {
         #ifdef DEBUG
           do_debug(3, "[readPacketFromNet] (part of the separator. Still %i bytes missing)\n",
-            context->sizeSeparatorFastMode - context->read_tcp_bytes_separator - *nread_from_net);
+            context->sizeSeparatorFastMode - context->readTcpSeparatorBytes - *nread_from_net);
         #endif
 
         // I have read part of the separator
-        context->read_tcp_bytes_separator = context->read_tcp_bytes_separator + *nread_from_net;
+        context->readTcpSeparatorBytes = context->readTcpSeparatorBytes + *nread_from_net;
 
         // I have not read a multiplexed packet yet
         is_multiplexed_packet = -1;
       }
 
-      else if(*nread_from_net == context->sizeSeparatorFastMode - context->read_tcp_bytes_separator) {
+      else if(*nread_from_net == context->sizeSeparatorFastMode - context->readTcpSeparatorBytes) {
         #ifdef DEBUG
           do_debug(3, "[readPacketFromNet] (the complete separator of %i bytes)\n",
             context->sizeSeparatorFastMode);
@@ -138,7 +134,7 @@ int readPacketFromNet(struct contextSimplemux* context,
         // the first byte is the Most Significant Byte of the length
         // the second byte is the Less Significant Byte of the length
         context->length_muxed_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
-        context->pending_bytes_muxed_packet = context->length_muxed_packet;
+        context->pendingBytesMuxedPacket = context->length_muxed_packet;
 
         #ifdef DEBUG
           do_debug(2, " Read separator: Length %i (0x%02x%02x)",
@@ -154,10 +150,10 @@ int readPacketFromNet(struct contextSimplemux* context,
         // read the packet itself (without the separator)
         // I only read the length of the packet
         if (context->mode  == TCP_SERVER_MODE) {
-          *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->pending_bytes_muxed_packet);
+          *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->pendingBytesMuxedPacket);
         }
         else {
-          *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->pending_bytes_muxed_packet);
+          *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->pendingBytesMuxedPacket);
         }
         #ifdef DEBUG
           do_debug(3, "[readPacketFromNet]  %i bytes of the muxed packet read from the TCP socket",
@@ -168,52 +164,52 @@ int readPacketFromNet(struct contextSimplemux* context,
           perror("[readPacketFromNet] read() error TCP server mode");
         }
 
-        else if (*nread_from_net < context->pending_bytes_muxed_packet) {
+        else if (*nread_from_net < context->pendingBytesMuxedPacket) {
           #ifdef DEBUG
             do_debug(3, "  (part of a muxed packet). Pending %i bytes\n",
-              context->pending_bytes_muxed_packet - *nread_from_net);
+              context->pendingBytesMuxedPacket - *nread_from_net);
           #endif
 
           // I have not read the whole packet
           // next time I will have to keep on reading
-          context->pending_bytes_muxed_packet = context->pending_bytes_muxed_packet - *nread_from_net;
-          context->read_tcp_bytes = context->read_tcp_bytes + *nread_from_net;
+          context->pendingBytesMuxedPacket = context->pendingBytesMuxedPacket - *nread_from_net;
+          context->readTcpBytes = context->readTcpBytes + *nread_from_net;
 
-          //do_debug(2,"Read %d bytes from the TCP socket. Total %d\n", *nread_from_net, context->read_tcp_bytes); 
+          //do_debug(2,"Read %d bytes from the TCP socket. Total %d\n", *nread_from_net, context->readTcpBytes); 
           // I have not finished reading a muxed packet
           is_multiplexed_packet = -1;
         }
-        else if (*nread_from_net == context->pending_bytes_muxed_packet) {
+        else if (*nread_from_net == context->pendingBytesMuxedPacket) {
           // I have read a complete packet
-          *packet_length = context->read_tcp_bytes + *nread_from_net;
+          *packet_length = context->readTcpBytes + *nread_from_net;
 
           #ifdef DEBUG
             do_debug(3, " (complete muxed packet of %i bytes)\n", packet_length);
           #endif
 
           // reset the variables
-          context->read_tcp_bytes_separator = 0;
-          context->pending_bytes_muxed_packet = 0;
-          context->read_tcp_bytes = 0;
+          context->readTcpSeparatorBytes = 0;
+          context->pendingBytesMuxedPacket = 0;
+          context->readTcpBytes = 0;
 
           // I have finished reading a muxed packet
           is_multiplexed_packet = 1;
         }
       }              
     }
-    else { // context->pending_bytes_muxed_packet > 0
+    else { // context->pendingBytesMuxedPacket > 0
       // I have to finish reading the TCP payload
-      // I try to read 'pending_bytes_muxed_packet' and to put them at position 'context->read_tcp_bytes'
+      // I try to read 'pendingBytesMuxedPacket' and to put them at position 'context->readTcpBytes'
       #ifdef DEBUG
         do_debug(3, "[readPacketFromNet] Reading TCP. %i TCP bytes pending of the previous payload\n",
-          context->pending_bytes_muxed_packet);
+          context->pendingBytesMuxedPacket);
       #endif
 
       if (context->mode  == TCP_SERVER_MODE) {
-        *nread_from_net = read(context->tcp_server_fd, &(buffer_from_net[(context->read_tcp_bytes)]), context->pending_bytes_muxed_packet);
+        *nread_from_net = read(context->tcp_server_fd, &(buffer_from_net[(context->readTcpBytes)]), context->pendingBytesMuxedPacket);
       }
       else {
-        *nread_from_net = read(context->tcp_client_fd, &(buffer_from_net[(context->read_tcp_bytes)]), context->pending_bytes_muxed_packet);
+        *nread_from_net = read(context->tcp_client_fd, &(buffer_from_net[(context->readTcpBytes)]), context->pendingBytesMuxedPacket);
       }
       #ifdef DEBUG
         do_debug(3, "[readPacketFromNet]  %i bytes read from the TCP socket ", *nread_from_net);
@@ -230,7 +226,7 @@ int readPacketFromNet(struct contextSimplemux* context,
         is_multiplexed_packet = -1;
       }
 
-      else if(*nread_from_net < context->pending_bytes_muxed_packet) {
+      else if(*nread_from_net < context->pendingBytesMuxedPacket) {
         #ifdef DEBUG
           do_debug(3, "[readPacketFromNet] (I have not yet read the whole muxed packet: pending %i bytes)\n",
             context->length_muxed_packet - *nread_from_net);
@@ -238,42 +234,42 @@ int readPacketFromNet(struct contextSimplemux* context,
 
         // I have not read the whole packet
         // next time I will have to keep on reading
-        context->pending_bytes_muxed_packet = context->length_muxed_packet - *nread_from_net;
-        context->read_tcp_bytes = context->read_tcp_bytes + *nread_from_net;
+        context->pendingBytesMuxedPacket = context->length_muxed_packet - *nread_from_net;
+        context->readTcpBytes = context->readTcpBytes + *nread_from_net;
 
         //#ifdef DEBUG
-        //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", *nread_from_net, context->read_tcp_bytes, context->pending_bytes_muxed_packet);
+        //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", *nread_from_net, context->readTcpBytes, context->pendingBytesMuxedPacket);
         //#endif
 
         // I have not finished to read the pending bytes of this packet
         is_multiplexed_packet = -1;
       }
-      else if(*nread_from_net == context->pending_bytes_muxed_packet) {
+      else if(*nread_from_net == context->pendingBytesMuxedPacket) {
         #ifdef DEBUG
           do_debug(3, "[readPacketFromNet]  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n",
             *nread_from_net, context->length_muxed_packet);
         #endif
 
         // I have read the pending bytes of this packet
-        context->pending_bytes_muxed_packet = 0;
-        //context->read_tcp_bytes = context->read_tcp_bytes + *nread_from_net;
+        context->pendingBytesMuxedPacket = 0;
+        //context->readTcpBytes = context->readTcpBytes + *nread_from_net;
 
-        *nread_from_net = context->read_tcp_bytes + *nread_from_net;
+        *nread_from_net = context->readTcpBytes + *nread_from_net;
 
         // reset the variables
-        context->read_tcp_bytes_separator = 0;
-        context->read_tcp_bytes = 0;
+        context->readTcpSeparatorBytes = 0;
+        context->readTcpBytes = 0;
         is_multiplexed_packet = 1;
       }
       
-      else /*if(*nread_from_net > context->pending_bytes_muxed_packet) */ {
+      else /*if(*nread_from_net > context->pendingBytesMuxedPacket) */ {
         #ifdef DEBUG
           do_debug(1, "ERROR: I have read all the pending bytes (%i) of this muxed packet, and some more. Abort\n",
-            context->pending_bytes_muxed_packet, *nread_from_net - context->pending_bytes_muxed_packet);
+            context->pendingBytesMuxedPacket, *nread_from_net - context->pendingBytesMuxedPacket);
         #endif
 
         // I have read the pending bytes of this packet, plus some more bytes
-        // it doesn't make sense, because I have only read 'context->pending_bytes_muxed_packet'
+        // it doesn't make sense, because I have only read 'context->pendingBytesMuxedPacket'
         return(-1);
       }              
     }

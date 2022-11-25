@@ -6,10 +6,10 @@
 // it takes all the variables where packets are stored, and predicts the size of a multiplexed packet including all of them
 // the variables are:
 //  - context->protocol[MAXPKTS]                        the protocol byte of each packet
-//  - context->size_separators_to_multiplex[MAXPKTS]     the size of each separator (1 or 2 bytes). Protocol byte not included
-//  - context->separators_to_multiplex[MAXPKTS][2]       the separators
-//  - context->size_packets_to_multiplex[MAXPKTS]        the size of each packet to be multiplexed
-//  - context->packets_to_multiplex[MAXPKTS][BUFSIZE]    the packet to be multiplexed
+//  - context->sizeSeparatorsToMultiplex[MAXPKTS]     the size of each separator (1 or 2 bytes). Protocol byte not included
+//  - context->separatorsToMultiplex[MAXPKTS][2]       the separators
+//  - context->sizePacketsToMultiplex[MAXPKTS]        the size of each packet to be multiplexed
+//  - context->packetsToMultiplex[MAXPKTS][BUFSIZE]    the packet to be multiplexed
 
 // the length of the multiplexed packet is returned by this function
 uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
@@ -26,7 +26,7 @@ uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
     // normal flavor
 
     // for each packet, read the protocol field (if present), the separator and the packet itself
-    for (int k = 0; k < context->num_pkts_stored_from_tun ; k++) {
+    for (int k = 0; k < context->numPktsStoredFromTun ; k++) {
 
       // count the 'Protocol' field if necessary
       if ( (k==0) || (single_prot == 0 ) ) {    // the protocol field is always present in the first separator (k=0), and maybe in the rest
@@ -34,22 +34,22 @@ uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
       }
     
       // count the separator
-      length = length + context->size_separators_to_multiplex[k];
+      length = length + context->sizeSeparatorsToMultiplex[k];
 
       // count the bytes of the packet itself
-      length = length + context->size_packets_to_multiplex[k];
+      length = length + context->sizePacketsToMultiplex[k];
     }    
   }
   else {
     // fast flavor
 
     // count the separator and the protocol field
-    length = length + (context->num_pkts_stored_from_tun * context->sizeSeparatorFastMode);
+    length = length + (context->numPktsStoredFromTun * context->sizeSeparatorFastMode);
 
     // for each packet, add the length of the packet itself
-    for (int k = 0; k < context->num_pkts_stored_from_tun ; k++) {
+    for (int k = 0; k < context->numPktsStoredFromTun ; k++) {
       // count the bytes of the packet itself
-      length = length + context->size_packets_to_multiplex[k];
+      length = length + context->sizePacketsToMultiplex[k];
     }       
   }
 
@@ -63,10 +63,10 @@ uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
 // it takes all the variables where packets are stored, and builds a multiplexed packet
 // the variables are:
 //  - context->protocol[MAXPKTS]                         the protocol byte of each packet
-//  - context->size_separators_to_multiplex[MAXPKTS]     the size of each separator (1 or 2 bytes). Protocol byte not included
-//  - context->separators_to_multiplex[MAXPKTS][2]       the separators
-//  - context->size_packets_to_multiplex[MAXPKTS]        the size of each packet to be multiplexed
-//  - context->packets_to_multiplex[MAXPKTS][BUFSIZE]    the packet to be multiplexed
+//  - context->sizeSeparatorsToMultiplex[MAXPKTS]     the size of each separator (1 or 2 bytes). Protocol byte not included
+//  - context->separatorsToMultiplex[MAXPKTS][2]       the separators
+//  - context->sizePacketsToMultiplex[MAXPKTS]        the size of each packet to be multiplexed
+//  - context->packetsToMultiplex[MAXPKTS][BUFSIZE]    the packet to be multiplexed
 
 // the multiplexed packet is stored in mux_packet[BUFSIZE]
 // the length of the multiplexed packet is returned by this function
@@ -77,7 +77,7 @@ uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
   int length = 0;
 
   // for each packet, write the protocol field (if required), the separator and the packet itself
-  for (int k = 0; k < context->num_pkts_stored_from_tun ; k++) {
+  for (int k = 0; k < context->numPktsStoredFromTun ; k++) {
 
     #ifdef DEBUG
       if (k == 0)
@@ -93,12 +93,12 @@ uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
       do_debug(2, "0x");
     #endif
 
-    for (int l = 0; l < context->size_separators_to_multiplex[k] ; l++) {
+    for (int l = 0; l < context->sizeSeparatorsToMultiplex[k] ; l++) {
       #ifdef DEBUG
-        do_debug(2, "%02x", context->separators_to_multiplex[k][l]);
+        do_debug(2, "%02x", context->separatorsToMultiplex[k][l]);
       #endif
 
-      mux_packet[length] = context->separators_to_multiplex[k][l];
+      mux_packet[length] = context->separatorsToMultiplex[k][l];
       length ++;
     }
 
@@ -124,8 +124,8 @@ uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
     }
     
     // add the bytes of the packet itself
-    for (int l = 0; l < context->size_packets_to_multiplex[k]; l++) {
-      mux_packet[length] = context->packets_to_multiplex[k][l];
+    for (int l = 0; l < context->sizePacketsToMultiplex[k]; l++) {
+      mux_packet[length] = context->packetsToMultiplex[k][l];
       length ++;
     }
   }

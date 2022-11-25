@@ -6,8 +6,8 @@ void initContext(struct contextSimplemux* context)
 {
   context->flavor = 'N';  // by default 'normal flavor' is selected
   context->rohcMode = 0;  // by default it is 0: ROHC is not used
-  context->num_pkts_stored_from_tun = 0; 
-  context->size_muxed_packet = 0;
+  context->numPktsStoredFromTun = 0; 
+  context->sizeMuxedPacket = 0;
   context->unconfirmedPacketsBlast = NULL;
   context->tun2net = 0;
   context->net2tun = 0; 
@@ -26,13 +26,13 @@ void initContext(struct contextSimplemux* context)
   context->timeout = MAXTIMEOUT;
   context->period= MAXTIMEOUT;
   context->limitNumpackets = 0;
-  context->size_threshold = 0;
-  context->user_mtu = 0;
+  context->sizeThreshold = 0;
+  context->userMtu = 0;
   context->firstHeaderWritten = 0;
   context->sizeSeparatorFastMode = 1 + SIZE_LENGTH_FIELD_FAST_MODE;
-  context->pending_bytes_muxed_packet = 0;
-  context->read_tcp_bytes = 0;
-  context->read_tcp_bytes_separator = 0;
+  context->pendingBytesMuxedPacket = 0;
+  context->readTcpBytes = 0;
+  context->readTcpSeparatorBytes = 0;
 }
 
 
@@ -173,10 +173,10 @@ void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
         context->limitNumpackets = atoi(optarg);
         break;
       case 'm':            /* MTU forced by the user */
-        context->user_mtu = atoi(optarg);
+        context->userMtu = atoi(optarg);
         break;
       case 'B':            /* size threshold (in bytes) for triggering a muxed packet */
-        context->size_threshold = atoi(optarg);
+        context->sizeThreshold = atoi(optarg);
         break;
       case 't':            /* timeout for triggering a muxed packet */
         context->timeout = atoll(optarg);
@@ -259,7 +259,7 @@ int checkCommandLineOptions(int argc, char *progname, struct contextSimplemux* c
       usage(progname);
       return 0;     
     }
-    if(context->size_threshold!=0) {
+    if(context->sizeThreshold!=0) {
       my_err("blast flavor (-b) is not compatible with size threshold (-B)\n");
       usage(progname);
       return 0;     
@@ -375,8 +375,8 @@ void initTunTapInterface(struct contextSimplemux* context)
 
 
 // it starts the context variables
-// - selected_mtu
-// - user_mtu
+// - selectedMtu
+// - userMtu
 // - sizeMax
 void initSizeMax(struct contextSimplemux* context)
 {
@@ -408,34 +408,34 @@ void initSizeMax(struct contextSimplemux* context)
   /*** check if the user has specified a bad MTU ***/
   #ifdef DEBUG
     do_debug (1, "Local interface MTU: %i\t ", interface_mtu);
-    if ( context->user_mtu > 0 ) {
-      do_debug (1, "User-selected MTU: %i\n", context->user_mtu);
+    if ( context->userMtu > 0 ) {
+      do_debug (1, "User-selected MTU: %i\n", context->userMtu);
     }
     else {
       do_debug (1, "\n");
     }
   #endif
 
-  if (context->user_mtu > interface_mtu) {
+  if (context->userMtu > interface_mtu) {
     perror ("Error: The MTU specified by the user is higher than the MTU of the interface\n");
     exit (1);
   }
   else {
 
     // if the user has specified a MTU, I use it instead of network MTU
-    if (context->user_mtu > 0) {
-      context->selected_mtu = context->user_mtu;
+    if (context->userMtu > 0) {
+      context->selectedMtu = context->userMtu;
 
     // otherwise, use the MTU of the local interface
     }
     else {
-      context->selected_mtu = interface_mtu;
+      context->selectedMtu = interface_mtu;
     }
   }
 
-  if (context->selected_mtu > BUFSIZE ) {
+  if (context->selectedMtu > BUFSIZE ) {
     #ifdef DEBUG
-      do_debug (1, "Selected MTU: %i\t Size of the buffer for packet storage: %i\n", context->selected_mtu, BUFSIZE);
+      do_debug (1, "Selected MTU: %i\t Size of the buffer for packet storage: %i\n", context->selectedMtu, BUFSIZE);
     #endif
     perror ("Error: The MTU selected is higher than the size of the buffer defined.\nCheck #define BUFSIZE at the beginning of this application\n");
     exit (1);
@@ -444,36 +444,36 @@ void initSizeMax(struct contextSimplemux* context)
   // define the maximum size threshold
   switch ( context->mode) {
     case NETWORK_MODE:
-      context->sizeMax = context->selected_mtu - IPv4_HEADER_SIZE ;
+      context->sizeMax = context->selectedMtu - IPv4_HEADER_SIZE ;
     break;
     
     case UDP_MODE:
-      context->sizeMax = context->selected_mtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
+      context->sizeMax = context->selectedMtu - IPv4_HEADER_SIZE - UDP_HEADER_SIZE ;
     break;
     
     case TCP_CLIENT_MODE:
-      context->sizeMax = context->selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
+      context->sizeMax = context->selectedMtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
     break;
     
     case TCP_SERVER_MODE:
-      context->sizeMax = context->selected_mtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
+      context->sizeMax = context->selectedMtu - IPv4_HEADER_SIZE - TCP_HEADER_SIZE;
     break;
   }
 
   // the size threshold has not been established by the user 
-  if (context->size_threshold == 0 ) {
-    context->size_threshold = context->sizeMax;
+  if (context->sizeThreshold == 0 ) {
+    context->sizeThreshold = context->sizeMax;
     #ifdef DEBUG
       //do_debug (1, "Size threshold established to the maximum: %i.", context->sizeMax);
     #endif
   }
 
   // the user has specified a too big size threshold
-  if (context->size_threshold > context->sizeMax ) {
+  if (context->sizeThreshold > context->sizeMax ) {
     #ifdef DEBUG
-      do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", context->size_threshold, context->sizeMax);
+      do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", context->sizeThreshold, context->sizeMax);
     #endif
-    context->size_threshold = context->sizeMax;
+    context->sizeThreshold = context->sizeMax;
   }
 }
 
@@ -498,16 +498,16 @@ void initTriggerParameters(struct contextSimplemux* context)
   // as soon as one of the conditions is accomplished, all the accumulated packets are sent
 
   // if no limit of the number of packets is set, then it is set to the maximum
-  if (( (context->size_threshold < context->sizeMax) || (context->timeout < MAXTIMEOUT) || (context->period < MAXTIMEOUT) ) && (context->limitNumpackets == 0))
+  if (( (context->sizeThreshold < context->sizeMax) || (context->timeout < MAXTIMEOUT) || (context->period < MAXTIMEOUT) ) && (context->limitNumpackets == 0))
     context->limitNumpackets = MAXPKTS;
 
   // if no option is set by the user, it is assumed that every packet will be sent immediately
-  if (( (context->size_threshold == context->sizeMax) && (context->timeout == MAXTIMEOUT) && (context->period == MAXTIMEOUT)) && (context->limitNumpackets == 0))
+  if (( (context->sizeThreshold == context->sizeMax) && (context->timeout == MAXTIMEOUT) && (context->period == MAXTIMEOUT)) && (context->limitNumpackets == 0))
     context->limitNumpackets = 1;
 
   #ifdef DEBUG
     do_debug (1, "Multiplexing policies: size threshold:%i. numpackets:%i. timeout:%"PRIu64"us. period:%"PRIu64"us\n",
-              context->size_threshold, context->limitNumpackets, context->timeout, context->period);
+              context->sizeThreshold, context->limitNumpackets, context->timeout, context->period);
   #endif
 }
 

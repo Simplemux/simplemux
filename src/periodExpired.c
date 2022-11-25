@@ -81,7 +81,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
 
     // calculate if all the packets belong to the same protocol
     single_protocol = 1;
-    for (int k = 1; k < context->num_pkts_stored_from_tun ; k++) {
+    for (int k = 1; k < context->numPktsStoredFromTun ; k++) {
       if (context->protocol[k] != context->protocol[k-1])
         single_protocol = 0;
     }
@@ -89,11 +89,11 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
     // Add the Single Protocol Bit in the first header (the most significant bit)
     // It is 1 if all the multiplexed packets belong to the same protocol
     if (single_protocol == 1) {
-      context->separators_to_multiplex[0][0] = context->separators_to_multiplex[0][0] + 0x80;  // this puts a '1' in the most significant bit position
-      (context->size_muxed_packet) = (context->size_muxed_packet) + 1;                // one byte corresponding to the 'protocol' field of the first header
+      context->separatorsToMultiplex[0][0] = context->separatorsToMultiplex[0][0] + 0x80;  // this puts a '1' in the most significant bit position
+      (context->sizeMuxedPacket) = (context->sizeMuxedPacket) + 1;                // one byte corresponding to the 'protocol' field of the first header
     }
     else {
-      (context->size_muxed_packet) = (context->size_muxed_packet) + context->num_pkts_stored_from_tun;    // one byte per packet, corresponding to the 'protocol' field
+      (context->sizeMuxedPacket) = (context->sizeMuxedPacket) + context->numPktsStoredFromTun;    // one byte per packet, corresponding to the 'protocol' field
     }
 
     #ifdef DEBUG
@@ -107,20 +107,20 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
           do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
         }
         else {
-          do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",context->num_pkts_stored_from_tun);
+          do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",context->numPktsStoredFromTun);
         }
         switch (context->mode) {
           case UDP_MODE:
             do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-            do_debug(1, " Writing %i packets to network: %i bytes\n", context->num_pkts_stored_from_tun, (context->size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
+            do_debug(1, " Writing %i packets to network: %i bytes\n", context->numPktsStoredFromTun, (context->sizeMuxedPacket) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
           break;
           case TCP_CLIENT_MODE:
             do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-            do_debug(1, " Writing %i packets to network: %i bytes\n", context->num_pkts_stored_from_tun, (context->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+            do_debug(1, " Writing %i packets to network: %i bytes\n", context->numPktsStoredFromTun, (context->sizeMuxedPacket) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
           break;
           case NETWORK_MODE:
             do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-            do_debug(1, " Writing %i packets to network: %i bytes\n", context->num_pkts_stored_from_tun, (context->size_muxed_packet) + IPv4_HEADER_SIZE );
+            do_debug(1, " Writing %i packets to network: %i bytes\n", context->numPktsStoredFromTun, (context->sizeMuxedPacket) + IPv4_HEADER_SIZE );
           break;
         }
       }
@@ -141,20 +141,20 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
       if (debug>0) {
         do_debug(2, "\n");
         do_debug(1, "SENDING TRIGGERED (Period expired). Time since last trigger: %" PRIu64 " usec\n", time_difference);
-        do_debug(2, "   Fast mode: Added 1 Protocol byte in each separator. Total %i bytes\n",context->num_pkts_stored_from_tun);
+        do_debug(2, "   Fast mode: Added 1 Protocol byte in each separator. Total %i bytes\n",context->numPktsStoredFromTun);
 
         switch (context->mode) {
           case UDP_MODE:
             do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-            do_debug(1, " Writing %i packets to network: %i bytes\n", context->num_pkts_stored_from_tun, sizeof(uint8_t) * context->num_pkts_stored_from_tun + (context->size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
+            do_debug(1, " Writing %i packets to network: %i bytes\n", context->numPktsStoredFromTun, sizeof(uint8_t) * context->numPktsStoredFromTun + (context->sizeMuxedPacket) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
           break;
           case TCP_CLIENT_MODE:
             do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-            do_debug(1, " Writing %i packets to network: %i bytes\n", context->num_pkts_stored_from_tun, sizeof(uint8_t) * context->num_pkts_stored_from_tun + (context->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+            do_debug(1, " Writing %i packets to network: %i bytes\n", context->numPktsStoredFromTun, sizeof(uint8_t) * context->numPktsStoredFromTun + (context->sizeMuxedPacket) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
           break;
           case NETWORK_MODE:
             do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-            do_debug(1, " Writing %i packets to network: %i bytes\n", context->num_pkts_stored_from_tun, sizeof(uint8_t) * context->num_pkts_stored_from_tun + (context->size_muxed_packet) + IPv4_HEADER_SIZE );
+            do_debug(1, " Writing %i packets to network: %i bytes\n", context->numPktsStoredFromTun, sizeof(uint8_t) * context->numPktsStoredFromTun + (context->sizeMuxedPacket) + IPv4_HEADER_SIZE );
           break;
         }
       }
@@ -188,7 +188,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
       }
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (context->size_muxed_packet) + IPv4_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->num_pkts_stored_from_tun);  
+        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (context->sizeMuxedPacket) + IPv4_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->numPktsStoredFromTun);  
       }
     break;
     
@@ -200,7 +200,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
       }
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (context->size_muxed_packet) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->num_pkts_stored_from_tun);  
+        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (context->sizeMuxedPacket) + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->numPktsStoredFromTun);  
       }
     break;
 
@@ -214,7 +214,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
       }
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (context->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->num_pkts_stored_from_tun);  
+        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (context->sizeMuxedPacket) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->numPktsStoredFromTun);  
       }
     break;
 
@@ -226,7 +226,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
       }
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (context->size_muxed_packet) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->num_pkts_stored_from_tun);  
+        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n", GetTimeStamp(), (context->sizeMuxedPacket) + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->numPktsStoredFromTun);  
       }
     break;
   }
@@ -235,6 +235,6 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
   context->firstHeaderWritten = 0;
 
   // reset the length and the number of packets
-  (context->size_muxed_packet) = 0 ;
-  context->num_pkts_stored_from_tun = 0;
+  (context->sizeMuxedPacket) = 0 ;
+  context->numPktsStoredFromTun = 0;
 }

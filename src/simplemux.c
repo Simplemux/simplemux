@@ -279,12 +279,8 @@ int main(int argc, char *argv[]) {
 
           is_multiplexed_packet = readPacketFromNet(&context,
                                                     buffer_from_net,
-                                                    //protocol_rec,
                                                     &nread_from_net,
-                                                    &packet_length/*,
-                                                    &pending_bytes_muxed_packet,
-                                                    &read_tcp_bytes_separator,
-                                                    &read_tcp_bytes*/ );
+                                                    &packet_length);
     
           // now 'buffer_from_net' may contain a full packet or frame.
           // check if the packet is a multiplexed one
@@ -297,7 +293,6 @@ int main(int argc, char *argv[]) {
                                 nread_from_net,
                                 packet_length,
                                 buffer_from_net,
-                                //protocol_rec,
                                 &status );
           }
   
@@ -453,7 +448,7 @@ int main(int argc, char *argv[]) {
         }
         else {
           // not in blast flavor
-          if ( context.num_pkts_stored_from_tun > 0 ) {
+          if ( context.numPktsStoredFromTun > 0 ) {
             // There are some packets stored
             // send them
             periodExpiredNoblastFlavor (&context);
