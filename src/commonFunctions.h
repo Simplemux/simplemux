@@ -6,7 +6,7 @@
 #define ASSERT 1  // if you comment this line, assertions are not allowed
 
 #ifdef ASSERT
-  #include <assert.h>           // for using assert()
+  #include <assert.h>     // for using assert()
 #endif
 
 #define BUFSIZE 2304
@@ -22,7 +22,7 @@
 
 // Protocol IDs, according to IANA
 // see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
-#define IPPROTO_IP_ON_IP 4          // IP on IP Protocol ID
+#define IPPROTO_IP_ON_IP 4        // IP on IP Protocol ID
 #define IPPROTO_ROHC 142          // ROHC Protocol ID
 #define IPPROTO_ETHERNET 143      // Ethernet Protocol ID
 
@@ -33,7 +33,7 @@
 #define PORT 55555              // default port
 #define PORT_FEEDBACK 55556     // port for sending ROHC feedback
 #define PORT_FAST 55557         // port for sending Simplemux fast
-#define PORT_BLAST 55558         // port for sending Simplemux fast
+#define PORT_BLAST 55558        // port for sending Simplemux fast
 
 #define DISABLE_NAGLE 1         // disable TCP Nagle algorithm
 #define QUICKACK 1              // enable TCP quick ACKs (non delayed)
@@ -53,8 +53,8 @@
 #define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
 
 #define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
-#define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
-#define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
+#define HEARTBEATPERIOD 1000000   // a heartbeat will be sent every second
+#define MAXTIMEOUT 100000000.0    // maximum value of the timeout (microseconds). (default 100 seconds)
 
 #define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program:
                                 // - one for tun/tap: 'context.tun_fd'
@@ -68,23 +68,23 @@
 // this struct includes all the variables used in different places of the code
 // it is passed to the different functions
 struct contextSimplemux {
-  char mode;        // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode
-  char tunnelMode;  // TUN (U, default) or TAP (T) tunnel mode
-  char flavor;      // Normal ('N'), Fast ('F'), Blast ('B')
+  char mode;        // Network ('N') or UDP ('U') or TCP server ('S') or TCP client ('T')
+  char tunnelMode;  // TUN ('U', default) or TAP ('T')
+  char flavor;      // Normal ('N', default), Fast ('F'), Blast ('B')
 
-  int rohcMode; // it is 0 if ROHC is not used
-                // it is 1 for ROHC Unidirectional mode (headers are to be compressed/decompressed)
-                // it is 2 for ROHC Bidirectional Optimistic mode
-                // it is 3 for ROHC Bidirectional Reliable mode (not implemented yet)
+  int rohcMode; // 0: ROHC is not used
+                // 1: ROHC Unidirectional mode (headers are to be compressed/decompressed)
+                // 2: ROHC Bidirectional Optimistic mode
+                // 3: ROHC Bidirectional Reliable mode (not implemented yet)
 
   // variables for managing the network interfaces
-  int tun_fd;                     // file descriptor of the tun interface(no mux packet)
-  int udp_mode_fd;                // file descriptor of the socket in UDP mode
-  int network_mode_fd;            // file descriptor of the socket in Network mode
-  int feedback_fd;                // file descriptor of the socket of the feedback received from the network interface
-  int tcp_welcoming_fd;           // file descriptor of the TCP welcoming socket
-  int tcp_client_fd;              // file descriptor of the TCP socket
-  int tcp_server_fd;
+  int tun_fd;             // file descriptor of the tun interface(no mux packet)
+  int udp_mode_fd;        // file descriptor of the socket in UDP mode
+  int network_mode_fd;    // file descriptor of the socket in Network mode
+  int feedback_fd;        // file descriptor of the socket of the feedback received from the network interface
+  int tcp_welcoming_fd;   // file descriptor of the TCP welcoming socket
+  int tcp_client_fd;      // file descriptor of the TCP client socket
+  int tcp_server_fd;      // file descriptor of the TCP server socket
 
   // structs for storing sockets
   struct sockaddr_in local;
@@ -98,14 +98,14 @@ struct contextSimplemux {
 
   // variables for storing the packets to multiplex
   int numPktsStoredFromTun;                     // number of packets received and not sent from tun (stored)
-  uint8_t protocol[MAXPKTS];                        // protocol field of each packet (1 byte)
-  uint16_t sizeSeparatorsToMultiplex[MAXPKTS];   // stores the size of the Simplemux separator. It does not include the "Protocol" field
-  uint8_t separatorsToMultiplex[MAXPKTS][3];      // stores the header ('protocol' not included) received from tun, before sending it to the network
-  uint16_t sizePacketsToMultiplex[MAXPKTS];      // stores the size of the received packet
-  uint8_t packetsToMultiplex[MAXPKTS][BUFSIZE];   // stores the packets received from tun, before storing it or sending it to the network 
-  int sizeMuxedPacket;                            // accumulated size of the multiplexed packet
+  uint8_t protocol[MAXPKTS];                    // protocol field of each packet (1 byte)
+  uint16_t sizeSeparatorsToMultiplex[MAXPKTS];  // size of each Simplemux separator ('protocol' not included)
+  uint8_t separatorsToMultiplex[MAXPKTS][3];    // Simplemux header ('protocol' not included), before sending it to the network
+  uint16_t sizePacketsToMultiplex[MAXPKTS];     // size of each packet to be multiplexed
+  uint8_t packetsToMultiplex[MAXPKTS][BUFSIZE]; // content of each packet to be multiplexed 
+  int sizeMuxedPacket;                          // accumulated size of the multiplexed packet
 
-  uint16_t length_muxed_packet;                     // length of the next TCP packet
+  uint16_t length_muxed_packet;                 // length of the next TCP packet
 
   uint64_t timeLastSent;          // timestamp (us) when the last multiplexed packet was sent
   uint64_t microsecondsLeft;      // the time (us) until the period expires 
@@ -134,37 +134,37 @@ struct contextSimplemux {
   char mux_if_name[IFNAMSIZ];    // name of the network interface (e.g. "eth0")
 
   // variables for the log file
-  char log_file_name[100];       // name of the log file  
+  char log_file_name[100];     // name of the log file  
   FILE *log_file;              // file descriptor of the log file
-  int file_logging;               // it is set to 1 if logging into a file is enabled
+  int file_logging;            // it is set to 1 if logging into a file is enabled
 
   // parameters that control the multiplexing
-  uint64_t timeout;           // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
-                              //previous sending), the sending is triggered. default 100 seconds
-  uint64_t period;            // (microseconds). If the 'period' expires, a packet is sent
-  int limitNumpackets;        // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
-  int sizeThreshold;          // if the number of bytes stored is higher than this, a muxed packet is sent
-  int userMtu;                // the MTU specified by the user (it must be <= interface_mtu)
-  int selectedMtu;            // the MTU that will be used in the program ('-m' option)
-  int sizeMax;                // threshold for the packet size ('-b' option)
+  uint64_t timeout;       // (microseconds) if a packet arrives and the 'timeout' has expired (time from the  
+                          //previous sending), the sending is triggered. default 100 seconds
+  uint64_t period;        // (microseconds). If the 'period' expires, a packet is sent
+  int limitNumpackets;    // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
+  int sizeThreshold;      // if the number of bytes stored is higher than this, a muxed packet is sent
+  int userMtu;            // the MTU specified by the user (it must be <= interface_mtu)
+  int selectedMtu;        // the MTU that will be used in the program ('-m' option)
+  int sizeMax;            // threshold for the packet size ('-b' option)
 
-  int firstHeaderWritten;       // it indicates if the first header has been written or not
+  int firstHeaderWritten; // it indicates if the first header has been written or not
 
   // fixed size of the separator in fast flavor
   // added to the context in order to make this calculation only once
   int sizeSeparatorFastMode;
 
   // variables needed for TCP mode
-  uint8_t protocol_rec;                 // protocol field of the received muxed packet
-                                        // this varialbe has to be here: in case of TCP, it may be
-                                        //necessary to store the value of the protocol between packets
-  uint16_t pendingBytesMuxedPacket;  // number of bytes that still have to be read (TCP, fast flavor)
+  uint8_t protocol_rec;               // protocol field of the received muxed packet
+                                      // this varialbe has to be here: in case of TCP, it may be
+                                      //necessary to store the value of the protocol between packets
+  uint16_t pendingBytesMuxedPacket;   // number of bytes that still have to be read (TCP, fast flavor)
   uint16_t readTcpBytes;              // number of bytes of the content that have been read (TCP, fast flavor)
-  uint8_t readTcpSeparatorBytes;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
+  uint8_t readTcpSeparatorBytes;      // number of bytes of the fast separator that have been read (TCP, fast flavor)
 };
 
 #ifdef DEBUG
-void do_debug(int level, char *msg, ...);
+  void do_debug(int level, char *msg, ...);
 #endif
 
 unsigned short in_cksum(unsigned short *addr, int len);

@@ -1,19 +1,11 @@
 #include "buildMuxedPacket.h"
 
-/**************************************************************************
- *       predict the size of the multiplexed packet                       *
- **************************************************************************/
-// it takes all the variables where packets are stored, and predicts the size of a multiplexed packet including all of them
-// the variables are:
-//  - context->protocol[MAXPKTS]                        the protocol byte of each packet
-//  - context->sizeSeparatorsToMultiplex[MAXPKTS]     the size of each separator (1 or 2 bytes). Protocol byte not included
-//  - context->separatorsToMultiplex[MAXPKTS][2]       the separators
-//  - context->sizePacketsToMultiplex[MAXPKTS]        the size of each packet to be multiplexed
-//  - context->packetsToMultiplex[MAXPKTS][BUFSIZE]    the packet to be multiplexed
-
-// the length of the multiplexed packet is returned by this function
-uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
-                                          int single_prot)
+// it takes all the variables where packets are stored, and predicts the
+//size of a multiplexed packet including all of them
+// 'single_prot': if all the packets belong to the same protocol
+// returns: the length of the multiplexed packet
+uint16_t predictSizeMultiplexedPacket ( struct contextSimplemux* context,
+                                        int single_prot)
 {
   // only used in normal or fast flavor
   #ifdef ASSERT
@@ -29,8 +21,9 @@ uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
     for (int k = 0; k < context->numPktsStoredFromTun ; k++) {
 
       // count the 'Protocol' field if necessary
-      if ( (k==0) || (single_prot == 0 ) ) {    // the protocol field is always present in the first separator (k=0), and maybe in the rest
-        length = length + 1;  // protocol field is 1 byte long
+      if ( ( k == 0 ) || ( single_prot == 0 ) ) {
+        // the protocol field is always present in the first separator (k=0), and maybe in the rest
+        length = length + 1;  // the protocol field is 1 byte long
       }
     
       // count the separator
@@ -43,7 +36,7 @@ uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
   else {
     // fast flavor
 
-    // count the separator and the protocol field
+    // the separator is always the same size: 'sizeSeparatorFastMode'
     length = length + (context->numPktsStoredFromTun * context->sizeSeparatorFastMode);
 
     // for each packet, add the length of the packet itself
@@ -57,26 +50,21 @@ uint16_t predict_size_multiplexed_packet (struct contextSimplemux* context,
 }
 
 
-/**************************************************************************
- *                   build the multiplexed packet                         *
- **************************************************************************/
-// it takes all the variables where packets are stored, and builds a multiplexed packet
-// the variables are:
-//  - context->protocol[MAXPKTS]                         the protocol byte of each packet
-//  - context->sizeSeparatorsToMultiplex[MAXPKTS]     the size of each separator (1 or 2 bytes). Protocol byte not included
-//  - context->separatorsToMultiplex[MAXPKTS][2]       the separators
-//  - context->sizePacketsToMultiplex[MAXPKTS]        the size of each packet to be multiplexed
-//  - context->packetsToMultiplex[MAXPKTS][BUFSIZE]    the packet to be multiplexed
 
-// the multiplexed packet is stored in mux_packet[BUFSIZE]
-// the length of the multiplexed packet is returned by this function
-uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
-                                    int single_prot,
-                                    uint8_t mux_packet[BUFSIZE])
+// it takes all the variables where packets are stored, and builds a multiplexed packet
+// 'single_prot': if all the packets belong to the same protocol
+// the multiplexed packet is stored in 'mux_packet'
+// returns: the length of the multiplexed packet
+uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
+                                  int single_prot,
+                                  uint8_t mux_packet[BUFSIZE])
 {
   int length = 0;
 
-  // for each packet, write the protocol field (if required), the separator and the packet itself
+  // for each packet, write
+  // - the protocol field (if required)
+  // - the separator
+  // - the packet itself
   for (int k = 0; k < context->numPktsStoredFromTun ; k++) {
 
     #ifdef DEBUG
@@ -102,9 +90,10 @@ uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
       length ++;
     }
 
-    if (context->flavor == 'N') {
+    if (context->flavor == 'N') { // normal flavor
       // add the 'Protocol' field if necessary
-      if ( (k==0) || (single_prot == 0 ) ) {    // the protocol field is always present in the first separator (k=0), and maybe in the rest
+      if ( (k==0) || (single_prot == 0 ) ) {
+        // the protocol field is always present in the first separator (k=0), and maybe in the rest
         mux_packet[length] = context->protocol[k];
         length ++;
 
@@ -113,8 +102,8 @@ uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
         #endif
       }      
     }
-    else {  // fast mode
-      // in fast mode, I always add the protocol
+    else {  // fast flavor
+      // in fast flavor, always add the protocol
       mux_packet[length] = context->protocol[k];
       length ++;
 
@@ -124,10 +113,8 @@ uint16_t build_multiplexed_packet ( struct contextSimplemux* context,
     }
     
     // add the bytes of the packet itself
-    for (int l = 0; l < context->sizePacketsToMultiplex[k]; l++) {
-      mux_packet[length] = context->packetsToMultiplex[k][l];
-      length ++;
-    }
+    memcpy(&mux_packet[length], context->packetsToMultiplex[k], context->sizePacketsToMultiplex[k]);
+    length = length + context->sizePacketsToMultiplex[k];
   }
   #ifdef DEBUG
     do_debug(2,"\n");

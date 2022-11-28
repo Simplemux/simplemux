@@ -131,7 +131,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
     // in Fast flavor the Protocol is sent in every separator
 
     // in this case, the value of 'single_protocol' is not relevant,
-    //but it is needed by 'build_multiplexed_packet()'
+    //but it is needed by 'buildMultiplexedPacket()'
     single_protocol = 1;
 
     #ifdef DEBUG
@@ -165,9 +165,9 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
   uint16_t total_length;          // total length of the built multiplexed packet
   uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
-  total_length = build_multiplexed_packet ( context,
-                                            single_protocol,
-                                            muxed_packet);
+  total_length = buildMultiplexedPacket ( context,
+                                          single_protocol,
+                                          muxed_packet);
 
   // send the multiplexed packet
   switch (context->mode) {

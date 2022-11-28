@@ -1,8 +1,10 @@
 #include "commonFunctions.h"
 
 // global variable
-int debug;            // 0:no debug; 1:minimum debug; 2:maximum debug 
-
+int debug;            // 0:no debug
+                      // 1:minimum debug level
+                      // 2:medimum debug level
+                      // 3:maximum debug level
 
 // variables related to ROHC compression
 struct rohc_comp *compressor;         // the ROHC compressor
@@ -12,7 +14,6 @@ uint8_t rohc_buffer[BUFSIZE];         // the buffer that will contain the result
 struct rohc_buf rohc_packet = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
 unsigned int seed;
 rohc_status_t status;
-
 struct rohc_decomp *decompressor;     // the ROHC decompressor
 uint8_t ip_buffer_d[BUFSIZE];         // the buffer that will contain the resulting IP decompressed packet
 struct rohc_buf ip_packet_d = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);

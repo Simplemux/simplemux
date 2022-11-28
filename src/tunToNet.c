@@ -324,8 +324,8 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
     // calculate the size without the present packet
     int predictedSizeMuxedPacket;        // size of the muxed packet if the arrived packet was added to it
 
-    predictedSizeMuxedPacket = predict_size_multiplexed_packet ( context,
-                                                                    single_protocol);
+    predictedSizeMuxedPacket = predictSizeMultiplexedPacket(context,
+                                                            single_protocol);
 
     // I add the length of the present packet:
 
@@ -402,9 +402,9 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       uint16_t total_length;          // total length of the built multiplexed packet
       uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
-      total_length = build_multiplexed_packet ( context,
-                                                single_protocol,
-                                                muxed_packet);
+      total_length = buildMultiplexedPacket ( context,
+                                              single_protocol,
+                                              muxed_packet);
 
       #ifdef DEBUG
         if (context->flavor == 'N') {
@@ -1004,9 +1004,9 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       uint16_t total_length;          // total length of the built multiplexed packet
       uint8_t muxed_packet[BUFSIZE];  // stores the multiplexed packet
 
-      total_length = build_multiplexed_packet ( context,
-                                                single_protocol,
-                                                muxed_packet);
+      total_length = buildMultiplexedPacket ( context,
+                                              single_protocol,
+                                              muxed_packet);
 
       // send the multiplexed packet
       switch (context->mode) {
