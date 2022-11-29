@@ -20,10 +20,12 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   // read the packet from context->tun_fd and add the data
   // use 'htons()' because these fields will be sent through the network
   thisPacket->header.packetSize = htons(cread (context->tun_fd, thisPacket->tunneledPacket, BUFSIZE));
-  thisPacket->header.identifier = htons((uint16_t)context->tun2net); // the ID is the 16 LSBs of 'tun2net'
+  // the ID is the 16 LSBs of 'tun2net' (it is an uint32_t)
+  thisPacket->header.identifier = htons((uint16_t)context->tun2net); 
 
   #ifdef DEBUG
-    do_debug(1, "NATIVE PACKET arrived from tun: ID %i, length %i bytes\n", ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
+    do_debug(1, "NATIVE PACKET arrived from tun: ID %i, length %i bytes\n",
+      ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
   #endif
 
   if (context->tunnelMode == TAP_MODE) {
@@ -40,7 +42,9 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   sendPacketBlastFlavor(context, thisPacket);
 
   #ifdef DEBUG
-    do_debug(1, " Sent blast packet to the network. ID %i, Length %i\n", ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
+    do_debug(1, " Sent blast packet to the network. ID %i, Length %i\n",
+      ntohs(thisPacket->header.identifier),
+      ntohs(thisPacket->header.packetSize));
   #endif
 
   /*
@@ -48,15 +52,28 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   switch (context->mode) {
     case UDP_MODE:        
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), context->numPktsStoredFromTun);
-        fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
+          GetTimeStamp(),
+          total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
+          context->tun2net,
+          inet_ntoa(context->remote.sin_addr),
+          ntohs(context->remote.sin_port),
+          context->numPktsStoredFromTun);
+        // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fflush(context->log_file);
       }
     break;
    
     case NETWORK_MODE:
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->numPktsStoredFromTun);
-        fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n",
+          GetTimeStamp(),
+          total_length + IPv4_HEADER_SIZE,
+          context->tun2net,
+          inet_ntoa(context->remote.sin_addr),
+          context->numPktsStoredFromTun);
+        // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fflush(context->log_file);
       }
     break;
   }*/
@@ -77,12 +94,14 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
       #endif
     }              
     #ifdef DEBUG
-      do_debug(2, "%"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n", now, now - context->lastBlastHeartBeatReceived, length(&context->unconfirmedPacketsBlast));
+      do_debug(2, "%"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n",
+        now, now - context->lastBlastHeartBeatReceived, length(&context->unconfirmedPacketsBlast));
     #endif
   }
   else {
     #ifdef DEBUG
-      do_debug(2, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n", thisPacket->sentTimestamp, length(&context->unconfirmedPacketsBlast));
+      do_debug(2, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n",
+        thisPacket->sentTimestamp, length(&context->unconfirmedPacketsBlast));
       if(debug > 1)
         dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );
     #endif            
@@ -100,7 +119,10 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
   #endif
 
   // read the packet from context->tun_fd, store it in the array, and store its size
-  context->sizePacketsToMultiplex[context->numPktsStoredFromTun] = cread (context->tun_fd, context->packetsToMultiplex[context->numPktsStoredFromTun], BUFSIZE);
+  context->sizePacketsToMultiplex[context->numPktsStoredFromTun] = cread (context->tun_fd,
+                                                                          context->packetsToMultiplex[context->numPktsStoredFromTun],
+                                                                          BUFSIZE);
+
   uint16_t size = context->sizePacketsToMultiplex[context->numPktsStoredFromTun];  
 
   #ifdef DEBUG
@@ -112,8 +134,10 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         do_debug(1, "NATIVE PACKET #%"PRIu32": Read packet from tap: %i bytes\n", context->tun2net, size);
 
       //do_debug(2, "   ");
+
       // dump the newly-created IP packet on terminal
-      dump_packet ( context->sizePacketsToMultiplex[context->numPktsStoredFromTun], context->packetsToMultiplex[context->numPktsStoredFromTun] );
+      dump_packet ( context->sizePacketsToMultiplex[context->numPktsStoredFromTun],
+                    context->packetsToMultiplex[context->numPktsStoredFromTun] );
     }
   #endif
 
@@ -121,44 +145,62 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
     // write in the log file
     if ( context->log_file != NULL ) {
       fprintf (context->log_file, "%"PRIu64"\trec\tnative\t%i\t%"PRIu32"\n", GetTimeStamp(), size, context->tun2net);
-      fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+      // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+      fflush(context->log_file);
     }
   #endif
 
   // check if this packet (plus the tunnel and simplemux headers ) is bigger than the MTU. Drop it in that case
-  bool drop_packet = false;
-  if (context->mode == UDP_MODE) {
+  bool dropPacket = false;
 
+  // UDP mode
+  if (context->mode == UDP_MODE) {
     if ( size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3 > context->selectedMtu ) {
-      drop_packet = true;
+      dropPacket = true;
       #ifdef DEBUG
-        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, context->selectedMtu);
+        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n",
+          size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, context->selectedMtu);
       #endif
 
       #ifdef LOGFILE
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, context->tun2net, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
-        fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fprintf (context->log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n",
+          GetTimeStamp(),
+          size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3,
+          context->tun2net,
+          inet_ntoa(context->remote.sin_addr),
+          ntohs(context->remote.sin_port));
+
+        // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fflush(context->log_file);
       }
       #endif
     }
   }
   
-  // TCP client mode or TCP server mode
+  // TCP client or TCP server mode
   else if ((context->mode == TCP_CLIENT_MODE) || (context->mode == TCP_SERVER_MODE)) {          
     if ( size + IPv4_HEADER_SIZE + TCP_HEADER_SIZE + 3 > context->selectedMtu ) {
-      drop_packet = true;
+      dropPacket = true;
 
       #ifdef DEBUG
-        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, context->selectedMtu);
+        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n",
+          size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, context->selectedMtu);
       #endif
 
       #ifdef LOGFILE
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3, context->tun2net, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port));
-        fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fprintf (context->log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n",
+          GetTimeStamp(),
+          size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3,
+          context->tun2net,
+          inet_ntoa(context->remote.sin_addr),
+          ntohs(context->remote.sin_port));
+
+        // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fflush(context->log_file);
       }
       #endif
     }
@@ -167,27 +209,36 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
   // network mode
   else {
     if ( size + IPv4_HEADER_SIZE + 3 > context->selectedMtu ) {
-      drop_packet = true;
+      dropPacket = true;
 
       #ifdef DEBUG
-        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n", size + IPv4_HEADER_SIZE + 3, context->selectedMtu);
+        do_debug(1, " Warning: Packet dropped (too long). Size when tunneled %i. Selected MTU %i\n",
+          size + IPv4_HEADER_SIZE + 3, context->selectedMtu);
       #endif
 
       #ifdef LOGFILE
       // write the log file
       if ( context->log_file != NULL ) {
         // FIXME: remove 'nun_packets_stored_from_tun' from the expression
-        fprintf (context->log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\n", GetTimeStamp(), size + IPv4_HEADER_SIZE + 3, context->tun2net, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), context->numPktsStoredFromTun);
-        fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fprintf (context->log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\n",
+          GetTimeStamp(),
+          size + IPv4_HEADER_SIZE + 3,
+          context->tun2net,
+          inet_ntoa(context->remote.sin_addr),
+          ntohs(context->remote.sin_port),
+          context->numPktsStoredFromTun);
+
+        // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fflush(context->log_file);
       }
       #endif
     }
   }
 
   // the length of the packet is adequate
-  if ( drop_packet == false ) {
+  if ( dropPacket == false ) {
 
-    /******************** compress the headers if the ROHC option has been set ****************/
+    // compress the headers if the ROHC option has been set
     if ( context->rohcMode > 0 ) {
       // header compression has been selected by the user
 
@@ -222,23 +273,23 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         // (IANA protocol numbers, http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml)
         context->protocol[context->numPktsStoredFromTun] = IPPROTO_ROHC;
 
-        // Copy the compressed length and the compressed packet over the packet read from tun
+        // copy the compressed length
         context->sizePacketsToMultiplex[context->numPktsStoredFromTun] = rohc_packet.len;
+
+        // copy the compressed packet itself
         for (uint16_t l = 0; l < context->sizePacketsToMultiplex[context->numPktsStoredFromTun] ; l++) {
           context->packetsToMultiplex[context->numPktsStoredFromTun][l] = rohc_buf_byte_at(rohc_packet, l);
         }
-        // I try to use memcpy instead, but it does not work properly
-        // memcpy(context->packetsToMultiplex[context->numPktsStoredFromTun], rohc_buf_byte_at(rohc_packet, 0), context->sizePacketsToMultiplex[context->numPktsStoredFromTun]);
 
         #ifdef DEBUG
-        // dump the ROHC packet on terminal
-        if (debug >= 1 ) {
-          do_debug(1, " ROHC-compressed to %i bytes\n", rohc_packet.len);
-        }
-        if (debug == 2) {
-          //do_debug(2, "   ");
-          dump_packet ( rohc_packet.len, rohc_packet.data );
-        }
+          // dump the ROHC packet on terminal
+          if (debug >= 1 ) {
+            do_debug(1, " ROHC-compressed to %i bytes\n", rohc_packet.len);
+          }
+          if (debug == 2) {
+            //do_debug(2, "   ");
+            dump_packet ( rohc_packet.len, rohc_packet.data );
+          }
         #endif
 
       }
@@ -257,8 +308,11 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
 
         // print in the log file
         if ( context->log_file != NULL ) {
-          fprintf (context->log_file, "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%"PRIu32"\\n", GetTimeStamp(), size, context->tun2net);
-          fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+          fprintf (context->log_file, "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%"PRIu32"\\n",
+            GetTimeStamp(), size, context->tun2net);
+
+          // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+          fflush(context->log_file);
         }
 
         #ifdef DEBUG
@@ -356,8 +410,8 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       // fast flavor
       // the header is always fixed: the size of the length field + the size of the protocol field 
       predictedSizeMuxedPacket = predictedSizeMuxedPacket +
-                                    context->sizeSeparatorFastMode +
-                                    context->sizePacketsToMultiplex[context->numPktsStoredFromTun];
+                                 context->sizeSeparatorFastMode +
+                                 context->sizePacketsToMultiplex[context->numPktsStoredFromTun];
     }
 
 
@@ -371,11 +425,17 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         do_debug(2, "\n");
         switch (context->mode) {
           case UDP_MODE:
-            do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predictedSizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
+            do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n",
+              predictedSizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
+
           case TCP_CLIENT_MODE:
-            do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predictedSizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE );
+            do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n",
+              predictedSizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE );
+
           case NETWORK_MODE:
-            do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n", predictedSizeMuxedPacket + IPv4_HEADER_SIZE );
+            do_debug(1, "SENDING TRIGGERED: MTU size reached. Predicted size: %i bytes (over MTU)\n",
+              predictedSizeMuxedPacket + IPv4_HEADER_SIZE );
+
           break;
         }
       #endif
@@ -386,11 +446,15 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         // add the Single Protocol Bit in the first header (the most significant bit)
         // it is '1' if all the multiplexed packets belong to the same protocol
         if (single_protocol == 1) {
-          context->separatorsToMultiplex[0][0] = context->separatorsToMultiplex[0][0] + 0x80;  // this puts a 1 in the most significant bit position
-          context->sizeMuxedPacket = context->sizeMuxedPacket + 1;                // one byte corresponding to the 'protocol' field of the first header
+          // this puts a '1' in the most significant bit position
+          context->separatorsToMultiplex[0][0] = context->separatorsToMultiplex[0][0] + 0x80;
+
+          // one byte corresponding to the 'protocol' field of the first header
+          context->sizeMuxedPacket = context->sizeMuxedPacket + 1;
         }
         else {
-          context->sizeMuxedPacket = context->sizeMuxedPacket + context->numPktsStoredFromTun;    // one byte per packet, corresponding to the 'protocol' field
+          // one byte per packet, corresponding to the 'protocol' field
+          context->sizeMuxedPacket = context->sizeMuxedPacket + context->numPktsStoredFromTun;
         }
       }
       else { 
@@ -414,37 +478,42 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
             do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
           }
           else {
-            do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n", context->numPktsStoredFromTun);
+            do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",
+              context->numPktsStoredFromTun);
           }                
         }
         else {
           // fast flavor
-          do_debug(2, "   Fast mode. Added 1 Protocol byte to each separator. Total %i bytes", context->numPktsStoredFromTun);
+          do_debug(2, "   Fast mode. Added 1 Protocol byte to each separator. Total %i bytes",
+            context->numPktsStoredFromTun);
         }
         
-
         switch(context->tunnelMode) {
           case TUN_MODE:
             switch (context->mode) {
               case UDP_MODE:
-                do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a UDP muxed packet without this one: %i bytes\n", context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+                do_debug(2, "   Added tunneling header: %i bytes\n",
+                  IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+                do_debug(1, " Sending to the network a UDP muxed packet without this one: %i bytes\n",
+                  context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               break;
+
               case TCP_CLIENT_MODE:
-                //do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
                 do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-                //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n", context->numPktsStoredFromTun, context->sizeMuxedPacket);
+                do_debug(1, " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n",
+                  context->numPktsStoredFromTun, context->sizeMuxedPacket);
               break;
+
               case TCP_SERVER_MODE:
-                //#ifdef DEBUGdo_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
                 do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-                //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n", context->numPktsStoredFromTun, context->sizeMuxedPacket);
+                do_debug(1, " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n",
+                  context->numPktsStoredFromTun, context->sizeMuxedPacket);
               break;
+
               case NETWORK_MODE:
                 do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-                do_debug(1, " Sending to the network an IP muxed packet without this one: %i bytes\n", context->sizeMuxedPacket + IPv4_HEADER_SIZE );
+                do_debug(1, " Sending to the network an IP muxed packet without this one: %i bytes\n",
+                  context->sizeMuxedPacket + IPv4_HEADER_SIZE );
               break;
             }
           break;
@@ -453,23 +522,26 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
             switch (context->mode) {
               case UDP_MODE:
                 do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a UDP packet without this Eth frame: %i bytes\n", context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+                do_debug(1, " Sending to the network a UDP packet without this Eth frame: %i bytes\n",
+                  context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               break;
+
               case TCP_CLIENT_MODE:
-                //#ifdef DEBUGdo_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
                 do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-                //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n", context->numPktsStoredFromTun, context->sizeMuxedPacket);
+                do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n",
+                  context->numPktsStoredFromTun, context->sizeMuxedPacket);
               break;
+
               case TCP_SERVER_MODE:
-                //#ifdef DEBUGdo_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
                 do_debug(2, "   Added tunneling header: IPv4 + TCP\n");
-                //do_debug(1, " Sending to the network a TCP muxed packet without this one: %i bytes\n", context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-                do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n", context->numPktsStoredFromTun, context->sizeMuxedPacket);
+                do_debug(1, " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n",
+                  context->numPktsStoredFromTun, context->sizeMuxedPacket);
               break;
+
               case NETWORK_MODE:
                 do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-                do_debug(1, " Sending to the network an IP packet without this Eth frame: %i bytes\n", context->sizeMuxedPacket + IPv4_HEADER_SIZE );
+                do_debug(1, " Sending to the network an IP packet without this Eth frame: %i bytes\n",
+                  context->sizeMuxedPacket + IPv4_HEADER_SIZE );
               break;
             }
           break;
@@ -480,7 +552,8 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       switch (context->mode) {
         case UDP_MODE:
           // send the packet
-          if (sendto(context->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&(context->remote), sizeof(context->remote))==-1) {
+          if (sendto(context->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&(context->remote), sizeof(context->remote)) == -1)
+          {
             perror("sendto() in UDP mode failed");
             exit (EXIT_FAILURE);
           }
@@ -488,8 +561,16 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
           #ifdef LOGFILE
           // write in the log file
           if ( context->log_file != NULL ) {
-            fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), context->numPktsStoredFromTun);
-            fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+            fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
+              GetTimeStamp(),
+              total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
+              context->tun2net,
+              inet_ntoa(context->remote.sin_addr),
+              ntohs(context->remote.sin_port),
+              context->numPktsStoredFromTun);
+
+            // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+            fflush(context->log_file);
           }
           #endif
         break;
@@ -504,8 +585,16 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
           #ifdef LOGFILE
           // write in the log file
           if ( context->log_file != NULL ) {
-            fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), context->numPktsStoredFromTun);
-            fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+            fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
+              GetTimeStamp(),
+              total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
+              context->tun2net,
+              inet_ntoa(context->remote.sin_addr),
+              ntohs(context->remote.sin_port),
+              context->numPktsStoredFromTun);
+
+            // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+            fflush(context->log_file);
           }
           #endif
         break;
@@ -518,7 +607,6 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
           }
           else {
             // send the packet
-            //if (sendto(tcp_welcoming_fd, muxed_packet, total_length, 0, (struct sockaddr *)&(context->remote), sizeof(context->remote))==-1) {
             if (write(context->tcp_server_fd, muxed_packet, total_length)==-1) {
               perror("write() in TCP server mode failed");
               exit (EXIT_FAILURE);
@@ -527,8 +615,15 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
             #ifdef LOGFILE
             // write in the log file
             if ( context->log_file != NULL ) {
-              fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), context->numPktsStoredFromTun);
-              fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+              fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
+                GetTimeStamp(),
+                total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
+                context->tun2net,
+                inet_ntoa(context->remote.sin_addr),
+                ntohs(context->remote.sin_port), context->numPktsStoredFromTun);
+
+              // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+              fflush(context->log_file);
             }
             #endif           
           }
@@ -544,7 +639,13 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
           BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
 
           // send the packet
-          if (sendto (context->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&(context->remote), sizeof (struct sockaddr)) < 0)  {
+          if (sendto (context->network_mode_fd,
+                      full_ip_packet,
+                      total_length + sizeof(struct iphdr),
+                      0,
+                      (struct sockaddr *)&(context->remote),
+                      sizeof (struct sockaddr)) < 0 )
+          {
             perror ("sendto() in Network mode failed");
             exit (EXIT_FAILURE);
           }
@@ -552,8 +653,15 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
           #ifdef LOGFILE
           // write in the log file
           if ( context->log_file != NULL ) {
-            fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE, context->tun2net, inet_ntoa(context->remote.sin_addr), context->numPktsStoredFromTun);
-            fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+            fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n",
+              GetTimeStamp(),
+              total_length + IPv4_HEADER_SIZE,
+              context->tun2net,
+              inet_ntoa(context->remote.sin_addr),
+              context->numPktsStoredFromTun);
+
+            // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+            fflush(context->log_file);
           }
           #endif
         break;
@@ -626,7 +734,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
 
         // the length can be written in the first byte of the separator
         // it can be expressed in 
-        //  - 6 bits for the first separator
+        // - 6 bits for the first separator
         // - 7 bits for non-first separators
         context->sizeSeparatorsToMultiplex[context->numPktsStoredFromTun] = 1;
 
@@ -645,8 +753,9 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
             // convert the byte to bits
             bool bits[8];   // used for printing the bits of a byte in debug mode
             FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][0], bits);
-            do_debug(2, " Mux separator of 1 byte (plus Protocol): 0x%02x (", context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
-            //do_debug(2, " Mux separator of 1 byte (plus Protocol): ");
+            do_debug(2, " Mux separator of 1 byte (plus Protocol): 0x%02x (",
+              context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
+
             if (context->firstHeaderWritten == 0) {
               PrintByte(2, 7, bits);      // first header
               do_debug(2, ", SPB field not included)\n");
@@ -677,11 +786,18 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         if (context->firstHeaderWritten == 0) {
           // add 64 (0100 0000) to the header, i.e., set the value of LXT to '1' (7th bit)
           context->separatorsToMultiplex[context->numPktsStoredFromTun][0] = (context->sizePacketsToMultiplex[context->numPktsStoredFromTun] / 128 ) + 64;  // first header
+
+          // using bitwise OR operand ('|'), set the 7th bit to 1
+          //context->separatorsToMultiplex[context->numPktsStoredFromTun][0] = context->separatorsToMultiplex[context->numPktsStoredFromTun][0] | 1 << 6;
         }
         // non-first header
         else {
           // add 128 (1000 0000) to the header, i.e., set the value of LXT to '1' (8th bit)
           context->separatorsToMultiplex[context->numPktsStoredFromTun][0] = (context->sizePacketsToMultiplex[context->numPktsStoredFromTun] / 128 ) + 128;  // non-first header
+
+          // using bitwise OR operand ('|'), set the 8th bit to 1
+          //context->separatorsToMultiplex[context->numPktsStoredFromTun][0] = context->separatorsToMultiplex[context->numPktsStoredFromTun][0] | 1 << 7;
+
           //do_debug(2, "numPktsStoredFromTun: %i\n", context->numPktsStoredFromTun);
           //do_debug(2, "context->sizePacketsToMultiplex[context->numPktsStoredFromTun]: %i\n", context->sizePacketsToMultiplex[context->numPktsStoredFromTun]);
           //do_debug(2, "context->sizePacketsToMultiplex[context->numPktsStoredFromTun] / 128: %i\n", context->sizePacketsToMultiplex[context->numPktsStoredFromTun] / 128);
