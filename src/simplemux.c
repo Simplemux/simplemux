@@ -343,16 +343,23 @@ int main(int argc, char *argv[]) {
   
             // the packet comes from the feedback port (default 55556)
             #ifdef DEBUG
-              do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n",
-                context.feedback_pkts, nread_from_net, inet_ntoa(context.feedback.sin_addr), ntohs(context.feedback.sin_port));
+              do_debug(1, "FEEDBACK PACKET #%lu: Read RoHC feedback packet (%i bytes) from %s:%d\n",
+                context.feedback_pkts,
+                nread_from_net,
+                inet_ntoa(context.feedback_remote.sin_addr),
+                ntohs(context.feedback_remote.sin_port));
             #endif
   
             context.feedback_pkts ++;
   
             // write the log file
             if ( context.log_file != NULL ) {
-              fprintf (context.log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
-                GetTimeStamp(), nread_from_net, context.feedback_pkts, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
+              fprintf (context.log_file, "%"PRIu64"\trec\tRoHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
+                GetTimeStamp(),
+                nread_from_net,
+                context.feedback_pkts,
+                inet_ntoa(context.feedback_remote.sin_addr),
+                ntohs(context.feedback_remote.sin_port));
               fflush(context.log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
             }
   

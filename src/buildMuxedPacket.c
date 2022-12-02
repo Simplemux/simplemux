@@ -62,15 +62,15 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
   int length = 0;
 
   // for each packet, write
-  // - the protocol field (if required)
   // - the separator
+  // - the protocol field (if required)
   // - the packet itself
   for (int k = 0; k < context->numPktsStoredFromTun ; k++) {
 
     #ifdef DEBUG
       if (k == 0)
         // add a tab before the first separator
-        do_debug(2, "   Separators: ");
+        do_debug(2, " Separators: ");
       else
         // add a semicolon before the 2nd and subsequent separators
         do_debug(2, "; ");
@@ -81,6 +81,7 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
       do_debug(2, "0x");
     #endif
 
+    // add the separator
     for (int l = 0; l < context->sizeSeparatorsToMultiplex[k] ; l++) {
       #ifdef DEBUG
         do_debug(2, "%02x", context->separatorsToMultiplex[k][l]);
@@ -90,6 +91,8 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
       length ++;
     }
 
+
+    // add the protocol field
     if (context->flavor == 'N') { // normal flavor
       // add the 'Protocol' field if necessary
       if ( (k==0) || (single_prot == 0 ) ) {
@@ -112,6 +115,7 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
       #endif
     }
     
+
     // add the bytes of the packet itself
     memcpy(&mux_packet[length], context->packetsToMultiplex[k], context->sizePacketsToMultiplex[k]);
     length = length + context->sizePacketsToMultiplex[k];
@@ -121,4 +125,174 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
   #endif
 
   return length;
+}
+
+
+void sendMultiplexedPacket (struct contextSimplemux* context,
+                            uint16_t total_length,
+                            uint8_t muxed_packet[BUFSIZE],
+                            uint64_t time_difference)
+{
+  switch (context->mode) {
+    case UDP_MODE:
+      // send the packet. I don't need to build the header, because I have a UDP socket
+      if (sendto(context->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&(context->remote), sizeof(context->remote))==-1) {
+        perror("sendto() in UDP mode failed");
+        exit (EXIT_FAILURE);                
+      }
+      else {
+        if(context->tunnelMode == TUN_MODE) {
+          #ifdef DEBUG
+            do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+          #endif
+        }
+        else if(context->tunnelMode == TAP_MODE) {
+          #ifdef DEBUG
+            do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+          #endif                  
+        }
+        else {
+          perror ("wrong value of 'tunnelMode'");
+          exit (EXIT_FAILURE);
+        }
+      }
+    break;
+    
+    case NETWORK_MODE: ;
+      // build the header
+      struct iphdr ipheader;
+      BuildIPHeader(&ipheader, total_length, context->ipprotocol, context->local, context->remote);
+
+      // build full IP multiplexed packet
+      uint8_t full_ip_packet[BUFSIZE];
+      BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
+
+      // send the multiplexed packet
+      if (sendto (context->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&(context->remote), sizeof (struct sockaddr)) < 0)  {
+        perror ("sendto() in Network mode failed ");
+        exit (EXIT_FAILURE);
+      }
+      else {
+        if(context->tunnelMode == TUN_MODE) {
+          #ifdef DEBUG
+            do_debug(2, "Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+          #endif
+        }
+        else if(context->tunnelMode == TAP_MODE) {
+          #ifdef DEBUG
+            do_debug(2, "Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+          #endif
+        }
+        else {
+          perror ("wrong value of 'tunnelMode'");
+          exit (EXIT_FAILURE);
+        }
+      }
+    break;
+      
+    case TCP_CLIENT_MODE:
+      // send the packet. I don't need to build the header, because I have a TCP socket
+      
+      if (write(context->tcp_client_fd, muxed_packet, total_length)==-1) {
+        perror("write() in TCP client mode failed");
+        exit (EXIT_FAILURE);
+      }
+      else {
+        if(context->tunnelMode == TUN_MODE) {
+          #ifdef DEBUG
+            do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+          #endif
+        }
+        else if(context->tunnelMode == TAP_MODE) {
+          #ifdef DEBUG
+            do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+          #endif               
+        }
+        else {
+          perror ("wrong value of 'tunnelMode'");
+          exit (EXIT_FAILURE);
+        }
+      }
+    break;
+
+    case TCP_SERVER_MODE:
+      // send the packet. I don't need to build the header, because I have a TCP socket
+      
+      // check if the connection has already been established by the client
+      if(context->acceptingTcpConnections == true) {
+        #ifdef DEBUG
+          do_debug(1," The packet should be sent to the TCP socket. But no client has yet been connected to this server\n");
+        #endif
+      }
+      else {
+        if (write(context->tcp_server_fd, muxed_packet, total_length)==-1) {
+          perror("write() in TCP server mode failed");
+          exit (EXIT_FAILURE);
+        }
+        else {
+          if(context->tunnelMode == TUN_MODE) {
+            #ifdef DEBUG
+              do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+            #endif
+          }
+          else if(context->tunnelMode == TAP_MODE) {
+            #ifdef DEBUG
+              do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+            #endif                 
+          }
+          else {
+            perror ("wrong value of 'tunnelMode'");
+            exit (EXIT_FAILURE);
+          }
+        }
+      }
+    break;
+  }
+
+  #ifdef LOGFILE
+    // write the log file
+    if ( context->log_file != NULL ) {
+      switch (context->mode) {
+        case UDP_MODE:
+          fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i",
+            GetTimeStamp(),
+            context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
+            context->tun2net,
+            inet_ntoa(context->remote.sin_addr),
+            ntohs(context->remote.sin_port),
+            context->numPktsStoredFromTun);
+        break;
+
+        case TCP_CLIENT_MODE:
+          fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i",
+            GetTimeStamp(),
+            context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
+            context->tun2net,
+            inet_ntoa(context->remote.sin_addr),
+            ntohs(context->remote.sin_port),
+            context->numPktsStoredFromTun);
+        break;
+
+        case NETWORK_MODE:
+          fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i",
+            GetTimeStamp(),
+            context->sizeMuxedPacket + IPv4_HEADER_SIZE,
+            context->tun2net,
+            inet_ntoa(context->remote.sin_addr),
+            context->numPktsStoredFromTun);
+        break;
+      }
+
+      if (context->numPktsStoredFromTun == context->limitNumpackets)
+        fprintf(context->log_file, "\tnumpacket_limit");
+      if (context->sizeMuxedPacket > context->sizeThreshold)
+        fprintf(context->log_file, "\tsize_limit");
+      if (time_difference > context->timeout)
+        fprintf(context->log_file, "\ttimeout");
+      fprintf(context->log_file, "\n");
+
+      // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+      fflush(context->log_file);
+    }
+  #endif
 }

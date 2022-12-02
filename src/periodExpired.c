@@ -105,27 +105,27 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
         do_debug(2, "\n");
         do_debug(1, "SENDING TRIGGERED (Period expired). Time since last trigger: %"PRIu64" us\n",time_difference);
         if (single_protocol) {
-          do_debug(2, "   All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+          do_debug(2, " Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
         }
         else {
-          do_debug(2, "   Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",
+          do_debug(2, " Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",
             context->numPktsStoredFromTun);
         }
         switch (context->mode) {
           case UDP_MODE:
-            do_debug(2, "   Added tunneling header: %i bytes\n",
+            do_debug(2, " Added tunneling header: %i bytes\n",
               IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             do_debug(1, " Writing %i packets to network: %i bytes\n",
               context->numPktsStoredFromTun, context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
           break;
           case TCP_CLIENT_MODE:
-            do_debug(2, "   Added tunneling header: %i bytes\n",
+            do_debug(2, " Added tunneling header: %i bytes\n",
               IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
             do_debug(1, " Writing %i packets to network: %i bytes\n",
               context->numPktsStoredFromTun, context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
           break;
           case NETWORK_MODE:
-            do_debug(2, "   Added tunneling header: %i bytes\n",
+            do_debug(2, " Added tunneling header: %i bytes\n",
               IPv4_HEADER_SIZE );
             do_debug(1, " Writing %i packets to network: %i bytes\n",
               context->numPktsStoredFromTun, context->sizeMuxedPacket + IPv4_HEADER_SIZE );
@@ -150,26 +150,26 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
         do_debug(2, "\n");
         do_debug(1, "SENDING TRIGGERED (Period expired). Time since last trigger: %" PRIu64 " usec\n",
           time_difference);
-        do_debug(2, "   Fast mode: Added 1 Protocol byte in each separator. Total %i bytes\n",
+        do_debug(2, " Fast flavor: Added 1 Protocol byte in each separator. Total %i bytes\n",
           context->numPktsStoredFromTun);
 
         switch (context->mode) {
           case UDP_MODE:
-            do_debug(2, "   Added tunneling header: %i bytes\n",
+            do_debug(2, " Added tunneling header: %i bytes\n",
               IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             do_debug(1, " Writing %i packets to network: %i bytes\n",
               context->numPktsStoredFromTun,
               sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
           break;
           case TCP_CLIENT_MODE:
-            do_debug(2, "   Added tunneling header: %i bytes\n",
+            do_debug(2, " Added tunneling header: %i bytes\n",
               IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
             do_debug(1, " Writing %i packets to network: %i bytes\n",
               context->numPktsStoredFromTun,
               sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
           break;
           case NETWORK_MODE:
-            do_debug(2, "   Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+            do_debug(2, " Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
             do_debug(1, " Writing %i packets to network: %i bytes\n",
               context->numPktsStoredFromTun,
               sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE );

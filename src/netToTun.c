@@ -297,7 +297,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
     case UDP_MODE:
       #ifdef DEBUG
       do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n",
-        context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port),
+        context->net2tun,
+        inet_ntoa(context->remote.sin_addr),
+        ntohs(context->remote.sin_port),
         nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
       #endif
 
@@ -645,7 +647,6 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           #ifdef DEBUG
             if (debug>0) {
               do_debug(2, " buffer from net: %d\n", buffer_from_net[position]);
-              do_debug(2, "max packet length: %d\n", maximum_packet_length);
               do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
 
               bool bits[8];   // used for printing the bits of a byte in debug mode
@@ -755,13 +756,13 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           // the next thing I expect is a 'protocol' field
           context->protocol_rec = buffer_from_net[position];
           #ifdef DEBUG
-            do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+            do_debug(1, ". Protocol 0x%02x", buffer_from_net[position]);
             if(context->protocol_rec == IPPROTO_IP_ON_IP)
-              do_debug(2, " (IP)");
+              do_debug(1, " (IP)");
             else if(context->protocol_rec == IPPROTO_ROHC)
-              do_debug(2, " (RoHC)");
+              do_debug(1, " (RoHC)");
             else if(context->protocol_rec == IPPROTO_ETHERNET)
-              do_debug(2, " (Ethernet)");
+              do_debug(1, " (Ethernet)");
           #endif
           position ++;
 
@@ -774,13 +775,13 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             context->protocol_rec = buffer_from_net[position];
             if(single_protocol_rec == 0) {
               #ifdef DEBUG
-                do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
+                do_debug(1, ". Protocol 0x%02x", buffer_from_net[position]);
                 if(context->protocol_rec == IPPROTO_IP_ON_IP)
-                  do_debug(2, " (IP)");
+                  do_debug(1, " (IP)");
                 if(context->protocol_rec == IPPROTO_ROHC)
-                  do_debug(2, " (RoHC)");
+                  do_debug(1, " (RoHC)");
                 if(context->protocol_rec == IPPROTO_ETHERNET)
-                  do_debug(2, " (Ethernet)");
+                  do_debug(1, " (Ethernet)");
               #endif
             }
             position ++;
@@ -926,13 +927,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
             #ifdef DEBUG
               // dump the ROHC packet on terminal
-              if (debug>0) {
-                do_debug(1, " RoHC packet");
-              }
-              if (debug == 2) {
-                do_debug(2, "\n");
+              if (debug > 1)
                 dump_packet (packet_length, demuxed_packet);
-              }
             #endif
 
             // decompress the packet
@@ -1016,11 +1012,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
                 #ifdef DEBUG
                   //dump the IP packet on the standard output
-                  do_debug(2, "  ");
-                  do_debug(1, ". IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
-                  //do_debug(2, "   ");
+                  do_debug(1, "  IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
 
-                  if (debug>0) {
+                  if (debug > 1) {
                     // dump the decompressed IP packet on terminal
                     dump_packet (ip_packet_d.len, ip_packet_d.data );
                   }
@@ -1149,7 +1143,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           if(context->tunnelMode == TUN_MODE) {
              // write the demuxed packet to the tun interface
             #ifdef DEBUG
-              do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
+              do_debug (2, "  Sending packet of %i bytes to the tun interface\n", packet_length);
             #endif
 
             cwrite ( context->tun_fd, demuxed_packet, packet_length );

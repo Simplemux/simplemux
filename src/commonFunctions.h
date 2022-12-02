@@ -101,7 +101,7 @@ struct contextSimplemux {
   uint8_t protocol[MAXPKTS];                    // protocol field of each packet (1 byte)
   uint16_t sizeSeparatorsToMultiplex[MAXPKTS];  // size of each Simplemux separator ('protocol' not included)
   uint8_t separatorsToMultiplex[MAXPKTS][3];    // Simplemux header ('protocol' not included), before sending it to the network
-  uint16_t sizePacketsToMultiplex[MAXPKTS];     // size of each packet to be multiplexed
+  uint16_t sizePacketsToMultiplex[MAXPKTS];     // size of each packet to be multiplexed. The maximum length is 65535 bytes
   uint8_t packetsToMultiplex[MAXPKTS][BUFSIZE]; // content of each packet to be multiplexed 
   int sizeMuxedPacket;                          // accumulated size of the multiplexed packet
 
