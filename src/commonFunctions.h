@@ -50,13 +50,16 @@
 
 #define MAXPKTS 100             // maximum number of packets to store
 #define SIZE_PROTOCOL_FIELD 1   // 1: protocol field of one byte
-                                // 2: protocol field of two bytes
+                                // 2: protocol field of two bytes (only allowed in normal flavor)
+
 #define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
 
 #define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
 #define HEARTBEATPERIOD 1000000 // a heartbeat will be sent every second
 #define MAXTIMEOUT 100000000.0  // maximum value of the timeout (microseconds). (default 100 seconds)
 
+// this struct includes all the variables used in different places of the code
+// it is passed to the different functions
 struct contextSimplemux {
   char mode;        // Network (N) or UDP (U) or TCP server (S) or TCP client (T) mode
   char tunnelMode;  // TUN (U, default) or TAP (T) tunnel mode
@@ -135,18 +138,22 @@ struct contextSimplemux {
   int limit_numpackets_tun;     // limit of the number of tun packets that can be stored. it has to be smaller than MAXPKTS
   int size_threshold;           // if the number of bytes stored is higher than this, a muxed packet is sent
   int user_mtu;                 // the MTU specified by the user (it must be <= interface_mtu)
-  int selected_mtu;             // the MTU that will be used in the program
-  int sizeMax;                  // threshold for the packet size
+  int selected_mtu;             // the MTU that will be used in the program ('-m' option)
+  int sizeMax;                  // threshold for the packet size ('-b' option)
 
   int firstHeaderWritten;       // it indicates if the first header has been written or not
 
-  /*
-  struct iphdr ipheader;              // IP header
-
-
   // fixed size of the separator in fast flavor
-  int size_separator_fast_mode = SIZE_PROTOCOL_FIELD + SIZE_LENGTH_FIELD_FAST_MODE;
-  */
+  // added to the context in order to make this calculation only once
+  int sizeSeparatorFastMode;
+
+  // variables needed for TCP mode
+  uint8_t protocol_rec[SIZE_PROTOCOL_FIELD];  // protocol field of the received muxed packet
+                                              // this varialbe has to be here: in case of TCP, it may be
+                                              //necessary to store the value of the protocol between packets
+  uint16_t pending_bytes_muxed_packet;  // number of bytes that still have to be read (TCP, fast flavor)
+  uint16_t read_tcp_bytes;              // number of bytes of the content that have been read (TCP, fast flavor)
+  uint8_t read_tcp_bytes_separator;     // number of bytes of the fast separator that have been read (TCP, fast flavor)
 };
 
 #ifdef DEBUG

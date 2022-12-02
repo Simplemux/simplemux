@@ -1,14 +1,9 @@
 #include "help.c"
 
 /*** Request a socket for writing and receiving muxed packets ***/
-int socketRequest(struct contextSimplemux* context,
-                  struct iphdr* ipheader,
-                  //struct ifreq* iface,
-                  const int on)
+int socketRequest(struct contextSimplemux* context, const int on)
 {
   if ( context->mode== NETWORK_MODE ) {
-    // initialize header IP to be used when receiving a packet in NETWORK mode
-    memset(ipheader, 0, sizeof(struct iphdr));      
     memset (&(context->iface), 0, sizeof (context->iface));
     snprintf (context->iface.ifr_name, sizeof (context->iface.ifr_name), "%s", context->mux_if_name);
 

@@ -63,8 +63,8 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
 }
 
 
-void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
-                                  struct iphdr* ipheader )
+void periodExpiredNoblastFlavor ( struct contextSimplemux* context/*,
+                                  struct iphdr* ipheader */)
 {
   // normal or fast flavor
   #ifdef ASSERT
@@ -173,16 +173,14 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context,
   // send the multiplexed packet
   switch (context->mode) {
     
-    case NETWORK_MODE:
+    case NETWORK_MODE: ;
       // build the header
-      BuildIPHeader(ipheader, total_length, context->ipprotocol, context->local, context->remote);
+      struct iphdr ipheader;
+      BuildIPHeader(&ipheader, total_length, context->ipprotocol, context->local, context->remote);
 
       // build the full IP multiplexed packet
       uint8_t full_ip_packet[BUFSIZE];
-      BuildFullIPPacket(*ipheader,
-                        muxed_packet,
-                        total_length,
-                        full_ip_packet);
+      BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
 
       // send the packet
       if (sendto (context->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *) &(context->remote), sizeof (struct sockaddr)) < 0)  {
