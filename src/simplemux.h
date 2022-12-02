@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h> // for using getopt()
+#include <unistd.h>           // for using getopt()
 #include <net/if.h>
 #include <linux/if_tun.h>     // for using tun/tap interfaces
 #include <sys/types.h>
@@ -20,7 +20,7 @@
 #include <rohc/rohc.h>          // for using header compression
 #include <rohc/rohc_comp.h>
 #include <rohc/rohc_decomp.h>
-//#include <netinet/ip.h>         // for using iphdr type
+//#include <netinet/ip.h>       // for using iphdr type
 #include <ifaddrs.h>            // required for using getifaddrs()
 #include <netdb.h>              // required for using getifaddrs()
 #include <poll.h>
@@ -36,12 +36,3 @@
 //#include "socketRequest.c"
 //#include "rohc.c"
 #include "init.c"
-
-#define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program:
-                                // - one for tun/tap: 'context.tun_fd'
-                                // - one for connecting to the network. It may be
-                                //     - context.network_mode_fd
-                                //     - context.udp_mode_fd
-                                //     - context.tcp_welcoming_fd and later context.tcp_server_fd
-                                //     - context.tcp_client_fd
-                                // - one for feedback packets: 'context.feedback_fd'

@@ -1,8 +1,10 @@
 #include "commonFunctions.h"
 
 // global variable
-int debug;            // 0:no debug; 1:minimum debug; 2:maximum debug 
-
+int debug;            // 0:no debug
+                      // 1:minimum debug level
+                      // 2:medimum debug level
+                      // 3:maximum debug level
 
 // variables related to ROHC compression
 struct rohc_comp *compressor;         // the ROHC compressor
@@ -12,7 +14,6 @@ uint8_t rohc_buffer[BUFSIZE];         // the buffer that will contain the result
 struct rohc_buf rohc_packet = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
 unsigned int seed;
 rohc_status_t status;
-
 struct rohc_decomp *decompressor;     // the ROHC decompressor
 uint8_t ip_buffer_d[BUFSIZE];         // the buffer that will contain the resulting IP decompressed packet
 struct rohc_buf ip_packet_d = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
@@ -45,7 +46,7 @@ void do_debug(int level, char *msg, ...) {
 
 
 /**************************************************************************
- * Functions to work with IP Header *
+ * Functions to work with IP Headers *
  **************************************************************************/
 
 // Calculate IPv4 checksum
@@ -116,12 +117,12 @@ void BuildFullIPPacket(struct iphdr iph, uint8_t *data_packet, uint16_t len_data
 }
 
 
-//Get IP header from IP packet
+// Get the IP header from an IP packet
 void GetIpHeader(struct iphdr *iph, uint8_t *ip_packet) {  
   memcpy(iph,(struct iphdr*)ip_packet,sizeof(struct iphdr));
 }
 
-//Set IP header in IP Packet
+// Set the IP header in an IP Packet
 void SetIpHeader(struct iphdr iph, uint8_t *ip_packet) {
   memcpy((struct iphdr*)ip_packet,&iph,sizeof(struct iphdr));
 }
@@ -205,13 +206,15 @@ uint64_t GetTimeStamp() {
 /**************************************************************************
  * ToByte: convert an array of booleans to a char                         *
  **************************************************************************/
-// example:
-/* char c;
+// usage example:
+/*
+char c;
 // bits[0] is the less significant bit
 bool bits[8]={false, true, false, true, false, true, false, false}; is character '*': 00101010
 c = ToByte(bits);
 do_debug(1, "%c\n",c );
-// prints an asterisk*/
+// as a result it will print an asterisk
+*/
 uint8_t ToByte(bool b[8]) {
   int i;
   uint8_t c = 0;
@@ -222,10 +225,11 @@ uint8_t ToByte(bool b[8]) {
   return c;
 }
 
+
 /**************************************************************************
  * FromByte: return an array of booleans from a char                      *
  **************************************************************************/
-// stores in 'b' the value 'true' or 'false' depending on each bite of the byte c
+// stores in 'b' the value 'true' or 'false' depending on each bit of the byte 'c'
 // b[0] is the less significant bit
 void FromByte(uint8_t c, bool b[8]) {
   int i;
@@ -240,7 +244,7 @@ void FromByte(uint8_t c, bool b[8]) {
  **************************************************************************/
 void PrintByte(int debug_level, int num_bits, bool b[8]) {
   // num_bits is the number of bits to print
-  // if 'num_bits' is smaller than 7, the function prints an 'x' instead of the value
+  // if 'num_bits' is smaller than 7, the function prints an '_' instead of the value
 
   int i;
   for (i= 7 ; i>= num_bits ; i--) {

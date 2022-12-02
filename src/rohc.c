@@ -7,7 +7,7 @@ static int gen_random_num(const struct rohc_comp *const comp,
 }
 
 /**
- * @brief Callback to print traces of the ROHC library
+ * @brief Callback to print traces of the RoHC library
  *
  * @param priv_ctxt  An optional private context, may be NULL
  * @param level    The priority level of the trace
@@ -86,16 +86,16 @@ int initRohc( struct contextSimplemux* context )
     #ifdef DEBUG
       switch(context->rohcMode) {
         case 0:
-          do_debug ( 1 , "ROHC not activated\n", debug);
+          do_debug ( 1 , "RoHC not activated\n", debug);
           break;
         case 1:
-          do_debug ( 1 , "ROHC Unidirectional Mode\n", debug);
+          do_debug ( 1 , "RoHC Unidirectional Mode\n", debug);
           break;
         case 2:
-          do_debug ( 1 , "ROHC Bidirectional Optimistic Mode\n", debug);
+          do_debug ( 1 , "RoHC Bidirectional Optimistic Mode\n", debug);
           break;
         /*case 3:
-          do_debug ( 1 , "ROHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
+          do_debug ( 1 , "RoHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
           break;*/
     }
     #endif
@@ -104,11 +104,11 @@ int initRohc( struct contextSimplemux* context )
     seed = time(NULL);
     srand(seed);
     
-    /* Create a ROHC compressor with Large CIDs and the largest MAX_CID
+    /* Create a RoHC compressor with Large CIDs and the largest MAX_CID
      * possible for large CIDs */
     compressor = rohc_comp_new2(ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, gen_random_num, NULL);
     if(compressor == NULL) {
-      fprintf(stderr, "failed to create the ROHC compressor\n");
+      fprintf(stderr, "failed to create the RoHC compressor\n");
       /*fprintf(stderr, "an error occurred during program execution, "
       "abort program\n");
       if ( context->log_file != NULL )
@@ -118,7 +118,7 @@ int initRohc( struct contextSimplemux* context )
     }
     
     #ifdef DEBUG
-      do_debug(1, "ROHC compressor created. Profiles: ");
+      do_debug(1, "RoHC compressor created. Profiles: ");
     #endif
     
     // Set the callback function to be used for detecting RTP.
@@ -134,13 +134,13 @@ int initRohc( struct contextSimplemux* context )
       goto error;
     }
 
-    // set the function that will manage the ROHC compressing traces (it will be 'print_rohc_traces')
+    // set the function that will manage the RoHC compressing traces (it will be 'print_rohc_traces')
     if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL)) {
       fprintf(stderr, "failed to set the callback for traces on compressor\n");
       goto release_compressor;
     }
 
-    /* Enable the ROHC compression profiles */
+    /* Enable the RoHC compression profiles */
     if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_UNCOMPRESSED)) {
       fprintf(stderr, "failed to enable the Uncompressed compression profile\n");
       goto release_compressor;
@@ -205,7 +205,7 @@ int initRohc( struct contextSimplemux* context )
     #endif
 
 
-    /* Create a ROHC decompressor to operate:
+    /* Create a RoHC decompressor to operate:
     *  - with large CIDs use ROHC_LARGE_CID, ROHC_LARGE_CID_MAX
     *  - with small CIDs use ROHC_SMALL_CID, ROHC_SMALL_CID_MAX maximum of 5 streams (MAX_CID = 4),
     *  - ROHC_O_MODE: Bidirectional Optimistic mode (O-mode)
@@ -222,15 +222,15 @@ int initRohc( struct contextSimplemux* context )
 
     if(decompressor == NULL)
     {
-      fprintf(stderr, "failed create the ROHC decompressor\n");
+      fprintf(stderr, "failed create the RoHC decompressor\n");
       goto release_decompressor;
     }
 
     #ifdef DEBUG
-      do_debug(1, "ROHC decompressor created. Profiles: ");
+      do_debug(1, "RoHC decompressor created. Profiles: ");
     #endif
 
-    // set the function that will manage the ROHC decompressing traces (it will be 'print_rohc_traces')
+    // set the function that will manage the RoHC decompressing traces (it will be 'print_rohc_traces')
     if(!rohc_decomp_set_traces_cb2(decompressor, print_rohc_traces, NULL)) {
       fprintf(stderr, "failed to set the callback for traces on decompressor\n");
       goto release_decompressor;

@@ -10,12 +10,8 @@
  */
 int readPacketFromNet(struct contextSimplemux* context,
                       uint8_t* buffer_from_net,
-                      //uint8_t* protocol_rec,
                       int* nread_from_net,
-                      uint16_t* packet_length/*,
-                      //uint16_t* pending_bytes_muxed_packet,
-                      //uint8_t* read_tcp_bytes_separator,
-                      uint16_t* read_tcp_bytes*/ )
+                      uint16_t* packet_length )
 {
   int is_multiplexed_packet = -1;
   uint8_t buffer_from_net_aux[BUFSIZE];
@@ -86,7 +82,7 @@ int readPacketFromNet(struct contextSimplemux* context,
     
     // I only read one packet (at most) each time the program goes through this part
 
-    if (context->pending_bytes_muxed_packet == 0) {
+    if (context->pendingBytesMuxedPacket == 0) {
 
       // I have to start reading a new muxed packet: separator and payload
       #ifdef DEBUG
@@ -95,10 +91,10 @@ int readPacketFromNet(struct contextSimplemux* context,
 
       // read a separator (3 or 4 bytes), or a part of it
       if (context->mode  == TCP_SERVER_MODE) {
-        *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->sizeSeparatorFastMode - context->read_tcp_bytes_separator);
+        *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->sizeSeparatorFastMode - context->readTcpSeparatorBytes);
       }
       else {
-        *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->sizeSeparatorFastMode - context->read_tcp_bytes_separator);
+        *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->sizeSeparatorFastMode - context->readTcpSeparatorBytes);
       }
       #ifdef DEBUG
         do_debug(3, "[readPacketFromNet]  %i bytes of the separator read from the TCP socket", *nread_from_net);
@@ -113,20 +109,20 @@ int readPacketFromNet(struct contextSimplemux* context,
         is_multiplexed_packet = -1;
       }
 
-      else if (*nread_from_net < context->sizeSeparatorFastMode - context->read_tcp_bytes_separator) {
+      else if (*nread_from_net < context->sizeSeparatorFastMode - context->readTcpSeparatorBytes) {
         #ifdef DEBUG
           do_debug(3, "[readPacketFromNet] (part of the separator. Still %i bytes missing)\n",
-            context->sizeSeparatorFastMode - context->read_tcp_bytes_separator - *nread_from_net);
+            context->sizeSeparatorFastMode - context->readTcpSeparatorBytes - *nread_from_net);
         #endif
 
         // I have read part of the separator
-        context->read_tcp_bytes_separator = context->read_tcp_bytes_separator + *nread_from_net;
+        context->readTcpSeparatorBytes = context->readTcpSeparatorBytes + *nread_from_net;
 
         // I have not read a multiplexed packet yet
         is_multiplexed_packet = -1;
       }
 
-      else if(*nread_from_net == context->sizeSeparatorFastMode - context->read_tcp_bytes_separator) {
+      else if(*nread_from_net == context->sizeSeparatorFastMode - context->readTcpSeparatorBytes) {
         #ifdef DEBUG
           do_debug(3, "[readPacketFromNet] (the complete separator of %i bytes)\n",
             context->sizeSeparatorFastMode);
@@ -138,7 +134,7 @@ int readPacketFromNet(struct contextSimplemux* context,
         // the first byte is the Most Significant Byte of the length
         // the second byte is the Less Significant Byte of the length
         context->length_muxed_packet = (buffer_from_net[0] << 8)  + buffer_from_net[1];
-        context->pending_bytes_muxed_packet = context->length_muxed_packet;
+        context->pendingBytesMuxedPacket = context->length_muxed_packet;
 
         #ifdef DEBUG
           do_debug(2, " Read separator: Length %i (0x%02x%02x)",
@@ -146,29 +142,18 @@ int readPacketFromNet(struct contextSimplemux* context,
         #endif
 
         // read the Protocol field
-        if ( SIZE_PROTOCOL_FIELD == 1 ) {
-          context->protocol_rec[0] = buffer_from_net[2];
-          #ifdef DEBUG
-            do_debug(2, ". Protocol %i (0x%02x)\n", context->protocol_rec[0], buffer_from_net[2]);
-          #endif
-        }
-        else {  // SIZE_PROTOCOL_FIELD == 2
-          context->protocol_rec[0] = buffer_from_net[2];
-          context->protocol_rec[1] = buffer_from_net[3];  // FIXME test this
-          //context->protocol_rec = (&buffer_from_net[2] << 8) + &buffer_from_net[3];
-          #ifdef DEBUG
-            do_debug(2, ". Protocol %i (0x%02x%02x)\n",
-              (uint16_t)context->protocol_rec[0], buffer_from_net[2], buffer_from_net[3]);
-          #endif
-        }
+        context->protocol_rec = buffer_from_net[2];
+        #ifdef DEBUG
+          do_debug(2, ". Protocol %i (0x%02x)\n", context->protocol_rec, buffer_from_net[2]);
+        #endif
 
         // read the packet itself (without the separator)
         // I only read the length of the packet
         if (context->mode  == TCP_SERVER_MODE) {
-          *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->pending_bytes_muxed_packet);
+          *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->pendingBytesMuxedPacket);
         }
         else {
-          *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->pending_bytes_muxed_packet);
+          *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->pendingBytesMuxedPacket);
         }
         #ifdef DEBUG
           do_debug(3, "[readPacketFromNet]  %i bytes of the muxed packet read from the TCP socket",
@@ -179,52 +164,52 @@ int readPacketFromNet(struct contextSimplemux* context,
           perror("[readPacketFromNet] read() error TCP server mode");
         }
 
-        else if (*nread_from_net < context->pending_bytes_muxed_packet) {
+        else if (*nread_from_net < context->pendingBytesMuxedPacket) {
           #ifdef DEBUG
             do_debug(3, "  (part of a muxed packet). Pending %i bytes\n",
-              context->pending_bytes_muxed_packet - *nread_from_net);
+              context->pendingBytesMuxedPacket - *nread_from_net);
           #endif
 
           // I have not read the whole packet
           // next time I will have to keep on reading
-          context->pending_bytes_muxed_packet = context->pending_bytes_muxed_packet - *nread_from_net;
-          context->read_tcp_bytes = context->read_tcp_bytes + *nread_from_net;
+          context->pendingBytesMuxedPacket = context->pendingBytesMuxedPacket - *nread_from_net;
+          context->readTcpBytes = context->readTcpBytes + *nread_from_net;
 
-          //do_debug(2,"Read %d bytes from the TCP socket. Total %d\n", *nread_from_net, context->read_tcp_bytes); 
+          //do_debug(2,"Read %d bytes from the TCP socket. Total %d\n", *nread_from_net, context->readTcpBytes); 
           // I have not finished reading a muxed packet
           is_multiplexed_packet = -1;
         }
-        else if (*nread_from_net == context->pending_bytes_muxed_packet) {
+        else if (*nread_from_net == context->pendingBytesMuxedPacket) {
           // I have read a complete packet
-          *packet_length = context->read_tcp_bytes + *nread_from_net;
+          *packet_length = context->readTcpBytes + *nread_from_net;
 
           #ifdef DEBUG
             do_debug(3, " (complete muxed packet of %i bytes)\n", packet_length);
           #endif
 
           // reset the variables
-          context->read_tcp_bytes_separator = 0;
-          context->pending_bytes_muxed_packet = 0;
-          context->read_tcp_bytes = 0;
+          context->readTcpSeparatorBytes = 0;
+          context->pendingBytesMuxedPacket = 0;
+          context->readTcpBytes = 0;
 
           // I have finished reading a muxed packet
           is_multiplexed_packet = 1;
         }
       }              
     }
-    else { // context->pending_bytes_muxed_packet > 0
+    else { // context->pendingBytesMuxedPacket > 0
       // I have to finish reading the TCP payload
-      // I try to read 'pending_bytes_muxed_packet' and to put them at position 'context->read_tcp_bytes'
+      // I try to read 'pendingBytesMuxedPacket' and to put them at position 'context->readTcpBytes'
       #ifdef DEBUG
         do_debug(3, "[readPacketFromNet] Reading TCP. %i TCP bytes pending of the previous payload\n",
-          context->pending_bytes_muxed_packet);
+          context->pendingBytesMuxedPacket);
       #endif
 
       if (context->mode  == TCP_SERVER_MODE) {
-        *nread_from_net = read(context->tcp_server_fd, &(buffer_from_net[(context->read_tcp_bytes)]), context->pending_bytes_muxed_packet);
+        *nread_from_net = read(context->tcp_server_fd, &(buffer_from_net[(context->readTcpBytes)]), context->pendingBytesMuxedPacket);
       }
       else {
-        *nread_from_net = read(context->tcp_client_fd, &(buffer_from_net[(context->read_tcp_bytes)]), context->pending_bytes_muxed_packet);
+        *nread_from_net = read(context->tcp_client_fd, &(buffer_from_net[(context->readTcpBytes)]), context->pendingBytesMuxedPacket);
       }
       #ifdef DEBUG
         do_debug(3, "[readPacketFromNet]  %i bytes read from the TCP socket ", *nread_from_net);
@@ -241,7 +226,7 @@ int readPacketFromNet(struct contextSimplemux* context,
         is_multiplexed_packet = -1;
       }
 
-      else if(*nread_from_net < context->pending_bytes_muxed_packet) {
+      else if(*nread_from_net < context->pendingBytesMuxedPacket) {
         #ifdef DEBUG
           do_debug(3, "[readPacketFromNet] (I have not yet read the whole muxed packet: pending %i bytes)\n",
             context->length_muxed_packet - *nread_from_net);
@@ -249,42 +234,42 @@ int readPacketFromNet(struct contextSimplemux* context,
 
         // I have not read the whole packet
         // next time I will have to keep on reading
-        context->pending_bytes_muxed_packet = context->length_muxed_packet - *nread_from_net;
-        context->read_tcp_bytes = context->read_tcp_bytes + *nread_from_net;
+        context->pendingBytesMuxedPacket = context->length_muxed_packet - *nread_from_net;
+        context->readTcpBytes = context->readTcpBytes + *nread_from_net;
 
         //#ifdef DEBUG
-        //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", *nread_from_net, context->read_tcp_bytes, context->pending_bytes_muxed_packet);
+        //do_debug(2,"Read %d bytes from the TCP socket. Accum %d. Pending %d\n", *nread_from_net, context->readTcpBytes, context->pendingBytesMuxedPacket);
         //#endif
 
         // I have not finished to read the pending bytes of this packet
         is_multiplexed_packet = -1;
       }
-      else if(*nread_from_net == context->pending_bytes_muxed_packet) {
+      else if(*nread_from_net == context->pendingBytesMuxedPacket) {
         #ifdef DEBUG
           do_debug(3, "[readPacketFromNet]  I have read all the pending bytes (%i) of this muxed packet. Total %i bytes\n",
             *nread_from_net, context->length_muxed_packet);
         #endif
 
         // I have read the pending bytes of this packet
-        context->pending_bytes_muxed_packet = 0;
-        //context->read_tcp_bytes = context->read_tcp_bytes + *nread_from_net;
+        context->pendingBytesMuxedPacket = 0;
+        //context->readTcpBytes = context->readTcpBytes + *nread_from_net;
 
-        *nread_from_net = context->read_tcp_bytes + *nread_from_net;
+        *nread_from_net = context->readTcpBytes + *nread_from_net;
 
         // reset the variables
-        context->read_tcp_bytes_separator = 0;
-        context->read_tcp_bytes = 0;
+        context->readTcpSeparatorBytes = 0;
+        context->readTcpBytes = 0;
         is_multiplexed_packet = 1;
       }
       
-      else /*if(*nread_from_net > context->pending_bytes_muxed_packet) */ {
+      else /*if(*nread_from_net > context->pendingBytesMuxedPacket) */ {
         #ifdef DEBUG
           do_debug(1, "ERROR: I have read all the pending bytes (%i) of this muxed packet, and some more. Abort\n",
-            context->pending_bytes_muxed_packet, *nread_from_net - context->pending_bytes_muxed_packet);
+            context->pendingBytesMuxedPacket, *nread_from_net - context->pendingBytesMuxedPacket);
         #endif
 
         // I have read the pending bytes of this packet, plus some more bytes
-        // it doesn't make sense, because I have only read 'context->pending_bytes_muxed_packet'
+        // it doesn't make sense, because I have only read 'context->pendingBytesMuxedPacket'
         return(-1);
       }              
     }
@@ -312,7 +297,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
     case UDP_MODE:
       #ifdef DEBUG
       do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n",
-        context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port),
+        context->net2tun,
+        inet_ntoa(context->remote.sin_addr),
+        ntohs(context->remote.sin_port),
         nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );        
       #endif
 
@@ -660,7 +647,6 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           #ifdef DEBUG
             if (debug>0) {
               do_debug(2, " buffer from net: %d\n", buffer_from_net[position]);
-              do_debug(2, "max packet length: %d\n", maximum_packet_length);
               do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
 
               bool bits[8];   // used for printing the bits of a byte in debug mode
@@ -768,50 +754,37 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         // check if this is the first separator or not
         if (first_header_read == 0) {    // this is the first separator. The protocol field will always be present
           // the next thing I expect is a 'protocol' field
-          if ( SIZE_PROTOCOL_FIELD == 1 ) {
-            context->protocol_rec[0] = buffer_from_net[position];
-            #ifdef DEBUG
-              do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
-            #endif
-            position ++;
-          }
-          else {  // SIZE_PROTOCOL_FIELD == 2
-            //context->protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-            context->protocol_rec[0] = buffer_from_net[position];
-            context->protocol_rec[1] = buffer_from_net[position+1];
-            #ifdef DEBUG
-              do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
-            #endif
-            position = position + 2;
-          }
+          context->protocol_rec = buffer_from_net[position];
+          #ifdef DEBUG
+            do_debug(1, ". Protocol 0x%02x", buffer_from_net[position]);
+            if(context->protocol_rec == IPPROTO_IP_ON_IP)
+              do_debug(1, " (IP)");
+            else if(context->protocol_rec == IPPROTO_ROHC)
+              do_debug(1, " (RoHC)");
+            else if(context->protocol_rec == IPPROTO_ETHERNET)
+              do_debug(1, " (Ethernet)");
+          #endif
+          position ++;
 
           // if I am here, it means that I have read the first separator
           first_header_read = 1;
-
         }
         else {      // non-first separator. The protocol field may or may not be present
           if ( single_protocol_rec == 0 ) {
             // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
-            if ( SIZE_PROTOCOL_FIELD == 1 ) {
-              context->protocol_rec[0] = buffer_from_net[position];
-              if(single_protocol_rec == 0) {
-                #ifdef DEBUG
-                  do_debug(2, ". Protocol 0x%02x", buffer_from_net[position]);
-                #endif
-              }
-              position ++;
+            context->protocol_rec = buffer_from_net[position];
+            if(single_protocol_rec == 0) {
+              #ifdef DEBUG
+                do_debug(1, ". Protocol 0x%02x", buffer_from_net[position]);
+                if(context->protocol_rec == IPPROTO_IP_ON_IP)
+                  do_debug(1, " (IP)");
+                if(context->protocol_rec == IPPROTO_ROHC)
+                  do_debug(1, " (RoHC)");
+                if(context->protocol_rec == IPPROTO_ETHERNET)
+                  do_debug(1, " (Ethernet)");
+              #endif
             }
-            else {  // SIZE_PROTOCOL_FIELD == 2
-              //context->protocol_rec = 256 * (buffer_from_net[position]) + buffer_from_net[position + 1];
-              context->protocol_rec[0] = buffer_from_net[position];
-              context->protocol_rec[1] = buffer_from_net[position+1];
-              if(single_protocol_rec == 0) {
-                #ifdef DEBUG
-                  do_debug(2, ". Protocol 0x%02x%02x", buffer_from_net[position], buffer_from_net[position + 1]);
-                #endif
-              }
-              position = position + 2;
-            }
+            position ++;
           }
         }
         #ifdef DEBUG
@@ -848,10 +821,18 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           #endif
 
           // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
-          context->protocol_rec[0] = fastHeader->protocolID;
+          context->protocol_rec = fastHeader->protocolID;
 
           #ifdef DEBUG
-            do_debug(1, "Protocol 0x%02x\n", context->protocol_rec[0]);
+            do_debug(1, "Protocol 0x%02x", context->protocol_rec);
+            if(context->protocol_rec == IPPROTO_IP_ON_IP)
+              do_debug(1, " (IP)\n");
+            else if(context->protocol_rec == IPPROTO_ROHC)
+              do_debug(1, " (RoHC)\n");
+            else if(context->protocol_rec == IPPROTO_ETHERNET)
+              do_debug(1, " (Ethernet)\n");
+            else
+              do_debug(1, "\n");          
           #endif
 
           // move 'position' to the end of the simplemuxFast header
@@ -898,7 +879,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         /************ decompress the packet if needed ***************/
 
         // if the number of the protocol is NOT 142 (ROHC) I do not decompress the packet
-        if ( context->protocol_rec[0] != IPPROTO_ROHC ) {
+        if ( context->protocol_rec != IPPROTO_ROHC ) {
           // non-compressed packet
             #ifdef DEBUG
             // dump the received packet on terminal
@@ -946,14 +927,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
             #ifdef DEBUG
               // dump the ROHC packet on terminal
-              if (debug>0) {
-                do_debug(1, " ROHC. ");
-              }
-              if (debug == 2) {
-                do_debug(2, " ");
-                do_debug(2, " ROHC packet\n");
+              if (debug > 1)
                 dump_packet (packet_length, demuxed_packet);
-              }
             #endif
 
             // decompress the packet
@@ -1037,11 +1012,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
                 #ifdef DEBUG
                   //dump the IP packet on the standard output
-                  do_debug(2, "  ");
-                  do_debug(1, "IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
-                  //do_debug(2, "   ");
+                  do_debug(1, "  IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
 
-                  if (debug>0) {
+                  if (debug > 1) {
                     // dump the decompressed IP packet on terminal
                     dump_packet (ip_packet_d.len, ip_packet_d.data );
                   }
@@ -1164,20 +1137,20 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
         // write the demuxed (and perhaps decompressed) packet to the tun interface
         // if compression is used, check that ROHC has decompressed correctly
-        if ( ( context->protocol_rec[0] != IPPROTO_ROHC ) || ((context->protocol_rec[0] == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
+        if ( ( context->protocol_rec != IPPROTO_ROHC ) || ((context->protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
 
           // tun mode
           if(context->tunnelMode == TUN_MODE) {
              // write the demuxed packet to the tun interface
             #ifdef DEBUG
-              do_debug (2, " Sending packet of %i bytes to the tun interface\n", packet_length);
+              do_debug (2, "  Sending packet of %i bytes to the tun interface\n", packet_length);
             #endif
 
             cwrite ( context->tun_fd, demuxed_packet, packet_length );
           }
           // tap mode
           else if(context->tunnelMode == TAP_MODE) {
-            if (context->protocol_rec[0] != IPPROTO_ETHERNET) {
+            if (context->protocol_rec != IPPROTO_ETHERNET) {
               #ifdef DEBUG
                 do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", context->protocol_rec);
               #endif            
