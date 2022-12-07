@@ -38,7 +38,14 @@ void do_debug(int level, char *msg, ...) {
 
   if( debug >= level ) {
     va_start(argp, msg);
+    if (level==1)
+      vfprintf(stderr, ANSI_COLOR_RESET, argp);
+    else if (level==2)
+      vfprintf(stderr, ANSI_COLOR_YELLOW, argp);
+    else if (level==3)
+      vfprintf(stderr, ANSI_COLOR_CYAN, argp);
     vfprintf(stderr, msg, argp);
+    vfprintf(stderr, ANSI_COLOR_RESET, argp);
     va_end(argp);
   }
 }
