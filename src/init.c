@@ -132,7 +132,7 @@ void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
           context->port = PORT_FAST;   // by default, port = PORT. In fast flavor, it is PORT_FAST
           context->ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast flavor, use 254
           #ifdef DEBUG
-            do_debug(1, "Fast flavor selected\n");
+            do_debug_c(1, ANSI_COLOR_RESET, "Fast flavor selected\n");
           #endif        
         }
         break;
@@ -147,7 +147,7 @@ void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
           context->port = PORT_BLAST;   // by default, port = PORT. In blast flavor, it is PORT_BLAST
           context->ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast flavor, use 252
           #ifdef DEBUG
-            do_debug(1, "Blast flavor selected\n");
+            do_debug_c(1, ANSI_COLOR_RESET, "Blast flavor selected\n");
           #endif
         }
         break;
@@ -349,7 +349,7 @@ void initTunTapInterface(struct contextSimplemux* context)
       exit(1);
     }
     #ifdef DEBUG
-      do_debug(1, "Successfully connected to interface for native packets %s\n", context->tun_if_name);
+      do_debug_c(1, ANSI_COLOR_RESET, "Successfully connected to interface for native packets %s\n", context->tun_if_name);
     #endif 
   }
   else if (context->tunnelMode == TAP_MODE) {
@@ -367,7 +367,7 @@ void initTunTapInterface(struct contextSimplemux* context)
       exit(1);
     }
     #ifdef DEBUG
-      do_debug(1, "Successfully connected to interface for Ethernet frames %s\n", context->tun_if_name);
+      do_debug_c(1, ANSI_COLOR_RESET, "Successfully connected to interface for Ethernet frames %s\n", context->tun_if_name);
     #endif   
   }
   else exit(1); // this would be a failure

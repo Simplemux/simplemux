@@ -172,8 +172,15 @@ void sendPacketBlastFlavor(struct contextSimplemux* context,
    switch (context->mode) {
       case UDP_MODE:
          #ifdef DEBUG
-            do_debug(3, "[sendPacketBlastFlavor] Sending to the network a UDP blast packet with ID %i: %i bytes\n",
-               ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+            if (packetToSend->header.ACK == HEARTBEAT) {
+               // heartbeats have no ID, so the debug information does not show it
+               do_debug(3, "[sendPacketBlastFlavor] Sending to the network a UDP blast heartbeat: %i bytes\n",
+                  total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);               
+            }
+            else {
+               do_debug(3, "[sendPacketBlastFlavor] Sending to the network a UDP blast packet with ID %i: %i bytes\n",
+                  ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);               
+            }
             do_debug(3, "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
          #endif
 
@@ -192,8 +199,15 @@ void sendPacketBlastFlavor(struct contextSimplemux* context,
 
       case NETWORK_MODE: ; // I add a semicolon because the next command can be a statement
          #ifdef DEBUG
-            do_debug(3, "[sendPacketBlastFlavor] Sending to the network an IP blast packet with ID %i: %i bytes\n",
-               ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE );
+            if (packetToSend->header.ACK == HEARTBEAT) {
+               // heartbeats have no ID, so the debug information does not show it
+               do_debug(3, "[sendPacketBlastFlavor] Sending to the network an IP blast heartbeat: %i bytes\n",
+                  total_length + IPv4_HEADER_SIZE);               
+            }
+            else {
+               do_debug(3, "[sendPacketBlastFlavor] Sending to the network an IP blast packet with ID %i: %i bytes\n",
+                  ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE );
+            }
             do_debug(3, "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
          #endif
 
@@ -226,10 +240,6 @@ void sendPacketBlastFlavor(struct contextSimplemux* context,
 int sendExpiredPackects(struct contextSimplemux* context,
                         uint64_t now)
 {
-   #ifdef DEBUG
-      //do_debug(3,"[sendExpiredPackects] starting\n");
-   #endif
-   
    int sentPackets = 0; // number of packets sent
    struct packet *current = context->unconfirmedPacketsBlast;
    

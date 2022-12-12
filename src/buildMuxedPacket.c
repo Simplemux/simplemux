@@ -70,12 +70,12 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
     #ifdef DEBUG
       if (k == 0)
         // add a tab before the first separator
-        do_debug(2, " Separators: ");
+        do_debug_c(2, ANSI_COLOR_RESET, " Separators: ");
       else
         // add a semicolon before the 2nd and subsequent separators
         do_debug(2, "; ");
         
-      do_debug(2, "#%d: ", k+1);
+      do_debug_c(2, ANSI_COLOR_RESET, "#%d: ", k+1);
       
       // add the separator
       do_debug(2, "0x");
@@ -84,7 +84,7 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
     // add the separator
     for (int l = 0; l < context->sizeSeparatorsToMultiplex[k] ; l++) {
       #ifdef DEBUG
-        do_debug(2, "%02x", context->separatorsToMultiplex[k][l]);
+        do_debug_c(2, ANSI_COLOR_RESET, "%02x", context->separatorsToMultiplex[k][l]);
       #endif
 
       mux_packet[length] = context->separatorsToMultiplex[k][l];
@@ -101,7 +101,7 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
         length ++;
 
         #ifdef DEBUG
-          do_debug(2, "%02x", context->protocol[k]);
+          do_debug_c(2, ANSI_COLOR_RESET, "%02x", context->protocol[k]);
         #endif
       }      
     }
@@ -111,7 +111,7 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
       length ++;
 
       #ifdef DEBUG
-        do_debug(2, "%02x", context->protocol[k]);
+        do_debug_c(2, ANSI_COLOR_RESET, "%02x", context->protocol[k]);
       #endif
     }
     
@@ -143,12 +143,12 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
       else {
         if(context->tunnelMode == TUN_MODE) {
           #ifdef DEBUG
-            do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
           #endif
         }
         else if(context->tunnelMode == TAP_MODE) {
           #ifdef DEBUG
-            do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
           #endif                  
         }
         else {
@@ -175,12 +175,12 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
       else {
         if(context->tunnelMode == TUN_MODE) {
           #ifdef DEBUG
-            do_debug(2, "Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c(2, ANSI_COLOR_RESET, "Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
           #endif
         }
         else if(context->tunnelMode == TAP_MODE) {
           #ifdef DEBUG
-            do_debug(2, "Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c(2, ANSI_COLOR_RESET, "Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
           #endif
         }
         else {
@@ -200,12 +200,12 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
       else {
         if(context->tunnelMode == TUN_MODE) {
           #ifdef DEBUG
-            do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
           #endif
         }
         else if(context->tunnelMode == TAP_MODE) {
           #ifdef DEBUG
-            do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
           #endif               
         }
         else {
@@ -232,12 +232,12 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
         else {
           if(context->tunnelMode == TUN_MODE) {
             #ifdef DEBUG
-              do_debug(2, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+              do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
             #endif
           }
           else if(context->tunnelMode == TAP_MODE) {
             #ifdef DEBUG
-              do_debug(2, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+              do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
             #endif                 
           }
           else {
