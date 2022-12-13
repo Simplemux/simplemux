@@ -447,9 +447,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       if(deliverThisPacket) {
 
         #ifdef DEBUG
-          do_debug_c(2, ANSI_COLOR_YELLOW, " DEMUXED PACKET: ID %i", ntohs(blastHeader->identifier));
+          do_debug_c(2, ANSI_COLOR_YELLOW, " DEMUXED PACKET with ID %i", ntohs(blastHeader->identifier));
           if(debug>1) {
-            do_debug_c(2, ANSI_COLOR_YELLOW, ":");
+            do_debug_c(2, ANSI_COLOR_YELLOW, ":\n");
             dump_packet (length, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);                    
           }
           else {

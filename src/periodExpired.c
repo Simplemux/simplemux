@@ -20,10 +20,10 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
       //so it seems there are problems at the other side
       #ifdef DEBUG
         if(context->lastBlastHeartBeatReceived == 0) {
-          do_debug_c(3, ANSI_COLOR_RESET, " Period expired. But nothing is sent because no heartbeat has been received yet\n");
+          do_debug_c(3, ANSI_COLOR_BLUE, " Period expired. But nothing is sent because no heartbeat has been received yet\n");
         }
         else {
-          do_debug_c(3, ANSI_COLOR_RESET, " Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n",
+          do_debug_c(3, ANSI_COLOR_BLUE, " Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n",
             now_microsec - context->lastBlastHeartBeatReceived);
         }
       #endif
@@ -37,12 +37,12 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
 
       if (n > 0) {
         #ifdef DEBUG
-          do_debug_c(1, ANSI_COLOR_RESET, " Period expired: Sent %d blast packets (copies) at the end of the period\n", n);
+          do_debug_c(1, ANSI_COLOR_BLUE, " Period expired: Sent %d blast packets (copies) at the end of the period\n", n);
         #endif           
       }
       else {
         #ifdef DEBUG
-          do_debug_c(3, ANSI_COLOR_RESET, " Period expired: Nothing to send\n");
+          do_debug_c(3, ANSI_COLOR_BLUE, " Period expired: Nothing to send\n");
         #endif         
       }        
     }            

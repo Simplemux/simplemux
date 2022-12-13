@@ -24,7 +24,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   thisPacket->header.identifier = htons((uint16_t)context->tun2net); 
 
   #ifdef DEBUG
-    do_debug_c(1, ANSI_COLOR_RESET, "NATIVE PACKET arrived from tun: ID %i, length %i bytes\n",
+    do_debug_c(1, ANSI_COLOR_BLUE, "NATIVE PACKET arrived from tun: ID %i, length %i bytes\n",
       ntohs(thisPacket->header.identifier), ntohs(thisPacket->header.packetSize));
   #endif
 
@@ -42,7 +42,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   sendPacketBlastFlavor(context, thisPacket);
 
   #ifdef DEBUG
-    do_debug_c(1, ANSI_COLOR_RESET, " Sent blast packet to the network. ID %i, Length %i\n",
+    do_debug_c(1, ANSI_COLOR_BLUE, " Sent blast packet to the network. ID %i, Length %i\n",
       ntohs(thisPacket->header.identifier),
       ntohs(thisPacket->header.packetSize));
   #endif
@@ -85,22 +85,31 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
     // heartbeat from the other side not received recently
     if(delete(&context->unconfirmedPacketsBlast,ntohs(thisPacket->header.identifier))==false) {
       #ifdef DEBUG
-        do_debug(2," The packet had already been removed from the list\n");
+        do_debug_c(2, ANSI_COLOR_RESET, " The packet had already been removed from the list\n");
       #endif
     }
     else {
       #ifdef DEBUG
-        do_debug(2," Packet with ID %i removed from the list\n", context->tun2net);
+        do_debug_c(2, ANSI_COLOR_RESET, " Packet with ID %i removed from the list\n", context->tun2net);
       #endif
     }              
     #ifdef DEBUG
-      do_debug_c(2, ANSI_COLOR_RESET, "%"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n",
-        now, now - context->lastBlastHeartBeatReceived, length(&context->unconfirmedPacketsBlast));
+      if (context->lastBlastHeartBeatReceived == 0) {
+        // no heartbeat has been received yet
+        do_debug_c(3, ANSI_COLOR_RESET, " %"PRIu64" The arrived packet has not been stored because no heartbeat has been received yet. Total %i pkts stored\n",
+          now, length(&context->unconfirmedPacketsBlast));   
+      }
+      else {
+        // at least one heartbeat has arrived
+        do_debug_c(3, ANSI_COLOR_RESET, " %"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n",
+          now, now - context->lastBlastHeartBeatReceived, length(&context->unconfirmedPacketsBlast));        
+      }
+
     #endif
   }
   else {
     #ifdef DEBUG
-      do_debug_c(2, ANSI_COLOR_RESET, "%"PRIu64" The arrived packet has been stored. Total %i pkts stored\n",
+      do_debug_c(2, ANSI_COLOR_RESET, " %"PRIu64" The arrived packet has been stored. Total %i pkts stored\n",
         thisPacket->sentTimestamp, length(&context->unconfirmedPacketsBlast));
       if(debug > 1)
         dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );
