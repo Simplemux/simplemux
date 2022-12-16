@@ -61,8 +61,9 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
     sendPacketBlastFlavor(context, &heartBeat);
 
     #ifdef DEBUG
-      do_debug_c(1, ANSI_COLOR_BOLD_YELLOW, " Sent blast heartbeat to the network: %"PRIu64" > %"PRIu64"\n",
-        now_microsec - context->lastBlastHeartBeatSent, HEARTBEATPERIOD);
+      do_debug_c(1, ANSI_COLOR_BOLD_YELLOW, " Sent blast heartbeat to the network");
+      do_debug_c(3, ANSI_COLOR_BOLD_YELLOW, " (%"PRIu64" > %"PRIu64")", now_microsec - context->lastBlastHeartBeatSent, HEARTBEATPERIOD);
+      do_debug(1, "\n");
     #endif
     context->lastBlastHeartBeatSent = now_microsec;          
   }
@@ -70,7 +71,7 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
     // heartbeat period not expired. Do nothing
 
     #ifdef DEBUG
-      do_debug_c(3, ANSI_COLOR_BOLD_YELLOW, " Not sending blast heartbeat to the network: %"PRIu64" < %"PRIu64"\n",
+      do_debug_c(3, ANSI_COLOR_BOLD_YELLOW, " Not sending blast heartbeat to the network (%"PRIu64" < %"PRIu64")\n",
         now_microsec - context->lastBlastHeartBeatSent, HEARTBEATPERIOD);
     #endif
   }

@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
       // check debug option
       if ( debug < 0 ) debug = 0;
       else if ( debug > 3 ) debug = 3;
-      do_debug ( 1 , "debug level set to %i\n", debug);
+      do_debug (1 , "debug level set to %i\n", debug);
     #endif
 
     // check ROHC option
@@ -53,7 +53,6 @@ int main(int argc, char *argv[]) {
     else if ( context.rohcMode > 2 ) { 
       context.rohcMode = 2;
     }
-
 
     // initialize the tun/tap interface
     initTunTapInterface(&context);
@@ -119,7 +118,7 @@ int main(int argc, char *argv[]) {
     if(context.flavor == 'B')
       initBlastFlavor(&context);
 
-    uint64_t now_microsec; // variable to store current timestamps
+    uint64_t now_microsec; // variable to store timestamps
 
     /*****************************************/
     /************** Main loop ****************/
@@ -127,9 +126,8 @@ int main(int argc, char *argv[]) {
     while(1) {
     
       /* Initialize the timeout data structure */
-
       if(context.flavor == 'B') {
-
+        // blast flavor
         context.timeLastSent = findLastSentTimestamp(context.unconfirmedPacketsBlast);
 
         #ifdef DEBUG
@@ -138,7 +136,6 @@ int main(int argc, char *argv[]) {
         #endif
 
         now_microsec = GetTimeStamp();
-        //do_debug_c(1, ANSI_COLOR_RESET, " %"PRIu64": Starting the while\n", now_microsec);
 
         if (context.timeLastSent == 0) {
           context.timeLastSent = now_microsec;
@@ -173,7 +170,6 @@ int main(int argc, char *argv[]) {
 
       else {
         // not in blast flavor
-
         now_microsec = GetTimeStamp();
 
         if ( context.period > (now_microsec - context.timeLastSent)) {
@@ -182,7 +178,6 @@ int main(int argc, char *argv[]) {
         }
         else {
           // the period is expired
-          //printf("the period is expired\n");
           context.microsecondsLeft = 0;
         }        
 
@@ -192,9 +187,7 @@ int main(int argc, char *argv[]) {
         #endif   
       }
 
-      //if (context.microsecondsLeft > 0) do_debug(0,"%"PRIu64"\n", context.microsecondsLeft);
       int milliseconds_left = (int)(context.microsecondsLeft / 1000.0);
-      //printf("milliseconds_left: %d", milliseconds_left);
       
       /** POLL **/
       // check if a frame has arrived to any of the file descriptors
@@ -222,7 +215,6 @@ int main(int argc, char *argv[]) {
       /*******************************************/
       // a frame has arrived to one of the sockets in 'fds_poll'
       else if (fd2read > 0) {
-        //do_debug(0,"fd2read: %d; mode: %c; context.acceptingTcpConnections: %i\n", fd2read, mode, context.acceptingTcpConnections);
 
         /******************************************************************/
         /*************** TCP connection request from a client *************/
@@ -267,7 +259,7 @@ int main(int argc, char *argv[]) {
         // In TCP_SERVER_MODE, I will only enter here if the TCP connection is already started
         // in the rest of modes, I will enter here if a muxed packet has arrived        
         else if ( (fds_poll[2].revents & POLLIN) && 
-                  (((context.mode== TCP_SERVER_MODE) && (context.acceptingTcpConnections == false))  ||
+                  (((context.mode== TCP_SERVER_MODE) && (context.acceptingTcpConnections == false)) ||
                   (context.mode== NETWORK_MODE) || 
                   (context.mode== UDP_MODE) ||
                   (context.mode== TCP_CLIENT_MODE) ) )
@@ -323,8 +315,6 @@ int main(int argc, char *argv[]) {
   
         // the ROHC mode only affects the decompressor. So if I receive a ROHC feedback packet, I will use it
         // this implies that if the origin is in ROHC Unidirectional mode and the destination in Bidirectional, feedback will still work
-  
-        //else if ( FD_ISSET ( context.feedback_fd, &rd_set )) {    /* FD_ISSET tests to see if a file descriptor is part of the set */
         else if(fds_poll[1].revents & POLLIN) {
         
           int nread_from_net; // number of bytes read from network which will be demultiplexed
@@ -332,13 +322,12 @@ int main(int argc, char *argv[]) {
 
           // a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
           socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
-          nread_from_net = recvfrom ( context.feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(context.feedback_remote), &slen_feedback );
+          nread_from_net = recvfrom (context.feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(context.feedback_remote), &slen_feedback );
   
           if (nread_from_net == -1) perror ("recvfrom()");
   
           // now buffer_from_net contains a full packet or frame.
-          // check if the packet comes (source port) from the feedback port (default 55556).  (Its destination port IS the feedback port)
-  
+          // check if the packet comes (source port) from the feedback port (default 55556).  (Its destination port IS the feedback port)  
           if (context.port_feedback == ntohs(context.feedback_remote.sin_port)) {
   
             // the packet comes from the feedback port (default 55556)
@@ -383,8 +372,7 @@ int main(int argc, char *argv[]) {
 
   
               // deliver the feedback received to the local compressor
-              //https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
-    
+              //https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html    
               if ( rohc_comp_deliver_feedback2 ( compressor, rohc_packet_d ) == false ) {
                 do_debug_c(3, ANSI_COLOR_MAGENTA, "Error delivering feedback to the compressor");
               }
@@ -463,7 +451,7 @@ int main(int argc, char *argv[]) {
           else {
             // No packet arrived
             #ifdef DEBUG
-              //do_debug_c(2, ANSI_COLOR_RESET, "Period expired. Nothing to be sent\n");
+              do_debug_c(3, ANSI_COLOR_RESET, "Period expired. Nothing to be sent\n");
             #endif
           }
           // restart the period
