@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
       // check debug option
       if ( debug < 0 ) debug = 0;
       else if ( debug > 3 ) debug = 3;
-      do_debug ( 1 , "debug level set to %i\n", debug);
+      do_debug (1 , "debug level set to %i\n", debug);
     #endif
 
     // check ROHC option
@@ -53,7 +53,6 @@ int main(int argc, char *argv[]) {
     else if ( context.rohcMode > 2 ) { 
       context.rohcMode = 2;
     }
-
 
     // initialize the tun/tap interface
     initTunTapInterface(&context);
@@ -81,7 +80,7 @@ int main(int argc, char *argv[]) {
     initRohc(&context);
 
     #ifdef DEBUG
-      do_debug(1, "\n");
+      do_debug_c(1, ANSI_COLOR_RESET, "\n");
     #endif
     
     /** prepare the POLL structure **/
@@ -119,7 +118,7 @@ int main(int argc, char *argv[]) {
     if(context.flavor == 'B')
       initBlastFlavor(&context);
 
-    uint64_t now_microsec; // variable to store current timestamps
+    uint64_t now_microsec; // variable to store timestamps
 
     /*****************************************/
     /************** Main loop ****************/
@@ -127,36 +126,34 @@ int main(int argc, char *argv[]) {
     while(1) {
     
       /* Initialize the timeout data structure */
-
       if(context.flavor == 'B') {
-
+        // blast flavor
         context.timeLastSent = findLastSentTimestamp(context.unconfirmedPacketsBlast);
 
         #ifdef DEBUG
-          if(debug>1)
+          if(debug > 2)
             printList(&context.unconfirmedPacketsBlast);
         #endif
 
         now_microsec = GetTimeStamp();
-        //do_debug(1, " %"PRIu64": Starting the while\n", now_microsec);
 
         if (context.timeLastSent == 0) {
           context.timeLastSent = now_microsec;
           #ifdef DEBUG
-            do_debug(2, "%"PRIu64" No blast packet is waiting to be sent to the network\n", now_microsec);
+            do_debug_c(3, ANSI_COLOR_YELLOW, "%"PRIu64" No blast packet is waiting to be sent to the network\n", now_microsec);
           #endif
         }
 
         if(context.timeLastSent + context.period > now_microsec) {
           context.microsecondsLeft = context.timeLastSent + context.period - now_microsec;
           #ifdef DEBUG
-            do_debug(2, "%"PRIu64" The next blast packet will be sent in %"PRIu64" us\n", now_microsec, context.microsecondsLeft);
+            do_debug_c(3, ANSI_COLOR_YELLOW, "%"PRIu64" The next blast packet will be sent in %"PRIu64" us\n", now_microsec, context.microsecondsLeft);
           #endif      
         }
         else {
           // the period is already expired
           #ifdef DEBUG
-            do_debug(2, "%"PRIu64" Call the poll with limit 0\n", now_microsec);
+            do_debug_c(3, ANSI_COLOR_YELLOW, "%"PRIu64" Call the poll with limit 0\n", now_microsec);
           #endif
           context.microsecondsLeft = 0;
         }
@@ -173,7 +170,6 @@ int main(int argc, char *argv[]) {
 
       else {
         // not in blast flavor
-
         now_microsec = GetTimeStamp();
 
         if ( context.period > (now_microsec - context.timeLastSent)) {
@@ -182,19 +178,16 @@ int main(int argc, char *argv[]) {
         }
         else {
           // the period is expired
-          //printf("the period is expired\n");
           context.microsecondsLeft = 0;
         }        
 
         #ifdef DEBUG
-          do_debug(3, " Time last sending: %"PRIu64" us\n", context.timeLastSent);
-          do_debug(3, " The next packet will be sent in %"PRIu64" us\n", context.microsecondsLeft);
+          do_debug_c(3, ANSI_COLOR_YELLOW, " Time last sending: %"PRIu64" us\n", context.timeLastSent);
+          do_debug_c(3, ANSI_COLOR_YELLOW, " The next packet will be sent in %"PRIu64" us\n", context.microsecondsLeft);
         #endif   
       }
 
-      //if (context.microsecondsLeft > 0) do_debug(0,"%"PRIu64"\n", context.microsecondsLeft);
       int milliseconds_left = (int)(context.microsecondsLeft / 1000.0);
-      //printf("milliseconds_left: %d", milliseconds_left);
       
       /** POLL **/
       // check if a frame has arrived to any of the file descriptors
@@ -222,7 +215,6 @@ int main(int argc, char *argv[]) {
       /*******************************************/
       // a frame has arrived to one of the sockets in 'fds_poll'
       else if (fd2read > 0) {
-        //do_debug(0,"fd2read: %d; mode: %c; context.acceptingTcpConnections: %i\n", fd2read, mode, context.acceptingTcpConnections);
 
         /******************************************************************/
         /*************** TCP connection request from a client *************/
@@ -255,7 +247,7 @@ int main(int argc, char *argv[]) {
           //if(context.tcp_server_fd > maxfd) maxfd = context.tcp_server_fd;
           
           #ifdef DEBUG
-            do_debug(1,"TCP connection started by the client. Socket for connecting to the client: %d\n", context.tcp_server_fd);
+            do_debug_c(1, ANSI_COLOR_CYAN, "TCP connection started by the client. Socket for connecting to the client: %d\n", context.tcp_server_fd);
           #endif       
         }
         
@@ -267,7 +259,7 @@ int main(int argc, char *argv[]) {
         // In TCP_SERVER_MODE, I will only enter here if the TCP connection is already started
         // in the rest of modes, I will enter here if a muxed packet has arrived        
         else if ( (fds_poll[2].revents & POLLIN) && 
-                  (((context.mode== TCP_SERVER_MODE) && (context.acceptingTcpConnections == false))  ||
+                  (((context.mode== TCP_SERVER_MODE) && (context.acceptingTcpConnections == false)) ||
                   (context.mode== NETWORK_MODE) || 
                   (context.mode== UDP_MODE) ||
                   (context.mode== TCP_CLIENT_MODE) ) )
@@ -279,12 +271,8 @@ int main(int argc, char *argv[]) {
 
           is_multiplexed_packet = readPacketFromNet(&context,
                                                     buffer_from_net,
-                                                    //protocol_rec,
                                                     &nread_from_net,
-                                                    &packet_length/*,
-                                                    &pending_bytes_muxed_packet,
-                                                    &read_tcp_bytes_separator,
-                                                    &read_tcp_bytes*/ );
+                                                    &packet_length);
     
           // now 'buffer_from_net' may contain a full packet or frame.
           // check if the packet is a multiplexed one
@@ -297,7 +285,6 @@ int main(int argc, char *argv[]) {
                                 nread_from_net,
                                 packet_length,
                                 buffer_from_net,
-                                //protocol_rec,
                                 &status );
           }
   
@@ -305,7 +292,7 @@ int main(int argc, char *argv[]) {
             // packet with the correct destination port, but a source port different from the multiplexing one
             // if the packet does not come from the multiplexing port, write it directly into the tun interface
             #ifdef DEBUG
-              do_debug(1, "NON-SIMPLEMUX PACKET #%"PRIu32": Non-multiplexed packet. Writing %i bytes to tun\n",
+              do_debug_c(1, ANSI_COLOR_RED, "NON-SIMPLEMUX PACKET #%"PRIu32": Non-multiplexed packet arrived to the Simplemux port. Writing %i bytes to tun\n",
                 context.net2tun, nread_from_net);
             #endif
             cwrite ( context.tun_fd, buffer_from_net, nread_from_net);
@@ -328,8 +315,6 @@ int main(int argc, char *argv[]) {
   
         // the ROHC mode only affects the decompressor. So if I receive a ROHC feedback packet, I will use it
         // this implies that if the origin is in ROHC Unidirectional mode and the destination in Bidirectional, feedback will still work
-  
-        //else if ( FD_ISSET ( context.feedback_fd, &rd_set )) {    /* FD_ISSET tests to see if a file descriptor is part of the set */
         else if(fds_poll[1].revents & POLLIN) {
         
           int nread_from_net; // number of bytes read from network which will be demultiplexed
@@ -337,27 +322,33 @@ int main(int argc, char *argv[]) {
 
           // a packet has been received from the network, destinated to the feedbadk port. 'slen_feedback' is the length of the IP address
           socklen_t slen_feedback = sizeof(context.feedback);   // size of the socket. The type is like an int, but adequate for the size of the socket
-          nread_from_net = recvfrom ( context.feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(context.feedback_remote), &slen_feedback );
+          nread_from_net = recvfrom (context.feedback_fd, buffer_from_net, BUFSIZE, 0, (struct sockaddr *)&(context.feedback_remote), &slen_feedback );
   
           if (nread_from_net == -1) perror ("recvfrom()");
   
           // now buffer_from_net contains a full packet or frame.
-          // check if the packet comes (source port) from the feedback port (default 55556).  (Its destination port IS the feedback port)
-  
+          // check if the packet comes (source port) from the feedback port (default 55556).  (Its destination port IS the feedback port)  
           if (context.port_feedback == ntohs(context.feedback_remote.sin_port)) {
   
             // the packet comes from the feedback port (default 55556)
             #ifdef DEBUG
-              do_debug(1, "\nFEEDBACK %lu: Read ROHC feedback packet (%i bytes) from %s:%d\n",
-                context.feedback_pkts, nread_from_net, inet_ntoa(context.feedback.sin_addr), ntohs(context.feedback.sin_port));
+              do_debug_c(1, ANSI_COLOR_MAGENTA, "FEEDBACK PACKET #%lu: Read RoHC feedback packet (%i bytes) from %s:%d\n",
+                context.feedback_pkts,
+                nread_from_net,
+                inet_ntoa(context.feedback_remote.sin_addr),
+                ntohs(context.feedback_remote.sin_port));
             #endif
   
             context.feedback_pkts ++;
   
             // write the log file
             if ( context.log_file != NULL ) {
-              fprintf (context.log_file, "%"PRIu64"\trec\tROHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
-                GetTimeStamp(), nread_from_net, context.feedback_pkts, inet_ntoa(context.remote.sin_addr), ntohs(context.remote.sin_port));
+              fprintf (context.log_file, "%"PRIu64"\trec\tRoHC feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
+                GetTimeStamp(),
+                nread_from_net,
+                context.feedback_pkts,
+                inet_ntoa(context.feedback_remote.sin_addr),
+                ntohs(context.feedback_remote.sin_port));
               fflush(context.log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing Ctrl+C.
             }
   
@@ -375,19 +366,18 @@ int main(int argc, char *argv[]) {
             #ifdef DEBUG
               // dump the ROHC packet on terminal
               if (debug>0) {
-                do_debug(2, " ROHC feedback packet received\n");
+                do_debug_c(2, ANSI_COLOR_MAGENTA, " ROHC feedback packet received\n");
                 dump_packet ( rohc_packet_d.len, rohc_packet_d.data );
               }
 
   
               // deliver the feedback received to the local compressor
-              //https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
-    
+              //https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html    
               if ( rohc_comp_deliver_feedback2 ( compressor, rohc_packet_d ) == false ) {
-                do_debug(3, "Error delivering feedback to the compressor");
+                do_debug_c(3, ANSI_COLOR_MAGENTA, "Error delivering feedback to the compressor");
               }
               else {
-                do_debug(3, "Feedback delivered to the compressor: %i bytes\n", rohc_packet_d.len);
+                do_debug_c(3, ANSI_COLOR_MAGENTA, "Feedback delivered to the compressor: %i bytes\n", rohc_packet_d.len);
               }
             #endif  
             // the information received does not have to be decompressed, because it has been 
@@ -399,7 +389,7 @@ int main(int argc, char *argv[]) {
             // packet with destination port 55556, but a source port different from the feedback one
             // if the packet does not come from the feedback port, write it directly into the tun interface
             #ifdef DEBUG
-              do_debug(1, "NON-FEEDBACK PACKET %"PRIu32": Non-feedback packet. Writing %i bytes to tun\n", context.net2tun, nread_from_net);
+              do_debug_c(1, ANSI_COLOR_MAGENTA, "NON-FEEDBACK PACKET %"PRIu32": Non-feedback packet arrived to feecback port. Writing %i bytes to tun\n", context.net2tun, nread_from_net);
             #endif
             cwrite ( context.tun_fd, buffer_from_net, nread_from_net);
   
@@ -444,7 +434,7 @@ int main(int argc, char *argv[]) {
       // since there is no new packet, here it is not necessary to compress anything
       else {  // fd2read == 0
         #ifdef DEBUG
-          do_debug(2, "Poll timeout expired\n");
+          do_debug_c(3, ANSI_COLOR_RESET, "Poll timeout expired\n");
         #endif
         
         if(context.flavor == 'B') {
@@ -453,7 +443,7 @@ int main(int argc, char *argv[]) {
         }
         else {
           // not in blast flavor
-          if ( context.num_pkts_stored_from_tun > 0 ) {
+          if ( context.numPktsStoredFromTun > 0 ) {
             // There are some packets stored
             // send them
             periodExpiredNoblastFlavor (&context);
@@ -461,13 +451,13 @@ int main(int argc, char *argv[]) {
           else {
             // No packet arrived
             #ifdef DEBUG
-              //do_debug(2, "Period expired. Nothing to be sent\n");
+              do_debug_c(3, ANSI_COLOR_RESET, "Period expired. Nothing to be sent\n");
             #endif
           }
           // restart the period
           context.timeLastSent = now_microsec;
           #ifdef DEBUG
-            do_debug(3, "%"PRIu64" Period expired\n", context.timeLastSent);
+            do_debug_c(3, ANSI_COLOR_YELLOW, "%"PRIu64" Period expired\n", context.timeLastSent);
           #endif
         }
       }     
