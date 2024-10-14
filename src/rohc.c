@@ -86,16 +86,16 @@ int initRohc( struct contextSimplemux* context )
     #ifdef DEBUG
       switch(context->rohcMode) {
         case 0:
-          do_debug ( 1 , "RoHC not activated\n", debug);
+          do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC not activated\n", debug);
           break;
         case 1:
-          do_debug ( 1 , "RoHC Unidirectional Mode\n", debug);
+          do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC Unidirectional Mode\n", debug);
           break;
         case 2:
-          do_debug ( 1 , "RoHC Bidirectional Optimistic Mode\n", debug);
+          do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC Bidirectional Optimistic Mode\n", debug);
           break;
         /*case 3:
-          do_debug ( 1 , "RoHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
+          do_debug (1, "RoHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
           break;*/
     }
     #endif
@@ -118,7 +118,7 @@ int initRohc( struct contextSimplemux* context )
     }
     
     #ifdef DEBUG
-      do_debug(1, "RoHC compressor created. Profiles: ");
+      do_debug_c(1, ANSI_COLOR_RESET, "RoHC compressor created. Profiles: ");
     #endif
     
     // Set the callback function to be used for detecting RTP.
@@ -147,7 +147,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "Uncompressed. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "Uncompressed. ");
       #endif
     }
 
@@ -157,7 +157,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "IP-only. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "IP-only. ");
       #endif
     }
 
@@ -167,7 +167,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "IP/UDP. IP/UDP-Lite. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "IP/UDP. IP/UDP-Lite. ");
       #endif
     }
 
@@ -177,7 +177,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "RTP (UDP ports 1234, 36780, 33238, 5020, 5002). ");
+        do_debug_c(1, ANSI_COLOR_RESET, "RTP (UDP ports 1234, 36780, 33238, 5020, 5002). ");
       #endif
     }
 
@@ -187,7 +187,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "ESP. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "ESP. ");
       #endif
     }
 
@@ -197,11 +197,11 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "TCP. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "TCP. ");
       #endif
     }
     #ifdef DEBUG
-      do_debug(1, "\n");
+      do_debug_c(1, ANSI_COLOR_RESET, "\n");
     #endif
 
 
@@ -227,7 +227,7 @@ int initRohc( struct contextSimplemux* context )
     }
 
     #ifdef DEBUG
-      do_debug(1, "RoHC decompressor created. Profiles: ");
+      do_debug_c(1, ANSI_COLOR_RESET, "RoHC decompressor created. Profiles: ");
     #endif
 
     // set the function that will manage the RoHC decompressing traces (it will be 'print_rohc_traces')
@@ -244,7 +244,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "Uncompressed. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "Uncompressed. ");
       #endif
     }
 
@@ -255,7 +255,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "IP-only. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "IP-only. ");
       #endif
     }
 
@@ -266,7 +266,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "IP/UDP. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "IP/UDP. ");
       #endif
     }
 
@@ -278,7 +278,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "IP/UDP-Lite. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "IP/UDP-Lite. ");
       #endif
     }
 
@@ -289,7 +289,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "RTP. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "RTP. ");
       #endif
     }
 
@@ -300,7 +300,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "ESP. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "ESP. ");
       #endif
     }
 
@@ -311,7 +311,7 @@ int initRohc( struct contextSimplemux* context )
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "TCP. ");
+        do_debug_c(1, ANSI_COLOR_RESET, "TCP. ");
       #endif
     }
 

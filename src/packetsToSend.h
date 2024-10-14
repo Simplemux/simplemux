@@ -15,27 +15,27 @@
 
 // header of the packet to be sent
 struct simplemuxFastHeader {
-   uint16_t packetSize; // use 'htons()' when writing it because this field will be sent through the network
-                        // use 'ntohs()' when reading it from the network
-   uint8_t protocolID;
+  uint16_t packetSize; // use 'htons()' when writing it because this field will be sent through the network
+                       // use 'ntohs()' when reading it from the network
+  uint8_t protocolID;
 } __attribute__ ((__packed__));
 
 // header of the packet to be sent
 struct simplemuxBlastHeader {
-   uint16_t packetSize; // use 'htons()' when writing it because this field will be sent through the network
-                        // use 'ntohs()' when reading it from the network
-   uint8_t protocolID;
-   uint16_t identifier; // use 'htons()' when writing it because this field will be sent through the network
-                        // use 'ntohs()' when reading it from the network
-   uint8_t ACK; // 0:this is a packet that requires an ACK; 1:the packet is an ACK; 2: the packet is a heartbeat
+  uint16_t packetSize; // use 'htons()' when writing it because this field will be sent through the network
+                       // use 'ntohs()' when reading it from the network
+  uint8_t protocolID;
+  uint16_t identifier; // use 'htons()' when writing it because this field will be sent through the network
+                       // use 'ntohs()' when reading it from the network
+  uint8_t ACK; // 0:this is a packet that requires an ACK; 1:the packet is an ACK; 2: the packet is a heartbeat
 } __attribute__ ((__packed__));
 
 // include the payload and also other parameters that are not sent through the network
 struct packet {
-   struct simplemuxBlastHeader header;
-   uint8_t tunneledPacket[BUFSIZE];
-   uint64_t sentTimestamp; // last moment when this packet was sent
-   struct packet *next;
+  struct simplemuxBlastHeader header;
+  uint8_t tunneledPacket[BUFSIZE];
+  uint64_t sentTimestamp; // last moment when this packet was sent
+  struct packet *next;
 } __attribute__ ((__packed__));
 
 //display the list

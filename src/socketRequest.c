@@ -119,7 +119,7 @@ int socketRequest(struct contextSimplemux* context, const int on)
       // source IPv4 address: it is the one of the interface
       strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&context->iface.ifr_addr)->sin_addr));
       #ifdef DEBUG
-        do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
+        do_debug_c(1, ANSI_COLOR_RESET, "Local IP for multiplexing %s\n", context->local_ip);
       #endif
     }
 
@@ -141,7 +141,7 @@ int socketRequest(struct contextSimplemux* context, const int on)
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "Socket for multiplexing over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
+        do_debug_c(1, ANSI_COLOR_RESET, "Socket for multiplexing over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
       #endif
     }
   }
@@ -176,7 +176,7 @@ int socketRequest(struct contextSimplemux* context, const int on)
       // source IPv4 address: it is the one of the interface
       strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&context->iface.ifr_addr)->sin_addr));
       #ifdef DEBUG
-        do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
+        do_debug_c(1, ANSI_COLOR_RESET, "Local IP for multiplexing %s\n", context->local_ip);
       #endif
     }
 
@@ -200,7 +200,7 @@ int socketRequest(struct contextSimplemux* context, const int on)
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "Welcoming TCP socket open. Remote IP %s. Port %i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
+        do_debug_c(1, ANSI_COLOR_RESET, "Welcoming TCP socket open. Remote IP %s. Port %i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
       #endif
     }
 
@@ -244,7 +244,7 @@ int socketRequest(struct contextSimplemux* context, const int on)
       // source IPv4 address: it is the one of the interface
       strcpy (context->local_ip, inet_ntoa(((struct sockaddr_in *)&context->iface.ifr_addr)->sin_addr));
       #ifdef DEBUG
-        do_debug(1, "Local IP for multiplexing %s\n", context->local_ip);
+        do_debug_c(1, ANSI_COLOR_RESET, "Local IP for multiplexing %s\n", context->local_ip);
       #endif
     }
 
@@ -268,14 +268,14 @@ int socketRequest(struct contextSimplemux* context, const int on)
      */
     if( connect(context->tcp_client_fd, (struct sockaddr *)&(context->remote), sizeof(context->remote)) < 0) {
       #ifdef DEBUG
-        do_debug(1, "Trying to connect to the TCP server at %s:%i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
+        do_debug_c(1, ANSI_COLOR_RESET, "Trying to connect to the TCP server at %s:%i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
       #endif
       perror("connect() error: TCP connect Failed. The TCP server did not accept the connection");
       return 1;
     }
     else {
       #ifdef DEBUG
-        do_debug(1, "Successfully connected to the TCP server at %s:%i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
+        do_debug_c(1, ANSI_COLOR_RESET, "Successfully connected to the TCP server at %s:%i\n", inet_ntoa(context->remote.sin_addr), htons(context->remote.sin_port));
       #endif
 
       if ( DISABLE_NAGLE == 1 ) {
@@ -328,7 +328,7 @@ int feedbackSocketRequest(struct contextSimplemux* context)
   }
   else {
     #ifdef DEBUG
-      do_debug(1, "Socket for ROHC feedback over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context->feedback_remote.sin_addr), htons(context->feedback_remote.sin_port));
+      do_debug_c(1, ANSI_COLOR_RESET, "Socket for ROHC feedback over UDP open. Remote IP %s. Port %i\n", inet_ntoa(context->feedback_remote.sin_addr), htons(context->feedback_remote.sin_port));
     #endif
   }
   return 0;

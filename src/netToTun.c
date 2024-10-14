@@ -137,14 +137,14 @@ int readPacketFromNet(struct contextSimplemux* context,
         context->pendingBytesMuxedPacket = context->length_muxed_packet;
 
         #ifdef DEBUG
-          do_debug(2, " Read separator: Length %i (0x%02x%02x)",
+          do_debug_c(2, ANSI_COLOR_RESET, " Read separator: Length %i (0x%02x%02x)",
             context->length_muxed_packet, buffer_from_net[0], buffer_from_net[1]);
         #endif
 
         // read the Protocol field
         context->protocol_rec = buffer_from_net[2];
         #ifdef DEBUG
-          do_debug(2, ". Protocol %i (0x%02x)\n", context->protocol_rec, buffer_from_net[2]);
+          do_debug_c(2, ANSI_COLOR_RESET, ". Protocol %i (0x%02x)\n", context->protocol_rec, buffer_from_net[2]);
         #endif
 
         // read the packet itself (without the separator)
@@ -264,7 +264,7 @@ int readPacketFromNet(struct contextSimplemux* context,
       
       else /*if(*nread_from_net > context->pendingBytesMuxedPacket) */ {
         #ifdef DEBUG
-          do_debug(1, "ERROR: I have read all the pending bytes (%i) of this muxed packet, and some more. Abort\n",
+          do_debug_c(1, ANSI_COLOR_RED, "ERROR: I have read all the pending bytes (%i) of this muxed packet, and some more. Abort\n",
             context->pendingBytesMuxedPacket, *nread_from_net - context->pendingBytesMuxedPacket);
         #endif
 
@@ -296,7 +296,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
   switch (context->mode) {
     case UDP_MODE:
       #ifdef DEBUG
-      do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n",
+      do_debug_c(1, ANSI_COLOR_YELLOW, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n",
         context->net2tun,
         inet_ntoa(context->remote.sin_addr),
         ntohs(context->remote.sin_port),
@@ -316,7 +316,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
     case TCP_CLIENT_MODE:
       #ifdef DEBUG
-        do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n",
+        do_debug_c(1, ANSI_COLOR_YELLOW, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n",
           context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
       #endif
 
@@ -333,7 +333,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
     case TCP_SERVER_MODE:
       #ifdef DEBUG
-        do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n",
+        do_debug_c(1, ANSI_COLOR_YELLOW, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n",
           context->net2tun, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), nread_from_net );        
       #endif
 
@@ -350,7 +350,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
     case NETWORK_MODE:
       #ifdef DEBUG
-        do_debug(1, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n",
+        do_debug_c(1, ANSI_COLOR_YELLOW, "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n",
           context->net2tun, inet_ntoa(context->remote.sin_addr), nread_from_net + IPv4_HEADER_SIZE );        
       #endif
 
@@ -447,9 +447,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       if(deliverThisPacket) {
 
         #ifdef DEBUG
-          do_debug(2, " DEMUXED PACKET: ID %i", ntohs(blastHeader->identifier));
+          do_debug_c(2, ANSI_COLOR_YELLOW, " DEMUXED PACKET with ID %i", ntohs(blastHeader->identifier));
           if(debug>1) {
-            do_debug(2, ":");
+            do_debug_c(2, ANSI_COLOR_YELLOW, ":\n");
             dump_packet (length, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);                    
           }
           else {
@@ -469,8 +469,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           }
           else {
             #ifdef DEBUG
-              do_debug(1, " Packet with ID %i sent to the tun interface\n", ntohs(blastHeader->identifier));
-              do_debug(2, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
+              do_debug_c(1, ANSI_COLOR_RESET, " Packet with ID %i sent to the tun interface\n", ntohs(blastHeader->identifier));
+              do_debug_c(2, ANSI_COLOR_RESET, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
             #endif
           }
 
@@ -482,7 +482,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         else if(context->tunnelMode == TAP_MODE) {
           if (blastHeader->protocolID != IPPROTO_ETHERNET) {
             #ifdef DEBUG
-              do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", blastHeader->protocolID);
+              do_debug_c(2, ANSI_COLOR_RED, "wrong value of 'Protocol' field received. It should be 143, but it is %i", blastHeader->protocolID);
             #endif            
           }
           else {
@@ -496,8 +496,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             }
             else {
               #ifdef DEBUG
-                do_debug(1, " Packet with ID %i sent to the tun interface", ntohs(blastHeader->identifier));
-                do_debug(2, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
+                do_debug_c(1, ANSI_COLOR_RESET, " Packet with ID %i sent to the tun interface", ntohs(blastHeader->identifier));
+                do_debug_c(2, ANSI_COLOR_RESET, "%"PRIu64" Packet correctly sent to the tun interface\n", now);
               #endif
             }
 
@@ -519,7 +519,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
       // this packet requires an ACK
       #ifdef DEBUG
-        do_debug(2," Sending a blast ACK\n");
+        do_debug_c(2, ANSI_COLOR_BOLD_YELLOW, " Sending a blast ACK\n");
       #endif
 
       // send the ACK as soon as the packet arrives
@@ -533,12 +533,13 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       sendPacketBlastFlavor(context, &ACK);
 
       #ifdef DEBUG
-        do_debug(1," Sent blast ACK to the network. ID %i, length %i\n", ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));
+        do_debug_c(1, ANSI_COLOR_BOLD_YELLOW, " Sent blast ACK to the network. ID %i, length %i\n",
+          ntohs(ACK.header.identifier), ntohs(ACK.header.packetSize));
       #endif
     }
     else if((blastHeader->ACK & MASK ) == HEARTBEAT) {
       #ifdef DEBUG
-        do_debug(1," Arrived blast heartbeat\n");
+        do_debug_c(1, ANSI_COLOR_BOLD_YELLOW, " Arrived blast heartbeat\n");
       #endif
 
       uint64_t now = GetTimeStamp();
@@ -614,8 +615,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         num_demuxed_packets ++;
 
         #ifdef DEBUG
-          do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
-          do_debug(2, ": ");
+          do_debug_c(1, ANSI_COLOR_YELLOW, " DEMUXED PACKET #%i", num_demuxed_packets);
+          do_debug_c(2, ANSI_COLOR_YELLOW, ": ");
         #endif
       }
       else {
@@ -627,8 +628,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         // I have demuxed another packet
         num_demuxed_packets ++;
         #ifdef DEBUG
-          do_debug(1, " DEMUXED PACKET #%i", num_demuxed_packets);
-          do_debug(2, ":");
+          do_debug_c(1, ANSI_COLOR_YELLOW, " DEMUXED PACKET #%i", num_demuxed_packets);
+          do_debug_c(2, ANSI_COLOR_YELLOW, ":");
         #endif
       }
 
@@ -646,13 +647,13 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
           #ifdef DEBUG
             if (debug>0) {
-              do_debug(2, " buffer from net: %d\n", buffer_from_net[position]);
-              do_debug(2, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
+              do_debug_c(2, ANSI_COLOR_RESET, " buffer from net: %d\n", buffer_from_net[position]);
+              do_debug_c(2, ANSI_COLOR_RESET, " Mux separator of 1 byte: 0x%02x (", buffer_from_net[position]);
 
               bool bits[8];   // used for printing the bits of a byte in debug mode
               FromByte(buffer_from_net[position], bits);
               PrintByte(2, 8, bits);
-              do_debug(2, ")");
+              do_debug_c(2, ANSI_COLOR_RESET, ")");
             }
           #endif
           position ++;
@@ -694,12 +695,12 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
               // print the first byte
               FromByte(buffer_from_net[position], bits);
-              do_debug(2, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
+              do_debug_c(2, ANSI_COLOR_RESET, " Mux separator of 2 bytes: 0x%02x (", buffer_from_net[position]);
               PrintByte(2, 8, bits);
               
               // print the second byte
               FromByte(buffer_from_net[position+1], bits);
-              do_debug(2, ") 0x%02x (",buffer_from_net[position+1]);
+              do_debug_c(2, ANSI_COLOR_RESET, ") 0x%02x (",buffer_from_net[position+1]);
               PrintByte(2, 8, bits);
               do_debug(2,")");
             }
@@ -730,17 +731,17 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
               // print the first byte
               FromByte(buffer_from_net[position], bits);
-              do_debug(2, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
+              do_debug_c(2, ANSI_COLOR_RESET, " Mux separator of 2 bytes: 0x%02x ", buffer_from_net[position]);
               PrintByte(2, 8, bits);
               
               // print the second byte
               FromByte(buffer_from_net[position+1], bits);
-              do_debug(2, " %02x ",buffer_from_net[position+1]);
+              do_debug_c(2, ANSI_COLOR_RESET, " %02x ",buffer_from_net[position+1]);
               PrintByte(2, 8, bits);  
               
               // print the third byte
               FromByte(buffer_from_net[position+2], bits);
-              do_debug(2, " %02x ",buffer_from_net[position+2]);
+              do_debug_c(2, ANSI_COLOR_RESET, " %02x ",buffer_from_net[position+2]);
               PrintByte(2, 8, bits);
             }
             #endif
@@ -756,13 +757,13 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           // the next thing I expect is a 'protocol' field
           context->protocol_rec = buffer_from_net[position];
           #ifdef DEBUG
-            do_debug(1, ". Protocol 0x%02x", buffer_from_net[position]);
+            do_debug_c(1, ANSI_COLOR_RESET, ". Protocol 0x%02x", buffer_from_net[position]);
             if(context->protocol_rec == IPPROTO_IP_ON_IP)
-              do_debug(1, " (IP)");
+              do_debug_c(1, ANSI_COLOR_RESET, " (IP)");
             else if(context->protocol_rec == IPPROTO_ROHC)
-              do_debug(1, " (RoHC)");
+              do_debug_c(1, ANSI_COLOR_RESET, " (RoHC)");
             else if(context->protocol_rec == IPPROTO_ETHERNET)
-              do_debug(1, " (Ethernet)");
+              do_debug_c(1, ANSI_COLOR_RESET, " (Ethernet)");
           #endif
           position ++;
 
@@ -775,20 +776,20 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             context->protocol_rec = buffer_from_net[position];
             if(single_protocol_rec == 0) {
               #ifdef DEBUG
-                do_debug(1, ". Protocol 0x%02x", buffer_from_net[position]);
+                do_debug_c(1, ANSI_COLOR_RESET, ". Protocol 0x%02x", buffer_from_net[position]);
                 if(context->protocol_rec == IPPROTO_IP_ON_IP)
-                  do_debug(1, " (IP)");
+                  do_debug_c(1, ANSI_COLOR_RESET, " (IP)");
                 if(context->protocol_rec == IPPROTO_ROHC)
-                  do_debug(1, " (RoHC)");
+                  do_debug_c(1, ANSI_COLOR_RESET, " (RoHC)");
                 if(context->protocol_rec == IPPROTO_ETHERNET)
-                  do_debug(1, " (Ethernet)");
+                  do_debug_c(1, ANSI_COLOR_RESET, " (Ethernet)");
               #endif
             }
             position ++;
           }
         }
         #ifdef DEBUG
-          do_debug(1, ". Length %i bytes\n", packet_length);
+          do_debug_c(1, ANSI_COLOR_RESET, ". Length %i bytes\n", packet_length);
         #endif
       }
 
@@ -801,7 +802,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         if ((context->mode == TCP_SERVER_MODE) || (context->mode == TCP_CLIENT_MODE)) {
           // do nothing, because I have already read the length
           #ifdef DEBUG
-            do_debug(1, " Length %i bytes\n", packet_length);
+            do_debug_c(1, ANSI_COLOR_RESET, " Length %i bytes\n", packet_length);
           #endif
 
           // do nothing, because I have already read the Protocol
@@ -817,22 +818,22 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           //packet_length = (buffer_from_net[position] << 8 ) + buffer_from_net[position+1];
 
           #ifdef DEBUG
-            do_debug(1, " Length %i bytes. ", packet_length);
+            do_debug_c(1, ANSI_COLOR_RESET, " Length %i bytes. ", packet_length);
           #endif
 
           // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
           context->protocol_rec = fastHeader->protocolID;
 
           #ifdef DEBUG
-            do_debug(1, "Protocol 0x%02x", context->protocol_rec);
+            do_debug_c(1, ANSI_COLOR_RESET, "Protocol 0x%02x", context->protocol_rec);
             if(context->protocol_rec == IPPROTO_IP_ON_IP)
-              do_debug(1, " (IP)\n");
+              do_debug_c(1, ANSI_COLOR_RESET, " (IP)\n");
             else if(context->protocol_rec == IPPROTO_ROHC)
-              do_debug(1, " (RoHC)\n");
+              do_debug_c(1, ANSI_COLOR_RESET, " (RoHC)\n");
             else if(context->protocol_rec == IPPROTO_ETHERNET)
-              do_debug(1, " (Ethernet)\n");
+              do_debug_c(1, ANSI_COLOR_RESET, " (Ethernet)\n");
             else
-              do_debug(1, "\n");          
+              do_debug_c(1, ANSI_COLOR_RESET, "\n");          
           #endif
 
           // move 'position' to the end of the simplemuxFast header
@@ -884,7 +885,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             #ifdef DEBUG
             // dump the received packet on terminal
             if (debug>0) {
-              //do_debug(1, " Received ");
+              //do_debug_c(1, ANSI_COLOR_RESET, " Received ");
               //do_debug(2, "   ");
               dump_packet ( packet_length, demuxed_packet );
             }
@@ -896,7 +897,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           // I cannot decompress the packet if I am not in ROHC mode
           if ( context->rohcMode == 0 ) {
             #ifdef DEBUG
-              do_debug(1," ROHC packet received, but not in ROHC mode. Packet dropped\n");
+              do_debug_c(1, ANSI_COLOR_MAGENTA, " ROHC packet received, but not in ROHC mode. Packet dropped\n");
             #endif
 
             #ifdef LOGFILE
@@ -943,7 +944,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                   do_debug(3, "Feedback received from the remote compressor by the decompressor (%i bytes), to be delivered to the local compressor\n", rcvd_feedback.len);
                   // dump the feedback packet on terminal
                   if (debug>0) {
-                    do_debug(2, "  ROHC feedback packet received\n");
+                    do_debug_c(2, ANSI_COLOR_RESET, "  ROHC feedback packet received\n");
 
                     dump_packet (rcvd_feedback.len, rcvd_feedback.data );
                   }
@@ -975,7 +976,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
                   // dump the ROHC packet on terminal
                   if (debug>0) {
-                    do_debug(2, "  ROHC feedback packet generated\n");
+                    do_debug_c(2, ANSI_COLOR_MAGENTA, "  ROHC feedback packet generated\n");
                     dump_packet (feedback_send.len, feedback_send.data );
                   }
                 #endif
@@ -1012,7 +1013,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
                 #ifdef DEBUG
                   //dump the IP packet on the standard output
-                  do_debug(1, "  IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
+                  do_debug_c(1, ANSI_COLOR_MAGENTA, "  IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
 
                   if (debug > 1) {
                     // dump the decompressed IP packet on terminal
@@ -1029,7 +1030,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                  *  - the ROHC packet was a feedback-only packet, it contained only
                  *    feedback information, so there was nothing to decompress */
                 #ifdef DEBUG
-                  do_debug(1, "  no IP packet decompressed\n");
+                  do_debug_c(1, ANSI_COLOR_RED, "  no IP packet decompressed\n");
                 #endif
 
                 #ifdef LOGFILE
@@ -1047,7 +1048,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             else if ( *status == ROHC_STATUS_NO_CONTEXT ) {
               // failure: decompressor failed to decompress the ROHC packet
               #ifdef DEBUG
-                do_debug(1, "  decompression of ROHC packet failed. No context\n");
+                do_debug_c(1, ANSI_COLOR_RED, "  decompression of ROHC packet failed. No context\n");
                 //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
               #endif
 
@@ -1064,7 +1065,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             else if ( *status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {  // the output buffer is too small for the compressed packet
               // failure: decompressor failed to decompress the ROHC packet 
               #ifdef DEBUG
-                do_debug(1, "  decompression of ROHC packet failed. Output buffer is too small\n");
+                do_debug_c(1, ANSI_COLOR_RED, "  decompression of ROHC packet failed. Output buffer is too small\n");
                 //fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
               #endif
 
@@ -1082,7 +1083,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               // failure: decompressor failed to decompress the ROHC packet
 
               #ifdef DEBUG 
-                do_debug(1, "  decompression of ROHC packet failed. No context\n");
+                do_debug_c(1, ANSI_COLOR_RED, "  decompression of ROHC packet failed. No context\n");
                 //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
               #endif
 
@@ -1100,7 +1101,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               // failure: decompressor failed to decompress the ROHC packet 
 
               #ifdef DEBUG
-                do_debug(1, "  decompression of ROHC packet failed. Bad CRC\n");
+                do_debug_c(1, ANSI_COLOR_RED, "  decompression of ROHC packet failed. Bad CRC\n");
                 //fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
               #endif
 
@@ -1118,7 +1119,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               // failure: decompressor failed to decompress the ROHC packet
 
               #ifdef DEBUG
-                do_debug(1, "  decompression of ROHC packet failed. Other error\n");
+                do_debug_c(1, ANSI_COLOR_RED, "  decompression of ROHC packet failed. Other error\n");
                 //fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
               #endif
 
@@ -1152,7 +1153,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           else if(context->tunnelMode == TAP_MODE) {
             if (context->protocol_rec != IPPROTO_ETHERNET) {
               #ifdef DEBUG
-                do_debug (2, "wrong value of 'Protocol' field received. It should be 143, but it is %i", context->protocol_rec);
+                do_debug_c (2, ANSI_COLOR_RED, "wrong value of 'Protocol' field received. It should be 143, but it is %i", context->protocol_rec);
               #endif            
             }
             else {

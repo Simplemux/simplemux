@@ -49,6 +49,22 @@ void do_debug(int level, char *msg, ...) {
     va_end(argp);
   }
 }
+
+/**************************************************************************
+ * do_debug: prints debugging stuff (doh!)                                *
+ **************************************************************************/
+void do_debug_c(int level, char* color, char *msg, ...) {
+
+  va_list argp;
+
+  if( debug >= level ) {
+    va_start(argp, msg);
+    vfprintf(stderr, color, argp);
+    vfprintf(stderr, msg, argp);
+    vfprintf(stderr, ANSI_COLOR_RESET, argp);
+    va_end(argp);
+  }
+}
 #endif
 
 
@@ -110,7 +126,7 @@ void BuildIPHeader( struct iphdr *iph,
 
   iph->check = in_cksum((unsigned short *)iph, sizeof(struct iphdr));
   
-  //do_debug(1, "Checksum: %i\n", iph->check);
+  //do_debug_c(1, ANSI_COLOR_RESET, "Checksum: %i\n", iph->check);
 
   counter ++;
 }
@@ -219,7 +235,7 @@ char c;
 // bits[0] is the less significant bit
 bool bits[8]={false, true, false, true, false, true, false, false}; is character '*': 00101010
 c = ToByte(bits);
-do_debug(1, "%c\n",c );
+do_debug_c(1, ANSI_COLOR_RESET, "%c\n",c );
 // as a result it will print an asterisk
 */
 uint8_t ToByte(bool b[8]) {
@@ -277,7 +293,7 @@ void dump_packet (int packet_size, uint8_t packet[BUFSIZE]) {
 
   do_debug(2,"   ");
   for(j = 0; j < packet_size; j++) {
-    do_debug(2, "%02x ", packet[j]);
+    do_debug_c(2, ANSI_COLOR_RESET, "%02x ", packet[j]);
     if(j != 0 && ((j + 1) % 16) == 0) {
       do_debug(2, "\n");
       if ( j != (packet_size -1 )) do_debug(2,"   ");
