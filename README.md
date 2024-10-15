@@ -53,7 +53,7 @@ You will find the next folders:
 - `rohc_library`. A copy of Didier Balvraux's RoHC library, version 1.7.0.
 
 
-## Modes and flavors
+## Modes, flavors and multiplexing policies
 
 ### Tunnel modes
 
@@ -81,6 +81,17 @@ Simplemux has the next *flavors*:
 - [**Fast**](/documentation/fast_flavor.md): it sacrifices some compression on behalf or speed. In this case, all the separators are 3-byte long, and all have the same structure.
 In TCP *mode*, the use of Simplemux *fast* is compulsory.
 - [**Blast**](/documentation/blast_flavor.md): it sends the same packet a number of times. But it only delivers one copy to the end point (the one that arrives first). It does not multiplex a number of packets together. It does NOT work in TCP mode.
+
+
+### Multiplexing policies
+
+Different [multiplexing policies](/documentation/multiplexing_policies.md) can be employed, depending on the flavor, i.e. four different conditions can be used and combined for triggering the sending of a multiplexed packet:
+
+- Number of packets
+- Size
+- Timeout
+- Period
+
 
 ## Specifications (IETF drafts)
 
