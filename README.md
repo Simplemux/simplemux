@@ -120,7 +120,15 @@ A presentation about Simplemux can be found here: http://es.slideshare.net/josem
 [How to install RoHC and compile Simplemux](/documentation/how_to_install_and_compile.md).
 
 
+## Example scenarios
+
+Some [example scenarios](/documentation/scenarios.md) have been described in detail.
+
+
 ## Usage examples
+
+Some examples of the command to run Simplemux:
+
 ```
 ./simplemux -i tun0 -e wlan0 -M network -T tun -c 10.1.10.4
 ./simplemux -i tun1 -e wlan0 -M network -T tun -c 10.1.10.6
