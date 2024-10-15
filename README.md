@@ -82,11 +82,15 @@ In TCP *mode*, the use of Simplemux *fast* is compulsory.
 - [**Blast**](https://gitlab.com/josemariasaldana/simplemux/-/blob/tun_to_net_separation/documentation/blast_flavor.md): it sends the same packet a number of times. But it only delivers one copy to the end point (the one that arrives first). It does not multiplex a number of packets together. It does NOT work in TCP mode.
 
 
-The initial specification of Simplemux can be found here: http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/. It was never adopted by the IETF, although some discussion take place. Note: It only specifies the *Normal* flavor.
+The specification of Simplemux can be found here: http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/. It was not adopted by the IETF, although some discussion took place. It specifies the *Fast flavor* and the *Normal* flavor (called *Compressed flavor* in the document).
 
-A research paper about Simplemux can be found here: http://diec.unizar.es/~jsaldana/personal/chicago_CIT2015_in_proc.pdf
+The specification of Simplemux *Blast flavor* can be found here: https://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux-blast/. It has never been discussed nor adopted by the IETF.
 
-A presentation about Simplemux can be found here: http://es.slideshare.net/josemariasaldana/simplemux-traffic-optimization
+A research paper about Simplemux (*Normal flavor*) can be found here: https://www.researchgate.net/publication/304674195_Improving_Network_Efficiency_with_Simplemux.
+
+A research paper about Simplemux *Blast flavor* can be found here: https://doi.org/10.3390/s23218879.
+
+A presentation about Simplemux can be found here: http://es.slideshare.net/josemariasaldana/simplemux-traffic-optimization.
 
 
 # How to install and compile
