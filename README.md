@@ -141,7 +141,7 @@ Jose Saldana (working at University of Zaragoza) wrote this program in 2015, pub
 
 Thanks to Davide Brini for his simpletun.c program. (2010) http://backreference.org/wp-content/uploads/2010/03/simpletun.tar.bz2
 
-This program uses an implementation of ROHC by Didier Barvaux (https://rohc-lib.org/).
+This program uses an implementation of RoHC by Didier Barvaux (https://rohc-lib.org/). More information about the [RoHC implementation used](/documentation/rohc.md)
 
 
 ## Disclaimer
