@@ -1,9 +1,9 @@
 Simplemux: multiplexing policies
 --------------------------------
 
-**Note**. In *blast* flavor, only a single packet can be sent. Only the *period* is used in that case.
+**Note**. In *blast* flavor, only a single packet can be sent. In that case, only the *period* can be used.
 
-Four different conditions can be used and combined for triggering the sending of a multiplexed packet (in the figures, the triggering moment is expressed by red lines):
+Four different conditions can be used and combined for triggering the sending of a multiplexed packet:
 - Number of packets
 - Size
 - Timeout
