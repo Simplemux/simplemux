@@ -53,7 +53,9 @@ Raspberry 2
      Raspberry 1                Raspberry 2
 ```
 
-With this script, you create the devices in the left machine:
+### Prepare the two devices
+
+With this script, you create the devices in Raspberry 1:
 ```
 # raspberry 1
 # add the interface eth0.3, part of VLAN 3
@@ -76,24 +78,7 @@ ip link set eth0.3 master br3
 ip link set br3 up
 ```
 
-And now, you can run `Simplemux` to create a tunnel to the other side.
-
-- using *network mode* (in the example, *blast* flavor is used with a period of 15 ms):
-```
-$ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.172 -d 2 -b -P 15000
-```
-
-- using UDP (in the example, *normal* flavor is used):
-```
-$ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.172 -d 2
-```
-
-- using TCP server (in the example, *fast* flavor is used):
-```
-./simplemux/simplemux -i tap3 -e eth1 -M tcpserver -T tap -c 192.168.3.172 -d 3 -n 1 -f
-```
-
-With this script you can create the devices in the right machine:
+With this script you can create the devices in Raspberry 2:
 ```
 # raspberry 2
 # add the interface eth0.3, part of VLAN 3
@@ -116,7 +101,30 @@ ip link set eth0.3 master br3
 ip link set br3 up
 ```
 
-And now, you can run `Simplemux` to create a tunnel to the other side.
+### Run Simplemux
+
+#### Raspberry 1
+
+Run `Simplemux` to create a tunnel to the other side.
+
+- using *network mode* (in the example, *blast* flavor is used with a period of 15 ms):
+```
+$ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.172 -d 2 -b -P 15000
+```
+
+- using UDP (in the example, *normal* flavor is used):
+```
+$ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.172 -d 2
+```
+
+- using TCP server (in the example, *fast* flavor is used):
+```
+./simplemux/simplemux -i tap3 -e eth1 -M tcpserver -T tap -c 192.168.3.172 -d 3 -n 1 -f
+```
+
+#### Raspberry 2
+
+Run `Simplemux` to create a tunnel to the other side.
 
 - using *network mode* (in the example, *blast* flavor is used with a period of 15 ms):
 ```
