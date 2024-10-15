@@ -1,11 +1,12 @@
-Simplemux - Example scenarios
------------------------------
+# Simplemux - Example scenarios
 
-# Scenario 1 - Two raspberries sending Ethernet frames
+[[_TOC_]]
+
+## Scenario 1 - Two raspberries sending Ethernet frames
 
 In this example scenario, you use two Raspberries as the multiplexer and the demultiplexer. Using **tap tunnel mode**, it sends whole Ethernet frames between two distant networks.
 
-Only the frames tagged as VLAN=3 will be sent through the Simplemux tunnel.
+Only the frames tagged as VLAN=`3` will be sent through the Simplemux tunnel.
 
 These are the protocols employed:
 - Multiplexed protocol: Ethernet.
@@ -13,44 +14,48 @@ These are the protocols employed:
 - Tunneling protocol: IP, TCP/IP or UDP/IP.
 
 Raspberry 1
-- eth0: 192.168.2.171
-- eth1: 192.168.3.171
-- br3: 192.168.33.171
+- `eth0`: `192.168.2.171`
+- `eth1`: `192.168.3.171`
+- `br3`: `192.168.33.171`
 
 Raspberry 2
-- eth0: 192.168.2.172
-- eth1: 192.168.3.172
-- br3: 192.168.33.172
+- `eth0`: `192.168.2.172`
+- `eth1`: `192.168.3.172`
+- `br3`: `192.168.33.172`
 
 ```
-       +----+
-+------|eth1|------+
-|      +----+      |
-|         |        |
-|    +---------+   |
-|    |simplemux|   |
-|    +---------+   |
-|         |        |
-|    +---------+   |
-|    |  tap3   |   |
-|    +---------+   |
-|         |        |
-|    +---------+   |
-|    |   br3   |   |
-|    +---------+   |
-|         |        |
-|   +------+       | 
-|   |eth0.3|       |
-|   +------+       |
-|         |        |
-|      +----+      |
-+------|eth0|------+
-       +----+
+          +--------------------------+
+          |                          |
+       +----+                      +----+      
++------|eth1|------+        +------|eth1|------+
+|      +----+      |        |      +----+      |
+|         |        |        |         |        |
+|    +---------+   |        |    +---------+   |
+|    |simplemux|   |        |    |simplemux|   |
+|    +---------+   |        |    +---------+   |
+|         |        |        |         |        |
+|    +---------+   |        |    +---------+   |
+|    |  tap3   |   |        |    |  tap3   |   |
+|    +---------+   |        |    +---------+   |
+|         |        |        |         |        |
+|    +---------+   |        |    +---------+   |
+|    |   br3   |   |        |    |   br3   |   |
+|    +---------+   |        |    +---------+   |
+|         |        |        |         |        |
+|   +------+       |        |   +------+       | 
+|   |eth0.3|       |        |   |eth0.3|       |
+|   +------+       |        |   +------+       |
+|         |        |        |         |        |
+|      +----+      |        |      +----+      |
++------|eth0|------+        +------|eth0|------+
+       +----+                      +----+      
+
+     Raspberry 1                Raspberry 2
 ```
 
-With this script, you create the “red” part in the left machine:
+With this script, you create the devices in the left machine:
 ```
-# raspberry 171
+# raspberry 1
 # add the interface eth0.3, part of VLAN 3
 ip link add link eth0 name eth0.3 type vlan id 3
 # add the interface tap3
@@ -71,7 +76,7 @@ ip link set eth0.3 master br3
 ip link set br3 up
 ```
 
-And now, you can run Simplemux to create a tunnel to the other side.
+And now, you can run `Simplemux` to create a tunnel to the other side.
 
 - using *network mode* (in the example, *blast* flavor is used with a period of 15 ms):
 ```
@@ -88,9 +93,9 @@ $ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.172 -d 2
 ./simplemux/simplemux -i tap3 -e eth1 -M tcpserver -T tap -c 192.168.3.172 -d 3 -n 1 -f
 ```
 
-With this script you can add the red part in the right machine:
+With this script you can create the devices in the right machine:
 ```
-# raspberry 172
+# raspberry 2
 # add the interface eth0.3, part of VLAN 3
 ip link add link eth0 name eth0.3 type vlan id 3
 # add the interface tap3
@@ -111,7 +116,7 @@ ip link set eth0.3 master br3
 ip link set br3 up
 ```
 
-And now, you can run Simplemux to create a tunnel to the other side.
+And now, you can run `Simplemux` to create a tunnel to the other side.
 
 - using *network mode* (in the example, *blast* flavor is used with a period of 15 ms):
 ```
@@ -133,15 +138,16 @@ $ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.171 -d 2
 You can now ping from Raspberry 1 to 192.168.33.172, and you will see if the tunnel works.
 
 
-# Scenario 2: sending IP packets between VMs
+## Scenario 2: sending IP packets between VMs
 
-This has been tested between 
+This has been tested using three Debian Virtual Machines inside a Windows PC.
+
 This is the setup:
 FIXME: Add image here
 
 Machine 6 is the source. Machine 5 and Machine 4 are the two optimizers. Server x.y.z.t is the destination.
 
-## Create a tun interface in machine 4
+### Create a tun interface in machine 4
 ```
 $ ip tuntap add dev tun0 mode tun user root5
 
@@ -161,7 +167,7 @@ Note: `$ openvpn --mktun --dev tun0 --user root` will work in OpenWrt and also i
 
 In OpenWRT you will not be able to run `$ ip tuntap`, so you should install openvpn with: `$ opkg install openvpn-nossl` (do `opkg update` before).
 
-## Create a tun interface in machine 5
+### Create a tun interface in machine 5
 ```
 $ ip tuntap add dev tun0 mode tun user root
 ```
@@ -172,7 +178,7 @@ $ ip link set tun0 up
 $ ip addr add 192.168.100.5/24 dev tun0
 ```
 
-## Establish the simplemux tunnel between machine 4 and machine 5
+### Establish the simplemux tunnel between machine 4 and machine 5
 
 In machine4:
 ```
@@ -184,7 +190,7 @@ In machine5:
 $ ./simplemux -i tun0 -e eth0 –M udp -T tun -c 192.168.137.4
 ```
  
-## Test the tunnel
+### Test the tunnel
 
 Now you can ping from machine 5 or machine 6, to machine 4:
 ```
@@ -194,7 +200,7 @@ $ ping 192.168.100.4
 The ping arrives to the `tun0` interface of machine 5, goes to machine 4 through the tunnel and is returned to machine 6 through the tunnel.
 
 
-## How to steer traffic from Machine 6 to server x.y.z.t through the tunnel
+### Steer traffic from Machine 6 to server x.y.z.t through the tunnel
 
 The idea of simplemux is that it does not run at endpoints, but on some “optimizing” machines in the network. Therefore, you have to define policies to steer the flows of interest, in order to make them go through the TUN interface of the ingress (machine 5). This can be done with `ip rule` and `iptables`.
 
@@ -247,14 +253,14 @@ iptables -t mangle –L
 ```
 
 
-# Scenario 3: Simplemux between two Virtual Machines in the same computer
+## Scenario 3: Simplemux between two Virtual Machines in the same computer
 
 Run Simplemux between two VMs with IP addresses `192.168.129.131` and `192.168.129.132`.
 
 They are Debian VMs.
 
 
-## tun tunnel mode
+### tun mode
 
 To create a tun, run these commands as root
 (To test, you can add an IP address to `tun0`)
@@ -298,7 +304,7 @@ ping 192.168.100.2
 If the ping works, it means it sends traffic to the other machine, so Simplemux is working.
 
 
-## tap tunnel mode
+### tap mode
 
 Note: RoHC cannot be used in tap tunnel mode (`-r 0` option).
 
@@ -339,5 +345,3 @@ Test if Simplemux is working using this command:
 ping 192.168.200.2
 ```
 If the ping works, it means it sends traffic to the other machine, so Simplemux is working.
-
-
