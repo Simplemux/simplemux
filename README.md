@@ -91,9 +91,15 @@ The specification of Simplemux *Blast flavor* can be found here: https://datatra
 
 ## Research papers
 
-A research paper about Simplemux (*Normal flavor*) can be found here: https://www.researchgate.net/publication/304674195_Improving_Network_Efficiency_with_Simplemux.
+A research paper about Simplemux *Normal flavor* can be found here:
 
-A research paper about Simplemux *Blast flavor* can be found here: https://doi.org/10.3390/s23218879.
+**Jose Saldana**, Ignacio Forcen, Julian Fernández-Navajas, Jose Ruiz-Mas, "[_Improving Network Efficiency with Simplemux_](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=7363105)," [IEEE CIT 2015](http://cse.stfx.ca/~cit2015/), International Conference on Computer and Information Technology, pp. 446-453, 26-28 October 2015, Liverpool, UK. [Presentation](http://es.slideshare.net/josemariasaldana/improving-network-efficiency-with-simplemux). [Open dataset in Zenodo](http://dx.doi.org/10.5281/zenodo.35246). doi: [10.1109/CIT/IUCC/DASC/PICOM.2015.64](http://dx.doi.org/10.1109/CIT/IUCC/DASC/PICOM.2015.64). [**Author's PDF version in Researchgate**](https://www.researchgate.net/publication/304674195_Improving_Network_Efficiency_with_Simplemux).
+
+
+A research paper about Simplemux *Blast flavor* can be found here:
+
+**Jose Saldana**, Aníbal Antonio Prada Hurtado, Eduardo Martinez Carrasco, Yasmina Galve, Jesús Torres, "[_Fast and Reliable Sending of Generic Object Oriented Substation Event Frames between Remote Locations over Loss-Prone Networks_](https://www.mdpi.com/1424-8220/23/21/8879)," in [Sensors](https://www.mdpi.com/journal/sensors) 2023, 23(21), 8879. doi: [10.3390/s23218879](https://doi.org/10.3390/s23218879), [**Open Access**](https://www.mdpi.com/1424-8220/23/21/8879/pdf).
+
 
 A presentation about Simplemux can be found here: http://es.slideshare.net/josemariasaldana/simplemux-traffic-optimization.
 
@@ -103,7 +109,7 @@ A presentation about Simplemux can be found here: http://es.slideshare.net/josem
 [How to install RoHC and compile Simplemux](https://gitlab.com/josemariasaldana/simplemux/-/blob/tun_to_net_separation/documentation/how_to_install_and_compile.md).
 
 
-## Usage examples:
+## Usage examples
 ```
 ./simplemux -i tun0 -e wlan0 -M network -T tun -c 10.1.10.4
 ./simplemux -i tun1 -e wlan0 -M network -T tun -c 10.1.10.6
