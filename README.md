@@ -78,9 +78,9 @@ It includes the next options for the *tunneling* protocol, which correspond to f
 Simplemux has the next *flavors*:
 
 - **Normal**: it tries to compress the separators as much as possible. For that aim, some single-bit fields are used.
-- [**Fast**](https://gitlab.com/josemariasaldana/simplemux/-/blob/tun_to_net_separation/documentation/fast_flavor.md): it sacrifices some compression on behalf or speed. In this case, all the separators are 3-byte long, and all have the same structure.
+- [**Fast**](/tun_to_net_separation/documentation/fast_flavor.md): it sacrifices some compression on behalf or speed. In this case, all the separators are 3-byte long, and all have the same structure.
 In TCP *mode*, the use of Simplemux *fast* is compulsory.
-- [**Blast**](https://gitlab.com/josemariasaldana/simplemux/-/blob/tun_to_net_separation/documentation/blast_flavor.md): it sends the same packet a number of times. But it only delivers one copy to the end point (the one that arrives first). It does not multiplex a number of packets together. It does NOT work in TCP mode.
+- [**Blast**](/tun_to_net_separation/documentation/blast_flavor.md): it sends the same packet a number of times. But it only delivers one copy to the end point (the one that arrives first). It does not multiplex a number of packets together. It does NOT work in TCP mode.
 
 ## Specifications (IETF drafts)
 
@@ -106,7 +106,7 @@ A presentation about Simplemux can be found here: http://es.slideshare.net/josem
 
 ## How to install and compile
 
-[How to install RoHC and compile Simplemux](https://gitlab.com/josemariasaldana/simplemux/-/blob/tun_to_net_separation/documentation/how_to_install_and_compile.md).
+[How to install RoHC and compile Simplemux](/tun_to_net_separation/documentation/how_to_install_and_compile.md).
 
 
 ## Usage examples
