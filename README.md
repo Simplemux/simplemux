@@ -95,15 +95,17 @@ Different [multiplexing policies](/documentation/multiplexing_policies.md) can b
 ### Summary
 
 ```
-+--------+-------+-------+-------++-----------------------------++------+
-|        |Network|  UDP  |  TCP  ||    Multiplexing policies    || RoHC |
+         +-------+-------+-------++-----------------------------++------+
+         |Network|  UDP  |  TCP  ||    Multiplexing policies    || RoHC |
 +--------+-------+-------+-------++-----------------------------++------+
 | Normal |   X   |   X   |   X   ||number, size, timeout, period||   X  |
 +--------+-------+-------+-------++-----------------------------++------+
 | Fast   |   X   |   X   |   X   ||number, size, timeout, period||   X  |
 +--------+-------+-------+-------++-----------------------------++------+
-| Blast  |   X   |   X   |       ||only period. Always 1 packet ||      |
+| Blast  |   X   |   X   |       ||only period*. Always 1 packet||      |
 +--------+-------+-------+-------++-----------------------------++------+
+
+* In blast mode, the packet is sent immediately. The period defines the interval used to send copies of the packet.
 ```
 
 ## Specifications (IETF drafts)
