@@ -36,7 +36,7 @@ The size of the simplemux separators is kept very low (it may be a single byte w
 ## About this repository
 
 This repository includes a Linux user-space implementation of Simplemux, written in C. It uses Simplemux as the multiplexing protocol, and different options for the multiplexed and tunneling protocols:
-- Multiplexed protocol: Ethernet, IP, RoHC (RFC 5795).
+- Multiplexed protocol: Ethernet, IP, RoHC ([RFC 5795](https://datatracker.ietf.org/doc/html/rfc5795)).
 - Multiplexing protocol: Simplemux.
 - Tunneling protocol: IP, TCP/IP or UDP/IP.
 
@@ -94,18 +94,21 @@ Different [multiplexing policies](/documentation/multiplexing_policies.md) can b
 
 ### Summary
 
+The next table details the options that are available for each flavor.
 ```
-         +-------+-------+-------++-----------------------------++------+
-         |Network|  UDP  |  TCP  ||    Multiplexing policies    || RoHC |
-+--------+-------+-------+-------++-----------------------------++------+
-| Normal |   X   |   X   |   X   ||number, size, timeout, period||   X  |
-+--------+-------+-------+-------++-----------------------------++------+
-| Fast   |   X   |   X   |   X   ||number, size, timeout, period||   X  |
-+--------+-------+-------+-------++-----------------------------++------+
-| Blast  |   X   |   X   |       ||only period*. Always 1 packet||      |
-+--------+-------+-------+-------++-----------------------------++------+
+         +-----------------------+-----------------------------+------+
+         |         Mode          |                             |      |
+         +-------+-------+-------+    Multiplexing policies    | RoHC |
+         |Network|  UDP  |  TCP  |                             |      |
++--------+-------+-------+-------+-----------------------------+------+
+| Normal |   X   |   X   |   X   |number, size, timeout, period|   X  |
++--------+-------+-------+-------+-----------------------------+------+
+| Fast   |   X   |   X   |   X   |number, size, timeout, period|   X  |
++--------+-------+-------+-------+-----------------------------+------+
+| Blast  |   X   |   X   |       |        Always 1 packet*     |      |
++--------+-------+-------+-------+-----------------------------+------+
 
-* In blast mode, the packet is sent immediately. The period defines the interval used to send copies of the packet.
+* In blast flavor, the packet is sent immediately. The period defines the interval used to send copies of the packet.
 ```
 
 ## Specifications (IETF drafts)
