@@ -4,14 +4,18 @@
 
 ## Scenario 1 - Two raspberries sending Ethernet frames
 
-In this example scenario, you use two Raspberries as the multiplexer and the demultiplexer. Using **tap tunnel mode**, it sends whole Ethernet frames between two distant networks.
+- Tunnel mode: `tap`
+- Mode: `network`, `UDP` or `TCP`
+- Flavor: `normal`, `fast` or `blast`
+
+In this example scenario, two Raspberries have been used as the multiplexer and the demultiplexer. Using **tap tunnel mode**, whole Ethernet frames are sent between two distant networks.
 
 Only the frames tagged as VLAN=`3` will be sent through the Simplemux tunnel.
 
 These are the protocols employed:
 - Multiplexed protocol: Ethernet.
 - Multiplexing protocol: Simplemux.
-- Tunneling protocol: IP, TCP/IP or UDP/IP.
+- Tunneling protocol: IP, UDP/IP or TCP/IP.
 
 Raspberry 1
 - `eth0`: `192.168.2.171`
@@ -142,11 +146,14 @@ $ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.171 -d 2
 ```
 
 
-
 You can now ping from Raspberry 1 to 192.168.33.172, and you will see if the tunnel works.
 
 
 ## Scenario 2: sending IP packets between VMs
+
+- Tunnel mode: `tun`
+- Mode: `UDP`
+- Flavor: `normal`
 
 This has been tested using three Debian Virtual Machines inside a Windows PC.
 
