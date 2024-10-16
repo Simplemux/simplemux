@@ -92,6 +92,19 @@ Different [multiplexing policies](/documentation/multiplexing_policies.md) can b
 - Timeout
 - Period
 
+### Summary
+
+```
++--------+--------+--------+--------++-----------------------------+
+|        | Network|  UDP   |   TCP  ||    Multiplexing policies    |
++--------+--------+--------+--------++-----------------------------+
+| Normal |    X   |    X   |    X   ||number, size, timeout, period|
++--------+--------+--------+--------++-----------------------------+
+| Fast   |    X   |    X   |    X   ||number, size, timeout, period|
++--------+--------+--------+--------++-----------------------------+
+| Blast  |    X   |    X   |        ||only period. Always 1 packet |
++--------+--------+--------+--------++-----------------------------+
+```
 
 ## Specifications (IETF drafts)
 
