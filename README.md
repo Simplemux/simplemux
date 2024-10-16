@@ -138,7 +138,35 @@ A presentation about Simplemux can be found here: http://es.slideshare.net/josem
 Some [example scenarios](/documentation/scenarios.md) have been described in detail.
 
 
-## Usage examples
+## Usage and examples
+
+```
+$ ./simplemux
+Usage:
+./simplemux -i <ifacename> -e <ifacename> -c <peerIP> -M <'network' or 'udp' or 'tcpclient' or 'tcpserver'> [-T 'tun' or 'tap'] [-p <port>] [-d <debug_level>] [-r <ROHC_option>] [-n <num_mux_tun>] [-m <MTU>] [-B <num_bytes_threshold>] [-t <timeout (microsec)>] [-P <period (microsec)>] [-l <log file name>] [-L] [-f] [-b]
+
+./simplemux -h
+
+-i <ifacename>: Name of tun/tap interface to be used for capturing native packets (mandatory)
+-e <ifacename>: Name of local interface which IP will be used for reception of muxed packets, i.e., the tunnel local end (mandatory)
+-c <peerIP>: specify peer destination IP address, i.e. the tunnel remote end (mandatory)
+-M <mode>: 'network' or 'udp' or 'tcpclient' or 'tcpserver' mode (mandatory)
+-T <tunnel mode>: 'tun' (default) or 'tap' mode
+-f: fast flavor (compression rate is lower, but it is faster). Compulsory for TCP mode
+-b: blast flavor (packets are sent until an application-level ACK is received from the other side). A period (-P) is needed in this case
+-p <port>: port to listen on, and to connect to (default 55555)
+-d <debug_level>: Debug level. 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)
+-r <ROHC_option>: 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)
+-n <num_mux_tun>: number of packets received, to be sent to the network at the same time, default 1, max 100
+-m <MTU>: Maximum Transmission Unit of the network path (by default the one of the local interface is taken)
+-B <num_bytes_threshold>: size threshold (bytes) to trigger the departure of packets (default MTU-28 in transport mode and MTU-20 in network mode)
+-t <timeout (microsec)>: timeout (in usec) to trigger the departure of packets
+-P <period (microsec)>: period (in usec) to trigger the departure of packets. If ( timeout < period ) then the timeout has no effect
+-l <log file name>: log file name. Use 'stdout' if you want the log data in standard output
+-L: use default log file name (day and hour Y-m-d_H.M.S)
+-h: prints this help text
+```
+
 
 Some examples of the command to run Simplemux:
 
