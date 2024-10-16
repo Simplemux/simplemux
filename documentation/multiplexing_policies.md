@@ -1,15 +1,15 @@
-Simplemux: multiplexing policies
---------------------------------
+# Simplemux: multiplexing policies
 
-**Note**. In *blast* flavor, only a single packet can be sent. In that case, only the *period* can be used.
+**Note**. In *blast flavor*, only a single packet can be sent. In that case, only the *period* can be used. Note that, in that case, it is not the multiplexing period: the packet is sent immediately, and there is no packet multiplexing.
 
-Four different conditions can be used and combined for triggering the sending of a multiplexed packet:
+
+In *normal flavor* and in *fast flavor*, four different conditions can be used and combined for triggering the sending of a multiplexed packet:
 - Number of packets
 - Size
 - Timeout
 - Period
 
-More than one condition can be set at the same time. Please note that if (timeout > period), then the timeout has no effect. Note that only the *period* policy guarantees an upper bound for the multiplexing delay.
+More than one condition can be set at the same time. Please note that if (*timeout* > *period*), then the *timeout* has no effect. Note that only the *period* policy guarantees an upper bound for the multiplexing delay.
 
 Simplemux is symmetric, i.e. both machines may act as ingress and egress simultaneously. However, different policies can be established at each of the optimizers, e.g. in one side you can send a multiplexed packet every two native ones, and in the other side you can set a timeout.
 
@@ -41,7 +41,7 @@ An active waiting is performed, and a multiplexed packet including all the packe
 
 Note: in *blast* flavor, the parameter *period* (option `-P`) is used in order to specify the period that wil be employed for sending the copies of a packet.
 
-# Examples of the different policies
+## Examples of the different policies
 
 Set a period of 50 ms
 ```
@@ -63,7 +63,7 @@ Send a timeout of 50ms, and a period of 100 ms (to set an upper bound on the add
 $ ./simplemux -i tun0 -e eth0 –M udp -T tun -c 192.168.0.5 –t 50000 –P 100000 –r 1
 ```
 
-# If you have to use the same local interface more than once
+## If you have to use the same local interface more than once
 
 It may happen that you have to create more than one tunnel using the same local interface. In that case, you may obtain a message Is already in use.
 
