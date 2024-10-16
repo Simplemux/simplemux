@@ -426,12 +426,12 @@ int main(int argc, char *argv[]) {
       }  
 
       /*************************************************************************************/  
-      /******************** Period expired: multiplex **************************************/
+      /*** Period expired: multiplex in normal/fast flavor; send expired in blast flavor ***/
       /*************************************************************************************/  
 
       // The period has expired
       // Check if there is something stored, and send it
-      // since there is no new packet, here it is not necessary to compress anything
+      // since there is no new packet, it is not necessary to compress anything here
       else {  // fd2read == 0
         #ifdef DEBUG
           do_debug_c(3, ANSI_COLOR_RESET, "Poll timeout expired\n");

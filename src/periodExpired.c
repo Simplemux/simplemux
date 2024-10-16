@@ -33,7 +33,7 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
       //so the other side is running correctly
 
       // send the expired packets
-      int n = sendExpiredPackects(context, now_microsec);
+      int n = sendExpiredPackets(context, now_microsec);
 
       if (n > 0) {
         #ifdef DEBUG

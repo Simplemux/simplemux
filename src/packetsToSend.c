@@ -158,8 +158,8 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
 }
 
 
-void sendPacketBlastFlavor(struct contextSimplemux* context,
-          struct packet* packetToSend)
+void sendPacketBlastFlavor( struct contextSimplemux* context,
+                            struct packet* packetToSend)
 {
   // send the tunneled packet
   // 'packetToSend' is a pointer to the packet
@@ -235,21 +235,21 @@ void sendPacketBlastFlavor(struct contextSimplemux* context,
 
 
 // send again the packets which sentTimestamp + period >= now
-int sendExpiredPackects(struct contextSimplemux* context,
-         uint64_t now)
+int sendExpiredPackets(struct contextSimplemux* context,
+                        uint64_t now)
 {
   int sentPackets = 0; // number of packets sent
   struct packet *current = context->unconfirmedPacketsBlast;
   
   while(current != NULL) {
     #ifdef DEBUG
-      do_debug(3,"[sendExpiredPackects] Packet %d. Stored timestamp: %"PRIu64" us\n", ntohs(current->header.identifier),current->sentTimestamp);
+      do_debug(3,"[sendExpiredPackets] Packet %d. Stored timestamp: %"PRIu64" us\n", ntohs(current->header.identifier),current->sentTimestamp);
     #endif
        
     if(current->sentTimestamp + context->period < now) {
 
       #ifdef DEBUG
-        do_debug(3,"[sendExpiredPackects]  Sending packet %d. Updated timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), now); 
+        do_debug(3,"[sendExpiredPackets]  Sending packet %d. Updated timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), now); 
         do_debug(3,"         Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") < now (%"PRIu64")\n", current->sentTimestamp, context->period, now);
       #endif
 
@@ -263,7 +263,7 @@ int sendExpiredPackects(struct contextSimplemux* context,
     }
     else {
       #ifdef DEBUG
-        do_debug(3,"[sendExpiredPackects]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), current->sentTimestamp);
+        do_debug(3,"[sendExpiredPackets]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), current->sentTimestamp);
         do_debug(3,"         Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") >= now (%"PRIu64")\n", current->sentTimestamp, context->period, now);
       #endif
     }
