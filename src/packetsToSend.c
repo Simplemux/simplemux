@@ -187,12 +187,36 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
         perror("sendto() in UDP mode failed");
         exit (EXIT_FAILURE);
       }
-      /*
+      
       // write in the log file
-      if ( log_file != NULL ) {
-        fprintf (log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n", GetTimeStamp(), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE, tun2net, inet_ntoa(context->remote.sin_addr), ntohs(context->remote.sin_port), num_pkts_stored_from_tun);
-        fflush(log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-      }*/
+      if ( context->log_file != NULL ) {
+        // TCP modes are not allowed in blast flavor, so only UDP and NETWORK
+        switch (context->mode) {
+          case UDP_MODE:
+            fprintf ( context->log_file,
+                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i",
+                      GetTimeStamp(),
+                      total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
+                      context->tun2net,
+                      inet_ntoa(context->remote.sin_addr),
+                      ntohs(context->remote.sin_port),
+                      context->numPktsStoredFromTun);
+          break;
+
+          case NETWORK_MODE:
+            fprintf ( context->log_file,
+                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i",
+                      GetTimeStamp(),
+                      total_length + IPv4_HEADER_SIZE,
+                      context->tun2net,
+                      inet_ntoa(context->remote.sin_addr),
+                      // there is no port in network mode
+                      context->numPktsStoredFromTun);
+          break;
+        }
+
+        fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write
+      }
     break;
 
     case NETWORK_MODE: ; // I add a semicolon because the next command can be a statement
