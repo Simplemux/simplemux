@@ -92,6 +92,7 @@ Different [multiplexing policies](/documentation/multiplexing_policies.md) can b
 - Timeout
 - Period
 
+
 ### Summary
 
 The next table details the options that are available for each flavor.
@@ -122,6 +123,11 @@ The next table details the options that are available for each flavor.
 The specification of Simplemux can be found here: http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/. It was not adopted by the IETF, although some discussion took place. It specifies the *Fast flavor* and the *Normal flavor* (called *Compressed flavor* in the IETF draft).
 
 The specification of Simplemux *Blast flavor* can be found here: https://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux-blast/. It has never been discussed nor adopted by the IETF.
+
+
+## Logs and statistics
+
+The program [generates logs](/documentation/logs.md), and some [Perl scripts](/perl) have been built to get statistics and real-time information.
 
 
 ## Research papers
