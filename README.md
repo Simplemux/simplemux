@@ -96,17 +96,17 @@ Different [multiplexing policies](/documentation/multiplexing_policies.md) can b
 
 The next table details the options that are available for each flavor.
 ```
-         +-----------------------+-----------------------------+------+
-         |         Mode          |                             |      |
-         +-------+-------+-------+    Multiplexing policies    | RoHC |
-         |Network|  UDP  |  TCP  |                             |      |
-+--------+-------+-------+-------+-----------------------------+------+
-| Normal |   X   |   X   |   X   |number, size, timeout, period|   X  |
-+--------+-------+-------+-------+-----------------------------+------+
-| Fast   |   X   |   X   |   X   |number, size, timeout, period|   X  |
-+--------+-------+-------+-------+-----------------------------+------+
-| Blast  |   X   |   X   |       |        Always 1 packet*     |      |
-+--------+-------+-------+-------+-----------------------------+------+
+         +-----------------------+-----------------------------+-------+
+         |         Mode          |                             | RoHC  |
+         +-------+-------+-------+    Multiplexing policies    +-------+
+         |Network|  UDP  |  TCP  |                             |tun|tap|
++--------+-------+-------+-------+-----------------------------+---+---+
+| Normal |   X   |   X   |   X   |number, size, timeout, period| X |   |
++--------+-------+-------+-------+-----------------------------+---+---+
+| Fast   |   X   |   X   |   X   |number, size, timeout, period| X |   | 
++--------+-------+-------+-------+-----------------------------+---+---+
+| Blast  |   X   |   X   |       |        Always 1 packet*     |   |   |
++--------+-------+-------+-------+-----------------------------+---+---+
 
 * In blast flavor, the packet is sent immediately. The period defines the interval used to send copies of the packet.
 ```
