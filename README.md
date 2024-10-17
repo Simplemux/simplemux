@@ -96,17 +96,23 @@ Different [multiplexing policies](/documentation/multiplexing_policies.md) can b
 
 The next table details the options that are available for each flavor.
 ```
-         +-----------------------+-----------------------------+-------+
-         |         Mode          |                             | RoHC  |
-         +-------+-------+-------+    Multiplexing policies    +-------+
-         |Network|  UDP  |  TCP  |                             |tun|tap|
-+--------+-------+-------+-------+-----------------------------+---+---+
-| Normal |   X   |   X   |   X   |number, size, timeout, period| X |   |
-+--------+-------+-------+-------+-----------------------------+---+---+
-| Fast   |   X   |   X   |   X   |number, size, timeout, period| X |   | 
-+--------+-------+-------+-------+-----------------------------+---+---+
-| Blast  |   X   |   X   |       |        Always 1 packet*     |   |   |
-+--------+-------+-------+-------+-----------------------------+---+---+
+             +-----------------------+-------+-------------------------------+
+             |         Mode          |       |                               |
+             +-------+-------+-------+ RoHC  |     Multiplexing policies     |
+             |Network|  UDP  |  TCP  |       |                               |
++--------+---+-------+-------+-------+-------+-------------------------------+
+|        |tun|   X   |   X   |       |   X   |                               |
+| Normal +---+-------+-------+-------+-------+ number, size, timeout, period |
+|        |tap|   X   |   X   |       |       |                               |
++--------+---+-------+-------+-------+-------+-------------------------------+
+|        |tun|   X   |   X   |   X   |   X   |                               |
+| Fast   +---+-------+-------+-------+-------+ number, size, timeout, period |
+|        |tap|   X   |   X   |   X   |       |                               |
++--------+---+-------+-------+-------+-------+-------------------------------+
+|        |tun|   X   |   X   |       |       |                               |
+| Blast  +---+-------+-------+-------+-------+        Always 1 packet *      |
+|        |tap|   X   |   X   |       |       |                               |
++--------+---+-------+-------+-------+-------+-------------------------------+
 
 * In blast flavor, the packet is sent immediately. The period defines the interval used to send copies of the packet.
 ```
