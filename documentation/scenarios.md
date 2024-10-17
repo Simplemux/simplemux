@@ -185,7 +185,7 @@ Machine 6 is the source. Machine 5 and Machine 4 are the two optimizers. Server 
 
 ### Create a tun interface in machine 4
 ```
-$ ip tuntap add dev tun0 mode tun user root5
+$ ip tuntap add dev tun0 mode tun user root
 
 $ ip link set tun0 up
 ```
@@ -250,7 +250,7 @@ In Machine 5, add a new route for table `3`:
 $ ip route add default dev tun0 table 3
 $ ip route flush cache
 ```
-Note: If you have set an IP address in the tun0 interface, this command should also work:
+Note: If you have set an IP address in the `tun0` interface, this command should also work:
 ```
 $ ip route add default via 192.168.100.5 table 3
 ```
@@ -261,19 +261,19 @@ $ ip route show table 3
 default via 192.168.100.5 dev tun0
 ```
 
-And now you can use `iptables` in order to mark certain packets as `2` if they have a certain destination IP, or a port number. Examles of commands to add iptables entries:
+And now you can use `iptables` in order to mark certain packets as `2` if they have a certain destination IP, or a port number. Examples of commands to add iptables entries:
 
 - All packets with destination IP address `x.y.z.t`.
 ```
 iptables -t mangle -A PREROUTING -p udp -d x.y.z.t -j MARK --set-mark 2
 ```
 
-- All packets with destination UDP port 8999:
+- All packets with destination UDP port `8999`:
 ```
 iptables -t mangle -A PREROUTING -p udp --dport 8999 -j MARK --set-mark 2
 ```
 
-- All packets with destination TCP port 44172:
+- All packets with destination TCP port `44172`:
 ```
 iptables -t mangle -A PREROUTING -p tcp --dport 44172 -j MARK --set-mark 2
 ```
@@ -337,6 +337,7 @@ Test if Simplemux is working using this command:
 ```
 ping 192.168.100.2
 ```
+
 If the ping works, it means it sends traffic to the other machine, so Simplemux is working.
 
 
