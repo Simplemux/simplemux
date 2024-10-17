@@ -120,6 +120,7 @@ When the egress optimizer receives this packet, you may obtain this log:
 
 This means that a multiplexed packet (sequence number `210`) has been received from the ingress optimizer `192.168.0.5` with port `55555`, and it has been demuxed, resulting into 7 different packets of lengths `63`, `65`, (...) `57`.
 
+
 ## Scripts for calculating compression statistics
 
 This repository includes the next Perl scripts:
@@ -195,15 +196,17 @@ stdev of the multiplexing delay: 3425.575192789 us
 ```
 
 
-### Scripts for drawing the instantaneous throughput and pps with [`simplemux_throughput_pps_live.pl`](/perl/simplemux_throughput_pps_live.pl)
+### Draw the instantaneous throughput and pps with [`simplemux_throughput_pps_live.pl`](/perl/simplemux_throughput_pps_live.pl)
 
 You can make Simplemux generate real-time graphs of the throughput and the amount of packets per second. For that aim, you have to use pipes in order to combine two perl scripts.
 
 You will need to install the `gnuplot-x11` Linux package.
-- Send the log of simplemux to `stdout`, using the `–l stdout` option.
-- Use the script [`simplemux_throughput_pps_live.pl`](/perl/simplemux_throughput_pps_live.pl) to generate a summary every e.g. 10 ms of packets coming from (or going to) `192.168.0.5` using port `55555`.
 
-The output is something like this:
+Steps:
+
+1- Send the log of simplemux to `stdout`, using the `–l stdout` option.
+
+2- Use the script [`simplemux_throughput_pps_live.pl`](/perl/simplemux_throughput_pps_live.pl) to generate a summary every e.g. 10 ms of packets coming from (or going to) `192.168.0.5` using port `55555`. The output is something like this:
 ```
 0:492800
 1:532000
@@ -221,7 +224,7 @@ Where each row represents a value of
 - `2`: native pps
 - `3`: multiplexed pps
 
-- Use the script [`driveGnuPlotStreams.pl`](/perl/driveGnuPlotStreams.pl), by Andreas Bernauer to represent different graphs.
+3- Use the script [`driveGnuPlotStreams.pl`](/perl/driveGnuPlotStreams.pl), by Andreas Bernauer to represent different graphs.
 
 #### Examples
 
