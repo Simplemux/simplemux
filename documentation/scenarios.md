@@ -159,6 +159,21 @@ This has been tested using three Debian Virtual Machines inside a Windows PC.
 
 This is the setup:
 FIXME: Add image here
+```
+                      +------+                             +--------+
+                      |switch|                             | router |
+                      +------+                             +--------+
+                      /      \                             /        \
+                     /        \                           /          \
+       +-------------+       +-------------+ +-------------+        +-------------+
+   +---|192.168.200.6|-+   +-|192.168.200.5|-| 192.168.0.5 |-+    +-|192.168.137.4|---+
+   |   +-------------+ |   | +-------------+ +-------------+ |    | +-------------+   |
+   |                   |   |                                 |    |                   |
+   |                   |   |     tun0: 192.168.100.5         |    |                   |
+   |                   |   |                                 |    |                   |
+   |     Machine 6     |   |          Machine 5 (router)     |    |     Machine 4     |
+   +-------------------+   +---------------------------------+    +-------------------+
+```
 
 Machine 6 is the source. Machine 5 and Machine 4 are the two optimizers. Server x.y.z.t is the destination.
 
