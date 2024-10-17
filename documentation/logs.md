@@ -122,7 +122,7 @@ This means that a multiplexed packet (sequence number `210`) has been received f
 
 ## Scripts for calculating compression statistics
 
-This package includes the next Perl scripts:
+This repository includes the next Perl scripts:
 
 ### Calculate throughput and packets per second with [`simplemux_throughput_pps.pl`](/perl/simplemux_throughput_pps.pl)
 
@@ -156,10 +156,18 @@ $ perl simplemux_throughput_pps.pl log_simplemux 1000000 rec muxed 192.168.0.5 5
 $ perl simplemux_throughput_pps.pl log_simplemux 1000000 sent demuxed
 ```
 
-### Calculate the multiplexing delay of each packet
-Multiplexing delay is the time each packet is stopped in the multiplexer, i.e. the interval between its arrival as native packet and its departure inside a multiplexed packet.
-simplemux_multiplexing_delay.pl
-It is able to calculate the multiplexing delay of each packet, from a Simplemux output trace. The result is an output file in two columns:
+### Calculate the multiplexing delay of each packet with [`simplemux_multiplexing_delay.pl`](/perl/simplemux_multiplexing_delay.pl)
+
+Usage:
+```
+$ perl simplemux_multiplexing_delay.pl <trace file> <output file>
+```
+
+The multiplexing delay is the time each packet is stopped in the multiplexer, i.e. the interval between its arrival as native packet and its departure inside a multiplexed packet.
+
+The script is able to calculate the multiplexing delay of each packet, from a Simplemux output trace. The result is an output file in two columns:
+
+```
 packet_id multiplexing_delay(us)
 1 5279
 2 1693
@@ -177,17 +185,26 @@ packet_id multiplexing_delay(us)
 14 4520
 15 3011
 ...
+```
+
 And other results are shown in stdout:
+```
 total native packets: 6661
 Average multiplexing delay: 5222.47680528449 us
 stdev of the multiplexing delay: 3425.575192789 us
-Usage: $ perl simplemux_multiplexing_delay.pl <trace file> <output file>
-Scripts for drawing the instantaneous throughput and pps
+```
+
+
+### Scripts for drawing the instantaneous throughput and pps with [`simplemux_throughput_pps_live.pl`](/perl/simplemux_throughput_pps_live.pl)
+
 You can make Simplemux generate real-time graphs of the throughput and the amount of packets per second. For that aim, you have to use pipes in order to combine two perl scripts.
-You will need to install the gnuplot-x11 Linux package.
-- Send the log of simplemux to stdout, using –l stdout option.
-- Use the script simplemux_throughput_pps_live.pl to generate a summary every e.g. 10 ms of packets coming from (or going to) 192.168.0.5 using port 55555.
+
+You will need to install the `gnuplot-x11` Linux package.
+- Send the log of simplemux to `stdout`, using the `–l stdout` option.
+- Use the script [`simplemux_throughput_pps_live.pl`](/perl/simplemux_throughput_pps_live.pl) to generate a summary every e.g. 10 ms of packets coming from (or going to) `192.168.0.5` using port `55555`.
+
 The output is something like this:
+```
 0:492800
 1:532000
 2:700
@@ -196,17 +213,26 @@ The output is something like this:
 1:532000
 2:700
 3:700
+```
 Where each row represents a value of
-0: native throughput
-Simplemux v2 Readme. Jose Saldana, Fundación CIRCE
-17
-1: multiplexed throughput
-2: native pps
-3: multiplexed pps
-- Use the script driveGnuPlotStreams.pl, by Andreas Bernauer4 to represent different graphs.
-Some examples:
-The next command presents two windows, each one with two graphs of 300 samples width, titled “native”, “muxed”, “ppsnat” and “ppsmux”
-$ ./simplemux -i tun0 -e eth0 -c 192.168.0.5 -M udp -T tun -d 0 -r 2 -l stdout | perl simplemux_throughput_pps_live.pl 10000 192.168.0.5 55555 |
-perl ./driveGnuPlotStreams.pl 4 2 300 300 0 1000000 0 200 500x300+0+0 500x300+0+0 'native' 'muxed' 'ppsnat' 'ppsmux' 0 0 1 1
-The next command presents one window with two graphs of 300 samples width, titled “native” and “muxed”
+
+- `0`: native throughput
+- `1`: multiplexed throughput
+- `2`: native pps
+- `3`: multiplexed pps
+
+- Use the script [`driveGnuPlotStreams.pl`](/perl/driveGnuPlotStreams.pl), by Andreas Bernauer to represent different graphs.
+
+#### Examples
+
+The next command presents two windows, each one with two graphs of 300 samples width, titled “native”, “muxed”, “ppsnat” and “ppsmux”:
+
+```
+$ ./simplemux -i tun0 -e eth0 -c 192.168.0.5 -M udp -T tun -d 0 -r 2 -l stdout | perl simplemux_throughput_pps_live.pl 10000 192.168.0.5 55555 | perl ./driveGnuPlotStreams.pl 4 2 300 300 0 1000000 0 200 500x300+0+0 500x300+0+0 'native' 'muxed' 'ppsnat' 'ppsmux' 0 0 1 1
+```
+
+The next command presents one window with two graphs of 300 samples width, titled “native” and “muxed”:
+
+```
 ./simplemux -i tun0 -e eth0 -c 192.168.0.5 -M udp -T tun -d 0 -r 2 -l stdout | perl simplemux_throughput_pps_live.pl 10000 192.168.0.5 | perl ./driveGnuPlotStreams.pl 2 1 300 0 1000000 500x300+0+0 'native' 'muxed' 0 0
+```
