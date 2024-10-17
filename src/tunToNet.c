@@ -47,32 +47,37 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
       ntohs(thisPacket->header.packetSize));
   #endif
 
-  /*
+  /* No need to write in the log file here: it is done in 'sendPacketBlastFlavor()'
   // write in the log file
   switch (context->mode) {
     case UDP_MODE:        
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
-          GetTimeStamp(),
-          total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
-          context->tun2net,
-          inet_ntoa(context->remote.sin_addr),
-          ntohs(context->remote.sin_port),
-          context->numPktsStoredFromTun);
-        // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fprintf ( context->log_file,
+                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
+                  GetTimeStamp(),
+                  total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
+                  context->tun2net,
+                  inet_ntoa(context->remote.sin_addr),
+                  ntohs(context->remote.sin_port),
+                  context->numPktsStoredFromTun);
+
+        // If the IO is buffered, I have to insert fflush(fp) after the write
         fflush(context->log_file);
       }
     break;
    
     case NETWORK_MODE:
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n",
-          GetTimeStamp(),
-          total_length + IPv4_HEADER_SIZE,
-          context->tun2net,
-          inet_ntoa(context->remote.sin_addr),
-          context->numPktsStoredFromTun);
-        // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        fprintf ( context->log_file,
+                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n",
+                  GetTimeStamp(),
+                  total_length + IPv4_HEADER_SIZE,
+                  context->tun2net,
+                  inet_ntoa(context->remote.sin_addr),
+                  // there is no port in network mode
+                  context->numPktsStoredFromTun);
+
+        // If the IO is buffered, I have to insert fflush(fp) after the write
         fflush(context->log_file);
       }
     break;
@@ -132,18 +137,19 @@ bool checkPacketSize (struct contextSimplemux* context, uint16_t size)
       #endif
 
       #ifdef LOGFILE
-      // write the log file
-      if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n",
-          GetTimeStamp(),
-          size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3,
-          context->tun2net,
-          inet_ntoa(context->remote.sin_addr),
-          ntohs(context->remote.sin_port));
+        // write the log file
+        if ( context->log_file != NULL ) {
+          fprintf ( context->log_file,
+                    "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n",
+                    GetTimeStamp(),
+                    size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3,
+                    context->tun2net,
+                    inet_ntoa(context->remote.sin_addr),
+                    ntohs(context->remote.sin_port));
 
-        // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-        fflush(context->log_file);
-      }
+          // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+          fflush(context->log_file);
+        }
       #endif
     }
   }
@@ -161,14 +167,15 @@ bool checkPacketSize (struct contextSimplemux* context, uint16_t size)
       #ifdef LOGFILE
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n",
-          GetTimeStamp(),
-          size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3,
-          context->tun2net,
-          inet_ntoa(context->remote.sin_addr),
-          ntohs(context->remote.sin_port));
+        fprintf ( context->log_file,
+                  "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\n",
+                  GetTimeStamp(),
+                  size + IPv4_HEADER_SIZE + UDP_HEADER_SIZE + 3,
+                  context->tun2net,
+                  inet_ntoa(context->remote.sin_addr),
+                  ntohs(context->remote.sin_port));
 
-        // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        // If the IO is buffered, I have to insert fflush(fp) after the write
         fflush(context->log_file);
       }
       #endif
@@ -189,15 +196,16 @@ bool checkPacketSize (struct contextSimplemux* context, uint16_t size)
       // write the log file
       if ( context->log_file != NULL ) {
         // FIXME: remove 'nun_packets_stored_from_tun' from the expression
-        fprintf (context->log_file, "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\n",
-          GetTimeStamp(),
-          size + IPv4_HEADER_SIZE + 3,
-          context->tun2net,
-          inet_ntoa(context->remote.sin_addr),
-          ntohs(context->remote.sin_port),
-          context->numPktsStoredFromTun);
+        fprintf ( context->log_file,
+                  "%"PRIu64"\tdrop\ttoo_long\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\n",
+                  GetTimeStamp(),
+                  size + IPv4_HEADER_SIZE + 3,
+                  context->tun2net,
+                  inet_ntoa(context->remote.sin_addr),
+                  ntohs(context->remote.sin_port),
+                  context->numPktsStoredFromTun);
 
-        // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+        // If the IO is buffered, I have to insert fflush(fp) after the write
         fflush(context->log_file);
       }
       #endif
@@ -279,14 +287,19 @@ void compressPacket(struct contextSimplemux* context, uint16_t size)
 
     fprintf(stderr, "compression of IP packet failed\n");
 
-    // print in the log file
-    if ( context->log_file != NULL ) {
-      fprintf (context->log_file, "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%"PRIu32"\\n",
-        GetTimeStamp(), size, context->tun2net);
+    #ifdef LOGFILE
+      // print in the log file
+      if ( context->log_file != NULL ) {
+        fprintf ( context->log_file,
+                  "%"PRIu64"\terror\tcompr_failed. Native packet sent\t%i\t%"PRIu32"\\n",
+                  GetTimeStamp(),
+                  size,
+                  context->tun2net);
 
-      // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-      fflush(context->log_file);
-    }
+        // If the IO is buffered, I have to insert fflush(fp) after the write
+        fflush(context->log_file);
+      }
+    #endif
 
     #ifdef DEBUG
       do_debug_c(2, ANSI_COLOR_RED, "  RoHC did not work. Native packet sent: %i bytes:\n   ", size);
@@ -509,19 +522,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
         }
         
         #ifdef LOGFILE
-        // write in the log file
-        if ( context->log_file != NULL ) {
-          fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
-            GetTimeStamp(),
-            total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
-            context->tun2net,
-            inet_ntoa(context->remote.sin_addr),
-            ntohs(context->remote.sin_port),
-            context->numPktsStoredFromTun);
+          // write in the log file
+          if ( context->log_file != NULL ) {
+            fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
+              GetTimeStamp(),
+              total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
+              context->tun2net,
+              inet_ntoa(context->remote.sin_addr),
+              ntohs(context->remote.sin_port),
+              context->numPktsStoredFromTun);
 
-          // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-          fflush(context->log_file);
-        }
+            // If the IO is buffered, I have to insert fflush(fp) after the write
+            fflush(context->log_file);
+          }
         #endif
       break;
 
@@ -533,19 +546,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
         }
         
         #ifdef LOGFILE
-        // write in the log file
-        if ( context->log_file != NULL ) {
-          fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
-            GetTimeStamp(),
-            total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
-            context->tun2net,
-            inet_ntoa(context->remote.sin_addr),
-            ntohs(context->remote.sin_port),
-            context->numPktsStoredFromTun);
+          // write in the log file
+          if ( context->log_file != NULL ) {
+            fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
+              GetTimeStamp(),
+              total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
+              context->tun2net,
+              inet_ntoa(context->remote.sin_addr),
+              ntohs(context->remote.sin_port),
+              context->numPktsStoredFromTun);
 
-          // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-          fflush(context->log_file);
-        }
+            // If the IO is buffered, I have to insert fflush(fp) after the write
+            fflush(context->log_file);
+          }
         #endif
       break;
 
@@ -563,18 +576,18 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
           }
 
           #ifdef LOGFILE
-          // write in the log file
-          if ( context->log_file != NULL ) {
-            fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
-              GetTimeStamp(),
-              total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
-              context->tun2net,
-              inet_ntoa(context->remote.sin_addr),
-              ntohs(context->remote.sin_port), context->numPktsStoredFromTun);
+            // write in the log file
+            if ( context->log_file != NULL ) {
+              fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
+                GetTimeStamp(),
+                total_length + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
+                context->tun2net,
+                inet_ntoa(context->remote.sin_addr),
+                ntohs(context->remote.sin_port), context->numPktsStoredFromTun);
 
-            // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-            fflush(context->log_file);
-          }
+              // If the IO is buffered, I have to insert fflush(fp) after the write
+              fflush(context->log_file);
+            }
           #endif           
         }
       break;
@@ -601,18 +614,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
         }
 
         #ifdef LOGFILE
-        // write in the log file
-        if ( context->log_file != NULL ) {
-          fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n",
-            GetTimeStamp(),
-            total_length + IPv4_HEADER_SIZE,
-            context->tun2net,
-            inet_ntoa(context->remote.sin_addr),
-            context->numPktsStoredFromTun);
+          // write in the log file
+          if ( context->log_file != NULL ) {
+            fprintf ( context->log_file,
+                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n",
+                      GetTimeStamp(),
+                      total_length + IPv4_HEADER_SIZE,
+                      context->tun2net,
+                      inet_ntoa(context->remote.sin_addr),
+                      context->numPktsStoredFromTun);
 
-          // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
-          fflush(context->log_file);
-        }
+            // If the IO is buffered, I have to insert fflush(fp) after the write
+            fflush(context->log_file);
+          }
         #endif
       break;
     }
@@ -1113,9 +1127,13 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
   #ifdef LOGFILE
     // write in the log file
     if ( context->log_file != NULL ) {
-      fprintf (context->log_file, "%"PRIu64"\trec\tnative\t%i\t%"PRIu32"\n", GetTimeStamp(), size, context->tun2net);
+      fprintf ( context->log_file,
+                "%"PRIu64"\trec\tnative\t%i\t%"PRIu32"\n",
+                GetTimeStamp(),
+                size,
+                context->tun2net);
 
-      // If the IO is buffered, I have to insert fflush(fp) after the write in order to avoid things lost when pressing
+      // If the IO is buffered, I have to insert fflush(fp) after the write
       fflush(context->log_file);
     }
   #endif
