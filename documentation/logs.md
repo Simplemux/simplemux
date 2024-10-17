@@ -54,24 +54,24 @@ This is the meaning of each parameter:
 
 - `event` and `type`:
     - `rec`: a packet has been received:
-    - `native`: a native packet has arrived to the ingress optimizer.
-    - `muxed`: a multiplexed packet has arrived to the egress optimizer.
-    - `ROHC_feedbac`k: a ROHC feedback-only packet has been received from the decompressor. It only contains ROHC feedback information, so there is nothing to decompress
+        - `native`: a native packet has arrived to the ingress optimizer.
+        - `muxed`: a multiplexed packet has arrived to the egress optimizer.
+        - `ROHC_feedbac`k: a ROHC feedback-only packet has been received from the decompressor. It only contains ROHC feedback information, so there is nothing to decompress
 
-- `sent`: a packet has been sent
-    - `muxed`: the ingress optimizer has sent a multiplexed packet.
-    - `demuxed`: the egress optimizer has demuxed a native packet and sent it to its destination.
+    - `sent`: a packet has been sent
+        - `muxed`: the ingress optimizer has sent a multiplexed packet.
+        - `demuxed`: the egress optimizer has demuxed a native packet and sent it to its destination.
 
-- `forward`: when a packet arrives to the egress with a port different to the one where the optimization is being deployed, it is just forwarded to the network.
+    - `forward`: when a packet arrives to the egress with a port different to the one where the optimization is being deployed, it is just forwarded to the network.
 
-- `error`:
-    - `bad_separator`: the Simplemux header before the packet is not well constructed.
-    - `demux_bad_length`: the length of the packet expressed in the Simplemux header is excessive (the multiplexed packet would finish after the end of the global packet).
-    - `decomp_failed`: ROHC decompression failed.
-    - `comp_failed`: ROHC compression failed.
+    - `error`:
+        - `bad_separator`: the Simplemux header before the packet is not well constructed.
+        - `demux_bad_length`: the length of the packet expressed in the Simplemux header is excessive (the multiplexed packet would finish after the end of the global packet).
+        - `decomp_failed`: ROHC decompression failed.
+        - `comp_failed`: ROHC compression failed.
 
-- `drop`:
-    - `no_ROHC_mode`: a ROHC packet has been received, but the decompressor is not in ROHC mode.
+    - `drop`:
+        - `no_ROHC_mode`: a ROHC packet has been received, but the decompressor is not in ROHC mode.
 
 - `size`: it expresses (in bytes) the size of the packet. If it is a muxed one, it is the global size of the packet (including the IP header). If it is a native or demuxed one, it is the size of the original (native) packet.
 
