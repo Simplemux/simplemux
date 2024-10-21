@@ -149,7 +149,7 @@ $ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.171 -d 2
 You can now ping from Raspberry 1 to 192.168.33.172, and you will see if the tunnel works.
 
 
-## Scenario 2: sending IP packets between VMs
+## Scenario 2 - Sending IP packets between VMs
 
 - Tunnel mode: `tun`
 - Mode: `UDP`
@@ -289,7 +289,7 @@ iptables -t mangle –L
 ```
 
 
-## Scenario 3: Simplemux between two Virtual Machines in the same computer
+## Scenario 3 - Simplemux between two Virtual Machines in the same computer
 
 Run Simplemux between two VMs with IP addresses `192.168.129.131` and `192.168.129.132`.
 
@@ -407,15 +407,17 @@ If the ping works, it means it sends traffic to the other machine, so Simplemux 
 
 With network namespaces, you can have different and separate instances of network interfaces and routing tables that operate independent of each other.
 
-https://blogs.igalia.com/dpino/2016/04/10/network-namespaces/ 
-An interface can only be assigned to one namespace at a time. If the root namespace owns eth0, which provides access to the external world, only programs within the root namespace could reach the Internet .
-The solution is to communicate a namespace with the root namespace via a veth pair. A veth pair works like a patch cable, connecting two sides. It consists of two virtual interfaces:
+https://blogs.igalia.com/dpino/2016/04/10/network-namespaces/
+
+An interface can only be assigned to one namespace at a time. If the root namespace owns `eth0`, which provides access to the external world, only programs within the root namespace could reach the Internet .
+
+The solution is to communicate a namespace with the root namespace via a *veth* pair. A *veth* pair works like a patch cable, connecting two sides. It consists of two virtual interfaces:
 •	one of them is assigned to the root network namespace
 •	the other lives within a network namespace.
 
-Each namespace has two interfaces, which are connected like a pipe. Virtual Ethernet interfaces always come in pairs, and they are connected like a tube: whatever comes in one veth interface will come out the other peer veth interface.
-You can then use bridges to connect them.
+Each namespace has two interfaces, which are connected like a pipe. Virtual Ethernet interfaces always come in pairs, and they are connected like a tube: whatever comes in one veth interface will come out the other peer veth interface. You can then use bridges to connect them.
 
+### Scenario to be built
 
 ```
                    +------------+
@@ -548,11 +550,11 @@ sudo ip netns exec ns0 ip link set tun0 up
 sudo ip netns exec ns0 ip addr add 192.168.100.1/24 dev tun0
 ```
 
-In `ns1`, add `tun0`:
+In `ns1`, add `tun1`:
 ```
-sudo ip netns exec ns1 ip tuntap add dev tun0 mode tun user root
-sudo ip netns exec ns1 ip link set tun0 up
-sudo ip netns exec ns1 ip addr add 192.168.100.2/24 dev tun0
+sudo ip netns exec ns1 ip tuntap add dev tun1 mode tun user root
+sudo ip netns exec ns1 ip link set tun1 up
+sudo ip netns exec ns1 ip addr add 192.168.100.2/24 dev tun1
 ```
 
 ### Run Simplemux
@@ -564,8 +566,10 @@ sudo ip netns exec ns0 ./simplemux -i tun0 -e veth0 -M udp -T tun -c 192.168.1.2
 
 Simplemux in `ns1`:
 ```
-sudo ip netns exec ns1 ./simplemux -i tun0 -e veth1 -M udp -T tun -c 192.168.1.20 -d 2
+sudo ip netns exec ns1 ./simplemux -i tun1 -e veth1 -M udp -T tun -c 192.168.1.20 -d 2
 ```
 
-
-
+And now, you can ping between `tun0` and `tun1`:
+```
+sudo ip netns exec ns0 ping 192.168.1.20
+```
