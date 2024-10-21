@@ -401,3 +401,159 @@ Test if Simplemux is working using this command in Machine 1:
 ping 192.168.200.2
 ```
 If the ping works, it means it sends traffic to the other machine, so Simplemux is working.
+
+
+## Scenario 4 - Simplemux between namespaces in a single Linux machine
+
+With network namespaces, you can have different and separate instances of network interfaces and routing tables that operate independent of each other.
+
+https://blogs.igalia.com/dpino/2016/04/10/network-namespaces/ 
+An interface can only be assigned to one namespace at a time. If the root namespace owns eth0, which provides access to the external world, only programs within the root namespace could reach the Internet .
+The solution is to communicate a namespace with the root namespace via a veth pair. A veth pair works like a patch cable, connecting two sides. It consists of two virtual interfaces:
+•	one of them is assigned to the root network namespace
+•	the other lives within a network namespace.
+
+Each namespace has two interfaces, which are connected like a pipe. Virtual Ethernet interfaces always come in pairs, and they are connected like a tube: whatever comes in one veth interface will come out the other peer veth interface.
+You can then use bridges to connect them.
+
+
+```
+                      +------------+
+                      |br10        |
+                      |192.168.1.11|
+                      +------------+
+                        /        \
+                       /          \
+       +---------------+          +---------------+
+       |               |          |               |
+       |brveth0        |          |brveth1        |
+   +---+---------------+-+      +-+---------------+---+
+   |   |192.168.1.20   | |      | |192.168.1.21   |   |
+   |   |veth0          | |      | |veth1          |   |
+   |   +---------------+ |      | +---------------+   |  
+   |        |            |      |          |          |
+   |    simplemux        |      |      simplemux      |
+   |        |            |      |          |          |
+   |   +-------------+   |      |  +-------------+    |
+   |   |192.168.100.1|   |      |  |192.168.100.2|    |
+   |   |tun0         |   |      |  |tun0         |    |
+   |   +-------------+   |      |  +-------------+    |
+   |                     |      |                     |
+   |     ns0             |      |      ns1            |
+   +---------------------+      +---------------------+
+```
+
+### Add the namespaces
+
+Add two network namespaces `ns0` and `ns1`:
+```
+sudo ip netns add ns0
+sudo ip netns add ns1
+```
+
+You can now see the global namespace list:
+```
+$ ip netns list
+ns1 (id: 1)
+ns0 (id: 0)
+```
+
+### Create the linked interfaces
+
+Create two linked interfaces `veth0` and `brveth0`, and set up `brveth0`:
+```
+sudo ip link add veth0 type veth peer name brveth0 
+sudo ip link set brveth0 up
+```
+
+Create two linked interfaces `veth1` and `brveth1`, and set up `brveth1`:
+```
+sudo ip link add veth1 type veth peer name brveth1
+sudo ip link set brveth1 up
+```
+
+### Assign the linked interfaces to each namespace
+
+Assign `veth0` to `ns0` and `veth1` to `ns1`:
+```
+sudo ip link set veth0 netns ns0
+sudo ip link set veth1 netns ns1
+```
+
+### Add IP addresses to the interfaces
+
+Inside `ns0`, add an IP address to `veth0`, set it up, and also set up the local interface `lo`:
+```
+sudo ip netns exec ns0 ip addr add 192.168.1.20/24 dev veth0
+sudo ip netns exec ns0 ip link set veth0 up
+sudo ip netns exec ns0 ip link set lo up
+```
+
+Inside `ns1`, add the IP address to `veth1`, set it up, and also set up the local interface `lo`:
+```
+sudo ip netns exec ns1    ip addr add 192.168.1.21/24 dev veth1
+sudo ip netns exec ns1    ip link set veth1 up
+sudo ip netns exec ns1    ip link set lo up
+```
+
+### Add the bridge and connect the linked interfaces to it
+
+Add a bridge `br10` and set it up:
+```
+sudo ip link add br10 type bridge 
+sudo ip link set br10 up
+```
+
+Add an IP address to the bridge (`brd` is for also adding broadcast). (Note: Another option for creating the bridge `br0`: `brctl addbr br0`):
+```
+sudo ip addr add 192.168.1.11/24 brd + dev br10
+```
+Note: this allows you to communicate `ns0` and `ns1` with the global namespace.
+
+
+### Connect the interfaces to the bridge
+
+Associate `brveth0` and `brveth1` to the bridge `br10`:
+``` 
+sudo ip link set brveth0 master br10
+sudo ip link set brveth1 master br10
+```
+
+List the bridges:
+```
+brctl show
+bridge name     bridge id               STP enabled     interfaces
+br10            8000.128812c192fd       no              brveth0
+                                                        brveth1
+```
+
+### First result: connection between the namespaces
+
+As expected, I can ping from `ns1` to the interface in `ns0`:
+```
+$ ip netns exec ns1 ping -c 3  192.168.1.20
+PING 192.168.1.20 (192.168.1.20) 56(84) bytes of data.
+64 bytes from 192.168.1.20: icmp_seq=1 ttl=64 time=0.099 ms
+64 bytes from 192.168.1.20: icmp_seq=2 ttl=64 time=0.189 ms
+```
+
+Note: `eth0` is not connected with the bridge `br10`, so traffic cannot go outside the machine.
+
+
+### Add the *tun* devices
+
+In `ns0`, ad `tun0`:
+```
+sudo ip netns exec ns0 ip tuntap add dev tun0 mode tun user root
+sudo ip netns exec ns0 ip link set tun0 up
+sudo ip netns exec ns0 ip addr add 192.168.100.1/24 dev tun0
+```
+
+In `ns1`, ad `tun0`:
+```
+sudo ip netns exec ns1 ip tuntap add dev tun0 mode tun user root
+sudo ip netns exec ns1 ip link set tun0 up
+sudo ip netns exec ns1 ip addr add 192.168.100.2/24 dev tun0
+```
+
+
