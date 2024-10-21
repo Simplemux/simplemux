@@ -418,29 +418,28 @@ You can then use bridges to connect them.
 
 
 ```
-                      +------------+
-                      |br10        |
-                      |192.168.1.11|
-                      +------------+
-                        /        \
-                       /          \
-       +---------------+          +---------------+
-       |               |          |               |
-       |brveth0        |          |brveth1        |
-   +---+---------------+-+      +-+---------------+---+
-   |   |192.168.1.20   | |      | |192.168.1.21   |   |
-   |   |veth0          | |      | |veth1          |   |
-   |   +---------------+ |      | +---------------+   |  
-   |        |            |      |          |          |
-   |    simplemux        |      |      simplemux      |
-   |        |            |      |          |          |
-   |   +-------------+   |      |  +-------------+    |
-   |   |192.168.100.1|   |      |  |192.168.100.2|    |
-   |   |tun0         |   |      |  |tun0         |    |
-   |   +-------------+   |      |  +-------------+    |
-   |                     |      |                     |
-   |     ns0             |      |      ns1            |
-   +---------------------+      +---------------------+
+                   +------------+
+                   |br10        |
+                   |192.168.1.11|
+                   +------------+
+                     /        \
+                    /          \
+       +-------------+              +------------+
+       |brveth0      |              |brveth1     |
+   +---+-------------+---+      +---+------------+---+
+   |   |192.168.1.20 |   |      |   |192.168.1.21|   |
+   |   |veth0        |   |      |   |veth1       |   |
+   |   +-------------+   |      |   +------------+   |  
+   |          |          |      |         |          |
+   |      simplemux      |      |     simplemux      |
+   |          |          |      |         |          |
+   |   +-------------+   |      |   +-------------+  |
+   |   |192.168.100.1|   |      |   |192.168.100.2|  |
+   |   |tun0         |   |      |   |tun0         |  |
+   |   +-------------+   |      |   +-------------+  |
+   |                     |      |                    |
+   |     ns0             |      |      ns1           |
+   +---------------------+      +--------------------+
 ```
 
 ### Add the namespaces
@@ -542,18 +541,31 @@ Note: `eth0` is not connected with the bridge `br10`, so traffic cannot go outsi
 
 ### Add the *tun* devices
 
-In `ns0`, ad `tun0`:
+In `ns0`, add `tun0`:
 ```
 sudo ip netns exec ns0 ip tuntap add dev tun0 mode tun user root
 sudo ip netns exec ns0 ip link set tun0 up
 sudo ip netns exec ns0 ip addr add 192.168.100.1/24 dev tun0
 ```
 
-In `ns1`, ad `tun0`:
+In `ns1`, add `tun0`:
 ```
 sudo ip netns exec ns1 ip tuntap add dev tun0 mode tun user root
 sudo ip netns exec ns1 ip link set tun0 up
 sudo ip netns exec ns1 ip addr add 192.168.100.2/24 dev tun0
 ```
+
+### Run Simplemux
+
+Simplemux in `ns0`:
+```
+sudo ip netns exec ns0 ./simplemux -i tun0 -e veth0 -M udp -T tun -c 192.168.1.21 -d 2
+```
+
+Simplemux in `ns1`:
+```
+sudo ip netns exec ns1 ./simplemux -i tun0 -e veth1 -M udp -T tun -c 192.168.1.20 -d 2
+```
+
 
 
