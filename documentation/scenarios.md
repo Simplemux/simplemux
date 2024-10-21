@@ -158,27 +158,27 @@ You can now ping from Raspberry 1 to 192.168.33.172, and you will see if the tun
 This has been tested using three Debian Virtual Machines inside a Windows PC.
 
 This is the setup:
-FIXME: Add image here
+
 ```
-                      +------+                             +--------+
-                      |switch|                             | router |
-                      +------+                             +--------+
-                      /      \                             /        \
-                     /        \                           /          \
-       +-------------+       +-------------+ +-------------+        +-------------+
-   +---|192.168.200.6|-+   +-|192.168.200.5|-| 192.168.0.5 |-+    +-|192.168.137.4|---+
-   |   |eth0         | |   | |eth1         | |eth0         | |    | |eth0         |   |
-   |   +-------------+ |   | +-------------+ +-------------+ |    | +-------------+   |
-   |                   |   |                     |           |    |     |             |
-   |                   |   |                  simplemux      |    |   simplemux       |
-   |                   |   |                     |           |    |     |             |
-   |                   |   |          +-------------+        |    | +-------------+   |
-   |                   |   |          |192.168.100.5|        |    | |192.168.100.4|   |
-   |                   |   |          |tun0         |        |    | |tun0         |   |
-   |                   |   |          +-------------+        |    | +-------------+   |
-   |                   |   |                                 |    |                   |
-   |     Machine 6     |   |          Machine 5 (router)     |    |     Machine 4     |
-   +-------------------+   +---------------------------------+    +-------------------+
+                      +------+                               +--------+
+                      |switch|                               | router |
+                      +------+                               +--------+
+                      /      \                               /        \
+                     /        \                             /          \
+       +-------------+        +-------------+  +-------------+        +-------------+
+   +---|192.168.200.6|-+    +-|192.168.200.5|--| 192.168.0.5 |-+    +-|192.168.137.4|---+
+   |   |eth0         | |    | |eth1         |  |eth0         | |    | |eth0         |   |
+   |   +-------------+ |    | +-------------+  +-------------+ |    | +-------------+   |
+   |                   |    |                      |           |    |     |             |
+   |                   |    |                   simplemux      |    |   simplemux       |
+   |                   |    |                      |           |    |     |             |
+   |                   |    |           +-------------+        |    | +-------------+   |
+   |                   |    |           |192.168.100.5|        |    | |192.168.100.4|   |
+   |                   |    |           |tun0         |        |    | |tun0         |   |
+   |                   |    |           +-------------+        |    | +-------------+   |
+   |                   |    |                                  |    |                   |
+   |     Machine 6     |    |          Machine 5 (router)      |    |     Machine 4     |
+   +-------------------+    +----------------------------------+    +-------------------+
 ```
 
 Machine 6 is the source. Machine 5 and Machine 4 are the two optimizers. Server x.y.z.t is the destination.
@@ -293,13 +293,32 @@ iptables -t mangle –L
 
 Run Simplemux between two VMs with IP addresses `192.168.129.131` and `192.168.129.132`.
 
-They are Debian VMs.
 
+```
+                        +--------+
+                        | switch |
+                        +--------+
+                        /        \
+                       /          \
+       +---------------+          +---------------+  
+   +---|192.168.129.131|-+      +-|192.168.129.132|---+
+   |   |ens33          | |      | |ens33          |   |
+   |   +---------------+ |      | +---------------+   |  
+   |        |            |      |          |          |
+   |    simplemux        |      |      simplemux      |
+   |        |            |      |          |          |
+   |   +-------------+   |      |  +-------------+    |
+   |   |192.168.100.1|   |      |  |192.168.100.2|    |
+   |   |tun0         |   |      |  |tun0         |    |
+   |   +-------------+   |      |  +-------------+    |
+   |                     |      |                     |
+   |     Machine 1       |      |      Machine 2      |
+   +---------------------+      +---------------------+
+```
 
 ### tun mode
 
-To create a tun, run these commands as root
-(To test, you can add an IP address to `tun0`)
+To create a *tun* interface, run these commands as `root` (to test, you can add an IP address to `tun0`)
 
 ```
 sudo ip tuntap add dev tun0 mode tun user root
@@ -317,7 +336,7 @@ sudo ip addr add 192.168.100.2/24 dev tun0
 sudo route -nn
 ```
 
-Run Simplemux in tun tunnel mode (`-T tun` option):
+Run Simplemux in `tun` tunnel mode (`-T tun` option):
 
 In the machine with IP address `192.168.129.131` you can run Simplemux in one of these ways:
 ```
@@ -333,7 +352,7 @@ $ ./simplemux -i tun0 -e ens33 -M network -T tun -c 192.168.129.131 -d 2
 $ ./simplemux -i tun0 -e ens33 -M tcpclient -f -T tun -c 192.168.129.131 -d 2
 ```
 
-Test if Simplemux is working using this command:
+Test if Simplemux is working using this command in Machine 1:
 ```
 ping 192.168.100.2
 ```
@@ -343,9 +362,9 @@ If the ping works, it means it sends traffic to the other machine, so Simplemux 
 
 ### tap mode
 
-Note: RoHC cannot be used in tap tunnel mode (`-r 0` option).
+Note: RoHC cannot be used in `tap` tunnel mode (use `-r 0` option).
 
-To create a tap, run these commands as root:
+To create a *tap* interface , run these commands as `root`:
 
 ```
 sudo ip tuntap add dev tap0 mode tap user root
@@ -377,7 +396,7 @@ $ ./simplemux -i tap0 -e ens33 -M network -T tap -c 192.168.129.131 -d 2
 $ ./simplemux -i tap0 -e ens33 -M tcpclient -f -T tap -c 192.168.129.131 -d 2
 ```
 
-Test if Simplemux is working using this command:
+Test if Simplemux is working using this command in Machine 1:
 ```
 ping 192.168.200.2
 ```
