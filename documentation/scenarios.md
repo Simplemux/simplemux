@@ -571,5 +571,5 @@ sudo ip netns exec ns1 ./simplemux -i tun1 -e veth1 -M udp -T tun -c 192.168.1.2
 
 And now, you can ping between `tun0` and `tun1`:
 ```
-sudo ip netns exec ns0 ping 192.168.1.20
+sudo ip netns exec ns0 ping 192.168.100.2
 ```
