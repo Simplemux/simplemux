@@ -30,7 +30,7 @@ int socketRequest(struct contextSimplemux* context, const int on)
             exit(EXIT_FAILURE);
         }
         #ifdef DEBUG
-          do_debug(1,"Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, context->ipprotocol);
+          do_debug_c(1, ANSI_COLOR_RESET, "Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, context->ipprotocol);
         #endif
 
         break;
@@ -60,7 +60,7 @@ int socketRequest(struct contextSimplemux* context, const int on)
     }
     else {
       #ifdef DEBUG
-        do_debug(1,"Remote IP %s\n", inet_ntoa(context->remote.sin_addr));
+        do_debug_c(1, ANSI_COLOR_RESET,"Remote IP %s\n", inet_ntoa(context->remote.sin_addr));
       #endif
     }
 
