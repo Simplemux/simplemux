@@ -149,7 +149,7 @@ $ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.171 -d 2
 You can now ping from Raspberry 1 to 192.168.33.172, and you will see if the tunnel works.
 
 
-## Scenario 2: sending IP packets between VMs
+## Scenario 2 - Sending IP packets between VMs
 
 - Tunnel mode: `tun`
 - Mode: `UDP`
@@ -158,27 +158,27 @@ You can now ping from Raspberry 1 to 192.168.33.172, and you will see if the tun
 This has been tested using three Debian Virtual Machines inside a Windows PC.
 
 This is the setup:
-FIXME: Add image here
+
 ```
-                      +------+                             +--------+
-                      |switch|                             | router |
-                      +------+                             +--------+
-                      /      \                             /        \
-                     /        \                           /          \
-       +-------------+       +-------------+ +-------------+        +-------------+
-   +---|192.168.200.6|-+   +-|192.168.200.5|-| 192.168.0.5 |-+    +-|192.168.137.4|---+
-   |   |eth0         | |   | |eth1         | |eth0         | |    | |eth0         |   |
-   |   +-------------+ |   | +-------------+ +-------------+ |    | +-------------+   |
-   |                   |   |                     |           |    |     |             |
-   |                   |   |                  simplemux      |    |   simplemux       |
-   |                   |   |                     |           |    |     |             |
-   |                   |   |          +-------------+        |    | +-------------+   |
-   |                   |   |          |192.168.100.5|        |    | |192.168.100.4|   |
-   |                   |   |          |tun0         |        |    | |tun0         |   |
-   |                   |   |          +-------------+        |    | +-------------+   |
-   |                   |   |                                 |    |                   |
-   |     Machine 6     |   |          Machine 5 (router)     |    |     Machine 4     |
-   +-------------------+   +---------------------------------+    +-------------------+
+                      +------+                               +--------+
+                      |switch|                               | router |
+                      +------+                               +--------+
+                      /      \                               /        \
+                     /        \                             /          \
+       +-------------+        +-------------+  +-------------+        +-------------+
+   +---|192.168.200.6|-+    +-|192.168.200.5|--| 192.168.0.5 |-+    +-|192.168.137.4|---+
+   |   |eth0         | |    | |eth1         |  |eth0         | |    | |eth0         |   |
+   |   +-------------+ |    | +-------------+  +-------------+ |    | +-------------+   |
+   |                   |    |                      |           |    |     |             |
+   |                   |    |                   simplemux      |    |   simplemux       |
+   |                   |    |                      |           |    |     |             |
+   |                   |    |           +-------------+        |    | +-------------+   |
+   |                   |    |           |192.168.100.5|        |    | |192.168.100.4|   |
+   |                   |    |           |tun0         |        |    | |tun0         |   |
+   |                   |    |           +-------------+        |    | +-------------+   |
+   |                   |    |                                  |    |                   |
+   |     Machine 6     |    |          Machine 5 (router)      |    |     Machine 4     |
+   +-------------------+    +----------------------------------+    +-------------------+
 ```
 
 Machine 6 is the source. Machine 5 and Machine 4 are the two optimizers. Server x.y.z.t is the destination.
@@ -289,17 +289,36 @@ iptables -t mangle –L
 ```
 
 
-## Scenario 3: Simplemux between two Virtual Machines in the same computer
+## Scenario 3 - Simplemux between two Virtual Machines in the same computer
 
 Run Simplemux between two VMs with IP addresses `192.168.129.131` and `192.168.129.132`.
 
-They are Debian VMs.
 
+```
+                        +--------+
+                        | switch |
+                        +--------+
+                        /        \
+                       /          \
+       +---------------+          +---------------+  
+   +---|192.168.129.131|-+      +-|192.168.129.132|---+
+   |   |ens33          | |      | |ens33          |   |
+   |   +---------------+ |      | +---------------+   |  
+   |        |            |      |          |          |
+   |    simplemux        |      |      simplemux      |
+   |        |            |      |          |          |
+   |   +-------------+   |      |  +-------------+    |
+   |   |192.168.100.1|   |      |  |192.168.100.2|    |
+   |   |tun0         |   |      |  |tun0         |    |
+   |   +-------------+   |      |  +-------------+    |
+   |                     |      |                     |
+   |     Machine 1       |      |      Machine 2      |
+   +---------------------+      +---------------------+
+```
 
 ### tun mode
 
-To create a tun, run these commands as root
-(To test, you can add an IP address to `tun0`)
+To create a *tun* interface, run these commands as `root` (to test, you can add an IP address to `tun0`)
 
 ```
 sudo ip tuntap add dev tun0 mode tun user root
@@ -317,7 +336,7 @@ sudo ip addr add 192.168.100.2/24 dev tun0
 sudo route -nn
 ```
 
-Run Simplemux in tun tunnel mode (`-T tun` option):
+Run Simplemux in `tun` tunnel mode (`-T tun` option):
 
 In the machine with IP address `192.168.129.131` you can run Simplemux in one of these ways:
 ```
@@ -333,7 +352,7 @@ $ ./simplemux -i tun0 -e ens33 -M network -T tun -c 192.168.129.131 -d 2
 $ ./simplemux -i tun0 -e ens33 -M tcpclient -f -T tun -c 192.168.129.131 -d 2
 ```
 
-Test if Simplemux is working using this command:
+Test if Simplemux is working using this command in Machine 1:
 ```
 ping 192.168.100.2
 ```
@@ -343,9 +362,9 @@ If the ping works, it means it sends traffic to the other machine, so Simplemux 
 
 ### tap mode
 
-Note: RoHC cannot be used in tap tunnel mode (`-r 0` option).
+Note: RoHC cannot be used in `tap` tunnel mode (use `-r 0` option).
 
-To create a tap, run these commands as root:
+To create a *tap* interface , run these commands as `root`:
 
 ```
 sudo ip tuntap add dev tap0 mode tap user root
@@ -377,8 +396,180 @@ $ ./simplemux -i tap0 -e ens33 -M network -T tap -c 192.168.129.131 -d 2
 $ ./simplemux -i tap0 -e ens33 -M tcpclient -f -T tap -c 192.168.129.131 -d 2
 ```
 
-Test if Simplemux is working using this command:
+Test if Simplemux is working using this command in Machine 1:
 ```
 ping 192.168.200.2
 ```
 If the ping works, it means it sends traffic to the other machine, so Simplemux is working.
+
+
+## Scenario 4 - Simplemux between namespaces in a single Linux machine
+
+With network namespaces, you can have different and separate instances of network interfaces and routing tables that operate independent of each other.
+
+https://blogs.igalia.com/dpino/2016/04/10/network-namespaces/
+
+An interface can only be assigned to one namespace at a time. If the root namespace owns `eth0`, which provides access to the external world, only programs within the root namespace could reach the Internet .
+
+The solution is to communicate a namespace with the root namespace via a *veth* pair. A *veth* pair works like a patch cable, connecting two sides. It consists of two virtual interfaces:
+•	one of them is assigned to the root network namespace
+•	the other lives within a network namespace.
+
+Each namespace has two interfaces, which are connected like a pipe. Virtual Ethernet interfaces always come in pairs, and they are connected like a tube: whatever comes in one veth interface will come out the other peer veth interface. You can then use bridges to connect them.
+
+### Scenario to be built
+
+```
+                   +------------+
+                   |br10        |
+                   |192.168.1.11|
+                   +------------+
+                     /        \
+                    /          \
+       +-------------+              +------------+
+       |brveth0      |              |brveth1     |
+   +---+-------------+---+      +---+------------+---+
+   |   |192.168.1.20 |   |      |   |192.168.1.21|   |
+   |   |veth0        |   |      |   |veth1       |   |
+   |   +-------------+   |      |   +------------+   |  
+   |          |          |      |         |          |
+   |      simplemux      |      |     simplemux      |
+   |          |          |      |         |          |
+   |   +-------------+   |      |   +-------------+  |
+   |   |192.168.100.1|   |      |   |192.168.100.2|  |
+   |   |tun0         |   |      |   |tun0         |  |
+   |   +-------------+   |      |   +-------------+  |
+   |                     |      |                    |
+   |     ns0             |      |      ns1           |
+   +---------------------+      +--------------------+
+```
+
+### Add the namespaces
+
+Add two network namespaces `ns0` and `ns1`:
+```
+sudo ip netns add ns0
+sudo ip netns add ns1
+```
+
+You can now see the global namespace list:
+```
+$ ip netns list
+ns1 (id: 1)
+ns0 (id: 0)
+```
+
+### Create the linked interfaces
+
+Create two linked interfaces `veth0` and `brveth0`, and set up `brveth0`:
+```
+sudo ip link add veth0 type veth peer name brveth0 
+sudo ip link set brveth0 up
+```
+
+Create two linked interfaces `veth1` and `brveth1`, and set up `brveth1`:
+```
+sudo ip link add veth1 type veth peer name brveth1
+sudo ip link set brveth1 up
+```
+
+### Assign the linked interfaces to each namespace
+
+Assign `veth0` to `ns0` and `veth1` to `ns1`:
+```
+sudo ip link set veth0 netns ns0
+sudo ip link set veth1 netns ns1
+```
+
+### Add IP addresses to the interfaces
+
+Inside `ns0`, add an IP address to `veth0`, set it up, and also set up the local interface `lo`:
+```
+sudo ip netns exec ns0 ip addr add 192.168.1.20/24 dev veth0
+sudo ip netns exec ns0 ip link set veth0 up
+sudo ip netns exec ns0 ip link set lo up
+```
+
+Inside `ns1`, add the IP address to `veth1`, set it up, and also set up the local interface `lo`:
+```
+sudo ip netns exec ns1    ip addr add 192.168.1.21/24 dev veth1
+sudo ip netns exec ns1    ip link set veth1 up
+sudo ip netns exec ns1    ip link set lo up
+```
+
+### Add the bridge and connect the linked interfaces to it
+
+Add a bridge `br10` and set it up:
+```
+sudo ip link add br10 type bridge 
+sudo ip link set br10 up
+```
+
+Add an IP address to the bridge (`brd` is for also adding broadcast). (Note: Another option for creating the bridge `br0`: `brctl addbr br0`):
+```
+sudo ip addr add 192.168.1.11/24 brd + dev br10
+```
+Note: this allows you to communicate `ns0` and `ns1` with the global namespace.
+
+
+### Connect the interfaces to the bridge
+
+Associate `brveth0` and `brveth1` to the bridge `br10`:
+``` 
+sudo ip link set brveth0 master br10
+sudo ip link set brveth1 master br10
+```
+
+List the bridges (you need to install `bridge-utils` package using `$ sudo apt install bridge-utils`):
+```
+$ sudo brctl show
+bridge name     bridge id               STP enabled     interfaces
+br10            8000.128812c192fd       no              brveth0
+                                                        brveth1
+```
+
+### First result: connection between the namespaces
+
+As expected, I can ping from `ns1` to the interface in `ns0`:
+```
+$ ip netns exec ns1 ping -c 3  192.168.1.20
+PING 192.168.1.20 (192.168.1.20) 56(84) bytes of data.
+64 bytes from 192.168.1.20: icmp_seq=1 ttl=64 time=0.099 ms
+64 bytes from 192.168.1.20: icmp_seq=2 ttl=64 time=0.189 ms
+```
+
+Note: `eth0` is not connected with the bridge `br10`, so traffic cannot go outside the machine.
+
+
+### Add the *tun* devices
+
+In `ns0`, add `tun0`:
+```
+sudo ip netns exec ns0 ip tuntap add dev tun0 mode tun user root
+sudo ip netns exec ns0 ip link set tun0 up
+sudo ip netns exec ns0 ip addr add 192.168.100.1/24 dev tun0
+```
+
+In `ns1`, add `tun1`:
+```
+sudo ip netns exec ns1 ip tuntap add dev tun1 mode tun user root
+sudo ip netns exec ns1 ip link set tun1 up
+sudo ip netns exec ns1 ip addr add 192.168.100.2/24 dev tun1
+```
+
+### Run Simplemux
+
+Simplemux in `ns0`:
+```
+sudo ip netns exec ns0 ./simplemux -i tun0 -e veth0 -M udp -T tun -c 192.168.1.21 -d 2
+```
+
+Simplemux in `ns1`:
+```
+sudo ip netns exec ns1 ./simplemux -i tun1 -e veth1 -M udp -T tun -c 192.168.1.20 -d 2
+```
+
+And now, you can ping between `tun0` and `tun1`:
+```
+sudo ip netns exec ns0 ping 192.168.100.2
+```
