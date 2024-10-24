@@ -1289,23 +1289,22 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
   #ifdef DEBUG
     // print the native packet/frame received
     if (debug>0) {
-      if (context->tunnelMode == TUN_MODE)
+      if (context->tunnelMode == TUN_MODE) {
+
         do_debug_c( 1,
                     ANSI_COLOR_BLUE,
-                    "NATIVE PACKET #%"PRIu32": Read packet from tun %s: %i bytes\n",
-                    context->tun_if_name,
+                    "NATIVE PACKET #%"PRIu32": Read packet from tun: %i bytes\n",
                     context->tun2net,
                     size);
+      }
       else if (context->tunnelMode == TAP_MODE)
         do_debug_c( 1,
                     ANSI_COLOR_BLUE,
-                    "NATIVE FRAME #%"PRIu32": Read frame from tap %s: %i bytes\n",
-                    context->tun_if_name,
+                    "NATIVE FRAME #%"PRIu32": Read frame from tap: %i bytes\n",
                     context->tun2net,
                     size);
 
       //do_debug(2, "   ");
-
       // dump the newly-created IP packet on terminal
       dump_packet ( context->sizePacketsToMultiplex[context->numPktsStoredFromTun],
                     context->packetsToMultiplex[context->numPktsStoredFromTun] );

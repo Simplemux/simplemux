@@ -184,7 +184,7 @@ int main(int argc, char *argv[]) {
         #ifdef DEBUG
           do_debug_c(3, ANSI_COLOR_YELLOW, " Time last sending: %"PRIu64" us\n", context.timeLastSent);
           do_debug_c(3, ANSI_COLOR_YELLOW, " The next packet will be sent in %"PRIu64" us\n", context.microsecondsLeft);
-        #endif   
+        #endif
       }
 
       int milliseconds_left = (int)(context.microsecondsLeft / 1000.0);
