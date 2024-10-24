@@ -520,9 +520,9 @@ sudo ip link set brveth0 master br10
 sudo ip link set brveth1 master br10
 ```
 
-List the bridges:
+List the bridges (you need to install `bridge-utils` package using `$ sudo apt install bridge-utils`):
 ```
-brctl show
+$ sudo brctl show
 bridge name     bridge id               STP enabled     interfaces
 br10            8000.128812c192fd       no              brveth0
                                                         brveth1
