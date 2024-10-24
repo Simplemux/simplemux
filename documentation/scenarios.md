@@ -407,6 +407,10 @@ If the ping works, it means it sends traffic to the other machine, so Simplemux 
 
 With network namespaces, you can have different and separate instances of network interfaces and routing tables that operate independent of each other.
 
+More info:
+
+https://medium.com/@bjnandi/linux-network-namespace-with-bridge-d68831d5e8a1
+
 https://blogs.igalia.com/dpino/2016/04/10/network-namespaces/
 
 An interface can only be assigned to one namespace at a time. If the root namespace owns `eth0`, which provides access to the external world, only programs within the root namespace could reach the Internet .
@@ -416,6 +420,7 @@ The solution is to communicate a namespace with the root namespace via a *veth* 
 •	the other lives within a network namespace.
 
 Each namespace has two interfaces, which are connected like a pipe. Virtual Ethernet interfaces always come in pairs, and they are connected like a tube: whatever comes in one veth interface will come out the other peer veth interface. You can then use bridges to connect them.
+
 
 ### Scenario to be built
 
