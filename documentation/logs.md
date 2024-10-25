@@ -7,10 +7,11 @@ Using the options `–l [log file name]` or `-L`, you can obtain a text file wit
 ## Trace format
 
 ```
-+---------+-------+----------------+----+--------+-------+----+----+---------+---------------+
-|timestamp|event  |type            |size|sequence|from/to|IP  |port|number of|triggering     |
-|         |       |                |    |number  |       |    |    |packets  |event(s)       |
-+---------+-------+----------------+----+--------+-------+----+----+---------+---------------+
+                                                                                              only blast mode
++---------+-------+----------------+----+--------+-------+----+----+---------+---------------+---------------+
+|timestamp|event  |type            |size|sequence|from/to|IP  |port|number of|triggering     |blast packet  |
+|         |       |                |    |number  |       |    |    |packets  |event(s)       |type
++---------+-------+----------------+----+--------+-------+----+----+---------+---------------+--------------+
 |%"PRIu64"|text   |text            |%i  |%lu     |text   |%s  |%d  |%i       |text           |
 +---------+-------+----------------+----+--------+-------+----+----+---------+---------------+
 | usec    |rec    |native          |pckt|number  |-      |-   |-   |-        |-              |
@@ -21,9 +22,9 @@ Using the options `–l [log file name]` or `-L`, you can obtain a text file wit
 |         |       |                |    |        |       |IP  |    |         |               |
 |         |       +----------------+    |        |       |    |    |         |               |
 |         |       |ROHC_feedback   |    |        |       |    |    |         |               |
-|         +-------+----------------+    |        +-------+----+----+---------+---------------+
-|         |sent   |muxed           |    |        |to     |egr |port|number   |numpacket_limit|
-|         |       |                |    |        |       |IP  |    |         |size_limit     |
+|         +-------+----------------+    |        +-------+----+----+---------+---------------+--------------+
+|         |sent   |muxed           |    |        |to     |egr |port|number   |numpacket_limit|blastHeartbeat|
+|         |       |                |    |        |       |IP  |    |         |size_limit     |blastPacket   |
 |         |       |                |    |        |       |    |    |         |timeout        |
 |         |       |                |    |        |       |    |    |         |period         |
 |         |       |                |    |        |       |    |    |         |MTU            |
