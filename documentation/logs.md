@@ -7,7 +7,8 @@ Using the options `–l [log file name]` or `-L`, you can obtain a text file wit
 ## Trace format
 
 ```
-                                                                                              only blast mode
+                                                                                             +-------------------------+
+                                                                                             |    only blast mode      |
 +---------+-------+----------------+----+--------+-------+----+----+---------+---------------+--------------+----------+
 |timestamp|event  |type            |size|sequence|from/to|IP  |port|number of|triggering     |blast packet  |identifier|
 |         |       |                |    |number  |       |    |    |packets  |event(s)       |type          |          |
