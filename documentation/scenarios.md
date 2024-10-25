@@ -453,8 +453,8 @@ Each namespace has two interfaces, which are connected like a pipe. Virtual Ethe
 
 Add two network namespaces `ns0` and `ns1`:
 ```
-sudo ip netns add ns0
-sudo ip netns add ns1
+ip netns add ns0
+ip netns add ns1
 ```
 
 You can now see the global namespace list:
@@ -468,51 +468,51 @@ ns0 (id: 0)
 
 Create two linked interfaces `veth0` and `brveth0`, and set up `brveth0`:
 ```
-sudo ip link add veth0 type veth peer name brveth0 
-sudo ip link set brveth0 up
+ip link add veth0 type veth peer name brveth0 
+ip link set brveth0 up
 ```
 
 Create two linked interfaces `veth1` and `brveth1`, and set up `brveth1`:
 ```
-sudo ip link add veth1 type veth peer name brveth1
-sudo ip link set brveth1 up
+ip link add veth1 type veth peer name brveth1
+ip link set brveth1 up
 ```
 
 ### Assign the linked interfaces to each namespace
 
 Assign `veth0` to `ns0` and `veth1` to `ns1`:
 ```
-sudo ip link set veth0 netns ns0
-sudo ip link set veth1 netns ns1
+ip link set veth0 netns ns0
+ip link set veth1 netns ns1
 ```
 
 ### Add IP addresses to the interfaces
 
 Inside `ns0`, add an IP address to `veth0`, set it up, and also set up the local interface `lo`:
 ```
-sudo ip netns exec ns0 ip addr add 192.168.1.20/24 dev veth0
-sudo ip netns exec ns0 ip link set veth0 up
-sudo ip netns exec ns0 ip link set lo up
+ip netns exec ns0 ip addr add 192.168.1.20/24 dev veth0
+ip netns exec ns0 ip link set veth0 up
+ip netns exec ns0 ip link set lo up
 ```
 
 Inside `ns1`, add the IP address to `veth1`, set it up, and also set up the local interface `lo`:
 ```
-sudo ip netns exec ns1    ip addr add 192.168.1.21/24 dev veth1
-sudo ip netns exec ns1    ip link set veth1 up
-sudo ip netns exec ns1    ip link set lo up
+ip netns exec ns1    ip addr add 192.168.1.21/24 dev veth1
+ip netns exec ns1    ip link set veth1 up
+ip netns exec ns1    ip link set lo up
 ```
 
 ### Add the bridge and connect the linked interfaces to it
 
 Add a bridge `br10` and set it up:
 ```
-sudo ip link add br10 type bridge 
-sudo ip link set br10 up
+ip link add br10 type bridge 
+ip link set br10 up
 ```
 
 Add an IP address to the bridge (`brd` is for also adding broadcast). (Note: Another option for creating the bridge `br0`: `brctl addbr br0`):
 ```
-sudo ip addr add 192.168.1.11/24 brd + dev br10
+ip addr add 192.168.1.11/24 brd + dev br10
 ```
 Note: this allows you to communicate `ns0` and `ns1` with the global namespace.
 
@@ -521,13 +521,13 @@ Note: this allows you to communicate `ns0` and `ns1` with the global namespace.
 
 Associate `brveth0` and `brveth1` to the bridge `br10`:
 ``` 
-sudo ip link set brveth0 master br10
-sudo ip link set brveth1 master br10
+ip link set brveth0 master br10
+ip link set brveth1 master br10
 ```
 
 List the bridges (you need to install `bridge-utils` package using `$ sudo apt install bridge-utils`):
 ```
-$ sudo brctl show
+$ brctl show
 bridge name     bridge id               STP enabled     interfaces
 br10            8000.128812c192fd       no              brveth0
                                                         brveth1
@@ -550,31 +550,64 @@ Note: `eth0` is not connected with the bridge `br10`, so traffic cannot go outsi
 
 In `ns0`, add `tun0`:
 ```
-sudo ip netns exec ns0 ip tuntap add dev tun0 mode tun user root
-sudo ip netns exec ns0 ip link set tun0 up
-sudo ip netns exec ns0 ip addr add 192.168.100.1/24 dev tun0
+ip netns exec ns0 ip tuntap add dev tun0 mode tun user root
+ip netns exec ns0 ip link set tun0 up
+ip netns exec ns0 ip addr add 192.168.100.1/24 dev tun0
 ```
 
 In `ns1`, add `tun1`:
 ```
-sudo ip netns exec ns1 ip tuntap add dev tun1 mode tun user root
-sudo ip netns exec ns1 ip link set tun1 up
-sudo ip netns exec ns1 ip addr add 192.168.100.2/24 dev tun1
+ip netns exec ns1 ip tuntap add dev tun1 mode tun user root
+ip netns exec ns1 ip link set tun1 up
+ip netns exec ns1 ip addr add 192.168.100.2/24 dev tun1
 ```
 
 ### Run Simplemux
 
 Simplemux in `ns0`:
 ```
-sudo ip netns exec ns0 ./simplemux -i tun0 -e veth0 -M udp -T tun -c 192.168.1.21 -d 2
+ip netns exec ns0 ./simplemux -i tun0 -e veth0 -M udp -T tun -c 192.168.1.21 -d 2
 ```
 
 Simplemux in `ns1`:
 ```
-sudo ip netns exec ns1 ./simplemux -i tun1 -e veth1 -M udp -T tun -c 192.168.1.20 -d 2
+ip netns exec ns1 ./simplemux -i tun1 -e veth1 -M udp -T tun -c 192.168.1.20 -d 2
 ```
 
 And now, you can ping between `tun0` and `tun1`:
 ```
-sudo ip netns exec ns0 ping 192.168.100.2
+ip netns exec ns0 ping 192.168.100.2
+```
+
+### All the commands together
+
+```
+ip netns add ns0
+ip netns add ns1
+ip link add veth0 type veth peer name brveth0 
+ip link set brveth0 up
+ip link add veth1 type veth peer name brveth1
+ip link set brveth1 up
+ip link set veth0 netns ns0
+ip link set veth1 netns ns1
+ip netns exec ns0 ip addr add 192.168.1.20/24 dev veth0
+ip netns exec ns0 ip link set veth0 up
+ip netns exec ns0 ip link set lo up
+ip netns exec ns1 ip addr add 192.168.1.21/24 dev veth1
+ip netns exec ns1 ip link set veth1 up
+ip netns exec ns1 ip link set lo up
+ip link add br10 type bridge 
+ip link set br10 up
+ip addr add 192.168.1.11/24 brd + dev br10
+ip link set brveth0 master br10
+ip link set brveth1 master br10
+ip netns exec ns0 ip tuntap add dev tun0 mode tun user root
+ip netns exec ns0 ip link set tun0 up
+ip netns exec ns0 ip addr add 192.168.100.1/24 dev tun0
+ip netns exec ns1 ip tuntap add dev tun1 mode tun user root
+ip netns exec ns1 ip link set tun1 up
+ip netns exec ns1 ip addr add 192.168.100.2/24 dev tun1
+ip netns exec ns0 ./simplemux -i tun0 -e veth0 -M udp -T tun -c 192.168.1.21 -d 2
+ip netns exec ns1 ./simplemux -i tun1 -e veth1 -M udp -T tun -c 192.168.1.20 -d 2
+ip netns exec ns0 ping 192.168.100.2
 ```
