@@ -13,9 +13,17 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   #ifdef DEBUG
     do_debug_c( 3,
                 ANSI_COLOR_BLUE,
-                "%"PRIu64": NATIVE PACKET arrived from local computer (%s)\n",
-                now,
+                "%"PRIu64": NATIVE PACKET arrived from local computer (",
+                now);
+
+    do_debug_c( 3,
+                ANSI_COLOR_RESET,
+                "%s",
                 context->tun_if_name);
+
+    do_debug_c( 3,
+                ANSI_COLOR_BLUE,
+                ")\n");
   #endif           
 
   // add a new empty packet to the list
@@ -30,8 +38,16 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   #ifdef DEBUG
     do_debug_c( 1,
                 ANSI_COLOR_BLUE,
-                "NATIVE PACKET arrived from %s: ID %i, length %i bytes\n",
-                context->tun_if_name,
+                "NATIVE PACKET arrived from ");
+
+    do_debug_c( 1,
+                ANSI_COLOR_RESET,
+                "%s",
+                context->tun_if_name);
+
+    do_debug_c( 1,
+                ANSI_COLOR_BLUE,
+                ": ID %i, length %i bytes\n",
                 ntohs(thisPacket->header.identifier),
                 ntohs(thisPacket->header.packetSize));
   #endif
@@ -1290,21 +1306,45 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
     // print the native packet/frame received
     if (debug>0) {
       if (context->tunnelMode == TUN_MODE) {
-
+        /*
         do_debug_c( 1,
                     ANSI_COLOR_BLUE,
                     "NATIVE PACKET #%"PRIu32": Read packet from tun: %i bytes\n",
                     context->tun2net,
                     size);
-      }
-      else if (context->tunnelMode == TAP_MODE)
+        */
         do_debug_c( 1,
                     ANSI_COLOR_BLUE,
-                    "NATIVE FRAME #%"PRIu32": Read frame from tap: %i bytes\n",
-                    context->tun2net,
-                    size);
+                    "NATIVE PACKET #%"PRIu32": Read packet from ",
+                    context->tun2net);
 
-      //do_debug(2, "   ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    context->tun_if_name);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_BLUE,
+                    ": %i bytes\n",
+                    size);
+      }
+      else if (context->tunnelMode == TAP_MODE) {
+        do_debug_c( 1,
+                    ANSI_COLOR_BLUE,
+                    "NATIVE FRAME #%"PRIu32": Read frame from ",
+                    context->tun2net);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    context->tun_if_name);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_BLUE,
+                    ": %i bytes\n",
+                    size);
+      }
+
       // dump the newly-created IP packet on terminal
       dump_packet ( context->sizePacketsToMultiplex[context->numPktsStoredFromTun],
                     context->packetsToMultiplex[context->numPktsStoredFromTun] );

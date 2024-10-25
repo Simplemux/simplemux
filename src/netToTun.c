@@ -577,9 +577,17 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           #ifdef DEBUG
             do_debug_c( 2,
                         ANSI_COLOR_YELLOW,
-                        "%"PRIu64" Sending packet of %i bytes to the tun interface\n",
-                        now,
-                        length);
+                        "%"PRIu64" Sending packet of %i bytes to ",
+                        now);
+
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%s",
+                        context->tun_if_name);
+
+            do_debug_c( 2,
+                        ANSI_COLOR_YELLOW,
+                        "\n");
           #endif
 
           if (cwrite ( context->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
@@ -589,12 +597,31 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             #ifdef DEBUG
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
-                          " Packet with ID %i sent to the tun interface\n",
+                          " Packet with ID %i sent to ",
                           ntohs(blastHeader->identifier));
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->tun_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_YELLOW,
+                          "\n");
+
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          "%"PRIu64" Packet correctly sent to ",
+                          now);
 
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
-                          "%"PRIu64" Packet correctly sent to the tun interface\n",
+                          "%s",
+                          context->tun_if_name);
+
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          "\n",
                           now);
             #endif
           }
@@ -618,9 +645,18 @@ int demuxPacketFromNet( struct contextSimplemux* context,
              // write the demuxed packet to the tap interface
             #ifdef DEBUG
               do_debug_c( 2,
-                          ANSI_COLOR_RESET,
-                          " Sending frame of %i bytes to the tap interface\n",
+                          ANSI_COLOR_YELLOW,
+                          " Sending frame of %i bytes to ",
                           length);
+
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->tun_if_name);
+
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          "\n");
             #endif
 
             if(cwrite ( context->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
@@ -629,14 +665,31 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             else {
               #ifdef DEBUG
                 do_debug_c( 1,
-                            ANSI_COLOR_RESET,
-                            " Packet with ID %i sent to the tun interface",
+                            ANSI_COLOR_YELLOW,
+                            " Packet with ID %i sent to ",
                             ntohs(blastHeader->identifier));
+
+                do_debug_c( 1,
+                            ANSI_COLOR_RESET,
+                            "%s",
+                            context->tun_if_name);
+
+                do_debug_c( 1,
+                            ANSI_COLOR_YELLOW,
+                            "\n");
+
+                do_debug_c( 2,
+                            ANSI_COLOR_YELLOW,
+                            "%"PRIu64" Packet correctly sent to ",
+                            now);
 
                 do_debug_c( 2,
                             ANSI_COLOR_RESET,
-                            "%"PRIu64" Packet correctly sent to the tun interface\n",
-                            now);
+                            "%s");
+
+                do_debug_c( 2,
+                            ANSI_COLOR_YELLOW,
+                            "\n");
               #endif
             }
 
@@ -1404,7 +1457,19 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           if(context->tunnelMode == TUN_MODE) {
              // write the demuxed packet to the tun interface
             #ifdef DEBUG
-              do_debug (2, "  Sending packet of %i bytes to the tun interface\n", packet_length);
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          "  Sending packet of %i bytes to ",
+                          packet_length);
+
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->tun_if_name);
+
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          "\n");
             #endif
 
             cwrite ( context->tun_fd, demuxed_packet, packet_length );
@@ -1413,13 +1478,29 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           else if(context->tunnelMode == TAP_MODE) {
             if (context->protocol_rec != IPPROTO_ETHERNET) {
               #ifdef DEBUG
-                do_debug_c (2, ANSI_COLOR_RED, "wrong value of 'Protocol' field received. It should be 143, but it is %i", context->protocol_rec);
+                do_debug_c( 2,
+                            ANSI_COLOR_RED,
+                            "wrong value of 'Protocol' field received. It should be %i, but it is %i",
+                            IPPROTO_ETHERNET,
+                            context->protocol_rec);
               #endif            
             }
             else {
                // write the demuxed packet to the tap interface
               #ifdef DEBUG
-                do_debug (2, " Sending frame of %i bytes to the tap interface\n", packet_length);
+                do_debug_c( 2,
+                            ANSI_COLOR_YELLOW,
+                            " Sending frame of %i bytes to ",
+                            packet_length);
+
+                do_debug_c( 2,
+                            ANSI_COLOR_RESET,
+                            "%s",
+                            context->tun_if_name);
+
+                do_debug_c( 2,
+                            ANSI_COLOR_YELLOW,
+                            "\n");
               #endif
 
               cwrite ( context->tun_fd, demuxed_packet, packet_length );
