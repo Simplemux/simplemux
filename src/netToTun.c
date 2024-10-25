@@ -342,11 +342,31 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       #ifdef DEBUG
       do_debug_c( 1,
                   ANSI_COLOR_YELLOW,
-                  "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from %s:%d: %i bytes\n",
-                  context->net2tun,
-                  inet_ntoa(context->remote.sin_addr),
-                  ntohs(context->remote.sin_port),
-                  nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );     
+                  "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from ",
+                  context->net2tun);
+
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "%s",
+                  inet_ntoa(context->remote.sin_addr));
+
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  ":");
+
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "%d",
+                  ntohs(context->remote.sin_port));
+
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  ",");
+
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  " %i bytes\n",
+                  nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
       #endif
 
       #ifdef LOGFILE
