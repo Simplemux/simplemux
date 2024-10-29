@@ -371,6 +371,60 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
       #ifdef LOGFILE
         // write the log file
+
+        if ( context->log_file != NULL ) {
+          // in any case, print this information
+          fprintf ( context->log_file,
+                    "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t",
+                    GetTimeStamp(),
+                    nread_from_net + IPv4_HEADER_SIZE,
+                    context->net2tun,
+                    inet_ntoa(context->remote.sin_addr));
+
+          // Blast mode: these two columns are only printed if we are in blast mode
+          if(context->flavor == 'B') {
+            /*fprintf ( context->log_file,
+                      "\t\tIMPRIMIR AQUÍ \tLAS DOS COLUMNAS DE BLAST");*/
+
+            // apply the structure of a blast mode packet
+            struct simplemuxBlastHeader* blastHeader = (struct simplemuxBlastHeader*) (buffer_from_net);
+
+            //int length = ntohs(blastHeader->packetSize);
+
+            if (blastHeader->ACK == HEARTBEAT) {
+              // heartbeat
+              fprintf ( context->log_file,
+                        "%d\t%i\t\tblastHeartbeat",
+                        ntohs(context->remote.sin_port),
+                        0); // in blast mode, no packet from tun is sent in a heartbeat
+            }
+            else if (blastHeader->ACK == THISISANACK) {
+              // ACK
+              fprintf ( context->log_file,
+                        "%d\t%i\t\tblastACK\t%"PRIu16"",
+                        ntohs(context->remote.sin_port),
+                        0, // in blast mode, no packet from tun is sent in an ACK
+                        htons(blastHeader->identifier));
+            }
+            else {
+              // blast packet
+              #ifdef ASSERT
+                assert(blastHeader->ACK == ACKNEEDED);
+              #endif
+              fprintf ( context->log_file,
+                        "%d\t%i\t\tblastPacket\t%"PRIu16"",
+                        ntohs(context->remote.sin_port),
+                        1, // in blast mode, only 1 packet from tun is sent
+                        htons(blastHeader->identifier));
+            }
+          }
+
+          fprintf ( context->log_file,"\n");
+
+          fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write
+        }
+
+        /*
         if ( context->log_file != NULL ) {
           fprintf ( context->log_file,
                     "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
@@ -381,7 +435,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                     ntohs(context->remote.sin_port));
           
           fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write
-        }
+        }*/
       #endif
     break;
 
@@ -452,6 +506,66 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       #ifdef LOGFILE
         // write the log file
         if ( context->log_file != NULL ) {
+          // in any case, print this information
+          fprintf ( context->log_file,
+                    "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t",
+                    GetTimeStamp(),
+                    nread_from_net + IPv4_HEADER_SIZE,
+                    context->net2tun,
+                    inet_ntoa(context->remote.sin_addr));
+
+          /*
+          // these two columns are only printed if we are in blast mode
+          if(context->flavor == 'B') {
+            fprintf ( context->log_file,
+                      "IMPRIMIR AQUÍ \nLAS DOS COLUMNAS DE BLAST");
+          }*/
+
+          // Blast mode: these two columns are only printed if we are in blast mode
+          if(context->flavor == 'B') {
+            /*fprintf ( context->log_file,
+                      "\t\tIMPRIMIR AQUÍ \tLAS DOS COLUMNAS DE BLAST");*/
+
+            // apply the structure of a blast mode packet
+            struct simplemuxBlastHeader* blastHeader = (struct simplemuxBlastHeader*) (buffer_from_net);
+
+            //int length = ntohs(blastHeader->packetSize);
+
+            if (blastHeader->ACK == HEARTBEAT) {
+              // heartbeat
+              fprintf ( context->log_file,
+                        "\t%i\t\tblastHeartbeat",
+                        //ntohs(context->remote.sin_port),
+                        0); // in blast mode, no packet from tun is sent in a heartbeat
+            }
+            else if (blastHeader->ACK == THISISANACK) {
+              // ACK
+              fprintf ( context->log_file,
+                        "\t%i\t\tblastACK\t%"PRIu16"",
+                        //ntohs(context->remote.sin_port),
+                        0, // in blast mode, no packet from tun is sent in an ACK
+                        htons(blastHeader->identifier));
+            }
+            else {
+              // blast packet
+              #ifdef ASSERT
+                assert(blastHeader->ACK == ACKNEEDED);
+              #endif
+              fprintf ( context->log_file,
+                        "\t%i\t\tblastPacket\t%"PRIu16"",
+                        //ntohs(context->remote.sin_port),
+                        1, // in blast mode, only 1 packet from tun is sent
+                        htons(blastHeader->identifier));
+            }
+          }
+
+          fprintf ( context->log_file,"\n");
+
+          fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write
+        }
+
+        /* old version
+        if ( context->log_file != NULL ) {
           fprintf ( context->log_file,
                     "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t\n",
                     GetTimeStamp(),
@@ -460,7 +574,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                     inet_ntoa(context->remote.sin_addr));
           
           fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write
-        }
+        }*/
+
       #endif
     break;
   }
