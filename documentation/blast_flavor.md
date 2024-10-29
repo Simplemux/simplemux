@@ -15,6 +15,9 @@ In *blast flavor*, all the separators have the same structure:
     - `0`: this is a packet that requires an ACK
     - `1`: the packet is an ACK
     - `2`: the packet is a heartbeat
+         - its `Length` is `0x0000`, as there is no packet afterwards.
+         - its `Protocol` is `0x00`, as it is not carrying any protocol.
+         - its `Identifier` is `0x0000`.
 
 This is the structure of the Simplemux separator in *blast flavor* (fixed size of 6 bytes):
 ```
