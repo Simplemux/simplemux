@@ -7,27 +7,32 @@ In *blast flavor*, all the separators have the same structure:
 
 - **Length** (LEN, 16 bits). This is the length of the multiplexed packet (in bytes).
 
-- **Protocol** (8 bits). It is the Protocol field of the multiplexed packet, according to IANA "Assigned Internet Protocol Numbers".
+- **Protocol** (8 bits). It is the Protocol field of the multiplexed packet, according to [IANA "Assigned Internet Protocol Numbers"](https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml).
 
 - **Identifier** (16 bits). It is unique for each flow (packets in different directions MAY have the same identifier).
 
 - **ACK** (8 bits). It may have three values:
-    - `0`: this is a packet that requires an ACK
-    - `1`: the packet is an ACK
-    - `2`: the packet is a heartbeat
-         - its `Length` is `0x0000`, as there is no packet afterwards.
-         - its `Protocol` is `0x00`, as it is not carrying any protocol.
-         - its `Identifier` is `0x0000`.
+    - `0x00`: this is a normal packet. It requires an ACK
+    - `0x01`: the packet is an ACK
+    - `0x02`: the packet is a heartbeat
 
 This is the structure of the Simplemux separator in *blast flavor* (fixed size of 6 bytes):
 ```
-+-----------------+--------+----------------+--------+
-|      Length     |Protocol|   Identifier   |   ACK  |
-+-----------------+--------+----------------+--------+
-       16 bits      8 bits       16 bits      8 bits
-```
+                   +-----------------+--------+----------------+--------+
+                   |      Length     |Protocol|   Identifier   |   ACK  |
+                   +-----------------+--------+----------------+--------+
+                          16 bits      8 bits       16 bits      8 bits
 
-The structure of an ACK is the same, but `Length` and `Protocol` MUST always be `0`.
+normal packet      length muxed packet  prot    sequence number   0x00
+                                        muxed
+                                        packet
+
+ACK packet                 0x0000        0x00   sequence number   0x01
+                                                of acknowledged
+                                                packet
+
+heartbeat packet           0x0000        0x00         0x0000      0x02
+```
 
 Each packet sent by the multiplexer is stored, and sent periodically until it is acknowledged by the demultiplexer. This increases the traffic, but it guarantees that all the packets arrive to the other side.
 
