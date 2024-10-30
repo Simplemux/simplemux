@@ -33,7 +33,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   // use 'htons()' because these fields will be sent through the network
   thisPacket->header.packetSize = htons(cread (context->tun_fd, thisPacket->tunneledPacket, BUFSIZE));
   // the ID is the 16 LSBs of 'tun2net' (it is an uint32_t)
-  thisPacket->header.identifier = htons((uint16_t)context->tun2net); 
+  thisPacket->header.identifier = htons((uint16_t)context->blastIdentifier); 
 
   #ifdef DEBUG
     do_debug_c( 1,
@@ -73,41 +73,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
                 ntohs(thisPacket->header.packetSize));
   #endif
 
-  /* No need to write in the log file here: it is done in 'sendPacketBlastFlavor()'
-  // write in the log file
-  switch (context->mode) {
-    case UDP_MODE:        
-      if ( context->log_file != NULL ) {
-        fprintf ( context->log_file,
-                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
-                  GetTimeStamp(),
-                  total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
-                  context->tun2net,
-                  inet_ntoa(context->remote.sin_addr),
-                  ntohs(context->remote.sin_port),
-                  context->numPktsStoredFromTun);
-
-        // If the IO is buffered, I have to insert fflush(fp) after the write
-        fflush(context->log_file);
-      }
-    break;
-   
-    case NETWORK_MODE:
-      if ( context->log_file != NULL ) {
-        fprintf ( context->log_file,
-                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n",
-                  GetTimeStamp(),
-                  total_length + IPv4_HEADER_SIZE,
-                  context->tun2net,
-                  inet_ntoa(context->remote.sin_addr),
-                  // there is no port in network mode
-                  context->numPktsStoredFromTun);
-
-        // If the IO is buffered, I have to insert fflush(fp) after the write
-        fflush(context->log_file);
-      }
-    break;
-  }*/
+  // No need to write in the log file here: it is done in 'sendPacketBlastFlavor()'
 
   // the packet has been sent. Store the timestamp
   thisPacket->sentTimestamp = now;

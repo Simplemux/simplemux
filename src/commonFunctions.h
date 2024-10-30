@@ -136,6 +136,7 @@ struct contextSimplemux {
   uint32_t tun2net;           // number of packets read from tun
   uint32_t net2tun;           // number of packets read from net
   uint32_t feedback_pkts;     // number of ROHC feedback packets
+  uint16_t blastIdentifier;   // Identifier field of the blast header
 
   char remote_ip[16];       // dotted quad IP string with the IP of the remote machine
   char local_ip[16];        // dotted quad IP string with the IP of the local machine

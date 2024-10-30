@@ -12,6 +12,7 @@ void initContext(struct contextSimplemux* context)
   context->tun2net = 0;
   context->net2tun = 0; 
   context->feedback_pkts = 0;
+  context->blastIdentifier = 0;
   context->acceptingTcpConnections = false;
   context->remote_ip[0] = '\0';
   context->local_ip[0] = '\0';

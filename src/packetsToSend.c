@@ -187,6 +187,13 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
         perror("sendto() in UDP mode failed");
         exit (EXIT_FAILURE);
       }
+      else {
+        context->tun2net++;
+        // only increase the identifier for regular blast packets
+        if (packetToSend->header.ACK == ACKNEEDED) {
+          context->blastIdentifier++;
+        }
+      }
       
       #ifdef LOGFILE
         // write in the log file
@@ -194,10 +201,10 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
           if (packetToSend->header.ACK == HEARTBEAT) {
             // heartbeat
             fprintf ( context->log_file,
-                      "%"PRIu64"\tsent\tmuxed\t%i\t-\tto\t%s\t%d\t%i\t\tblastHeartbeat\n",
+                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\t\tblastHeartbeat\n",
                       GetTimeStamp(),
                       total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
-                      //context->tun2net,
+                      context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       ntohs(context->remote.sin_port),
                       0); // in blast mode, no packet from tun is sent in a heartbeat
@@ -205,10 +212,10 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
           else if (packetToSend->header.ACK == THISISANACK) {
             // ACK
             fprintf ( context->log_file,
-                      "%"PRIu64"\tsent\tmuxed\t%i\t-\tto\t%s\t%d\t%i\t\tblastACK\t%"PRIu16"\n",
+                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\t\tblastACK\t%"PRIu16"\n",
                       GetTimeStamp(),
                       total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
-                      //context->tun2net,
+                      context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       ntohs(context->remote.sin_port),
                       0, // in blast mode, no packet from tun is sent in an ACK
@@ -263,7 +270,13 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
         perror ("sendto() in Network mode failed");
         exit (EXIT_FAILURE);
       }
-
+      else {
+        context->tun2net++;
+        // only increase the identifier for regular blast packets
+        if (packetToSend->header.ACK == ACKNEEDED) {
+          context->blastIdentifier++;
+        }
+      }
 
       #ifdef LOGFILE
         // write in the log file
@@ -271,10 +284,10 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
           if (packetToSend->header.ACK == HEARTBEAT) {
             // heartbeat
             fprintf ( context->log_file,
-                      "%"PRIu64"\tsent\tmuxed\t%i\t-\tto\t%s\t\t%i\t\tblastHeartbeat\n",
+                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\t\tblastHeartbeat\n",
                       GetTimeStamp(),
                       total_length + IPv4_HEADER_SIZE,
-                      //context->tun2net,
+                      context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       // there is no port in network mode
                       0); // in blast mode, no packet from tun is sent in a heartbeat
@@ -282,10 +295,10 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
           else if (packetToSend->header.ACK == THISISANACK) {
             // ACK
             fprintf ( context->log_file,
-                      "%"PRIu64"\tsent\tmuxed\t%i\t-\tto\t%s\t\t%i\t\tblastACK\t%"PRIu16"\n",
+                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\t\tblastACK\t%"PRIu16"\n",
                       GetTimeStamp(),
                       total_length + IPv4_HEADER_SIZE,
-                      //context->tun2net,
+                      context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       // there is no port in network mode
                       0, // in blast mode, no packet from tun is sent in an ACK
@@ -299,7 +312,7 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
             fprintf ( context->log_file,
                       "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\t\tblastPacket\t%"PRIu16"\n",
                       GetTimeStamp(),
-                      total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
+                      total_length + IPv4_HEADER_SIZE,
                       context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       // there is no port in network mode

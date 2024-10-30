@@ -466,14 +466,17 @@ int main(int argc, char *argv[]) {
         /* FD_ISSET tests if a file descriptor is part of the set */
         //else if(FD_ISSET(context.tun_fd, &rd_set)) {
         else if(fds_poll[0].revents & POLLIN) {
-          /* increase the counter of the number of packets read from tun*/
-          context.tun2net++;
+
 
           if (context.flavor == 'B') {
             tunToNetBlastFlavor(&context);
           }
           else {
             // not in blast flavor
+
+            // increase the counter of the number of packets read from tun
+            context.tun2net++;
+
             tunToNetNoBlastFlavor(&context);
           }
         }
