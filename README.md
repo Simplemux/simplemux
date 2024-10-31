@@ -195,6 +195,10 @@ Some examples of the command to run Simplemux:
 ./simplemux -i tap3 -e eth1 -M tcpclient -T tap -c 192.168.3.171 -d 2 -n 1 -f
 ```
 
+## Test with [Valgrind](https://valgrind.org/)
+
+[Test with Valgrind](/documentation/valgrind_test.md]
+
 ## Acknowledgements
 
 This work has been partially financed by the **EU H2020 Wi-5 project** (G.A. no: 644262, see http://www.wi5.eu/ and https://github.com/Wi5), and the Spanish Ministry of Economy and Competitiveness project TIN2015-64770-R, in cooperation with the European Regional Development Fund.
