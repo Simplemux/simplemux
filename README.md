@@ -197,7 +197,7 @@ Some examples of the command to run Simplemux:
 
 ## Test with [Valgrind](https://valgrind.org/)
 
-[Test with Valgrind](/documentation/valgrind_test.md]
+[Test with Valgrind](/documentation/valgrind_test.md)
 
 ## Acknowledgements
 
