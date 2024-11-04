@@ -668,10 +668,16 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         if(context->tunnelMode == TUN_MODE) {
            // write the demuxed packet to the tun interface
           #ifdef DEBUG
+            do_debug_c( 3,
+                        ANSI_COLOR_YELLOW,
+                        " %"PRIu64"",
+                        now);
+
             do_debug_c( 2,
                         ANSI_COLOR_YELLOW,
-                        "%"PRIu64" Sending packet of %i bytes to ",
-                        now);
+                        " Sending packet of %i bytes to ",
+                        now,
+                        length);
 
             do_debug_c( 2,
                         ANSI_COLOR_RESET,

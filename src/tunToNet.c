@@ -113,10 +113,13 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   }
   else {
     #ifdef DEBUG
+      do_debug_c( 3,
+                  ANSI_COLOR_BLUE,
+                  " %"PRIu64"",
+                  thisPacket->sentTimestamp);
       do_debug_c( 2,
                   ANSI_COLOR_BLUE,
-                  " %"PRIu64" The arrived packet has been stored. Total %i pkts stored\n",
-                  thisPacket->sentTimestamp,
+                  " The arrived packet has been stored. Total %i pkts stored\n",
                   length(&context->unconfirmedPacketsBlast));
       if(debug > 1)
         dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );
