@@ -1189,13 +1189,23 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                         context->protocol_rec);
 
             if(context->protocol_rec == IPPROTO_IP_ON_IP)
-              do_debug_c(1, ANSI_COLOR_RESET, " (IP)\n");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          " (IP)\n");
+
             else if(context->protocol_rec == IPPROTO_ROHC)
-              do_debug_c(1, ANSI_COLOR_RESET, " (RoHC)\n");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          " (RoHC)\n");
+
             else if(context->protocol_rec == IPPROTO_ETHERNET)
-              do_debug_c(1, ANSI_COLOR_RESET, " (Ethernet)\n");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          " (Ethernet)\n");
             else
-              do_debug_c(1, ANSI_COLOR_RESET, "\n");          
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "\n");          
           #endif
 
           // move 'position' to the end of the simplemuxFast header
@@ -1310,7 +1320,11 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             #endif
 
             // decompress the packet
-            *status = rohc_decompress3 (decompressor, rohc_packet_d, &ip_packet_d, &rcvd_feedback, &feedback_send);
+            *status = rohc_decompress3( decompressor,
+                                        rohc_packet_d,
+                                        &ip_packet_d,
+                                        &rcvd_feedback,
+                                        &feedback_send);
 
             // if bidirectional mode has been set, check the feedback
             if ( context->rohcMode > 1 ) {
@@ -1337,46 +1351,70 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                 //https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
                 if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
                   #ifdef DEBUG
-                    do_debug(3, "Error delivering feedback received from the remote compressor to the compressor\n");
+                    do_debug_c( 3,
+                                ANSI_COLOR_RED,
+                                "Error delivering feedback received from the remote compressor to the compressor\n");
                   #endif
                 }
                 else {
                   #ifdef DEBUG
-                    do_debug(3, "Feedback from the remote compressor delivered to the compressor: %i bytes\n", rcvd_feedback.len);
+                    do_debug_c( 3,
+                                ANSI_COLOR_RED,
+                                "Feedback from the remote compressor delivered to the compressor: %i bytes\n",
+                                rcvd_feedback.len);
                   #endif
                 }
               }
               else {
                 #ifdef DEBUG
-                  do_debug(3, "No feedback received by the decompressor from the remote compressor\n");
+                  do_debug_c( 3,
+                              ANSI_COLOR_RED,
+                              "No feedback received by the decompressor from the remote compressor\n");
                 #endif
               }
 
               // check if the decompressor has generated feedback to be sent by the feedback channel to the other peer
               if ( !rohc_buf_is_empty( feedback_send ) ) {
                 #ifdef DEBUG
-                  do_debug(3, "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n", feedback_send.len);
+                  do_debug_c( 3,
+                              ANSI_COLOR_MAGENTA,
+                              "Generated feedback (%i bytes) to be sent by the feedback channel to the peer\n",
+                              feedback_send.len);
 
                   // dump the ROHC packet on terminal
                   if (debug>0) {
-                    do_debug_c(2, ANSI_COLOR_MAGENTA, "  ROHC feedback packet generated\n");
+                    do_debug_c( 2,
+                                ANSI_COLOR_MAGENTA,
+                                "  ROHC feedback packet generated\n");
+
                     dump_packet (feedback_send.len, feedback_send.data );
                   }
                 #endif
 
                 // send the feedback packet to the peer
-                if (sendto(context->feedback_fd, feedback_send.data, feedback_send.len, 0, (struct sockaddr *)&(context->feedback_remote), sizeof(context->feedback_remote))==-1) {
+                if (sendto( context->feedback_fd,
+                            feedback_send.data,
+                            feedback_send.len,
+                            0,
+                            (struct sockaddr *)&(context->feedback_remote),
+                            sizeof(context->feedback_remote)) == -1)
+                {
                   perror("sendto() failed when sending a ROHC packet");
                 }
                 else {
                   #ifdef DEBUG
-                    do_debug(3, "Feedback generated by the decompressor (%i bytes), sent to the compressor\n", feedback_send.len);
+                    do_debug_c( 3,
+                                ANSI_COLOR_MAGENTA,
+                                "Feedback generated by the decompressor (%i bytes), sent to the compressor\n",
+                                feedback_send.len);
                   #endif
                 }
               }
               else {
                 #ifdef DEBUG
-                  do_debug(3, "No feedback generated by the decompressor\n");
+                  do_debug_c( 3,
+                              ANSI_COLOR_MAGENTA,
+                              "No feedback generated by the decompressor\n");
                 #endif
               }
             }
@@ -1396,7 +1434,10 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
                 #ifdef DEBUG
                   //dump the IP packet on the standard output
-                  do_debug_c(1, ANSI_COLOR_MAGENTA, "  IP packet resulting from the ROHC decompression: %i bytes\n", packet_length);
+                  do_debug_c( 1,
+                              ANSI_COLOR_MAGENTA,
+                              "  IP packet resulting from the ROHC decompression: %i bytes\n",
+                              packet_length);
 
                   if (debug > 1) {
                     // dump the decompressed IP packet on terminal
@@ -1413,19 +1454,21 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                  *  - the ROHC packet was a feedback-only packet, it contained only
                  *    feedback information, so there was nothing to decompress */
                 #ifdef DEBUG
-                  do_debug_c(1, ANSI_COLOR_RED, "  no IP packet decompressed\n");
+                  do_debug_c( 1,
+                              ANSI_COLOR_RED,
+                              "  no IP packet decompressed\n");
                 #endif
 
                 #ifdef LOGFILE
                   // write the log file
                   if ( context->log_file != NULL ) {
                     fprintf ( context->log_file,
-                      "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
-                      GetTimeStamp(),
-                      nread_from_net,
-                      context->net2tun,
-                      inet_ntoa(context->remote.sin_addr),
-                      ntohs(context->remote.sin_port));  // the packet is bad so I add a line
+                              "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
+                              GetTimeStamp(),
+                              nread_from_net,
+                              context->net2tun,
+                              inet_ntoa(context->remote.sin_addr),
+                              ntohs(context->remote.sin_port));  // the packet is bad so I add a line
                     
                     fflush(context->log_file);
                   }
@@ -1436,7 +1479,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             else if ( *status == ROHC_STATUS_NO_CONTEXT ) {
               // failure: decompressor failed to decompress the ROHC packet
               #ifdef DEBUG
-                do_debug_c(1, ANSI_COLOR_RED, "  decompression of ROHC packet failed. No context\n");
+                do_debug_c( 1,
+                            ANSI_COLOR_RED,
+                            "  decompression of ROHC packet failed. No context\n");
                 //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
               #endif
 
@@ -1457,7 +1502,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             else if ( *status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {  // the output buffer is too small for the compressed packet
               // failure: decompressor failed to decompress the ROHC packet 
               #ifdef DEBUG
-                do_debug_c(1, ANSI_COLOR_RED, "  decompression of ROHC packet failed. Output buffer is too small\n");
+                do_debug_c( 1,
+                            ANSI_COLOR_RED,
+                            "  decompression of ROHC packet failed. Output buffer is too small\n");
                 //fprintf(stderr, "  decompression of ROHC packet failed. Output buffer is too small\n");
               #endif
 
@@ -1476,12 +1523,14 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               #endif
             }
 
-            else if ( *status == ROHC_STATUS_MALFORMED ) {      // the decompression failed because the ROHC packet is malformed 
+            else if ( *status == ROHC_STATUS_MALFORMED ) {
+              // the decompression failed because the ROHC packet is malformed 
               // failure: decompressor failed to decompress the ROHC packet
 
               #ifdef DEBUG 
-                do_debug_c(1, ANSI_COLOR_RED, "  decompression of ROHC packet failed. No context\n");
-                //fprintf(stderr, "  decompression of ROHC packet failed. No context\n");
+                do_debug_c( 1,
+                            ANSI_COLOR_RED,
+                            "  decompression of ROHC packet failed. No context\n");
               #endif
 
               #ifdef LOGFILE
@@ -1489,10 +1538,10 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                 if ( context->log_file != NULL ) {
                   // the packet is bad
                   fprintf ( context->log_file,
-                    "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n",
-                    GetTimeStamp(),
-                    nread_from_net,
-                    context->net2tun);  
+                            "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n",
+                            GetTimeStamp(),
+                            nread_from_net,
+                            context->net2tun);  
                   
                   fflush(context->log_file);
                 }
@@ -1503,8 +1552,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               // failure: decompressor failed to decompress the ROHC packet 
 
               #ifdef DEBUG
-                do_debug_c(1, ANSI_COLOR_RED, "  decompression of ROHC packet failed. Bad CRC\n");
-                //fprintf(stderr, "  decompression of ROHC packet failed. Bad CRC\n");
+                do_debug_c( 1,
+                            ANSI_COLOR_RED,
+                            "  decompression of ROHC packet failed. Bad CRC\n");
               #endif
 
               #ifdef LOGFILE
@@ -1512,10 +1562,10 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                 if ( context->log_file != NULL ) {
                   // the packet is bad
                   fprintf ( context->log_file,
-                    "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n",
-                    GetTimeStamp(),
-                    nread_from_net,
-                    context->net2tun);  
+                            "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n",
+                            GetTimeStamp(),
+                            nread_from_net,
+                            context->net2tun);  
                   
                   fflush(context->log_file);
                 }
@@ -1526,8 +1576,9 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               // failure: decompressor failed to decompress the ROHC packet
 
               #ifdef DEBUG
-                do_debug_c(1, ANSI_COLOR_RED, "  decompression of ROHC packet failed. Other error\n");
-                //fprintf(stderr, "  decompression of ROHC packet failed. Other error\n");
+                do_debug_c( 1,
+                            ANSI_COLOR_RED,
+                            "  decompression of ROHC packet failed. Other error\n");
               #endif
 
               #ifdef LOGFILE
