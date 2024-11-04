@@ -30,7 +30,12 @@ int socketRequest(struct contextSimplemux* context, const int on)
             exit(EXIT_FAILURE);
         }
         #ifdef DEBUG
-          do_debug_c(1, ANSI_COLOR_RESET, "Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n", ifa->ifa_name, host, context->ipprotocol);
+          do_debug_c( 1,
+                      ANSI_COLOR_RESET,
+                      "Raw socket for multiplexing over IP open. Interface %s\nLocal IP %s. Protocol number %i\n",
+                      ifa->ifa_name,
+                      host,
+                      context->ipprotocol);
         #endif
 
         break;

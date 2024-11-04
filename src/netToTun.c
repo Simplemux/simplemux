@@ -480,9 +480,10 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
-                    "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s: %i bytes\n",
+                    "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s, protocol %d: %i bytes\n",
                     context->net2tun,
                     inet_ntoa(context->remote.sin_addr),
+                    context->ipprotocol,
                     nread_from_net + IPv4_HEADER_SIZE );        
       #endif
 

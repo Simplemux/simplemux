@@ -136,19 +136,34 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
   switch (context->mode) {
     case UDP_MODE:
       // send the packet. I don't need to build the header, because I have a UDP socket
-      if (sendto(context->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&(context->remote), sizeof(context->remote))==-1) {
+      if (sendto( context->udp_mode_fd,
+                  muxed_packet, total_length,
+                  0,
+                  (struct sockaddr *)&(context->remote),
+                  sizeof(context->remote)) == -1)
+      {
         perror("sendto() in UDP mode failed");
         exit (EXIT_FAILURE);                
       }
       else {
         if(context->tunnelMode == TUN_MODE) {
           #ifdef DEBUG
-            do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        " Packet sent (includes %d muxed packet(s)). Protocol %d (UDP). Port %d\n\n",
+                        context->numPktsStoredFromTun,
+                        IPPROTO_UDP, // in UDP mode, I send an UDP packet
+                        ntohs(context->remote.sin_port));
           #endif
         }
         else if(context->tunnelMode == TAP_MODE) {
           #ifdef DEBUG
-            do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        " Packet sent (includes %d muxed frame(s)). Protocol %d (UDP). Port %d\n\n",
+                        context->numPktsStoredFromTun,
+                        IPPROTO_UDP, // in UDP mode, I send an UDP packet
+                        ntohs(context->remote.sin_port));
           #endif                  
         }
         else {
@@ -175,12 +190,20 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
       else {
         if(context->tunnelMode == TUN_MODE) {
           #ifdef DEBUG
-            do_debug_c(2, ANSI_COLOR_RESET, "Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        " Packet sent (includes %d muxed packet(s)). Protocol %d\n\n",
+                        context->numPktsStoredFromTun,
+                        context->ipprotocol);
           #endif
         }
         else if(context->tunnelMode == TAP_MODE) {
           #ifdef DEBUG
-            do_debug_c(2, ANSI_COLOR_RESET, "Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        " Packet sent (includes %d muxed frame(s)). Protocol %d\n\n",
+                        context->numPktsStoredFromTun,
+                        context->ipprotocol);
           #endif
         }
         else {
@@ -200,12 +223,22 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
       else {
         if(context->tunnelMode == TUN_MODE) {
           #ifdef DEBUG
-            do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        " Packet sent (includes %d muxed packet(s)). Protocol %d (TCP). Port %d\n\n",
+                        context->numPktsStoredFromTun,
+                        IPPROTO_TCP, // in TCP mode, I send a TCP packet
+                        ntohs(context->remote.sin_port));
           #endif
         }
         else if(context->tunnelMode == TAP_MODE) {
           #ifdef DEBUG
-            do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        " Packet sent (includes %d muxed frame(s)). Protocol %d (TCP). Port %d\n\n",
+                        context->numPktsStoredFromTun,
+                        IPPROTO_TCP, // in TCP mode, I send a TCP packet
+                        ntohs(context->remote.sin_port));
           #endif               
         }
         else {
@@ -232,12 +265,22 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
         else {
           if(context->tunnelMode == TUN_MODE) {
             #ifdef DEBUG
-              do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed packet(s))\n\n", context->numPktsStoredFromTun);
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          " Packet sent (includes %d muxed packet(s)). Protocol %d (TCP). Port %d\n\n",
+                          context->numPktsStoredFromTun,
+                          IPPROTO_TCP, // in TCP mode, I send a TCP packet
+                          ntohs(context->remote.sin_port));
             #endif
           }
           else if(context->tunnelMode == TAP_MODE) {
             #ifdef DEBUG
-              do_debug_c(2, ANSI_COLOR_RESET, " Packet sent (includes %d muxed frame(s))\n\n", context->numPktsStoredFromTun);
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          " Packet sent (includes %d muxed frame(s)). Protocol %d (TCP). Port %d\n\n",
+                          context->numPktsStoredFromTun,
+                          IPPROTO_TCP, // in TCP mode, I send a TCP packet
+                          ntohs(context->remote.sin_port));
             #endif                 
           }
           else {
