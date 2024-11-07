@@ -12,7 +12,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 
   #ifdef DEBUG
     do_debug_c( 3,
-                ANSI_COLOR_BLUE,
+                ANSI_COLOR_BRIGHT_BLUE,
                 "%"PRIu64": NATIVE PACKET arrived from local computer (",
                 now);
 
@@ -22,7 +22,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
                 context->tun_if_name);
 
     do_debug_c( 3,
-                ANSI_COLOR_BLUE,
+                ANSI_COLOR_BRIGHT_BLUE,
                 ")\n");
   #endif           
 
@@ -37,7 +37,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 
   #ifdef DEBUG
     do_debug_c( 1,
-                ANSI_COLOR_BLUE,
+                ANSI_COLOR_BRIGHT_BLUE,
                 "NATIVE PACKET arrived from ");
 
     do_debug_c( 1,
@@ -46,7 +46,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
                 context->tun_if_name);
 
     do_debug_c( 1,
-                ANSI_COLOR_BLUE,
+                ANSI_COLOR_BRIGHT_BLUE,
                 ": ID %i, length %i bytes\n",
                 ntohs(thisPacket->header.identifier),
                 ntohs(thisPacket->header.packetSize));
@@ -67,7 +67,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 
   #ifdef DEBUG
     do_debug_c( 1,
-                ANSI_COLOR_BLUE,
+                ANSI_COLOR_BRIGHT_BLUE,
                 " Sent blast packet to the network. ID %i, Length %i\n",
                 ntohs(thisPacket->header.identifier),
                 ntohs(thisPacket->header.packetSize));
@@ -82,12 +82,17 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
     // heartbeat from the other side not received recently
     if(delete(&context->unconfirmedPacketsBlast,ntohs(thisPacket->header.identifier))==false) {
       #ifdef DEBUG
-        do_debug_c(2, ANSI_COLOR_BLUE, " The packet had already been removed from the list\n");
+        do_debug_c( 2,
+                    ANSI_COLOR_BRIGHT_BLUE,
+                    " The packet had already been removed from the list\n");
       #endif
     }
     else {
       #ifdef DEBUG
-        do_debug_c(2, ANSI_COLOR_BLUE, " Packet with ID %i removed from the list\n", context->tun2net);
+        do_debug_c( 2,
+                    ANSI_COLOR_BRIGHT_BLUE,
+                    " Packet with ID %i removed from the list\n",
+                    context->tun2net);
       #endif
     }              
     #ifdef DEBUG
@@ -114,11 +119,11 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   else {
     #ifdef DEBUG
       do_debug_c( 3,
-                  ANSI_COLOR_BLUE,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   " %"PRIu64"",
                   thisPacket->sentTimestamp);
       do_debug_c( 2,
-                  ANSI_COLOR_BLUE,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   " The arrived packet has been stored. Total %i pkts stored\n",
                   length(&context->unconfirmedPacketsBlast));
       if(debug > 1)
@@ -1277,13 +1282,13 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       if (context->tunnelMode == TUN_MODE) {
         /*
         do_debug_c( 1,
-                    ANSI_COLOR_BLUE,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     "NATIVE PACKET #%"PRIu32": Read packet from tun: %i bytes\n",
                     context->tun2net,
                     size);
         */
         do_debug_c( 1,
-                    ANSI_COLOR_BLUE,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     "NATIVE PACKET #%"PRIu32": Read packet from ",
                     context->tun2net);
 
@@ -1293,13 +1298,13 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
                     context->tun_if_name);
 
         do_debug_c( 1,
-                    ANSI_COLOR_BLUE,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     ": %i bytes\n",
                     size);
       }
       else if (context->tunnelMode == TAP_MODE) {
         do_debug_c( 1,
-                    ANSI_COLOR_BLUE,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     "NATIVE FRAME #%"PRIu32": Read frame from ",
                     context->tun2net);
 
@@ -1309,7 +1314,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
                     context->tun_if_name);
 
         do_debug_c( 1,
-                    ANSI_COLOR_BLUE,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     ": %i bytes\n",
                     size);
       }

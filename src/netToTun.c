@@ -676,7 +676,6 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             do_debug_c( 2,
                         ANSI_COLOR_YELLOW,
                         " Sending packet of %i bytes to ",
-                        now,
                         length);
 
             do_debug_c( 2,
@@ -708,17 +707,17 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                           ANSI_COLOR_YELLOW,
                           "\n");
 
-              do_debug_c( 2,
+              do_debug_c( 3,
                           ANSI_COLOR_YELLOW,
-                          "%"PRIu64" Packet correctly sent to ",
+                          " %"PRIu64" Packet correctly sent to ",
                           now);
 
-              do_debug_c( 2,
+              do_debug_c( 3,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->tun_if_name);
 
-              do_debug_c( 2,
+              do_debug_c( 3,
                           ANSI_COLOR_YELLOW,
                           "\n",
                           now);
@@ -777,16 +776,16 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                             ANSI_COLOR_YELLOW,
                             "\n");
 
-                do_debug_c( 2,
+                do_debug_c( 3,
                             ANSI_COLOR_YELLOW,
-                            "%"PRIu64" Packet correctly sent to ",
+                            " %"PRIu64" Packet correctly sent to ",
                             now);
 
-                do_debug_c( 2,
+                do_debug_c( 3,
                             ANSI_COLOR_RESET,
                             "%s");
 
-                do_debug_c( 2,
+                do_debug_c( 3,
                             ANSI_COLOR_YELLOW,
                             "\n");
               #endif
@@ -827,8 +826,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
       #ifdef DEBUG
         do_debug_c( 1,
-                    ANSI_COLOR_BOLD_YELLOW,
-                    " Sent blast ACK to the network. ID %i, length %i\n",
+                    ANSI_COLOR_BOLD_GREEN,
+                    " Sent blast ACK to the network. ID %i, Length %i bytes\n",
                     ntohs(ACK.header.identifier),
                     ntohs(ACK.header.packetSize));
       #endif
