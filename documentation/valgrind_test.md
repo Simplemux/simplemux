@@ -11,6 +11,11 @@ Run this command in a virtual machine (Simplemux blast flavor with tap in UDP mo
 root@debianvm2:/home/jmsaldana# valgrind ./simplemux/simplemux3 -i tap0 -e ens33 -M udp -T tap -c 192.168.129.129 -d 2 -b -P 100000
 ```
 
+Another option, if you want to use namespaces:
+```
+root@debianvm2:/home/jmsaldana# ip netns exec ns0 valgrind ./simplemux/simplemux3 -i tun0 -e veth0 -M network -T tun -c 192.168.1.21 -d 2 -b -P 100000 -l log1.txt
+```
+
 And the equivalent command in the other machine.
 
 I send some pings:
