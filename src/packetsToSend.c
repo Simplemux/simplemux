@@ -9,9 +9,6 @@ void printList(struct packet** head_ref) {
   
   while(ptr != NULL) {
     printf("(%d,%"PRIu64"",ntohs(ptr->header.identifier),ptr->sentTimestamp);
-    //for (int i = 0; i < ptr->header.packetSize; ++i) {
-    //  printf("%c", ptr->tunneledPacket[i]);
-    //}
     printf(")");
 
     ptr = ptr->next;
@@ -124,7 +121,6 @@ int length(struct packet** head_ref) {
     length++;
     current=current->next;
   }
-
   return length;
 }
 
@@ -172,18 +168,32 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
       #ifdef DEBUG
         if (packetToSend->header.ACK == HEARTBEAT) {
           // heartbeats have no ID, so the debug information does not show it
-          do_debug(3, "[sendPacketBlastFlavor] Sending to the network a UDP blast heartbeat: %i bytes\n",
-            total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);      
+          do_debug_c( 3,
+                      ANSI_COLOR_BOLD_GREEN,
+                      "[sendPacketBlastFlavor] Sending to the network a UDP blast heartbeat: %i bytes\n",
+                      total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);      
         }
         else {
-          do_debug(3, "[sendPacketBlastFlavor] Sending to the network a UDP blast packet with ID %i: %i bytes\n",
-            ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);      
+          do_debug_c( 3,
+                      ANSI_COLOR_BOLD_GREEN,
+                      "[sendPacketBlastFlavor] Sending to the network a UDP blast packet with ID %i: %i bytes\n",
+                      ntohs(packetToSend->header.identifier),
+                      total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);      
         }
-        do_debug(3, "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+        do_debug_c( 3,
+                    ANSI_COLOR_BOLD_GREEN,
+                    "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n",
+                    IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
       #endif
 
       // send the packet
-      if (sendto(context->udp_mode_fd, &(packetToSend->header), total_length, 0, (struct sockaddr *)&(context->remote), sizeof(context->remote))==-1) {
+      if (sendto( context->udp_mode_fd,
+                  &(packetToSend->header),
+                  total_length,
+                  0,
+                  (struct sockaddr *)&(context->remote),
+                  sizeof(context->remote))==-1)
+      {
         perror("sendto() in UDP mode failed");
         exit (EXIT_FAILURE);
       }
@@ -207,7 +217,7 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
                       context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       ntohs(context->remote.sin_port),
-                      0); // in blast mode, no packet from tun is sent in a heartbeat
+                      0); // in blast mode, no packet from tun/tap is sent in a heartbeat
           }
           else if (packetToSend->header.ACK == THISISANACK) {
             // ACK
@@ -218,7 +228,7 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
                       context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       ntohs(context->remote.sin_port),
-                      0, // in blast mode, no packet from tun is sent in an ACK
+                      0, // in blast mode, no packet from tun/tap is sent in an ACK
                       htons(packetToSend->header.identifier));
           }
           else {
@@ -233,7 +243,7 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
                       context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       ntohs(context->remote.sin_port),
-                      1, // in blast mode, only 1 packet from tun is sent
+                      1, // in blast mode, only 1 packet from tun/tap is sent
                       htons(packetToSend->header.identifier));
           }
           fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write          
@@ -246,27 +256,48 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
       #ifdef DEBUG
         if (packetToSend->header.ACK == HEARTBEAT) {
           // heartbeats have no ID, so the debug information does not show it
-          do_debug(3, "[sendPacketBlastFlavor] Sending to the network an IP blast heartbeat: %i bytes\n",
-            total_length + IPv4_HEADER_SIZE);      
+          do_debug_c( 3,
+                      ANSI_COLOR_BOLD_GREEN,
+                      "[sendPacketBlastFlavor] Sending to the network an IP blast heartbeat: %i bytes\n",
+                      total_length + IPv4_HEADER_SIZE);      
         }
         else {
-          do_debug(3, "[sendPacketBlastFlavor] Sending to the network an IP blast packet with ID %i: %i bytes\n",
-            ntohs(packetToSend->header.identifier), total_length + IPv4_HEADER_SIZE );
+          do_debug_c( 3,
+                      ANSI_COLOR_BOLD_GREEN,
+                      "[sendPacketBlastFlavor] Sending to the network an IP blast packet with ID %i: %i bytes\n",
+                      ntohs(packetToSend->header.identifier),
+                      total_length + IPv4_HEADER_SIZE );
         }
-        do_debug(3, "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
+        do_debug_c( 3,
+                    ANSI_COLOR_BOLD_GREEN,
+                    "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n",
+                    IPv4_HEADER_SIZE );
       #endif
 
       // build the header
       struct iphdr ipheader;  
       uint8_t ipprotocol = IPPROTO_SIMPLEMUX_BLAST;
-      BuildIPHeader(&ipheader, total_length, ipprotocol, context->local, context->remote);
+      BuildIPHeader(&ipheader,
+                    total_length,
+                    ipprotocol,
+                    context->local,
+                    context->remote);
 
       // build the full IP multiplexed packet
       uint8_t full_ip_packet[BUFSIZE]; // the full IP packet will be stored here
-      BuildFullIPPacket(ipheader, (uint8_t *)&(packetToSend->header), total_length, full_ip_packet);
+      BuildFullIPPacket(ipheader,
+                        (uint8_t *)&(packetToSend->header),
+                        total_length,
+                        full_ip_packet);
 
       // send the packet
-      if (sendto (context->network_mode_fd, full_ip_packet, total_length + sizeof(struct iphdr), 0, (struct sockaddr *)&(context->remote), sizeof (struct sockaddr)) < 0)  {
+      if (sendto (context->network_mode_fd,
+                  full_ip_packet,
+                  total_length + sizeof(struct iphdr),
+                  0,
+                  (struct sockaddr *)&(context->remote),
+                  sizeof (struct sockaddr)) < 0)
+      {
         perror ("sendto() in Network mode failed");
         exit (EXIT_FAILURE);
       }
@@ -290,7 +321,7 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
                       context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       // there is no port in network mode
-                      0); // in blast mode, no packet from tun is sent in a heartbeat
+                      0); // in blast mode, no packet from tun/tap is sent in a heartbeat
           }
           else if (packetToSend->header.ACK == THISISANACK) {
             // ACK
@@ -301,7 +332,7 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
                       context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       // there is no port in network mode
-                      0, // in blast mode, no packet from tun is sent in an ACK
+                      0, // in blast mode, no packet from tun/tap is sent in an ACK
                       htons(packetToSend->header.identifier));
           }
           else {
@@ -316,7 +347,7 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
                       context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
                       // there is no port in network mode
-                      1, // in blast mode, only 1 packet from tun is sent            
+                      1, // in blast mode, only 1 packet from tun/tap is sent            
                       htons(packetToSend->header.identifier));
           }
           fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write
@@ -336,14 +367,28 @@ int sendExpiredPackets(struct contextSimplemux* context,
   
   while(current != NULL) {
     #ifdef DEBUG
-      do_debug(3,"[sendExpiredPackets] Packet %d. Stored timestamp: %"PRIu64" us\n", ntohs(current->header.identifier),current->sentTimestamp);
+      do_debug_c( 3,
+                  ANSI_COLOR_BOLD_GREEN,
+                  "[sendExpiredPackets] Packet %d. Stored timestamp: %"PRIu64" us\n",
+                  ntohs(current->header.identifier),
+                  current->sentTimestamp);
     #endif
        
     if(current->sentTimestamp + context->period < now) {
 
       #ifdef DEBUG
-        do_debug(3,"[sendExpiredPackets]  Sending packet %d. Updated timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), now); 
-        do_debug(3,"         Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") < now (%"PRIu64")\n", current->sentTimestamp, context->period, now);
+        do_debug_c( 3,
+                    ANSI_COLOR_BOLD_GREEN,
+                    "[sendExpiredPackets]  Sending packet %d. Updated timestamp: %"PRIu64" us\n",
+                    ntohs(current->header.identifier),
+                    now); 
+
+        do_debug_c( 3,
+                    ANSI_COLOR_BOLD_GREEN,
+                    "         Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") < now (%"PRIu64")\n",
+                    current->sentTimestamp,
+                    context->period,
+                    now);
       #endif
 
       // this packet has to be sent
@@ -356,8 +401,18 @@ int sendExpiredPackets(struct contextSimplemux* context,
     }
     else {
       #ifdef DEBUG
-        do_debug(3,"[sendExpiredPackets]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n", ntohs(current->header.identifier), current->sentTimestamp);
-        do_debug(3,"         Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") >= now (%"PRIu64")\n", current->sentTimestamp, context->period, now);
+        do_debug_c( 3,
+                    ANSI_COLOR_BOLD_GREEN,
+                    "[sendExpiredPackets]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n",
+                    ntohs(current->header.identifier),
+                    current->sentTimestamp);
+
+        do_debug_c( 3,
+                    ANSI_COLOR_BOLD_GREEN,
+                    "         Reason: Stored timestamp (%"PRIu64") + period (%"PRIu64") >= now (%"PRIu64")\n",
+                    current->sentTimestamp,
+                    context->period,
+                    now);
       #endif
     }
 
@@ -385,7 +440,11 @@ uint64_t findLastSentTimestamp (struct packet* head_ref)
 
   // first packet: it has been sent for sure
   #ifdef DEBUG
-    do_debug(3,"[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
+    do_debug_c( 3,
+                ANSI_COLOR_BOLD_GREEN,
+                "[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n",
+                current->header.identifier,
+                current->sentTimestamp);
   #endif
 
   // this packet has been sent before
@@ -393,7 +452,11 @@ uint64_t findLastSentTimestamp (struct packet* head_ref)
 
   #ifdef DEBUG
     uint16_t lastSentIdentifier = ntohs(current->header.identifier);
-    do_debug(3,"[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+    do_debug_c( 3,
+                ANSI_COLOR_BOLD_GREEN,
+                "[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n",
+                lastSentIdentifier,
+                lastSentTimestamp);
   #endif
 
   // move to the second packet
@@ -402,7 +465,11 @@ uint64_t findLastSentTimestamp (struct packet* head_ref)
   // navigate through the rest of the list
   while(current != NULL) {
     #ifdef DEBUG
-      do_debug(3,"[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n", current->header.identifier, current->sentTimestamp);
+      do_debug_c( 3,
+                  ANSI_COLOR_BOLD_GREEN,
+                  "[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n",
+                  current->header.identifier,
+                  current->sentTimestamp);
     #endif
 
     if(current->sentTimestamp < lastSentTimestamp) {
@@ -415,14 +482,22 @@ uint64_t findLastSentTimestamp (struct packet* head_ref)
     }
 
     #ifdef DEBUG
-      do_debug(3,"[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+      do_debug_c( 3,
+                  ANSI_COLOR_BOLD_GREEN,
+                  "[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n",
+                  lastSentIdentifier,
+                  lastSentTimestamp);
     #endif
 
     current=current->next;
   }
 
   #ifdef DEBUG
-    do_debug(3,"[findLastSentTimestamp] Oldest timestamp: packet %d. Timestamp: %"PRIu64" us\n", lastSentIdentifier, lastSentTimestamp);
+    do_debug_c( 3,
+                ANSI_COLOR_BOLD_GREEN,
+                "[findLastSentTimestamp] Oldest timestamp: packet %d. Timestamp: %"PRIu64" us\n",
+                lastSentIdentifier,
+                lastSentTimestamp);
   #endif
 
   return lastSentTimestamp;
