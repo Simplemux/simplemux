@@ -365,7 +365,12 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
       do_debug_c( 1,
                   ANSI_COLOR_RESET,
-                  " %i bytes\n",
+                  " %i",
+                  nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
+
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  " bytes\n",
                   nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
       #endif
 
@@ -480,11 +485,35 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
-                    "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from %s, protocol %d: %i bytes\n",
-                    context->net2tun,
-                    inet_ntoa(context->remote.sin_addr),
-                    context->ipprotocol,
-                    nread_from_net + IPv4_HEADER_SIZE );        
+                    "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from ",
+                    context->net2tun);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    inet_ntoa(context->remote.sin_addr));
+
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ", protocol ");        
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%d",
+                    context->ipprotocol);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ": ");
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    nread_from_net + IPv4_HEADER_SIZE );
+
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " bytes\n");
       #endif
 
       #ifdef LOGFILE
