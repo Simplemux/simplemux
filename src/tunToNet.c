@@ -47,9 +47,25 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
-                ": ID %i, length %i bytes\n",
-                ntohs(thisPacket->header.identifier),
+                ": ID ");
+
+    do_debug_c( 1,
+                ANSI_COLOR_RESET,
+                "%i",
+                ntohs(thisPacket->header.identifier));
+
+    do_debug_c( 1,
+                ANSI_COLOR_BRIGHT_BLUE,
+                ", Length ");
+
+    do_debug_c( 1,
+                ANSI_COLOR_RESET,
+                "%i",
                 ntohs(thisPacket->header.packetSize));
+
+    do_debug_c( 1,
+                ANSI_COLOR_BRIGHT_BLUE,
+                " bytes\n");
   #endif
 
   if (context->tunnelMode == TAP_MODE) {
@@ -68,9 +84,27 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   #ifdef DEBUG
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
-                " Sent blast packet to the network. ID %i, Length %i\n",
+                " Sent blast packet to the network. ID ",
                 ntohs(thisPacket->header.identifier),
                 ntohs(thisPacket->header.packetSize));
+
+    do_debug_c( 1,
+                ANSI_COLOR_RESET,
+                "%i",
+                ntohs(thisPacket->header.identifier));
+
+    do_debug_c( 1,
+                ANSI_COLOR_BRIGHT_BLUE,
+                ", Length ");
+
+    do_debug_c( 1,
+                ANSI_COLOR_RESET,
+                "%i",
+                ntohs(thisPacket->header.packetSize));
+
+    do_debug_c( 1,
+                ANSI_COLOR_BRIGHT_BLUE,
+                " bytes\n");
   #endif
 
   // No need to write in the log file here: it is done in 'sendPacketBlastFlavor()'
