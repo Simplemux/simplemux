@@ -1332,13 +1332,6 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
     // print the native packet/frame received
     if (debug>0) {
       if (context->tunnelMode == TUN_MODE) {
-        /*
-        do_debug_c( 1,
-                    ANSI_COLOR_BRIGHT_BLUE,
-                    "NATIVE PACKET #%"PRIu32": Read packet from tun: %i bytes\n",
-                    context->tun2net,
-                    size);
-        */
         do_debug_c( 1,
                     ANSI_COLOR_BRIGHT_BLUE,
                     "NATIVE PACKET #%"PRIu32": Read packet from ",
@@ -1351,8 +1344,16 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
 
         do_debug_c( 1,
                     ANSI_COLOR_BRIGHT_BLUE,
-                    ": %i bytes\n",
+                    ": ");
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
                     size);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_BRIGHT_BLUE,
+                    " bytes\n");
       }
       else if (context->tunnelMode == TAP_MODE) {
         do_debug_c( 1,
@@ -1367,8 +1368,16 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
 
         do_debug_c( 1,
                     ANSI_COLOR_BRIGHT_BLUE,
-                    ": %i bytes\n",
+                    ": ");
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
                     size);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_BRIGHT_BLUE,
+                    " bytes\n");
       }
 
       // dump the newly-created IP packet on terminal
@@ -1462,9 +1471,25 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       #ifdef DEBUG
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
-                    " Packet stopped: accumulated %i pkts: %i bytes (Protocol not included).",
-                    context->numPktsStoredFromTun,
+                    " Packet stopped: accumulated ");
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    context->numPktsStoredFromTun);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_GREEN,
+                    " pkts: ");
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
                     context->sizeMuxedPacket);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_GREEN,
+                    " bytes (Protocol not included).");
       #endif
     }
     else {
@@ -1472,9 +1497,25 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       #ifdef DEBUG
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
-                    " Packet stopped: accumulated %i pkts: %i bytes (Separator(s) included).",
-                    context->numPktsStoredFromTun,
+                    " Packet stopped: accumulated ");
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    context->numPktsStoredFromTun);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_GREEN,
+                    " pkts: ");
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
                     context->sizeMuxedPacket + context->numPktsStoredFromTun);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_GREEN,
+                    " bytes (Separator(s) included).");
       #endif
     }
     
