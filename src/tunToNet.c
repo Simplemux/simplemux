@@ -84,9 +84,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   #ifdef DEBUG
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
-                " Sent blast packet to the network. ID ",
-                ntohs(thisPacket->header.identifier),
-                ntohs(thisPacket->header.packetSize));
+                " Sent blast packet to the network. ID ");
 
     do_debug_c( 1,
                 ANSI_COLOR_RESET,
@@ -104,7 +102,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
-                " bytes\n");
+                " bytes (plus headers)\n");
   #endif
 
   // No need to write in the log file here: it is done in 'sendPacketBlastFlavor()'
@@ -114,7 +112,9 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 
   if(now - (context->lastBlastHeartBeatReceived) > HEARTBEATDEADLINE) {
     // heartbeat from the other side not received recently
-    if(delete(&context->unconfirmedPacketsBlast,ntohs(thisPacket->header.identifier))==false) {
+    if(delete(&context->unconfirmedPacketsBlast,
+              ntohs(thisPacket->header.identifier))==false)
+    {
       #ifdef DEBUG
         do_debug_c( 2,
                     ANSI_COLOR_BRIGHT_BLUE,
@@ -125,8 +125,16 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
       #ifdef DEBUG
         do_debug_c( 2,
                     ANSI_COLOR_BRIGHT_BLUE,
-                    " Packet with ID %i removed from the list\n",
-                    context->tun2net);
+                    " Packet with ID ");
+
+        do_debug_c( 2,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    ntohs(thisPacket->header.identifier));
+
+        do_debug_c( 2,
+                    ANSI_COLOR_BRIGHT_BLUE,
+                    " removed from the list\n");
       #endif
     }              
     #ifdef DEBUG

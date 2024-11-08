@@ -639,8 +639,16 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         #ifdef DEBUG
           do_debug_c( 2,
                       ANSI_COLOR_BOLD_GREEN,
-                      " Packet with ID %i removed from the list\n",
+                      " Packet with ID ");
+
+          do_debug_c( 2,
+                      ANSI_COLOR_RESET,
+                      "%i",
                       ntohs(blastHeader->identifier));
+
+          do_debug_c( 2,
+                      ANSI_COLOR_BOLD_GREEN,
+                      " removed from the list\n");
         #endif
       }
     }
@@ -881,7 +889,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         }
         
         #ifdef DEBUG
-          do_debug(2, "\n");
+          //do_debug(2, "\n");
           //do_debug(2, "packet length (without separator): %i\n", packet_length);
         #endif
       }
