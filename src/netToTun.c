@@ -342,7 +342,17 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       #ifdef DEBUG
       do_debug_c( 1,
                   ANSI_COLOR_YELLOW,
-                  "SIMPLEMUX PACKET #%"PRIu32" arrived: Read UDP muxed packet from ",
+                  "SIMPLEMUX PACKET #%"PRIu32" from ",
+                  context->net2tun);
+
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "%s",
+                  context->mux_if_name);
+
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  ": UDP muxed packet from ",
                   context->net2tun);
 
       do_debug_c( 1,
@@ -431,11 +441,20 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
-                    "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n",
-                    context->net2tun,
+                    "SIMPLEMUX PACKET #%"PRIu32" from ",
+                    context->net2tun);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    context->mux_if_name);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ": TCP info from %s:%d: %i bytes\n",
                     inet_ntoa(context->remote.sin_addr),
                     ntohs(context->remote.sin_port),
-                    nread_from_net );        
+                    nread_from_net);
       #endif
 
       #ifdef LOGFILE
@@ -458,11 +477,20 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
-                    "SIMPLEMUX PACKET #%"PRIu32" arrived: Read TCP info from %s:%d: %i bytes\n",
-                    context->net2tun,
+                    "SIMPLEMUX PACKET #%"PRIu32" from ",
+                    context->net2tun);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    context->mux_if_name);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ": TCP info from %s:%d: %i bytes\n",
                     inet_ntoa(context->remote.sin_addr),
                     ntohs(context->remote.sin_port),
-                    nread_from_net );        
+                    nread_from_net);
       #endif
 
       #ifdef LOGFILE
@@ -485,8 +513,17 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
-                    "SIMPLEMUX PACKET #%"PRIu32" arrived: Read IP muxed packet from ",
+                    "SIMPLEMUX PACKET #%"PRIu32" from ",
                     context->net2tun);
+
+        do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "%s",
+                  context->mux_if_name);
+
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ": IP muxed packet from ");
 
         do_debug_c( 1,
                     ANSI_COLOR_RESET,

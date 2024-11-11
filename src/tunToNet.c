@@ -38,7 +38,8 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   #ifdef DEBUG
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
-                "NATIVE PACKET arrived from ");
+                "NATIVE PACKET #%"PRIu32" from ",
+                context->tun2net);
 
     do_debug_c( 1,
                 ANSI_COLOR_RESET,
@@ -84,9 +85,18 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   #ifdef DEBUG
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
-                " Sent blast packet to the network. ID ");
+                " Sent blast packet to the network (");
 
     do_debug_c( 1,
+                ANSI_COLOR_RESET,
+                "%s",
+                context->mux_if_name);
+
+    do_debug_c( 1,
+                ANSI_COLOR_BRIGHT_BLUE,
+                "). ID ");
+
+     do_debug_c( 1,
                 ANSI_COLOR_RESET,
                 "%i",
                 ntohs(thisPacket->header.identifier));
