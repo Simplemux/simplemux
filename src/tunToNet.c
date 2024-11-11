@@ -552,9 +552,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a UDP muxed packet without this one: %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a UDP muxed packet without this one: %i bytes\n",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             break;
 
@@ -562,9 +572,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: IPv4 + TCP\n");
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -573,9 +593,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: IPv4 + TCP\n");
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -585,9 +615,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE );
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network an IP muxed packet without this one: %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") an IP muxed packet without this one: %i bytes\n",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE );
             break;
           }
@@ -600,9 +640,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a UDP packet without this Eth frame: %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a UDP packet without this Eth frame: %i bytes\n",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             break;
 
@@ -610,9 +660,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: IPv4 + TCP\n");
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -621,9 +681,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: IPv4 + TCP\n");
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -633,9 +703,19 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE );
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network an IP packet without this Eth frame: %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") an IP packet without this Eth frame: %i bytes\n",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE );
             break;
           }
@@ -1216,9 +1296,19 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a UDP packet containing %i native one(s): %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a UDP packet containing %i native one(s): %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             break;
@@ -1226,8 +1316,19 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
             case TCP_CLIENT_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_GREEN, " Added tunneling header: IPv4 + TCP\n");
+
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN, " Sending to the network a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n",
+                          ANSI_COLOR_GREEN,
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -1236,9 +1337,19 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: IPv4 + TCP\n");
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -1248,9 +1359,19 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE);
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network an IP packet containing %i native one(s): %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") an IP packet containing %i native one(s): %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
             break;
@@ -1264,9 +1385,19 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a UDP packet containing %i native Eth frame(s): %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a UDP packet containing %i native Eth frame(s): %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             break;
@@ -1275,9 +1406,19 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: IPv4 + TCP\n");
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -1286,9 +1427,19 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: IPv4 + TCP\n");
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -1298,9 +1449,19 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE );
+
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network an IP packet containing %i native Eth frame(s): %i bytes\n",
+                          " Sending to the network (");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          context->mux_if_name);
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          ") an IP packet containing %i native Eth frame(s): %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
             break;
