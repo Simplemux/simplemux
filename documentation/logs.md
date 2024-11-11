@@ -92,6 +92,8 @@ This is the meaning of each parameter:
 
 ## Trace examples
 
+### Trace examples in normal and fast mode
+
 In the ingress optimizer you may obtain:
 
 ```
@@ -122,6 +124,34 @@ When the egress optimizer receives this packet, you may obtain this log:
 
 This means that a multiplexed packet (sequence number `210`) has been received from the ingress optimizer `192.168.0.5` with port `55555`, and it has been demuxed, resulting into 7 different packets of lengths `63`, `65`, (...) `57`.
 
+### Trace examples in blast mode
+
+In *blast* mode, there are more columns in the trace files:
+
+```
+1731343611372210	sent	muxed	118	1	to	192.168.1.21	55558	1		blastPacket	0
+1731343611874669	sent	muxed	118	2	to	192.168.1.21	55558	1		blastPacket	1
+1731343612102056	sent	muxed	34	3	to	192.168.1.21	55558	0		blastHeartbeat
+1731343612375024	sent	muxed	118	4	to	192.168.1.21	55558	1		blastPacket	2
+1731343612908447	sent	muxed	118	5	to	192.168.1.21	55558	1		blastPacket	3
+1731343613102554	sent	muxed	34	6	to	192.168.1.21	55558	0		blastHeartbeat
+1731343613408256	sent	muxed	118	7	to	192.168.1.21	55558	1		blastPacket	4
+1731343613932566	sent	muxed	118	8	to	192.168.1.21	55558	1		blastPacket	5
+1731343614103350	sent	muxed	34	9	to	192.168.1.21	55558	0		blastHeartbeat
+1731343614434664	sent	muxed	118	10	to	192.168.1.21	55558	1		blastPacket	6
+1731343614937158	sent	muxed	118	11	to	192.168.1.21	55558	1		blastPacket	7
+1731343614943576	rec	muxed	34	1	from	192.168.1.21	55558	0		blastACK	7
+1731343614944009	rec	muxed	118	2	from	192.168.1.21	55558	1		blastPacket	0
+1731343614944721	sent	muxed	34	12	to	192.168.1.21	55558	0		blastACK	0
+1731343615104138	sent	muxed	34	13	to	192.168.1.21	55558	0		blastHeartbeat
+1731343615439555	sent	muxed	118	14	to	192.168.1.21	55558	1		blastPacket	8
+1731343615443640	rec	muxed	34	3	from	192.168.1.21	55558	0		blastACK	8
+1731343615443905	rec	muxed	118	4	from	192.168.1.21	55558	1		blastPacket	1
+1731343615444290	sent	muxed	34	15	to	192.168.1.21	55558	0		blastACK	1
+1731343615663588	rec	muxed	34	5	from	192.168.1.21	55558	0		blastHeartbeat
+1731343615941220	sent	muxed	118	16	to	192.168.1.21	55558	1		blastPacket	9
+1731343615943483	rec	muxed	34	6	from	192.168.1.21	55558	0		blastACK	9
+```
 
 ## Scripts for calculating compression statistics
 
@@ -166,9 +196,9 @@ Usage:
 $ perl simplemux_multiplexing_delay.pl <trace file> <output file>
 ```
 
-The multiplexing delay is the time each packet is stopped in the multiplexer, i.e. the interval between its arrival as native packet and its departure inside a multiplexed packet.
+The script is able to calculate the multiplexing delay of each packet, from a Simplemux output trace. The multiplexing delay is the time each packet is stopped in the multiplexer, i.e. the interval between its arrival as native packet and its departure inside a multiplexed packet.
 
-The script is able to calculate the multiplexing delay of each packet, from a Simplemux output trace. The result is an output file in two columns:
+The result is an output file in two columns:
 
 ```
 packet_id multiplexing_delay(us)
@@ -190,7 +220,7 @@ packet_id multiplexing_delay(us)
 ...
 ```
 
-And other results are shown in stdout:
+And other results are shown in `stdout`:
 ```
 total native packets: 6661
 Average multiplexing delay: 5222.47680528449 us
