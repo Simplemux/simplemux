@@ -27,7 +27,7 @@ int readPacketFromNet(struct contextSimplemux* context,
                                 0,
                                 (struct sockaddr *)&(context->received),
                                 &slen );
-    if (*nread_from_net==-1) {
+    if (*nread_from_net == -1) {
       perror ("[readPacketFromNet] recvfrom() UDP error");
     }
     else {
@@ -37,10 +37,15 @@ int readPacketFromNet(struct contextSimplemux* context,
                     "[readPacketFromNet] Read %i bytes from the UDP socket\n");
       #endif
     }
-    // now buffer_from_net contains the payload (simplemux headers and multiplexled packets/frames) of a full packet or frame.
-    // I don't have the IP and UDP headers
+    // 'buffer_from_net' now contains the payload
+    //(simplemux headers and multiplexled packets/frames)
+    //of a full packet or frame.
+    // It does not have the IP and UDP headers
 
-    // check if the packet comes from the multiplexing port (default 55555). (Its destination IS the multiplexing port)
+    // The destination of the packet MUST BE the multiplexing port, since
+    //I have received it in this socket
+
+    // check if the packet comes from the multiplexing port
     if (context->port == ntohs(context->received.sin_port)) 
       is_multiplexed_packet = 1;
     else
@@ -49,10 +54,12 @@ int readPacketFromNet(struct contextSimplemux* context,
 
   else if (context->mode  == NETWORK_MODE) {
     // a packet has been received from the network, destined to the local interface for muxed packets
-    *nread_from_net = cread ( context->network_mode_fd, buffer_from_net_aux, BUFSIZE);
+    *nread_from_net = cread ( context->network_mode_fd,
+                              buffer_from_net_aux,
+                              BUFSIZE);
 
     if (*nread_from_net==-1) {
-      perror ("[readPacketFromNet] cread error in network mode");
+      perror ("[readPacketFromNet] cread() error in network mode");
     }
     else {
       #ifdef DEBUG
@@ -61,11 +68,16 @@ int readPacketFromNet(struct contextSimplemux* context,
                     "[readPacketFromNet] Read %i bytes from the network socket\n");
       #endif
     }    
-    // now buffer_from_net contains the headers (IP and Simplemux) and the payload of a full packet or frame.
+    // 'buffer_from_net' now contains the headers
+    //(IP and Simplemux) and the payload of
+    //a full packet or frame
 
-    // copy from "buffer_from_net_aux" everything except the IP header (usually the first 20 bytes)
-    memcpy ( buffer_from_net, buffer_from_net_aux + sizeof(struct iphdr), *nread_from_net - sizeof(struct iphdr));
-    // correct the size of "nread from net"
+    // copy from 'buffer_from_net_aux' everything except the IP header (usually the first 20 bytes)
+    memcpy (buffer_from_net,
+            buffer_from_net_aux + sizeof(struct iphdr),
+            *nread_from_net - sizeof(struct iphdr));
+
+    // correct the size of 'nread from net', substracting the size of the IP header
     *nread_from_net = *nread_from_net - sizeof(struct iphdr);
 
     // Get IP Header of received packet
@@ -81,7 +93,12 @@ int readPacketFromNet(struct contextSimplemux* context,
 
     // some bytes have been received from the network, destined to the TCP socket
     
-    /* Once the sockets are connected, the client can read it
+    // TCP mode requires fast flavor
+    #ifdef ASSERT
+      assert(context->flavor == 'F');
+    #endif
+
+    /* Once the sockets are connected, the client can read from it
      * through a normal 'read' call on the socket descriptor.
      * Read 'buffer_from_net' bytes
      * This call returns up to N bytes of data. If there are fewer 
@@ -102,10 +119,14 @@ int readPacketFromNet(struct contextSimplemux* context,
 
       // read a separator (3 or 4 bytes), or a part of it
       if (context->mode  == TCP_SERVER_MODE) {
-        *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->sizeSeparatorFastMode - context->readTcpSeparatorBytes);
+        *nread_from_net = read( context->tcp_server_fd,
+                                buffer_from_net,
+                                context->sizeSeparatorFastMode - context->readTcpSeparatorBytes);
       }
       else {
-        *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->sizeSeparatorFastMode - context->readTcpSeparatorBytes);
+        *nread_from_net = read( context->tcp_client_fd,
+                                buffer_from_net,
+                                context->sizeSeparatorFastMode - context->readTcpSeparatorBytes);
       }
       #ifdef DEBUG
         do_debug_c (3,
@@ -719,7 +740,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
       uint64_t now = GetTimeStamp();
 
-      if(context->blastTimestamps[ntohs(blastHeader->identifier)] == 0){
+      if(context->blastTimestamps[ntohs(blastHeader->identifier)] == 0) {
         deliverThisPacket=true;
       }
       else {
