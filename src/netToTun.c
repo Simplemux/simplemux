@@ -72,6 +72,11 @@ int readPacketFromNet(struct contextSimplemux* context,
     //(IP and Simplemux) and the payload of
     //a full packet or frame
 
+    // no extensions of the IP header are supported
+    #ifdef ASSERT
+      assert(sizeof(struct iphdr) == IPv4_HEADER_SIZE);
+    #endif
+
     // copy from 'buffer_from_net_aux' everything except the IP header (usually the first 20 bytes)
     memcpy (buffer_from_net,
             buffer_from_net_aux + sizeof(struct iphdr),
@@ -83,10 +88,21 @@ int readPacketFromNet(struct contextSimplemux* context,
     // Get IP Header of received packet
     struct iphdr ipheader;
     GetIpHeader(&ipheader,buffer_from_net_aux);
-    if (ipheader.protocol == context->ipprotocol )
-      is_multiplexed_packet = 1;
-    else
+
+    // ensure that the IP header size is correct
+    // the length is expressed in the second half of the first byte
+    // if it ix 0x05, it means 20 bytes
+    if ((ipheader.ihl & 0x0F) != 0x05) {
+      perror ("[readPacketFromNet] in network mode, only IP headers of 20 bytes are supported");
       is_multiplexed_packet = 0;
+    }
+    else {
+      // ensure that the protocol is correct
+      if (ipheader.protocol == context->ipprotocol)
+        is_multiplexed_packet = 1;
+      else
+        is_multiplexed_packet = 0;      
+    }
   }
 
   else if ((context->mode  == TCP_SERVER_MODE) || (context->mode  == TCP_CLIENT_MODE)) {
