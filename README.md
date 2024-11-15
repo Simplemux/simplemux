@@ -118,6 +118,11 @@ The next table details the options that are available for each flavor.
 * In blast flavor, the packet is sent immediately. The period defines the interval used to send copies of the packet.
 ```
 
+## Limitations
+
+- In *network* flavor, only 20-byte headers are supported.
+
+
 ## Specifications (IETF drafts)
 
 The specification of Simplemux can be found here: http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/. It was not adopted by the IETF, although some discussion took place. It specifies the *Fast flavor* and the *Normal flavor* (called *Compressed flavor* in the IETF draft).
