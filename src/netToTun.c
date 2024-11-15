@@ -89,9 +89,9 @@ int readPacketFromNet(struct contextSimplemux* context,
     struct iphdr ipheader;
     GetIpHeader(&ipheader,buffer_from_net_aux);
 
-    // ensure that the IP header size is correct
+    // ensure that the IP header size is correct (20 bytes is the only supported option)
     // the length is expressed in the second half of the first byte
-    // if it ix 0x05, it means 20 bytes
+    // if it is 0x05, it means that the length is 20 bytes
     if ((ipheader.ihl & 0x0F) != 0x05) {
       perror ("[readPacketFromNet] in network mode, only IP headers of 20 bytes are supported");
       is_multiplexed_packet = 0;
@@ -213,10 +213,14 @@ int readPacketFromNet(struct contextSimplemux* context,
         // read the packet itself (without the separator)
         // I only read the length of the packet
         if (context->mode  == TCP_SERVER_MODE) {
-          *nread_from_net = read(context->tcp_server_fd, buffer_from_net, context->pendingBytesMuxedPacket);
+          *nread_from_net = read( context->tcp_server_fd,
+                                  buffer_from_net,
+                                  context->pendingBytesMuxedPacket);
         }
         else {
-          *nread_from_net = read(context->tcp_client_fd, buffer_from_net, context->pendingBytesMuxedPacket);
+          *nread_from_net = read( context->tcp_client_fd,
+                                  buffer_from_net,
+                                  context->pendingBytesMuxedPacket);
         }
         #ifdef DEBUG
           do_debug_c( 3,
@@ -278,10 +282,14 @@ int readPacketFromNet(struct contextSimplemux* context,
       #endif
 
       if (context->mode  == TCP_SERVER_MODE) {
-        *nread_from_net = read(context->tcp_server_fd, &(buffer_from_net[(context->readTcpBytes)]), context->pendingBytesMuxedPacket);
+        *nread_from_net = read( context->tcp_server_fd,
+                                &(buffer_from_net[(context->readTcpBytes)]),
+                                context->pendingBytesMuxedPacket);
       }
       else {
-        *nread_from_net = read(context->tcp_client_fd, &(buffer_from_net[(context->readTcpBytes)]), context->pendingBytesMuxedPacket);
+        *nread_from_net = read( context->tcp_client_fd,
+                                &(buffer_from_net[(context->readTcpBytes)]),
+                                context->pendingBytesMuxedPacket);
       }
       #ifdef DEBUG
         do_debug_c( 3,
@@ -560,7 +568,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
-                    ": IP muxed packet from ");
+                    ": IP muxed packet arrived to ");
 
         do_debug_c( 1,
                     ANSI_COLOR_RESET,

@@ -85,7 +85,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   #ifdef DEBUG
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
-                " Sent blast packet to the network (");
+                " Sent blast packet from ");
 
     do_debug_c( 1,
                 ANSI_COLOR_RESET,
@@ -94,7 +94,16 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
-                "). ID ");
+                ", ");
+
+    do_debug_c( 1,
+                ANSI_COLOR_RESET,
+                "%s",
+                inet_ntoa(context->local.sin_addr));
+
+    do_debug_c( 1,
+                ANSI_COLOR_BRIGHT_BLUE,
+                ". ID ");
 
      do_debug_c( 1,
                 ANSI_COLOR_RESET,
@@ -152,7 +161,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
         // no heartbeat has been received yet
         do_debug_c( 3,
                     ANSI_COLOR_RED,
-                    " %"PRIu64" The arrived packet has not been stored because no heartbeat has been received yet. Total %i pkts stored\n",
+                    " %"PRIu64" The packet has not been stored in the confirmation-pending list because no heartbeat has been received yet. Total %i pkts stored\n",
                     now,
                     length(&context->unconfirmedPacketsBlast));   
       }
@@ -160,7 +169,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
         // at least one heartbeat has arrived
         do_debug_c( 3,
                     ANSI_COLOR_RED,
-                    " %"PRIu64" The arrived packet has not been stored because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n",
+                    " %"PRIu64" The packet has not been stored in the confirmation-pending list because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n",
                     now,
                     now - context->lastBlastHeartBeatReceived,
                     length(&context->unconfirmedPacketsBlast));        
@@ -177,7 +186,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 
       do_debug_c( 2,
                   ANSI_COLOR_BRIGHT_BLUE,
-                  " The arrived packet has been stored. Total ");
+                  " The packet has been stored in the confirmation-pending list. Total ");
 
       do_debug_c( 2,
                   ANSI_COLOR_RESET,
@@ -565,7 +574,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -574,7 +583,16 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a UDP muxed packet without this one: %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a UDP muxed packet without this one: %i bytes\n",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             break;
 
@@ -585,7 +603,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -594,7 +612,16 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -606,7 +633,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -615,7 +642,16 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a TCP packet containing: %i native packet(s) (not this one) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -628,7 +664,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -637,7 +673,16 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") an IP muxed packet without this one: %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " an IP muxed packet without this one: %i bytes\n",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE );
             break;
           }
@@ -653,7 +698,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -662,7 +707,16 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a UDP packet without this Eth frame: %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a UDP packet without this Eth frame: %i bytes\n",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             break;
 
@@ -673,7 +727,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -682,7 +736,16 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -694,7 +757,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -703,7 +766,16 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a TCP packet containing: %i native Eth frame(s) (not this one) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -716,7 +788,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -725,7 +797,16 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") an IP packet without this Eth frame: %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " an IP packet without this Eth frame: %i bytes\n",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE );
             break;
           }
@@ -1309,7 +1390,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -1318,7 +1399,16 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a UDP packet containing %i native one(s): %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a UDP packet containing %i native one(s): %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             break;
@@ -1329,7 +1419,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -1338,7 +1428,16 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -1350,7 +1449,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -1359,7 +1458,16 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -1372,7 +1480,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -1381,7 +1489,16 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") an IP packet containing %i native one(s): %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " an IP packet containing %i native one(s): %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
             break;
@@ -1398,7 +1515,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -1407,7 +1524,16 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a UDP packet containing %i native Eth frame(s): %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a UDP packet containing %i native Eth frame(s): %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             break;
@@ -1419,7 +1545,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from ");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -1428,7 +1554,16 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -1440,7 +1575,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -1449,7 +1584,16 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket);
             break;
@@ -1462,7 +1606,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending to the network (");
+                          " Sending from");
 
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -1471,7 +1615,16 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          ") an IP packet containing %i native Eth frame(s): %i bytes\n",
+                          ", ");
+
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context->local.sin_addr));
+              
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " an IP packet containing %i native Eth frame(s): %i bytes\n",
                           context->numPktsStoredFromTun,
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
             break;
