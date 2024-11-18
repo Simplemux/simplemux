@@ -171,16 +171,34 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
               ntohs(thisPacket->header.identifier))==false)
     {
       #ifdef DEBUG
-        do_debug_c( 2,
-                    ANSI_COLOR_BRIGHT_BLUE,
-                    " The packet had already been removed from the list\n");
+        if(context->tunnelMode == TUN_MODE) {
+          // tun mode
+          do_debug_c( 2,
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      " The packet had already been removed from the list\n");
+        }
+        else {
+          // tap mode
+          do_debug_c( 2,
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      " The frame had already been removed from the list\n");          
+        }
       #endif
     }
     else {
       #ifdef DEBUG
-        do_debug_c( 2,
-                    ANSI_COLOR_BRIGHT_BLUE,
-                    " Packet with ID ");
+        if(context->tunnelMode == TUN_MODE) {
+          // tun mode
+          do_debug_c( 2,
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      " Packet with ID ");
+        }
+        else {
+          // tap mode
+          do_debug_c( 2,
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      " Frame with ID ");          
+        }
 
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
@@ -195,20 +213,43 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
     #ifdef DEBUG
       if (context->lastBlastHeartBeatReceived == 0) {
         // no heartbeat has been received yet
-        do_debug_c( 3,
-                    ANSI_COLOR_RED,
-                    " %"PRIu64" The packet has not been stored in the confirmation-pending list because no heartbeat has been received yet. Total %i pkts stored\n",
-                    now,
-                    length(&context->unconfirmedPacketsBlast));   
+        if(context->tunnelMode == TUN_MODE) {
+          // tun mode
+          do_debug_c( 3,
+                      ANSI_COLOR_RED,
+                      " %"PRIu64" The packet has not been stored in the confirmation-pending list because no heartbeat has been received yet. Total %i packets stored\n",
+                      now,
+                      length(&context->unconfirmedPacketsBlast));
+        }
+        else {
+          // tap mode
+          do_debug_c( 3,
+                      ANSI_COLOR_RED,
+                      " %"PRIu64" The frame has not been stored in the confirmation-pending list because no heartbeat has been received yet. Total %i frames stored\n",
+                      now,
+                      length(&context->unconfirmedPacketsBlast));          
+        }
       }
       else {
         // at least one heartbeat has arrived
-        do_debug_c( 3,
-                    ANSI_COLOR_RED,
-                    " %"PRIu64" The packet has not been stored in the confirmation-pending list because the last heartbeat was received %"PRIu64" us ago. Total %i pkts stored\n",
-                    now,
-                    now - context->lastBlastHeartBeatReceived,
-                    length(&context->unconfirmedPacketsBlast));        
+        if(context->tunnelMode == TUN_MODE) {
+          // tun mode
+          do_debug_c( 3,
+                      ANSI_COLOR_RED,
+                      " %"PRIu64" The packet has not been stored in the confirmation-pending list because the last heartbeat was received %"PRIu64" us ago. Total %i packets stored\n",
+                      now,
+                      now - context->lastBlastHeartBeatReceived,
+                      length(&context->unconfirmedPacketsBlast));
+        }
+        else {
+          // tap mode
+          do_debug_c( 3,
+                      ANSI_COLOR_RED,
+                      " %"PRIu64" The frame has not been stored in the confirmation-pending list because the last heartbeat was received %"PRIu64" us ago. Total %i frames stored\n",
+                      now,
+                      now - context->lastBlastHeartBeatReceived,
+                      length(&context->unconfirmedPacketsBlast));          
+        }
       }
 
     #endif
@@ -220,18 +261,36 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
                   " %"PRIu64"",
                   thisPacket->sentTimestamp);
 
-      do_debug_c( 2,
-                  ANSI_COLOR_BRIGHT_BLUE,
-                  " The packet has been stored in the confirmation-pending list. Total ");
+      if(context->tunnelMode == TUN_MODE) {
+        // tun mode
+        do_debug_c( 2,
+                    ANSI_COLOR_BRIGHT_BLUE,
+                    " The packet has been stored in the confirmation-pending list. Total ");
+      }
+      else {
+        // tap mode
+        do_debug_c( 2,
+                    ANSI_COLOR_BRIGHT_BLUE,
+                    " The frame has been stored in the confirmation-pending list. Total ");
+      }
 
       do_debug_c( 2,
                   ANSI_COLOR_RESET,
                   "%i",
                   length(&context->unconfirmedPacketsBlast));
 
-      do_debug_c( 2,
-                  ANSI_COLOR_BRIGHT_BLUE,
-                  " pkts stored\n");
+      if(context->tunnelMode == TUN_MODE) {
+        // tun mode
+        do_debug_c( 2,
+                    ANSI_COLOR_BRIGHT_BLUE,
+                    " packets stored\n");
+      }
+      else {
+        // tap mode
+        do_debug_c( 2,
+                    ANSI_COLOR_BRIGHT_BLUE,
+                    " frames stored\n");        
+      }
 
       if(debug > 1)
         dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );

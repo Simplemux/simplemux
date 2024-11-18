@@ -795,9 +795,18 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       if(deliverThisPacket) {
 
         #ifdef DEBUG
-          do_debug_c( 2,
-                      ANSI_COLOR_BOLD_GREEN,
-                      " DEMUXED PACKET with ID ");
+          if(context->tunnelMode == TUN_MODE) {
+            // tun mode
+            do_debug_c( 2,
+                        ANSI_COLOR_BOLD_GREEN,
+                        " DEMUXED PACKET with ID ");            
+          }
+          else {
+            // tap mode
+            do_debug_c( 2,
+                        ANSI_COLOR_BOLD_GREEN,
+                        " DEMUXED FRAME with ID ");              
+          }
 
           do_debug_c( 2,
                       ANSI_COLOR_RESET,
