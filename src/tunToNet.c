@@ -11,10 +11,20 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   uint64_t now = GetTimeStamp();
 
   #ifdef DEBUG
-    do_debug_c( 3,
-                ANSI_COLOR_BRIGHT_BLUE,
-                "%"PRIu64": NATIVE PACKET arrived from local computer (",
-                now);
+    if (context->tunnelMode == TUN_MODE) {
+      // tun mode
+      do_debug_c( 3,
+                  ANSI_COLOR_BRIGHT_BLUE,
+                  "%"PRIu64": NATIVE PACKET arrived from local computer (",
+                  now);
+    }
+    else {
+      // tap mode
+      do_debug_c( 3,
+                  ANSI_COLOR_BRIGHT_BLUE,
+                  "%"PRIu64": NATIVE FRAME arrived from local computer (",
+                  now);
+    }
 
     do_debug_c( 3,
                 ANSI_COLOR_RESET,
@@ -26,6 +36,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
                 ")\n");
   #endif           
 
+
   // add a new empty packet to the list
   struct packet* thisPacket = insertLast(&context->unconfirmedPacketsBlast,0,NULL);
 
@@ -36,11 +47,20 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
   thisPacket->header.identifier = htons((uint16_t)context->blastIdentifier); 
 
   #ifdef DEBUG
-    do_debug_c( 1,
-                ANSI_COLOR_BRIGHT_BLUE,
-                "NATIVE PACKET #%"PRIu32" from ",
-                context->tun2net);
-
+    if (context->tunnelMode == TUN_MODE) {
+      // tun mode
+      do_debug_c( 1,
+                  ANSI_COLOR_BRIGHT_BLUE,
+                  "NATIVE PACKET #%"PRIu32" from ",
+                  context->tun2net);
+    }
+    else {
+      // tap mode
+      do_debug_c( 1,
+                  ANSI_COLOR_BRIGHT_BLUE,
+                  "NATIVE FRAME #%"PRIu32" from ",
+                  context->tun2net);      
+    }
     do_debug_c( 1,
                 ANSI_COLOR_RESET,
                 "%s",
@@ -68,6 +88,22 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
                 ANSI_COLOR_BRIGHT_BLUE,
                 " bytes\n");
   #endif
+
+  #ifdef LOGFILE
+    // write in the log file
+    if ( context->log_file != NULL ) {
+      fprintf ( context->log_file,
+                "%"PRIu64"\trec\tnative\t%i\t%"PRIu32"\n",
+                GetTimeStamp(),
+                ntohs(thisPacket->header.packetSize),
+                context->tun2net);
+
+      // If the IO is buffered, I have to insert fflush(fp) after the write
+      fflush(context->log_file);
+    }
+  #endif
+
+
 
   if (context->tunnelMode == TAP_MODE) {
     thisPacket->header.protocolID = IPPROTO_ETHERNET;
