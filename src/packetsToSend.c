@@ -341,12 +341,13 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
               assert(packetToSend->header.ACK == ACKNEEDED);
             #endif
             fprintf ( context->log_file,
-                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\t\tblastPacket\t%"PRIu16"\n",
+                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\t\tblastPacket\t%"PRIu16"\n",
+                      //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\t\tblastPacket\t%"PRIu16"\n",
                       GetTimeStamp(),
                       total_length + IPv4_HEADER_SIZE,
                       context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
-                      // there is no port in network mode
+                      0,// there is no port in network mode
                       1, // in blast mode, only 1 packet from tun/tap is sent            
                       htons(packetToSend->header.identifier));
           }
