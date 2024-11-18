@@ -129,28 +129,101 @@ This means that a multiplexed packet (sequence number `210`) has been received f
 In *blast* mode, there are more columns in the trace files:
 
 ```
-1731343611372210	sent	muxed	118	1	to	192.168.1.21	55558	1		blastPacket	0
-1731343611874669	sent	muxed	118	2	to	192.168.1.21	55558	1		blastPacket	1
-1731343612102056	sent	muxed	34	3	to	192.168.1.21	55558	0		blastHeartbeat
-1731343612375024	sent	muxed	118	4	to	192.168.1.21	55558	1		blastPacket	2
-1731343612908447	sent	muxed	118	5	to	192.168.1.21	55558	1		blastPacket	3
-1731343613102554	sent	muxed	34	6	to	192.168.1.21	55558	0		blastHeartbeat
-1731343613408256	sent	muxed	118	7	to	192.168.1.21	55558	1		blastPacket	4
-1731343613932566	sent	muxed	118	8	to	192.168.1.21	55558	1		blastPacket	5
-1731343614103350	sent	muxed	34	9	to	192.168.1.21	55558	0		blastHeartbeat
-1731343614434664	sent	muxed	118	10	to	192.168.1.21	55558	1		blastPacket	6
-1731343614937158	sent	muxed	118	11	to	192.168.1.21	55558	1		blastPacket	7
-1731343614943576	rec	muxed	34	1	from	192.168.1.21	55558	0		blastACK	7
-1731343614944009	rec	muxed	118	2	from	192.168.1.21	55558	1		blastPacket	0
-1731343614944721	sent	muxed	34	12	to	192.168.1.21	55558	0		blastACK	0
-1731343615104138	sent	muxed	34	13	to	192.168.1.21	55558	0		blastHeartbeat
-1731343615439555	sent	muxed	118	14	to	192.168.1.21	55558	1		blastPacket	8
-1731343615443640	rec	muxed	34	3	from	192.168.1.21	55558	0		blastACK	8
-1731343615443905	rec	muxed	118	4	from	192.168.1.21	55558	1		blastPacket	1
-1731343615444290	sent	muxed	34	15	to	192.168.1.21	55558	0		blastACK	1
-1731343615663588	rec	muxed	34	5	from	192.168.1.21	55558	0		blastHeartbeat
-1731343615941220	sent	muxed	118	16	to	192.168.1.21	55558	1		blastPacket	9
-1731343615943483	rec	muxed	34	6	from	192.168.1.21	55558	0		blastACK	9
+1731945249254992	sent	muxed	26	1	to	192.168.1.21		0		blastHeartbeat
+1731945250255138	sent	muxed	26	2	to	192.168.1.21		0		blastHeartbeat
+1731945251256132	sent	muxed	26	3	to	192.168.1.21		0		blastHeartbeat
+1731945252256754	sent	muxed	26	4	to	192.168.1.21		0		blastHeartbeat
+1731945253257157	sent	muxed	26	5	to	192.168.1.21		0		blastHeartbeat
+1731945254258851	sent	muxed	26	6	to	192.168.1.21		0		blastHeartbeat
+1731945255259208	sent	muxed	26	7	to	192.168.1.21		0		blastHeartbeat
+1731945255687747	rec	muxed	26	1	from	192.168.1.21		0		blastHeartbeat
+1731945256359969	sent	muxed	26	8	to	192.168.1.21		0		blastHeartbeat
+1731945256688495	rec	muxed	26	2	from	192.168.1.21		0		blastHeartbeat
+1731945257360191	sent	muxed	26	9	to	192.168.1.21		0		blastHeartbeat
+1731945257689733	rec	muxed	26	3	from	192.168.1.21		0		blastHeartbeat
+1731945258361143	sent	muxed	26	10	to	192.168.1.21		0		blastHeartbeat
+1731945258689545	rec	muxed	26	4	from	192.168.1.21		0		blastHeartbeat
+1731945259361413	sent	muxed	26	11	to	192.168.1.21		0		blastHeartbeat
+1731945259688998	rec	muxed	26	5	from	192.168.1.21		0		blastHeartbeat
+1731945260362310	sent	muxed	26	12	to	192.168.1.21		0		blastHeartbeat
+1731945260689747	rec	muxed	26	6	from	192.168.1.21		0		blastHeartbeat
+1731945261363164	sent	muxed	26	13	to	192.168.1.21		0		blastHeartbeat
+1731945261692970	rec	muxed	26	7	from	192.168.1.21		0		blastHeartbeat
+1731945262363874	sent	muxed	26	14	to	192.168.1.21		0		blastHeartbeat
+1731945262792400	rec	muxed	26	8	from	192.168.1.21		0		blastHeartbeat
+1731945263364221	sent	muxed	26	15	to	192.168.1.21		0		blastHeartbeat
+1731945263793406	rec	muxed	26	9	from	192.168.1.21		0		blastHeartbeat
+1731945264364618	sent	muxed	26	16	to	192.168.1.21		0		blastHeartbeat
+1731945264793538	rec	muxed	26	10	from	192.168.1.21		0		blastHeartbeat
+1731945265365534	sent	muxed	26	17	to	192.168.1.21		0		blastHeartbeat
+1731945265794932	rec	muxed	26	11	from	192.168.1.21		0		blastHeartbeat
+1731945266365785	sent	muxed	26	18	to	192.168.1.21		0		blastHeartbeat
+1731945266448917	rec	native	84	18
+1731945266449025	sent	muxed	110	19	to	192.168.1.21		1		blastPacket	0
+1731945266450321	rec	muxed	26	12	from	192.168.1.21		0		blastACK	0
+1731945266450439	rec	muxed	110	13	from	192.168.1.21		1		blastPacket	0
+1731945266450511	sent	demuxed	84	13
+1731945266450563	sent	muxed	26	20	to	192.168.1.21		0		blastACK	0
+1731945266794369	rec	muxed	26	14	from	192.168.1.21		0		blastHeartbeat
+1731945266950074	rec	native	84	20
+1731945266950236	sent	muxed	110	21	to	192.168.1.21		1		blastPacket	1
+1731945266951453	rec	muxed	26	15	from	192.168.1.21		0		blastACK	1
+1731945266951577	rec	muxed	110	16	from	192.168.1.21		1		blastPacket	1
+1731945266951655	sent	demuxed	84	16
+1731945266951713	sent	muxed	26	22	to	192.168.1.21		0		blastACK	1
+1731945267366152	sent	muxed	26	23	to	192.168.1.21		0		blastHeartbeat
+1731945267451583	rec	native	84	23
+1731945267451727	sent	muxed	110	24	to	192.168.1.21		1		blastPacket	2
+1731945267452948	rec	muxed	26	17	from	192.168.1.21		0		blastACK	2
+1731945267453078	rec	muxed	110	18	from	192.168.1.21		1		blastPacket	2
+1731945267453157	sent	demuxed	84	18
+1731945267453215	sent	muxed	26	25	to	192.168.1.21		0		blastACK	2
+1731945267795800	rec	muxed	26	19	from	192.168.1.21		0		blastHeartbeat
+1731945267953305	rec	native	84	25
+1731945267953475	sent	muxed	110	26	to	192.168.1.21		1		blastPacket	3
+1731945267955864	rec	muxed	26	20	from	192.168.1.21		0		blastACK	3
+1731945267956048	rec	muxed	110	21	from	192.168.1.21		1		blastPacket	3
+1731945267956185	sent	demuxed	84	21
+1731945267956258	sent	muxed	26	27	to	192.168.1.21		0		blastACK	3
+1731945268366738	sent	muxed	26	28	to	192.168.1.21		0		blastHeartbeat
+1731945268454868	rec	native	84	28
+1731945268455017	sent	muxed	110	29	to	192.168.1.21		1		blastPacket	4
+1731945268456446	rec	muxed	26	22	from	192.168.1.21		0		blastACK	4
+1731945268456592	rec	muxed	110	23	from	192.168.1.21		1		blastPacket	4
+1731945268456713	sent	demuxed	84	23
+1731945268456780	sent	muxed	26	30	to	192.168.1.21		0		blastACK	4
+1731945268795801	rec	muxed	26	24	from	192.168.1.21		0		blastHeartbeat
+1731945268955919	rec	native	84	30
+1731945268956084	sent	muxed	110	31	to	192.168.1.21		1		blastPacket	5
+1731945268957057	rec	muxed	26	25	from	192.168.1.21		0		blastACK	5
+1731945268957138	rec	muxed	110	26	from	192.168.1.21		1		blastPacket	5
+1731945268957215	sent	demuxed	84	26
+1731945268957263	sent	muxed	26	32	to	192.168.1.21		0		blastACK	5
+1731945269366955	sent	muxed	26	33	to	192.168.1.21		0		blastHeartbeat
+1731945269458057	rec	native	84	33
+1731945269458190	sent	muxed	110	34	to	192.168.1.21		1		blastPacket	6
+1731945269459806	rec	muxed	26	27	from	192.168.1.21		0		blastACK	6
+1731945269459929	rec	muxed	110	28	from	192.168.1.21		1		blastPacket	6
+1731945269460053	sent	demuxed	84	28
+1731945269460105	sent	muxed	26	35	to	192.168.1.21		0		blastACK	6
+1731945269795791	rec	muxed	26	29	from	192.168.1.21		0		blastHeartbeat
+1731945269959137	rec	native	84	35
+1731945269959448	sent	muxed	110	36	to	192.168.1.21		1		blastPacket	7
+1731945269963213	rec	muxed	26	30	from	192.168.1.21		0		blastACK	7
+1731945269965634	rec	muxed	110	31	from	192.168.1.21		1		blastPacket	7
+1731945269966014	sent	demuxed	84	31
+1731945269966262	sent	muxed	26	37	to	192.168.1.21		0		blastACK	7
+1731945270367692	sent	muxed	26	38	to	192.168.1.21		0		blastHeartbeat
+1731945270460697	rec	native	84	38
+1731945270460828	sent	muxed	110	39	to	192.168.1.21		1		blastPacket	8
+1731945270461630	rec	muxed	26	32	from	192.168.1.21		0		blastACK	8
+1731945270461719	rec	muxed	110	33	from	192.168.1.21		1		blastPacket	8
+1731945270461793	sent	demuxed	84	33
+1731945270461840	sent	muxed	26	40	to	192.168.1.21		0		blastACK	8
+1731945270795993	rec	muxed	26	34	from	192.168.1.21		0		blastHeartbeat
+1731945271367649	sent	muxed	26	41	to	192.168.1.21		0		blastHeartbeat
+1731945271796058	rec	muxed	26	35	from	192.168.1.21		0		blastHeartbeat
+1731945272367719	sent	muxed	26	42	to	192.168.1.21		0		blastHeartbeat
 ```
 
 ## Scripts for calculating compression statistics
