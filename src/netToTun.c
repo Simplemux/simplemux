@@ -891,6 +891,19 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                           "\n",
                           now);
             #endif
+
+            #ifdef LOGFILE
+              // write the log file
+              if ( context->log_file != NULL ) {
+                fprintf ( context->log_file,
+                          "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n",
+                          GetTimeStamp(),
+                          length,
+                          context->net2tun);  // the packet is good
+                
+                fflush(context->log_file);
+              }
+            #endif
           }
 
           // update the timestamp when a packet with this identifier has been sent
@@ -909,7 +922,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             #endif            
           }
           else {
-             // write the demuxed packet to the tap interface
+             // write the demuxed frame to the tap interface
             #ifdef DEBUG
               do_debug_c( 2,
                           ANSI_COLOR_YELLOW,
@@ -927,13 +940,13 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             #endif
 
             if(cwrite ( context->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], length ) != length) {
-              perror("could not write the packet correctly");
+              perror("could not write the frame correctly");
             }
             else {
               #ifdef DEBUG
                 do_debug_c( 1,
                             ANSI_COLOR_YELLOW,
-                            " Packet with ID %i sent to ",
+                            " Frame with ID %i sent to ",
                             ntohs(blastHeader->identifier));
 
                 do_debug_c( 1,
@@ -947,7 +960,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
                 do_debug_c( 3,
                             ANSI_COLOR_YELLOW,
-                            " %"PRIu64" Packet correctly sent to ",
+                            " %"PRIu64" Frame correctly sent to ",
                             now);
 
                 do_debug_c( 3,
@@ -957,6 +970,19 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                 do_debug_c( 3,
                             ANSI_COLOR_YELLOW,
                             "\n");
+              #endif
+
+              #ifdef LOGFILE
+                // write the log file
+                if ( context->log_file != NULL ) {
+                  fprintf ( context->log_file,
+                            "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n",
+                            GetTimeStamp(),
+                            length,
+                            context->net2tun);  // the packet is good
+                  
+                  fflush(context->log_file);
+                }
               #endif
             }
 
