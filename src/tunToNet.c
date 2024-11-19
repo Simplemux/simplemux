@@ -1032,11 +1032,13 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
           // write in the log file
           if ( context->log_file != NULL ) {
             fprintf ( context->log_file,
-                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n",
+                      //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n",
+                      "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
                       GetTimeStamp(),
                       total_length + IPv4_HEADER_SIZE,
                       context->tun2net,
                       inet_ntoa(context->remote.sin_addr),
+                      0, // there is no port in network mode
                       context->numPktsStoredFromTun);
 
             // If the IO is buffered, I have to insert fflush(fp) after the write

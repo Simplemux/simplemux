@@ -315,11 +315,13 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
       // write the log file
       if ( context->log_file != NULL ) {
         fprintf ( context->log_file,
-                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tperiod\n",
                   GetTimeStamp(),
                   context->sizeMuxedPacket + IPv4_HEADER_SIZE,
                   context->tun2net,
                   inet_ntoa(context->remote.sin_addr),
+                  0,  // there is no period in network mode
                   context->numPktsStoredFromTun);  
       }
     break;
@@ -340,11 +342,13 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
       // write the log file
       if ( context->log_file != NULL ) {
         fprintf ( context->log_file,
-                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tperiod\n",
                   GetTimeStamp(),
                   context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
                   context->tun2net,
                   inet_ntoa(context->remote.sin_addr),
+                  ntohs(context->remote.sin_port),
                   context->numPktsStoredFromTun);  
       }
     break;
@@ -363,11 +367,14 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
 
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf ( context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+        fprintf ( context->log_file,
+                  //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tperiod\n",
                   GetTimeStamp(),
                   context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
                   context->tun2net,
                   inet_ntoa(context->remote.sin_addr),
+                  ntohs(context->remote.sin_port),
                   context->numPktsStoredFromTun);  
       }
     break;
@@ -385,11 +392,13 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
       // write the log file
       if ( context->log_file != NULL ) {
         fprintf ( context->log_file,
-                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tperiod\n",
                   GetTimeStamp(),
                   context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
                   context->tun2net,
                   inet_ntoa(context->remote.sin_addr),
+                  ntohs(context->remote.sin_port),
                   context->numPktsStoredFromTun);  
       }
     break;

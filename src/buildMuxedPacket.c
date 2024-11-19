@@ -362,11 +362,13 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
 
         case NETWORK_MODE:
           fprintf ( context->log_file,
-                    "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i",
+                    //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i",
+                    "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i",
                     GetTimeStamp(),
                     context->sizeMuxedPacket + IPv4_HEADER_SIZE,
                     context->tun2net,
                     inet_ntoa(context->remote.sin_addr),
+                    0, // there is no port in network mode
                     context->numPktsStoredFromTun);
         break;
       }
