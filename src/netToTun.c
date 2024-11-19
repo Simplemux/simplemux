@@ -34,7 +34,8 @@ int readPacketFromNet(struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 3,
                     ANSI_COLOR_YELLOW,
-                    "[readPacketFromNet] Read %i bytes from the UDP socket\n");
+                    "[readPacketFromNet] Read %i bytes from the UDP socket\n",
+                    *nread_from_net);
       #endif
     }
     // 'buffer_from_net' now contains the payload
@@ -65,7 +66,8 @@ int readPacketFromNet(struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 3,
                     ANSI_COLOR_CYAN,
-                    "[readPacketFromNet] Read %i bytes from the network socket\n");
+                    "[readPacketFromNet] Read %i bytes from the network socket\n",
+                    *nread_from_net);
       #endif
     }    
     // 'buffer_from_net' now contains the headers
@@ -1214,7 +1216,10 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             #ifdef DEBUG
               do_debug_c( 3,
                           ANSI_COLOR_GREEN,
-                          "initial packet_length (only most significant bits): %d\n",
+                          "initial packet_length (only most significant bits): ");
+              do_debug_c( 3,
+                          ANSI_COLOR_RESET,
+                          "%d, ",
                           packet_length);
             #endif
             /*
@@ -1230,7 +1235,10 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             #ifdef DEBUG
               do_debug_c( 3,
                           ANSI_COLOR_GREEN,
-                          "packet_length (all the bits): %d\n",
+                          "packet_length (all the bits): ");
+              do_debug_c( 3,
+                          ANSI_COLOR_RESET,
+                          "%d\n",
                           packet_length);
             #endif
             //packet_length = packet_length + (buffer_from_net[position+1] & 0x7F);
