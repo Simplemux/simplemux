@@ -1596,12 +1596,12 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                     ANSI_COLOR_GREEN,
                     " Fast flavor. Added headers: length (2 bytes) + protocol (1 byte) in each separator. Total "); 
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_RESET,
                     "%i",
                     3 * context->numPktsStoredFromTun); 
         do_debug_c( 2,
                     ANSI_COLOR_GREEN,
-                    "bytes\n"); 
+                    " bytes\n"); 
       }
 
       switch(context->tunnelMode) {
