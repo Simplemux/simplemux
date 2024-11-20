@@ -1140,10 +1140,17 @@ void createSimplemuxSeparatorNormal(struct contextSimplemux* context)
         // convert the byte to bits
         bool bits[8];   // used for printing the bits of a byte in debug mode
         FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][0], bits);
+
         do_debug_c( 2,
                     ANSI_COLOR_GREEN,
-                    " Mux separator of 1 byte (plus Protocol): 0x%02x (",
+                    " Mux separator of 1 byte (plus Protocol): ");
+        do_debug_c( 2,
+                    ANSI_COLOR_RESET,
+                    "0x%02x",
                     context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    " (");
 
         if (context->firstHeaderWritten == 0) {
           PrintByte(2, 7, bits);      // first header
@@ -1222,8 +1229,18 @@ void createSimplemuxSeparatorNormal(struct contextSimplemux* context)
 
         // first byte
         FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][0], bits);
-        do_debug_c(2, ANSI_COLOR_GREEN, " Mux separator of 2 bytes (plus Protocol): 0x%02x (", context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
-        //do_debug_c(2, ANSI_COLOR_RESET, " Mux separator of 2 bytes (plus Protocol). First byte: ");
+
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    " Mux separator of 2 bytes (plus Protocol): ");
+        do_debug_c( 2,
+                    ANSI_COLOR_RESET,
+                    "0x%02x",
+                    context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    " (");
+        
         if (context->firstHeaderWritten == 0) {
           PrintByte(2, 7, bits);      // first header
           do_debug_c(2, ANSI_COLOR_GREEN, ", SPB field not included)");
@@ -1235,8 +1252,14 @@ void createSimplemuxSeparatorNormal(struct contextSimplemux* context)
 
         // second byte
         FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][1], bits);
-        do_debug_c(2, ANSI_COLOR_GREEN, " 0x%02x (", context->separatorsToMultiplex[context->numPktsStoredFromTun][1]);
-        //do_debug(2, ". second byte: ");
+        do_debug_c( 2,
+                    ANSI_COLOR_RESET,
+                    " 0x%02x",
+                    context->separatorsToMultiplex[context->numPktsStoredFromTun][1]);
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    " (");
+
         PrintByte(2, 8, bits);
         do_debug_c(2, ANSI_COLOR_GREEN, ")\n");
       }
@@ -1296,7 +1319,18 @@ void createSimplemuxSeparatorNormal(struct contextSimplemux* context)
 
         // first byte
         FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][0], bits);
-        do_debug_c(2, ANSI_COLOR_GREEN, " Mux separator of 3 bytes: (0x%02x) ", context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
+
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    " Mux separator of 3 bytes: (");
+        do_debug_c( 2,
+                    ANSI_COLOR_RESET,
+                    "0x%02x",
+                    context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    ") ");
+
         if (context->firstHeaderWritten == 0) {
           PrintByte(2, 7, bits);      // first header
         }
@@ -1306,13 +1340,35 @@ void createSimplemuxSeparatorNormal(struct contextSimplemux* context)
 
         // second byte
         FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][1], bits);
-        do_debug_c(2, ANSI_COLOR_GREEN, " (0x%02x) ", context->separatorsToMultiplex[context->numPktsStoredFromTun][1]);
+
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    " (");
+        do_debug_c( 2,
+                    ANSI_COLOR_RESET,
+                    "0x%02x",
+                    context->separatorsToMultiplex[context->numPktsStoredFromTun][1]);
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    ") ");
+
         PrintByte(2, 8, bits);
         do_debug(2, "\n");
 
         // third byte
         FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][2], bits);
-        do_debug_c(2, ANSI_COLOR_GREEN, " (0x%02x) ", context->separatorsToMultiplex[context->numPktsStoredFromTun][2]);
+
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    " (");
+        do_debug_c( 2,
+                    ANSI_COLOR_RESET,
+                    "0x%02x",
+                    context->separatorsToMultiplex[context->numPktsStoredFromTun][2]);
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    ") ");
+
         PrintByte(2, 8, bits);
         do_debug(2, "\n");
       }
@@ -1349,19 +1405,49 @@ void createSimplemuxSeparatorFast(struct contextSimplemux* context)
 
       // first byte: most significant bits of the length
       FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][0], bits);
-      do_debug_c(2, ANSI_COLOR_GREEN, " Mux separator of 3 bytes (fast flavor). Length: 0x%02x (", context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
+
+      do_debug_c( 2,
+                  ANSI_COLOR_GREEN,
+                  " Mux separator of 3 bytes (fast flavor). Length: ");
+      do_debug_c( 2,
+                  ANSI_COLOR_RESET,
+                  "0x%02x",
+                  context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
+      do_debug_c( 2,
+                  ANSI_COLOR_GREEN,
+                  " (");
+
       PrintByte(2, 8, bits);
       do_debug_c(2, ANSI_COLOR_GREEN, ")");
 
       // second byte: less significant bits of the length
       FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][1], bits);
-      do_debug_c(2, ANSI_COLOR_GREEN, " 0x%02x (", context->separatorsToMultiplex[context->numPktsStoredFromTun][1]);
+
+      do_debug_c( 2,
+                  ANSI_COLOR_RESET,
+                  " 0x%02x",
+                  context->separatorsToMultiplex[context->numPktsStoredFromTun][1]);
+      do_debug_c( 2,
+                  ANSI_COLOR_GREEN,
+                  " (");
+
       PrintByte(2, 8, bits);
       do_debug_c(2, ANSI_COLOR_GREEN, ")");
 
       // third byte: protocol
       FromByte(context->protocol[context->numPktsStoredFromTun], bits);
-      do_debug_c(2, ANSI_COLOR_GREEN, ". Protocol: 0x%02x (", context->protocol[context->numPktsStoredFromTun]);
+
+      do_debug_c( 2,
+                  ANSI_COLOR_GREEN,
+                  ". Protocol: ");    
+      do_debug_c( 2,
+                  ANSI_COLOR_RESET,
+                  "0x%02x",
+                  context->protocol[context->numPktsStoredFromTun]);
+      do_debug_c( 2,
+                  ANSI_COLOR_GREEN,
+                  " (");
+
       PrintByte(2, 8, bits);
       do_debug_c(2, ANSI_COLOR_GREEN, ")\n");
     }
@@ -1418,23 +1504,59 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
       do_debug_c( 1,
                   ANSI_COLOR_GREEN,
                   "SENDING TRIGGERED: ");
-      if (context->numPktsStoredFromTun == context->limitNumpackets)
+
+      if (context->numPktsStoredFromTun == context->limitNumpackets) {
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
-                    "num packet limit reached: %i packets\n",
+                    "num packet limit reached: ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
                     context->limitNumpackets);
-      if (context->sizeMuxedPacket > context->sizeThreshold)
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
-                    " size threshold reached: %i > %i bytes\n",
-                    context->sizeMuxedPacket,
+                    " packets\n");
+      }
+      
+      if (context->sizeMuxedPacket > context->sizeThreshold) {
+        do_debug_c( 1,
+                    ANSI_COLOR_GREEN,
+                    " size threshold reached: ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    context->sizeMuxedPacket);
+        do_debug_c( 1,
+                    ANSI_COLOR_GREEN,
+                    " > ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
                     context->sizeThreshold);
-      if (time_difference > context->timeout)
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
-                    "timeout reached: %"PRIu64" > %"PRIu64" us\n",
-                    time_difference,
+                    " bytes\n");
+      }
+      
+      if (time_difference > context->timeout) {
+        do_debug_c( 1,
+                    ANSI_COLOR_GREEN,
+                    "timeout reached: ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%"PRIu64"",
+                    time_difference);
+        do_debug_c( 1,
+                    ANSI_COLOR_GREEN,
+                    " > ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%"PRIu64"",
                     context->timeout);
+        do_debug_c( 1,
+                    ANSI_COLOR_GREEN,
+                    " us\n");
+      }
 
       if (context->flavor == 'N') {
         // normal flavor
@@ -1472,8 +1594,14 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
         // fast flavor
         do_debug_c( 2,
                     ANSI_COLOR_GREEN,
-                    " Fast flavor. Added headers: length (2 bytes) + protocol (1 byte) in each separator. Total %i bytes\n",
+                    " Fast flavor. Added headers: length (2 bytes) + protocol (1 byte) in each separator. Total "); 
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    "%i",
                     3 * context->numPktsStoredFromTun); 
+        do_debug_c( 2,
+                    ANSI_COLOR_GREEN,
+                    "bytes\n"); 
       }
 
       switch(context->tunnelMode) {
@@ -1482,8 +1610,15 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
             case UDP_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
-                          " Added tunneling header: %i bytes\n",
-                          IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+                          " Added tunneling header: ");
+
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%i");
+
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          " bytes\n");
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
@@ -1505,9 +1640,21 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
               
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " a UDP packet containing %i native one(s): %i bytes\n",
-                          context->numPktsStoredFromTun,
+                          " a UDP packet containing ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
+                          context->numPktsStoredFromTun);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " native one(s): ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " bytes\n");
             break;
 
             case TCP_CLIENT_MODE:
@@ -1564,9 +1711,21 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
               
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n",
-                          context->numPktsStoredFromTun,
+                          " a TCP packet containing: ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
+                          context->numPktsStoredFromTun);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " native one(s) plus separator(s), ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
                           context->sizeMuxedPacket);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " bytes\n");
             break;
 
             case NETWORK_MODE:
@@ -1574,30 +1733,37 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE);
-
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
                           " Sending from ");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
-
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
                           ", ");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
-                          inet_ntoa(context->local.sin_addr));
-              
+                          inet_ntoa(context->local.sin_addr));  
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " an IP packet containing %i native one(s): %i bytes\n",
-                          context->numPktsStoredFromTun,
+                          " an IP packet containing ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
+                          context->numPktsStoredFromTun);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " native one(s): ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " bytes\n");
             break;
           }
         break;
@@ -1609,90 +1775,111 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
                           " Sending from");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
-
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
                           ", ");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
-              
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " a UDP packet containing %i native Eth frame(s): %i bytes\n",
-                          context->numPktsStoredFromTun,
+                          " a UDP packet containing ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
+                          context->numPktsStoredFromTun);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " native Eth frame(s): ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " bytes\n");
             break;
 
             case TCP_CLIENT_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: IPv4 + TCP\n");
-
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
                           " Sending from ");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
-
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
                           ", ");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
-              
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n",
-                          context->numPktsStoredFromTun,
+                          " a TCP packet containing: ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
+                          context->numPktsStoredFromTun);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " native Eth frame(s) plus separator(s), ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
                           context->sizeMuxedPacket);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " bytes\n");
             break;
 
             case TCP_SERVER_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: IPv4 + TCP\n");
-
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
                           " Sending from");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
-
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
                           ", ");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
-                          inet_ntoa(context->local.sin_addr));
-              
+                          inet_ntoa(context->local.sin_addr));             
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " a TCP packet containing: %i native Eth frame(s) plus separator(s), %i bytes\n",
-                          context->numPktsStoredFromTun,
+                          " a TCP packet containing: ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
+                          context->numPktsStoredFromTun);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " native Eth frame(s) plus separator(s), ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
                           context->sizeMuxedPacket);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " bytes\n");
             break;
 
             case NETWORK_MODE:
@@ -1700,30 +1887,37 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           ANSI_COLOR_GREEN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE );
-
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
                           " Sending from");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
-
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
                           ", ");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
-              
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " an IP packet containing %i native Eth frame(s): %i bytes\n",
-                          context->numPktsStoredFromTun,
+                          " an IP packet containing ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
+                          context->numPktsStoredFromTun);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " native Eth frame(s): ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          " %i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " bytes\n");
             break;
           }
         break;
@@ -1757,21 +1951,17 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
                     ANSI_COLOR_BRIGHT_BLUE,
                     "NATIVE PACKET #%"PRIu32": Read packet from ",
                     context->tun2net);
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%s",
                     context->tun_if_name);
-
         do_debug_c( 1,
                     ANSI_COLOR_BRIGHT_BLUE,
                     ": ");
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     size);
-
         do_debug_c( 1,
                     ANSI_COLOR_BRIGHT_BLUE,
                     " bytes\n");
@@ -1781,21 +1971,17 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
                     ANSI_COLOR_BRIGHT_BLUE,
                     "NATIVE FRAME #%"PRIu32": Read frame from ",
                     context->tun2net);
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%s",
                     context->tun_if_name);
-
         do_debug_c( 1,
                     ANSI_COLOR_BRIGHT_BLUE,
                     ": ");
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     size);
-
         do_debug_c( 1,
                     ANSI_COLOR_BRIGHT_BLUE,
                     " bytes\n");
@@ -1867,10 +2053,8 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
     // - I reset the period
     emptyBufferIfNeeded(context, single_protocol);
 
-
     // update the size of the muxed packet, adding the size of the current one
     context->sizeMuxedPacket = context->sizeMuxedPacket + context->sizePacketsToMultiplex[context->numPktsStoredFromTun];
-
 
     // create the separator 
     if (context->flavor == 'N')
@@ -1878,10 +2062,8 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
     else
       createSimplemuxSeparatorFast(context);
 
-
     // I have finished storing the packet, so I increase the number of stored packets
     context->numPktsStoredFromTun ++;
-
 
     if (context->flavor == 'N') {
       // normal flavor
@@ -1893,21 +2075,17 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
                     " Packet stopped: accumulated ");
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->numPktsStoredFromTun);
-
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
                     " pkts: ");
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->sizeMuxedPacket);
-
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
                     " bytes (Protocol not included).");
@@ -1919,21 +2097,17 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
                     " Packet stopped: accumulated ");
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->numPktsStoredFromTun);
-
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
                     " pkts: ");
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->sizeMuxedPacket + context->numPktsStoredFromTun);
-
         do_debug_c( 1,
                     ANSI_COLOR_GREEN,
                     " bytes (Separator(s) included).");
