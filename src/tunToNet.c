@@ -2231,16 +2231,30 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
         context->firstHeaderWritten = 1; 
 
       #ifdef DEBUG
-        do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
-                    " Packet stopped: accumulated ");
+        if (context->tunnelMode == TUN_MODE) {
+          do_debug_c( 1,
+                      ANSI_COLOR_GREEN,
+                      " Packet stopped: accumulated ");
+        }
+        else {
+          do_debug_c( 1,
+                      ANSI_COLOR_GREEN,
+                      " Frame stopped: accumulated ");          
+        }
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->numPktsStoredFromTun);
-        do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
-                    " pkts: ");
+        if (context->tunnelMode == TUN_MODE) {
+          do_debug_c( 1,
+                      ANSI_COLOR_GREEN,
+                      " pkts: ");
+        }
+        else {
+          do_debug_c( 1,
+                      ANSI_COLOR_GREEN,
+                      " frames: ");          
+        }
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
@@ -2253,16 +2267,30 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
     else {
       // fast flavor
       #ifdef DEBUG
-        do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
-                    " Packet stopped: accumulated ");
+        if (context->tunnelMode == TUN_MODE) {
+          do_debug_c( 1,
+                      ANSI_COLOR_GREEN,
+                      " Packet stopped: accumulated ");
+        }
+        else {
+          do_debug_c( 1,
+                      ANSI_COLOR_GREEN,
+                      " Frame stopped: accumulated ");
+        }
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->numPktsStoredFromTun);
-        do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
-                    " pkts: ");
+        if (context->tunnelMode == TUN_MODE) {
+          do_debug_c( 1,
+                      ANSI_COLOR_GREEN,
+                      " pkts: ");
+        }
+        else {
+          do_debug_c( 1,
+                      ANSI_COLOR_GREEN,
+                      " frames: ");          
+        }
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
