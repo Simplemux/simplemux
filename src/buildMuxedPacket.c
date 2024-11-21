@@ -71,19 +71,23 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
       if (k == 0)
         // add a tab before the first separator
         do_debug_c( 2,
-                    ANSI_COLOR_RESET,
-                    " Separators: ");
+                    ANSI_COLOR_GREEN,
+                    " Separator(s): ");
       else
         // add a semicolon before the 2nd and subsequent separators
         do_debug_c( 2,
-                    ANSI_COLOR_RESET,
+                    ANSI_COLOR_GREEN,
                     "; ");
         
       do_debug_c( 2,
                   ANSI_COLOR_RESET,
-                  "#%d: ",
+                  "#%d",
                   k+1);
-      
+
+      do_debug_c( 2,
+                  ANSI_COLOR_GREEN,
+                  ": ");
+
       // add the separator
       do_debug_c( 2,
                   ANSI_COLOR_RESET,
