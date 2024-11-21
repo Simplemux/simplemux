@@ -1773,7 +1773,8 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           " Added tunneling header: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
-                          "%i");
+                          "%i",
+                          IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
                           " bytes\n");
@@ -1889,8 +1890,14 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
             case NETWORK_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
-                          " Added tunneling header: %i bytes\n",
+                          " Added tunneling header: ");
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%i",
                           IPv4_HEADER_SIZE);
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          " bytes\n");
 
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
