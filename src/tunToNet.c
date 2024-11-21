@@ -1681,9 +1681,21 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
               
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " a TCP packet containing: %i native one(s) plus separator(s), %i bytes\n",
-                          context->numPktsStoredFromTun,
+                          " a TCP packet containing ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
+                          context->numPktsStoredFromTun);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " native one(s) plus separator(s), ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
                           context->sizeMuxedPacket);
+              do_debug_c( 1,
+                          ANSI_COLOR_GREEN,
+                          " bytes\n");
             break;
 
             case TCP_SERVER_MODE:
@@ -1777,7 +1789,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending from");
+                          " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
@@ -1851,7 +1863,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           " Added tunneling header: IPv4 + TCP\n");
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending from");
+                          " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
@@ -1865,7 +1877,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           inet_ntoa(context->local.sin_addr));             
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " a TCP packet containing: ");
+                          " a TCP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -1889,7 +1901,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
                           IPv4_HEADER_SIZE );
               do_debug_c( 1,
                           ANSI_COLOR_GREEN,
-                          " Sending from");
+                          " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",

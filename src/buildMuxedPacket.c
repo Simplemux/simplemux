@@ -322,20 +322,56 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
           #ifdef DEBUG
             do_debug_c( 2,
                         ANSI_COLOR_GREEN,
-                        " Packet sent (includes %d muxed packet(s)). Protocol %d (TCP). Port %d\n\n",
-                        context->numPktsStoredFromTun,
-                        IPPROTO_TCP,
+                        " Packet sent (includes ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%d",
+                        context->numPktsStoredFromTun);
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        " muxed packet(s)). Protocol ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%d",
+                        IPPROTO_TCP);
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        " (TCP). Port ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%d",
                         ntohs(context->remote.sin_port));
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        "\n\n");
           #endif
         }
         else if(context->tunnelMode == TAP_MODE) {
           #ifdef DEBUG
             do_debug_c( 2,
                         ANSI_COLOR_GREEN,
-                        " Packet sent (includes %d muxed frame(s)). Protocol %d (TCP). Port %d\n\n",
-                        context->numPktsStoredFromTun,
-                        IPPROTO_TCP,
+                        " Packet sent (includes ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%d",
+                        context->numPktsStoredFromTun);
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        " muxed frame(s)). Protocol ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%d",
+                        IPPROTO_TCP);
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        " (TCP). Port ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%d",
                         ntohs(context->remote.sin_port));
+            do_debug_c( 2,
+                        ANSI_COLOR_GREEN,
+                        "\n\n");
           #endif               
         }
         else {
@@ -369,20 +405,56 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
             #ifdef DEBUG
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
-                          " Packet sent (includes %d muxed packet(s)). Protocol %d (TCP). Port %d\n\n",
-                          context->numPktsStoredFromTun,
-                          IPPROTO_TCP, // in TCP mode, I send a TCP packet
+                          " Packet sent (includes ");
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%d",
+                          context->numPktsStoredFromTun);
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          " muxed packet(s)). Protocol ");
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%d",
+                          IPPROTO_TCP);
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          " (TCP). Port ");
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%d",
                           ntohs(context->remote.sin_port));
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          "\n\n");
             #endif
           }
           else if(context->tunnelMode == TAP_MODE) {
             #ifdef DEBUG
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
-                          " Packet sent (includes %d muxed frame(s)). Protocol %d (TCP). Port %d\n\n",
-                          context->numPktsStoredFromTun,
-                          IPPROTO_TCP, // in TCP mode, I send a TCP packet
+                          " Packet sent (includes ");
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%d",
+                          context->numPktsStoredFromTun);
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          " muxed frame(s)). Protocol ");
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%d",
+                          IPPROTO_TCP);
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          " (TCP). Port ");
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%d",
                           ntohs(context->remote.sin_port));
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          "\n\n");
             #endif                 
           }
           else {
