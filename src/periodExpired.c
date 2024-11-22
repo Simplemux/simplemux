@@ -323,125 +323,125 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
         switch (context->mode) {
           case UDP_MODE:
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
                         IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " bytes\n");
 
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " packets to network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " bytes\n");
           break;
 
           case TCP_CLIENT_MODE:
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
                         IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " bytes\n");
  
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " packets to network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " bytes\n");  
           break;
 
           case TCP_SERVER_MODE:
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
                         IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " bytes\n");
  
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " packets to network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " bytes\n");  
           break;
 
           case NETWORK_MODE:
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
                         IPv4_HEADER_SIZE);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " bytes\n");
 
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " packets to network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE);  
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " bytes\n");  
           break;
         }
