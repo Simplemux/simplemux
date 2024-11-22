@@ -71,12 +71,12 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
       if (k == 0)
         // add a tab before the first separator
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " Separator(s): ");
       else
         // add a semicolon before the 2nd and subsequent separators
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     "; ");
         
       do_debug_c( 2,
@@ -85,7 +85,7 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
                   k+1);
 
       do_debug_c( 2,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_CYAN,
                   ": ");
 
       // add the separator
@@ -174,56 +174,56 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
         if(context->tunnelMode == TUN_MODE) {
           #ifdef DEBUG
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         context->numPktsStoredFromTun);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         "  muxed packet(s)). Protocol ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         IPPROTO_UDP);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " (UDP). Port ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         ntohs(context->remote.sin_port));
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         "\n\n");
           #endif
         }
         else if(context->tunnelMode == TAP_MODE) {
           #ifdef DEBUG
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         context->numPktsStoredFromTun);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         "  muxed frame(s)). Protocol ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         IPPROTO_UDP);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " (UDP). Port ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         ntohs(context->remote.sin_port));
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         "\n\n");
           #endif                  
         }
@@ -265,42 +265,42 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
         if(context->tunnelMode == TUN_MODE) {
           #ifdef DEBUG
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         " %d",
                         context->numPktsStoredFromTun);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " muxed packet(s)). Protocol ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         context->ipprotocol);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         "\n\n");
           #endif
         }
         else if(context->tunnelMode == TAP_MODE) {
           #ifdef DEBUG
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         " %d",
                         context->numPktsStoredFromTun);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " muxed frame(s)). Protocol ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         context->ipprotocol);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         "\n\n");
           #endif
         }
@@ -325,56 +325,56 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
         if(context->tunnelMode == TUN_MODE) {
           #ifdef DEBUG
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         context->numPktsStoredFromTun);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " muxed packet(s)). Protocol ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         IPPROTO_TCP);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " (TCP). Port ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         ntohs(context->remote.sin_port));
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         "\n\n");
           #endif
         }
         else if(context->tunnelMode == TAP_MODE) {
           #ifdef DEBUG
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         context->numPktsStoredFromTun);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " muxed frame(s)). Protocol ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         IPPROTO_TCP);
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         " (TCP). Port ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         ntohs(context->remote.sin_port));
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         "\n\n");
           #endif               
         }
@@ -408,56 +408,56 @@ void sendMultiplexedPacket (struct contextSimplemux* context,
           if(context->tunnelMode == TUN_MODE) {
             #ifdef DEBUG
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Packet sent (includes ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%d",
                           context->numPktsStoredFromTun);
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " muxed packet(s)). Protocol ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%d",
                           IPPROTO_TCP);
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " (TCP). Port ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%d",
                           ntohs(context->remote.sin_port));
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           "\n\n");
             #endif
           }
           else if(context->tunnelMode == TAP_MODE) {
             #ifdef DEBUG
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Packet sent (includes ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%d",
                           context->numPktsStoredFromTun);
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " muxed frame(s)). Protocol ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%d",
                           IPPROTO_TCP);
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " (TCP). Port ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%d",
                           ntohs(context->remote.sin_port));
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           "\n\n");
             #endif                 
           }

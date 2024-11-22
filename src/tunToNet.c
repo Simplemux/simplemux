@@ -714,33 +714,33 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
         if (single_protocol) {
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
         }
         else {
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total ");
           do_debug_c( 2,
                       ANSI_COLOR_RESET,
                       "%i",
                       context->numPktsStoredFromTun);
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " bytes\n");
         }                
       }
       else {
         // fast flavor
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " Fast flavor. Added 1 Protocol byte to each separator. Total ");
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->numPktsStoredFromTun);
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " bytes");
       }
       
@@ -749,49 +749,49 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
           switch (context->mode) {
             case UDP_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%i",
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a UDP muxed packet without this one: ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case TCP_CLIENT_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: IPv4 + TCP\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
@@ -799,7 +799,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                           context->mux_if_name);
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
 
               do_debug_c( 1,
@@ -807,97 +807,97 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a TCP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native packet(s) (not this one) plus separator(s), ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket);         
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case TCP_SERVER_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: IPv4 + TCP\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a TCP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native packet(s) (not this one) plus separator(s), ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket);         
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case NETWORK_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%i",
                           IPv4_HEADER_SIZE );
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " an IP muxed packet without this one: ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
           }
@@ -907,18 +907,18 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
           switch (context->mode) {
             case UDP_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%i",
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
 
               do_debug_c( 1,
@@ -927,7 +927,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                           context->mux_if_name);
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
 
               do_debug_c( 1,
@@ -936,107 +936,107 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                           inet_ntoa(context->local.sin_addr));
               
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a UDP muxed packet without this Eth frame: ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case TCP_CLIENT_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: IPv4 + TCP\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));          
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a TCP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native Eth frame(s) (not this one) plus separator(s), ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket);         
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case TCP_SERVER_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: IPv4 + TCP\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a TCP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native Eth frame(s) (not this one) plus separator(s), ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket);         
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case NETWORK_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%i",
                           IPv4_HEADER_SIZE );
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
 
               do_debug_c( 1,
@@ -1045,7 +1045,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                           context->mux_if_name);
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
 
               do_debug_c( 1,
@@ -1054,14 +1054,14 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                           inet_ntoa(context->local.sin_addr));
               
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " an IP muxed packet without this Eth frame: ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
           }
@@ -1771,14 +1771,14 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
       else {
         // fast flavor
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " Fast flavor. Added headers: length (2 bytes) + protocol (1 byte) in each separator. Total "); 
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "%i",
                     3 * context->numPktsStoredFromTun); 
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " bytes\n"); 
       }
 
@@ -1787,166 +1787,167 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
           switch (context->mode) {
             case UDP_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%i",
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a UDP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native one(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case TCP_CLIENT_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN, " Added tunneling header: IPv4 + TCP\n");
+                          ANSI_COLOR_CYAN,
+                          " Added tunneling header: IPv4 + TCP\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a TCP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native one(s) plus separator(s), ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case TCP_SERVER_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: IPv4 + TCP\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a TCP packet containing: ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native one(s) plus separator(s), ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case NETWORK_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%i",
                           IPv4_HEADER_SIZE);
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
 
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));  
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " an IP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native one(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
           }
@@ -1956,151 +1957,151 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
           switch (context->mode) {
             case UDP_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a UDP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native Eth frame(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case TCP_CLIENT_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: IPv4 + TCP\n");
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a TCP packet containing: ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native Eth frame(s) plus separator(s), ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case TCP_SERVER_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: IPv4 + TCP\n");
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));             
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " a TCP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native Eth frame(s) plus separator(s), ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->sizeMuxedPacket);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
 
             case NETWORK_MODE:
               do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE );
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           ", ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " an IP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " native Eth frame(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           " %i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
               do_debug_c( 1,
-                          ANSI_COLOR_GREEN,
+                          ANSI_COLOR_CYAN,
                           " bytes\n");
             break;
           }
