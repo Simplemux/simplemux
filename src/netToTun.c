@@ -1562,7 +1562,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                         packet_length);
             do_debug_c( 1,
                         ANSI_COLOR_GREEN,
-                        " bytes. ");
+                        " bytes.\n");
           #endif
 
           // do nothing, because I have already read the Protocol
