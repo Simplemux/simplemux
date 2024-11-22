@@ -586,81 +586,93 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
       switch (context->mode) {
         case UDP_MODE:
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
-                      "SENDING TRIGGERED: MTU size reached. Predicted size: ");
+                      ANSI_COLOR_CYAN,
+                      "SENDING TRIGGERED: ");
+          do_debug_c( 1,
+                      ANSI_COLOR_CYAN,
+                      "MTU size reached. Predicted size: ");
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "%i",
                       predictedSizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " bytes (over MTU: ");
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "%i",
                       context->sizeMax );
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       ")\n");
         break;
 
         case TCP_CLIENT_MODE:
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
-                      "SENDING TRIGGERED: MTU size reached. Predicted size: ");
+                      ANSI_COLOR_CYAN,
+                      "SENDING TRIGGERED: ");
+          do_debug_c( 1,
+                      ANSI_COLOR_CYAN,
+                      "MTU size reached. Predicted size: ");
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "%i",
                       predictedSizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " bytes (over MTU: ");
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "%i",
                       context->sizeMax );
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       ")\n");
         break;
 
         case TCP_SERVER_MODE:
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
-                      "SENDING TRIGGERED: MTU size reached. Predicted size: ");
+                      ANSI_COLOR_CYAN,
+                      "SENDING TRIGGERED: ");
+          do_debug_c( 1,
+                      ANSI_COLOR_CYAN,
+                      "MTU size reached. Predicted size: ");
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "%i",
                       predictedSizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " bytes (over MTU: ");
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "%i",
                       context->sizeMax );
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       ")\n");
         break;
 
         case NETWORK_MODE:
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
-                      "SENDING TRIGGERED: MTU size reached. Predicted size: ");
+                      ANSI_COLOR_CYAN,
+                      "SENDING TRIGGERED: ");
+          do_debug_c( 1,
+                      ANSI_COLOR_CYAN,
+                      "MTU size reached. Predicted size: ");
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "%i",
                       predictedSizeMuxedPacket + IPv4_HEADER_SIZE);
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " bytes (over MTU: ");
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "%i",
                       context->sizeMax );
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       ")\n");
         break;
       }
@@ -1662,59 +1674,59 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
     if (debug > 0) {
       do_debug( 2, "\n");
       do_debug_c( 1,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_CYAN,
                   "SENDING TRIGGERED: ");
 
       if (context->numPktsStoredFromTun == context->limitNumpackets) {
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     "num packet limit reached: ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->limitNumpackets);
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " packets\n");
       }
       
       if (context->sizeMuxedPacket > context->sizeThreshold) {
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " size threshold reached: ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->sizeMuxedPacket);
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " > ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->sizeThreshold);
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " bytes\n");
       }
       
       if (time_difference > context->timeout) {
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     "timeout reached: ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%"PRIu64"",
                     time_difference);
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " > ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%"PRIu64"",
                     context->timeout);
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_CYAN,
                     " us\n");
       }
 

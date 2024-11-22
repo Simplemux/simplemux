@@ -214,7 +214,7 @@ int readPacketFromNet(struct contextSimplemux* context,
         #ifdef DEBUG
           do_debug_c( 2,
                       ANSI_COLOR_CYAN,
-                      " Read separator: Length ");
+                      "Read Fast separator from the TCP socket: Length ");
           do_debug_c( 2,
                       ANSI_COLOR_RESET,
                       "%i",
@@ -963,22 +963,18 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
             do_debug_c( 2,
                         ANSI_COLOR_BOLD_GREEN,
-                        "  Sending packet of ");
-
+                        " Sending packet of ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
                         length);
-
             do_debug_c( 2,
                         ANSI_COLOR_BOLD_GREEN,
                         " bytes to ");
-
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%s",
                         context->tun_if_name);
-
             do_debug_c( 2,
                         ANSI_COLOR_BOLD_GREEN,
                         "\n");
@@ -1060,14 +1056,18 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             #ifdef DEBUG
               do_debug_c( 2,
                           ANSI_COLOR_YELLOW,
-                          " Sending frame of %i bytes to ",
+                          " Sending frame of ");
+              do_debug_c( 2,
+                          ANSI_COLOR_RESET,
+                          "%i",
                           length);
-
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          " bytes to ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->tun_if_name);
-
               do_debug_c( 2,
                           ANSI_COLOR_YELLOW,
                           "\n");
@@ -1262,24 +1262,45 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         num_demuxed_packets ++;
 
         #ifdef DEBUG
-          if(context->tunnelMode == TUN_MODE) {
+          if((context->mode == UDP_MODE) || (context->mode == NETWORK_MODE) ) {
+
+            if(context->tunnelMode == TUN_MODE) {
+              do_debug_c( 1,
+                          ANSI_COLOR_YELLOW,
+                          " DEMUXED PACKET #");
+            }
+            else {
+              // TAP_MODE
+              do_debug_c( 1,
+                          ANSI_COLOR_YELLOW,
+                          " DEMUXED FRAME #");
+            }
             do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        num_demuxed_packets);
+
+            do_debug_c( 2,
                         ANSI_COLOR_YELLOW,
-                        " DEMUXED PACKET #");
+                        ":");
           }
           else {
-            do_debug_c( 1,
+            // TCP_SERVER_MODE or TCP_CLIENT_MODE
+            if(context->tunnelMode == TUN_MODE) {
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          " PACKET DEMUXED");
+            }
+            else {
+              // TAP_MODE
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          " FRAME DEMUXED");
+            }
+            do_debug_c( 2,
                         ANSI_COLOR_YELLOW,
-                        " DEMUXED FRAME #");
+                        ":"); 
           }
-          do_debug_c( 1,
-                      ANSI_COLOR_RESET,
-                      "%i",
-                      num_demuxed_packets);
-
-          do_debug_c( 2,
-                      ANSI_COLOR_YELLOW,
-                      ":");
         #endif
       }
       else {
@@ -1291,23 +1312,42 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         // I have demuxed another packet
         num_demuxed_packets ++;
         #ifdef DEBUG
-          if(context->tunnelMode == TUN_MODE) {
+          if((context->mode == UDP_MODE) || (context->mode == NETWORK_MODE) ) {
+            if(context->tunnelMode == TUN_MODE) {
+              do_debug_c( 1,
+                          ANSI_COLOR_YELLOW,
+                          " DEMUXED PACKET #");
+            }
+            else {
+              do_debug_c( 1,
+                          ANSI_COLOR_YELLOW,
+                          " DEMUXED FRAME #");
+            }
             do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        num_demuxed_packets);          
+            do_debug_c( 2,
                         ANSI_COLOR_YELLOW,
-                        " DEMUXED PACKET #");
+                        ":");
           }
           else {
-            do_debug_c( 1,
+            // TCP_SERVER_MODE or TCP_CLIENT_MODE
+            if(context->tunnelMode == TUN_MODE) {
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          " PACKET DEMUXED");
+            }
+            else {
+              // TAP_MODE
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          " FRAME DEMUXED");
+            }
+            do_debug_c( 2,
                         ANSI_COLOR_YELLOW,
-                        " DEMUXED FRAME #");
+                        ":"); 
           }
-          do_debug_c( 1,
-                      ANSI_COLOR_RESET,
-                      "%i",
-                      num_demuxed_packets);          
-          do_debug_c( 2,
-                      ANSI_COLOR_YELLOW,
-                      ":");
         #endif
       }
 
@@ -1553,15 +1593,15 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         if ((context->mode == TCP_SERVER_MODE) || (context->mode == TCP_CLIENT_MODE)) {
           // do nothing, because I have already read the length
           #ifdef DEBUG
-            do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+            do_debug_c( 2,
+                        ANSI_COLOR_YELLOW,
                         " Length ");
-            do_debug_c( 1,
+            do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
                         packet_length);
-            do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+            do_debug_c( 2,
+                        ANSI_COLOR_YELLOW,
                         " bytes.\n");
           #endif
 
@@ -1579,14 +1619,14 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
           #ifdef DEBUG
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_YELLOW,
                         " Length ");
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         packet_length);
             do_debug_c( 1,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_YELLOW,
                         " bytes. ");
           #endif
 
@@ -2051,21 +2091,21 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           if(context->tunnelMode == TUN_MODE) {
              // write the demuxed packet to the tun interface
             #ifdef DEBUG
-              do_debug_c( 2,
+              do_debug_c( 1,
                           ANSI_COLOR_YELLOW,
-                          "  Sending packet of ");
-              do_debug_c( 2,
+                          " Sending packet of ");
+              do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           packet_length);
-              do_debug_c( 2,
+              do_debug_c( 1,
                           ANSI_COLOR_YELLOW,
                           " bytes to ");
-              do_debug_c( 2,
+              do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->tun_if_name);
-              do_debug_c( 2,
+              do_debug_c( 1,
                           ANSI_COLOR_YELLOW,
                           "\n");
             #endif
@@ -2086,21 +2126,21 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             else {
                // write the demuxed packet to the tap interface
               #ifdef DEBUG
-                do_debug_c( 2,
+                do_debug_c( 1,
                             ANSI_COLOR_YELLOW,
-                            "  Sending frame of ");
-                do_debug_c( 2,
+                            " Sending frame of ");
+                do_debug_c( 1,
                             ANSI_COLOR_RESET,
                             "%i",
                             packet_length);
-                do_debug_c( 2,
+                do_debug_c( 1,
                             ANSI_COLOR_YELLOW,
                             " bytes to ");
-                do_debug_c( 2,
+                do_debug_c( 1,
                             ANSI_COLOR_RESET,
                             "%s",
                             context->tun_if_name);
-                do_debug_c( 2,
+                do_debug_c( 1,
                             ANSI_COLOR_YELLOW,
                             "\n");
               #endif

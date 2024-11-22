@@ -306,9 +306,16 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
                     "\n");
 
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
-                    "SENDING TRIGGERED (Period expired). Time since last trigger: %" PRIu64 " usec\n",
+                    ANSI_COLOR_CYAN,
+                    "SENDING TRIGGERED (Period expired). Time since last trigger: ",
                     time_difference);
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%"PRIu64"",
+                    time_difference);
+        do_debug_c( 1,
+                    ANSI_COLOR_CYAN,
+                    " usec\n");
 
         do_debug_c( 2,
                     ANSI_COLOR_GREEN,
