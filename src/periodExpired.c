@@ -140,10 +140,6 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
       uint64_t now_microsec = GetTimeStamp();
       uint64_t time_difference = now_microsec - context->timeLastSent; 
       if (debug>0) {
-        do_debug_c( 2,
-                    ANSI_COLOR_RESET,
-                    "\n");
-
         do_debug_c( 1,
                     ANSI_COLOR_CYAN,
                     "SENDING TRIGGERED (Period expired). Time since last trigger: %"PRIu64" us\n",
@@ -301,10 +297,6 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
       uint64_t now_microsec = GetTimeStamp();
       uint64_t time_difference = now_microsec - context->timeLastSent;
       if (debug>0) {
-        do_debug_c( 2,
-                    ANSI_COLOR_RESET,
-                    "\n");
-
         do_debug_c( 1,
                     ANSI_COLOR_CYAN,
                     "SENDING TRIGGERED (Period expired). Time since last trigger: ",
@@ -357,8 +349,7 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
                         sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
             do_debug_c( 1,
                         ANSI_COLOR_GREEN,
-                        " bytes\n");  
-
+                        " bytes\n");
           break;
 
           case TCP_CLIENT_MODE:
@@ -465,6 +456,8 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
   total_length = buildMultiplexedPacket ( context,
                                           single_protocol,
                                           muxed_packet);
+
+  do_debug( 2,"\n");
 
   // send the multiplexed packet
   switch (context->mode) {

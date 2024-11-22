@@ -582,7 +582,6 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
     // if the present packet is muxed, the max size of the packet will be overriden. So I first empty the buffer
     //i.e. I build and send a multiplexed packet not including the current one
     #ifdef DEBUG
-      do_debug(2, "\n");
       switch (context->mode) {
         case UDP_MODE:
           do_debug_c( 1,
@@ -676,6 +675,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
                       ")\n");
         break;
       }
+      do_debug( 2,"\n");
     #endif
 
     // add the length corresponding to the Protocol field
@@ -1302,26 +1302,26 @@ void createSimplemuxSeparatorNormal(struct contextSimplemux* context)
         FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][0], bits);
 
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     " Mux separator of 1 byte (plus Protocol): ");
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "0x%02x",
                     context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     " (");
 
         if (context->firstHeaderWritten == 0) {
           PrintByte(2, 7, bits);      // first header
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       ", SPB field not included)\n");
         }
         else {
           PrintByte(2, 8, bits);      // non-first header
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN, ")\n");
+                      ANSI_COLOR_BRIGHT_BLUE, ")\n");
         }
       }
     #endif
@@ -1391,26 +1391,26 @@ void createSimplemuxSeparatorNormal(struct contextSimplemux* context)
         FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][0], bits);
 
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     " Mux separator of 2 bytes (plus Protocol): ");
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "0x%02x",
                     context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     " (");
         
         if (context->firstHeaderWritten == 0) {
           PrintByte(2, 7, bits);      // first header
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       ", SPB field not included)");
         }
         else {
           PrintByte(2, 8, bits);      // non-first header
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       ")");
         }
 
@@ -1421,12 +1421,12 @@ void createSimplemuxSeparatorNormal(struct contextSimplemux* context)
                     " 0x%02x",
                     context->separatorsToMultiplex[context->numPktsStoredFromTun][1]);
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     " (");
 
         PrintByte(2, 8, bits);
         do_debug_c( 2,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     ")\n");
       }
     #endif
@@ -1573,19 +1573,19 @@ void createSimplemuxSeparatorFast(struct contextSimplemux* context)
       FromByte(context->separatorsToMultiplex[context->numPktsStoredFromTun][0], bits);
 
       do_debug_c( 2,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   " Mux separator of 3 bytes (fast flavor). Length: ");
       do_debug_c( 2,
                   ANSI_COLOR_RESET,
                   "0x%02x",
                   context->separatorsToMultiplex[context->numPktsStoredFromTun][0]);
       do_debug_c( 2,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   " (");
 
       PrintByte(2, 8, bits);
       do_debug_c( 2,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   ")");
 
       // second byte: less significant bits of the length
@@ -1596,31 +1596,31 @@ void createSimplemuxSeparatorFast(struct contextSimplemux* context)
                   " 0x%02x",
                   context->separatorsToMultiplex[context->numPktsStoredFromTun][1]);
       do_debug_c( 2,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   " (");
 
       PrintByte(2, 8, bits);
       do_debug_c( 2,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   ")");
 
       // third byte: protocol
       FromByte(context->protocol[context->numPktsStoredFromTun], bits);
 
       do_debug_c( 2,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   ". Protocol: ");    
       do_debug_c( 2,
                   ANSI_COLOR_RESET,
                   "0x%02x",
                   context->protocol[context->numPktsStoredFromTun]);
       do_debug_c( 2,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   " (");
 
       PrintByte(2, 8, bits);
       do_debug_c( 2,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   ")\n");
     }
   #endif
@@ -1672,7 +1672,6 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
   {
     // write the debug information
     if (debug > 0) {
-      do_debug( 2, "\n");
       do_debug_c( 1,
                   ANSI_COLOR_CYAN,
                   "SENDING TRIGGERED: ");
@@ -1734,37 +1733,37 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
         // normal flavor
         if (single_protocol) {
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte (0x%02x",
                       context->protocol[0]);
 
           if(context->protocol[0] == IPPROTO_IP_ON_IP)
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         ", IP)");
           else if(context->protocol[0] == IPPROTO_ROHC)
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         ", RoHC)");
           else if(context->protocol[0] == IPPROTO_ETHERNET)
             do_debug_c( 2,
-                        ANSI_COLOR_GREEN,
+                        ANSI_COLOR_CYAN,
                         ", Ethernet)");
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " in the first separator\n",
                       context->protocol[0]);
         }
         else {
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total ");
           do_debug_c( 2,
                       ANSI_COLOR_RESET,
                       "%i",
                       context->numPktsStoredFromTun);
           do_debug_c( 2,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_CYAN,
                       " bytes\n");
         }
       }
@@ -2259,12 +2258,12 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       #ifdef DEBUG
         if (context->tunnelMode == TUN_MODE) {
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       " Packet stopped: accumulated ");
         }
         else {
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       " Frame stopped: accumulated ");          
         }
         do_debug_c( 1,
@@ -2273,12 +2272,12 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
                     context->numPktsStoredFromTun);
         if (context->tunnelMode == TUN_MODE) {
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       " pkts: ");
         }
         else {
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       " frames: ");          
         }
         do_debug_c( 1,
@@ -2286,7 +2285,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
                     "%i",
                     context->sizeMuxedPacket);
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     " bytes (Protocol not included).");
       #endif
     }
@@ -2295,12 +2294,12 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       #ifdef DEBUG
         if (context->tunnelMode == TUN_MODE) {
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       " Packet stopped: accumulated ");
         }
         else {
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       " Frame stopped: accumulated ");
         }
         do_debug_c( 1,
@@ -2309,12 +2308,12 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
                     context->numPktsStoredFromTun);
         if (context->tunnelMode == TUN_MODE) {
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       " pkts: ");
         }
         else {
           do_debug_c( 1,
-                      ANSI_COLOR_GREEN,
+                      ANSI_COLOR_BRIGHT_BLUE,
                       " frames: ");          
         }
         do_debug_c( 1,
@@ -2322,7 +2321,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
                     "%i",
                     context->sizeMuxedPacket + context->numPktsStoredFromTun);
         do_debug_c( 1,
-                    ANSI_COLOR_GREEN,
+                    ANSI_COLOR_BRIGHT_BLUE,
                     " bytes (Separator(s) included).");
       #endif
     }
@@ -2333,7 +2332,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
     uint64_t time_difference = now_microsec - context->timeLastSent;
     #ifdef DEBUG
       do_debug_c( 1,
-                  ANSI_COLOR_GREEN,
+                  ANSI_COLOR_BRIGHT_BLUE,
                   " Time since last trigger: %" PRIu64 " usec\n",
                   time_difference);
     #endif
@@ -2346,6 +2345,7 @@ void tunToNetNoBlastFlavor (struct contextSimplemux* context)
       single_protocol = addSizeOfProtocolField(context);
 
       #ifdef DEBUG
+        do_debug( 2,"\n");
         debugInformationAboutTrigger(context, single_protocol, time_difference);
       #endif
 
