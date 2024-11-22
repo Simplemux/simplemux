@@ -282,13 +282,19 @@ void PrintByte( int debug_level,
 
   int i;
   for (i= 7 ; i>= num_bits ; i--) {
-    do_debug(debug_level, "_");
+    do_debug_c( debug_level,
+                ANSI_COLOR_RESET,
+                "_");
   }
   for (i= num_bits -1 ; i>=0; i--) {
     if (b[i]) {
-      do_debug(debug_level, "1");
+      do_debug_c( debug_level,
+                  ANSI_COLOR_RESET,
+                  "1");
     } else {
-      do_debug(debug_level, "0");
+      do_debug_c( debug_level,
+                  ANSI_COLOR_RESET,
+                  "0");
     }
   }
 }

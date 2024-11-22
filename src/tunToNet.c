@@ -452,8 +452,14 @@ void compressPacket(struct contextSimplemux* context, uint16_t size)
       if (debug >= 1 ) {
         do_debug_c( 1,
                     ANSI_COLOR_MAGENTA,
-                    " RoHC-compressed to %i bytes\n",
+                    " RoHC-compressed to ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
                     rohc_packet.len);
+        do_debug_c( 1,
+                    ANSI_COLOR_MAGENTA,
+                    " bytes\n");
       }
       if (debug == 2) {
         //do_debug(2, "   ");

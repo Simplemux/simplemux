@@ -170,19 +170,19 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
           // heartbeats have no ID, so the debug information does not show it
           do_debug_c( 3,
                       ANSI_COLOR_BOLD_GREEN,
-                      "[sendPacketBlastFlavor] Sending to the network a UDP blast heartbeat: %i bytes\n",
+                      "  Sending to the network a UDP blast heartbeat: %i bytes\n",
                       total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);      
         }
         else {
           do_debug_c( 3,
                       ANSI_COLOR_BOLD_GREEN,
-                      "[sendPacketBlastFlavor] Sending to the network a UDP blast packet with ID %i: %i bytes\n",
+                      "  Sending to the network a UDP blast packet with ID %i: %i bytes\n",
                       ntohs(packetToSend->header.identifier),
                       total_length + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);      
         }
         do_debug_c( 3,
                     ANSI_COLOR_BOLD_GREEN,
-                    "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n",
+                    "  Added tunneling header: %i bytes\n",
                     IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
       #endif
 
@@ -258,19 +258,19 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
           // heartbeats have no ID, so the debug information does not show it
           do_debug_c( 3,
                       ANSI_COLOR_BOLD_GREEN,
-                      "[sendPacketBlastFlavor] Sending to the network an IP blast heartbeat: %i bytes\n",
+                      "  Sending to the network an IP blast heartbeat: %i bytes\n",
                       total_length + IPv4_HEADER_SIZE);      
         }
         else {
           do_debug_c( 3,
                       ANSI_COLOR_BOLD_GREEN,
-                      "[sendPacketBlastFlavor] Sending to the network an IP blast packet with ID %i: %i bytes\n",
+                      "  Sending to the network an IP blast packet with ID %i: %i bytes\n",
                       ntohs(packetToSend->header.identifier),
                       total_length + IPv4_HEADER_SIZE );
         }
         do_debug_c( 3,
                     ANSI_COLOR_BOLD_GREEN,
-                    "[sendPacketBlastFlavor]  Added tunneling header: %i bytes\n",
+                    "  Added tunneling header: %i bytes\n",
                     IPv4_HEADER_SIZE );
       #endif
 
@@ -370,7 +370,7 @@ int sendExpiredPackets(struct contextSimplemux* context,
     #ifdef DEBUG
       do_debug_c( 3,
                   ANSI_COLOR_BOLD_GREEN,
-                  "[sendExpiredPackets] Packet %d. Stored timestamp: %"PRIu64" us\n",
+                  "  Packet %d. Stored timestamp: %"PRIu64" us\n",
                   ntohs(current->header.identifier),
                   current->sentTimestamp);
     #endif
@@ -380,7 +380,7 @@ int sendExpiredPackets(struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 3,
                     ANSI_COLOR_BOLD_GREEN,
-                    "[sendExpiredPackets]  Sending packet %d. Updated timestamp: %"PRIu64" us\n",
+                    "   Sending packet %d. Updated timestamp: %"PRIu64" us\n",
                     ntohs(current->header.identifier),
                     now); 
 
@@ -404,7 +404,7 @@ int sendExpiredPackets(struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 3,
                     ANSI_COLOR_BOLD_GREEN,
-                    "[sendExpiredPackets]  Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n",
+                    "   Not sending packet %d. Last sent at timestamp: %"PRIu64" us\n",
                     ntohs(current->header.identifier),
                     current->sentTimestamp);
 
@@ -443,7 +443,7 @@ uint64_t findLastSentTimestamp (struct packet* head_ref)
   #ifdef DEBUG
     do_debug_c( 3,
                 ANSI_COLOR_BOLD_GREEN,
-                "[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n",
+                "  Timestamp of packet %d: %"PRIu64" us\n",
                 current->header.identifier,
                 current->sentTimestamp);
   #endif
@@ -455,7 +455,7 @@ uint64_t findLastSentTimestamp (struct packet* head_ref)
     uint16_t lastSentIdentifier = ntohs(current->header.identifier);
     do_debug_c( 3,
                 ANSI_COLOR_BOLD_GREEN,
-                "[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n",
+                "  Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n",
                 lastSentIdentifier,
                 lastSentTimestamp);
   #endif
@@ -468,7 +468,7 @@ uint64_t findLastSentTimestamp (struct packet* head_ref)
     #ifdef DEBUG
       do_debug_c( 3,
                   ANSI_COLOR_BOLD_GREEN,
-                  "[findLastSentTimestamp] Timestamp of packet %d: %"PRIu64" us\n",
+                  "  Timestamp of packet %d: %"PRIu64" us\n",
                   current->header.identifier,
                   current->sentTimestamp);
     #endif
@@ -485,7 +485,7 @@ uint64_t findLastSentTimestamp (struct packet* head_ref)
     #ifdef DEBUG
       do_debug_c( 3,
                   ANSI_COLOR_BOLD_GREEN,
-                  "[findLastSentTimestamp] Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n",
+                  "  Oldest timestamp so far: packet %d. Timestamp: %"PRIu64" us\n",
                   lastSentIdentifier,
                   lastSentTimestamp);
     #endif
@@ -496,7 +496,7 @@ uint64_t findLastSentTimestamp (struct packet* head_ref)
   #ifdef DEBUG
     do_debug_c( 3,
                 ANSI_COLOR_BOLD_GREEN,
-                "[findLastSentTimestamp] Oldest timestamp: packet %d. Timestamp: %"PRIu64" us\n",
+                "  Oldest timestamp: packet %d. Timestamp: %"PRIu64" us\n",
                 lastSentIdentifier,
                 lastSentTimestamp);
   #endif

@@ -34,7 +34,7 @@ int readPacketFromNet(struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 3,
                     ANSI_COLOR_YELLOW,
-                    "[readPacketFromNet] Read %i bytes from the UDP socket\n",
+                    "  Read %i bytes from the UDP socket\n",
                     *nread_from_net);
       #endif
     }
@@ -66,7 +66,7 @@ int readPacketFromNet(struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 3,
                     ANSI_COLOR_CYAN,
-                    "[readPacketFromNet] Read ");
+                    "  Read ");
         do_debug_c( 3,
                     ANSI_COLOR_RESET,
                     "%i",
@@ -138,7 +138,7 @@ int readPacketFromNet(struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 3,
                     ANSI_COLOR_CYAN,
-                    "[readPacketFromNet] Reading TCP. No pending bytes of the muxed packet. Start reading a new separator\n");
+                    "  Reading TCP. No pending bytes of the muxed packet. Start reading a new separator\n");
       #endif
 
       // read a separator (3 or 4 bytes), or a part of it
@@ -155,7 +155,7 @@ int readPacketFromNet(struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c (3,
                     ANSI_COLOR_CYAN,
-                    "[readPacketFromNet]  ");
+                    "   ");
         do_debug_c (3,
                     ANSI_COLOR_RESET,
                     "%i",
@@ -178,7 +178,7 @@ int readPacketFromNet(struct contextSimplemux* context,
         #ifdef DEBUG
           do_debug_c( 3,
                       ANSI_COLOR_CYAN,
-                      "[readPacketFromNet] (part of the separator. Still %i bytes missing)\n",
+                      "  (part of the separator. Still %i bytes missing)\n",
                       context->sizeSeparatorFastMode - context->readTcpSeparatorBytes - *nread_from_net);
         #endif
 
@@ -269,7 +269,7 @@ int readPacketFromNet(struct contextSimplemux* context,
         #ifdef DEBUG
           do_debug_c( 3,
                       ANSI_COLOR_CYAN,
-                      "[readPacketFromNet]  ");
+                      "   ");
           do_debug_c( 3,
                       ANSI_COLOR_RESET,
                       "%i",
@@ -339,7 +339,7 @@ int readPacketFromNet(struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 3,
                     ANSI_COLOR_CYAN,
-                    "[readPacketFromNet] Reading TCP. %i TCP bytes pending of the previous payload\n",
+                    "  Reading TCP. %i TCP bytes pending of the previous payload\n",
                     context->pendingBytesMuxedPacket);
       #endif
 
@@ -356,7 +356,7 @@ int readPacketFromNet(struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 3,
                     ANSI_COLOR_CYAN,
-                    "[readPacketFromNet]  %i bytes read from the TCP socket ",
+                    "   %i bytes read from the TCP socket ",
                     *nread_from_net);
       #endif
 
@@ -368,7 +368,7 @@ int readPacketFromNet(struct contextSimplemux* context,
         #ifdef DEBUG
           do_debug_c( 3,
                       ANSI_COLOR_RED,
-                      "[readPacketFromNet] (I have read 0 bytes)\n");
+                      "  (I have read 0 bytes)\n");
         #endif
         is_multiplexed_packet = -1;
       }
@@ -377,7 +377,7 @@ int readPacketFromNet(struct contextSimplemux* context,
         #ifdef DEBUG
           do_debug_c( 3,
                       ANSI_COLOR_CYAN,
-                      "[readPacketFromNet] (I have not yet read the whole muxed packet: pending ");
+                      "  (I have not yet read the whole muxed packet: pending ");
           do_debug_c( 3,
                       ANSI_COLOR_RESET,
                       "%i",
@@ -399,7 +399,7 @@ int readPacketFromNet(struct contextSimplemux* context,
         #ifdef DEBUG
           do_debug_c( 3,
                       ANSI_COLOR_CYAN,
-                      "[readPacketFromNet]  I have read all the pending bytes (");
+                      "   I have read all the pending bytes (");
           do_debug_c( 3,
                       ANSI_COLOR_RESET,
                       "%i",
@@ -1256,19 +1256,30 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             LXT_first_byte = 1;
           
           maximum_packet_length = 128;
-        }             
+        }
+
         // I have demuxed another packet
         num_demuxed_packets ++;
 
         #ifdef DEBUG
+          if(context->tunnelMode == TUN_MODE) {
+            do_debug_c( 1,
+                        ANSI_COLOR_YELLOW,
+                        " DEMUXED PACKET #");
+          }
+          else {
+            do_debug_c( 1,
+                        ANSI_COLOR_YELLOW,
+                        " DEMUXED FRAME #");
+          }
           do_debug_c( 1,
-                      ANSI_COLOR_YELLOW,
-                      " DEMUXED PACKET #%i",
+                      ANSI_COLOR_RESET,
+                      "%i",
                       num_demuxed_packets);
 
           do_debug_c( 2,
                       ANSI_COLOR_YELLOW,
-                      ": ");
+                      ":");
         #endif
       }
       else {
@@ -1280,11 +1291,20 @@ int demuxPacketFromNet( struct contextSimplemux* context,
         // I have demuxed another packet
         num_demuxed_packets ++;
         #ifdef DEBUG
+          if(context->tunnelMode == TUN_MODE) {
+            do_debug_c( 1,
+                        ANSI_COLOR_YELLOW,
+                        " DEMUXED PACKET #");
+          }
+          else {
+            do_debug_c( 1,
+                        ANSI_COLOR_YELLOW,
+                        " DEMUXED FRAME #");
+          }
           do_debug_c( 1,
-                      ANSI_COLOR_YELLOW,
-                      " DEMUXED PACKET #%i",
-                      num_demuxed_packets);
-
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      num_demuxed_packets);          
           do_debug_c( 2,
                       ANSI_COLOR_YELLOW,
                       ":");
@@ -1306,19 +1326,20 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           #ifdef DEBUG
             if (debug>0) {
               do_debug_c( 2,
-                          ANSI_COLOR_RESET,
-                          " buffer from net: %d\n",
-                          buffer_from_net[position]);
-
+                          ANSI_COLOR_GREEN,
+                          "  Mux separator of 1 byte: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
-                          " Mux separator of 1 byte: 0x%02x (",
+                          "0x%02x",
                           buffer_from_net[position]);
+              do_debug_c( 2,
+                          ANSI_COLOR_GREEN,
+                          " (");
 
               bool bits[8];   // used for printing the bits of a byte in debug mode
               FromByte(buffer_from_net[position], bits);
               PrintByte(2, 8, bits);
-              do_debug_c(2, ANSI_COLOR_RESET, ")");
+              do_debug_c(2, ANSI_COLOR_GREEN, ")");
             }
           #endif
           position ++;
@@ -1374,7 +1395,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               FromByte(buffer_from_net[position], bits);
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
-                          " Mux separator of 2 bytes: ");
+                          "  Mux separator of 2 bytes: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "0x%02x",
@@ -1428,7 +1449,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
               FromByte(buffer_from_net[position], bits);
               do_debug_c( 2,
                           ANSI_COLOR_GREEN,
-                          " Mux separator of 2 bytes: ");
+                          "  Mux separator of 2 bytes: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "0x%02x ",
@@ -1541,7 +1562,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                         packet_length);
             do_debug_c( 1,
                         ANSI_COLOR_GREEN,
-                        " bytes\n");
+                        " bytes. ");
           #endif
 
           // do nothing, because I have already read the Protocol
@@ -1566,7 +1587,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                         packet_length);
             do_debug_c( 1,
                         ANSI_COLOR_GREEN,
-                        " bytes\n");
+                        " bytes. ");
           #endif
 
           // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
