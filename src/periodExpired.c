@@ -72,7 +72,7 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
     #ifdef DEBUG
       do_debug_c( 1,
                   ANSI_COLOR_BOLD_YELLOW,
-                  " Sent blast heartbeat to the network");
+                  "BLAST HEARTBEAT Sent to the network");
 
       do_debug_c( 3,
                   ANSI_COLOR_BOLD_YELLOW,
@@ -91,7 +91,7 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
     #ifdef DEBUG
       do_debug_c( 3,
                   ANSI_COLOR_BOLD_YELLOW,
-                  " Not sending blast heartbeat to the network (%"PRIu64" < %"PRIu64")\n",
+                  "Not sending blast heartbeat to the network (%"PRIu64" < %"PRIu64")\n",
                   now_microsec - context->lastBlastHeartBeatSent,
                   HEARTBEATPERIOD);
     #endif

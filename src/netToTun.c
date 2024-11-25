@@ -482,44 +482,35 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                   ANSI_COLOR_YELLOW,
                   "SIMPLEMUX PACKET #%"PRIu32" from ",
                   context->net2tun);
-
       do_debug_c( 1,
                   ANSI_COLOR_RESET,
                   "%s",
                   context->mux_if_name);
-
       do_debug_c( 1,
                   ANSI_COLOR_YELLOW,
                   ": UDP muxed packet from ",
                   context->net2tun);
-
       do_debug_c( 1,
                   ANSI_COLOR_RESET,
                   "%s",
                   inet_ntoa(context->remote.sin_addr));
-
       do_debug_c( 1,
                   ANSI_COLOR_YELLOW,
                   ":");
-
       do_debug_c( 1,
                   ANSI_COLOR_RESET,
                   "%d",
                   ntohs(context->remote.sin_port));
-
       do_debug_c( 1,
                   ANSI_COLOR_YELLOW,
                   ",");
-
       do_debug_c( 1,
                   ANSI_COLOR_RESET,
                   " %i",
                   nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
-
       do_debug_c( 1,
                   ANSI_COLOR_YELLOW,
-                  " bytes\n",
-                  nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
+                  " bytes\n");
       #endif
 
       #ifdef LOGFILE
@@ -806,82 +797,137 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
     // check if this is an ACK or not
     if((blastHeader->ACK & MASK ) == THISISANACK) {
-
-      #ifdef DEBUG
-        do_debug_c( 1,
-                    ANSI_COLOR_BOLD_GREEN,
-                    " Arrived blast ACK packet ID ");
-
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%i\n",
-                    ntohs(blastHeader->identifier));
-
-        // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
-        do_debug_c( 2,
-                    ANSI_COLOR_BOLD_GREEN,
-                    " Removing packet with ID ");
-
-        do_debug_c( 2,
-                    ANSI_COLOR_RESET,
-                    "%i",
-                    ntohs(blastHeader->identifier));
-
-        do_debug_c( 2,
-                    ANSI_COLOR_BOLD_GREEN,
-                    " from the list\n");
-
-        if(debug>2)
-          printList(&context->unconfirmedPacketsBlast);
-      #endif
-
-      if(delete(&context->unconfirmedPacketsBlast,ntohs(blastHeader->identifier))==false) {
+      if(length!=0) {
+        perror("Problem with the length of the received blast packet\n");
         #ifdef DEBUG
-          do_debug_c( 2,
-                      ANSI_COLOR_BOLD_GREEN,
-                      "The packet had already been removed from the list\n");
+          do_debug_c( 1,
+                      ANSI_COLOR_RED,
+                      "Received wrong blast ACK: Its length is %i, but it MUST be %i\n",
+                      length + BLAST_HEADER_SIZE,
+                      BLAST_HEADER_SIZE);
         #endif
       }
       else {
         #ifdef DEBUG
-          do_debug_c( 2,
+          do_debug_c( 1,
                       ANSI_COLOR_BOLD_GREEN,
-                      " Packet with ID ");
-
-          do_debug_c( 2,
+                      " It is a blast ACK for packet ID ");
+          do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "%i",
                       ntohs(blastHeader->identifier));
-
-          do_debug_c( 2,
+          do_debug_c( 1,
                       ANSI_COLOR_BOLD_GREEN,
-                      " removed from the list\n");
+                      ". Blast header size: ");
+          do_debug_c( 1,
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      BLAST_HEADER_SIZE);
+          do_debug_c( 1,
+                      ANSI_COLOR_BOLD_GREEN,
+                      " bytes\n");
+
+          // an ACK has arrived. The corresponding packet can be removed from the list of pending packets
+          do_debug_c( 3,
+                      ANSI_COLOR_BOLD_GREEN,
+                      " Removing packet with ID ");
+          do_debug_c( 3,
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      ntohs(blastHeader->identifier));
+          do_debug_c( 3,
+                      ANSI_COLOR_BOLD_GREEN,
+                      " from the list\n");
+
+          if(debug>2)
+            printList(&context->unconfirmedPacketsBlast);
         #endif
+
+        if(delete(&context->unconfirmedPacketsBlast,ntohs(blastHeader->identifier))==false) {
+          #ifdef DEBUG
+            do_debug_c( 2,
+                        ANSI_COLOR_BOLD_GREEN,
+                        "The packet had already been removed from the list\n");
+          #endif
+        }
+        else {
+          #ifdef DEBUG
+            do_debug_c( 2,
+                        ANSI_COLOR_BOLD_GREEN,
+                        " Packet with ID ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        ntohs(blastHeader->identifier));
+            do_debug_c( 2,
+                        ANSI_COLOR_BOLD_GREEN,
+                        " removed from the list\n");
+          #endif
+        }
       }
     }
     else if((blastHeader->ACK & MASK ) == ACKNEEDED) {
       #ifdef DEBUG
         do_debug_c( 1,
-                    ANSI_COLOR_BOLD_GREEN,
-                    " Arrived blast packet ID ");
-
+                    ANSI_COLOR_YELLOW,
+                    " It is a blast packet with ID ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     ntohs(blastHeader->identifier));
-
-        do_debug_c( 1,
-                    ANSI_COLOR_BOLD_GREEN,
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
                     ", Length ");
-
-        do_debug_c( 1,
+        do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "%i",
                     length);
-
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    " plus blast (");
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    "%i",
+                    BLAST_HEADER_SIZE);
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    ") and tunneling (");
+        if (context->mode==UDP_MODE) {
+          do_debug_c( 2,
+                      ANSI_COLOR_YELLOW,
+                      "%i",
+                      UDP_HEADER_SIZE + IPv4_HEADER_SIZE);
+        }
+        else {
+          #ifdef ASSERT
+            assert (context->mode==NETWORK_MODE);
+          #endif
+          do_debug_c( 2,
+                      ANSI_COLOR_YELLOW,
+                      "%i",
+                      IPv4_HEADER_SIZE);            
+        }
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    ") headers, total ");
+        if (context->mode==UDP_MODE) {
+          do_debug_c( 2,
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      nread_from_net + UDP_HEADER_SIZE + IPv4_HEADER_SIZE);
+        }
+        else {
+          do_debug_c( 2,
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      nread_from_net + IPv4_HEADER_SIZE);
+        }
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    " bytes");
         do_debug_c( 1,
-                    ANSI_COLOR_BOLD_GREEN,
-                    " bytes\n");
+                    ANSI_COLOR_YELLOW,
+                    "\n");
       #endif
 
       // if this packet has arrived for the first time, deliver it to the destination
@@ -899,12 +945,12 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           // do not send it again
           #ifdef DEBUG
             do_debug_c( 1,
-                        ANSI_COLOR_BOLD_GREEN,
+                        ANSI_COLOR_YELLOW,
                         "The packet with ID %i has been sent recently. Do not send it again\n",
                         ntohs(blastHeader->identifier));
 
             do_debug_c( 2,
-                        ANSI_COLOR_BOLD_GREEN,
+                        ANSI_COLOR_YELLOW,
                         "now (%"PRIu64") - blastTimestamps[%i] (%"PRIu64") < %"PRIu64"\n",
                         now,
                         ntohs(blastHeader->identifier),
@@ -923,13 +969,13 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           if(context->tunnelMode == TUN_MODE) {
             // tun mode
             do_debug_c( 2,
-                        ANSI_COLOR_BOLD_GREEN,
+                        ANSI_COLOR_YELLOW,
                         " DEMUXED PACKET with ID ");            
           }
           else {
             // tap mode
             do_debug_c( 2,
-                        ANSI_COLOR_BOLD_GREEN,
+                        ANSI_COLOR_YELLOW,
                         " DEMUXED FRAME with ID ");              
           }
 
@@ -940,14 +986,14 @@ int demuxPacketFromNet( struct contextSimplemux* context,
 
           if(debug>1) {
             do_debug_c( 2,
-                        ANSI_COLOR_BOLD_GREEN,
+                        ANSI_COLOR_YELLOW,
                         ":\n");
 
             dump_packet (length, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);                    
           }
           else {
             do_debug_c( 2,
-                        ANSI_COLOR_BOLD_GREEN,
+                        ANSI_COLOR_YELLOW,
                         "\n");
           }
         #endif
@@ -957,26 +1003,26 @@ int demuxPacketFromNet( struct contextSimplemux* context,
            // write the demuxed packet to the tun interface
           #ifdef DEBUG
             do_debug_c( 3,
-                        ANSI_COLOR_BOLD_GREEN,
+                        ANSI_COLOR_RESET,
                         " %"PRIu64"",
                         now);
 
             do_debug_c( 2,
-                        ANSI_COLOR_BOLD_GREEN,
+                        ANSI_COLOR_YELLOW,
                         " Sending packet of ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
                         length);
             do_debug_c( 2,
-                        ANSI_COLOR_BOLD_GREEN,
+                        ANSI_COLOR_YELLOW,
                         " bytes to ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%s",
                         context->tun_if_name);
             do_debug_c( 2,
-                        ANSI_COLOR_BOLD_GREEN,
+                        ANSI_COLOR_YELLOW,
                         "\n");
           #endif
 
@@ -988,38 +1034,25 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           }
           else {
             #ifdef DEBUG
-              do_debug_c( 1,
-                          ANSI_COLOR_BOLD_GREEN,
-                          "  Packet with ID ");
+              do_debug_c( 3,
+                          ANSI_COLOR_YELLOW,
+                          "%"PRIu64"",
+                          now);
 
-              do_debug_c( 1,
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
+                          "  Packet with ID ");
+              do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%i",
                           ntohs(blastHeader->identifier));
-
-              do_debug_c( 1,
-                          ANSI_COLOR_BOLD_GREEN,
+              do_debug_c( 2,
+                          ANSI_COLOR_YELLOW,
                           " sent to ");
-
-              do_debug_c( 1,
+              do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%s\n",
                           context->tun_if_name);
-
-              do_debug_c( 3,
-                          ANSI_COLOR_YELLOW,
-                          " %"PRIu64" Packet correctly sent to ",
-                          now);
-
-              do_debug_c( 3,
-                          ANSI_COLOR_RESET,
-                          "%s",
-                          context->tun_if_name);
-
-              do_debug_c( 3,
-                          ANSI_COLOR_YELLOW,
-                          "\n",
-                          now);
             #endif
 
             #ifdef LOGFILE
@@ -1078,30 +1111,26 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             }
             else {
               #ifdef DEBUG
-                do_debug_c( 1,
-                            ANSI_COLOR_YELLOW,
-                            " Frame with ID %i sent to ",
-                            ntohs(blastHeader->identifier));
+                do_debug_c( 3,
+                            ANSI_COLOR_RESET,
+                            " %"PRIu64"",
+                            now);
 
-                do_debug_c( 1,
+                do_debug_c( 2,
+                            ANSI_COLOR_YELLOW,
+                            " Frame with ID ");
+                do_debug_c( 2,
+                            ANSI_COLOR_RESET,
+                            "%i",
+                            ntohs(blastHeader->identifier));
+                do_debug_c( 2,
+                            ANSI_COLOR_YELLOW,
+                            " sent to ");
+                do_debug_c( 2,
                             ANSI_COLOR_RESET,
                             "%s",
                             context->tun_if_name);
-
-                do_debug_c( 1,
-                            ANSI_COLOR_YELLOW,
-                            "\n");
-
-                do_debug_c( 3,
-                            ANSI_COLOR_YELLOW,
-                            " %"PRIu64" Frame correctly sent to ",
-                            now);
-
-                do_debug_c( 3,
-                            ANSI_COLOR_RESET,
-                            "%s");
-
-                do_debug_c( 3,
+                do_debug_c( 2,
                             ANSI_COLOR_YELLOW,
                             "\n");
               #endif
@@ -1139,8 +1168,8 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       // this packet requires an ACK
       #ifdef DEBUG
         do_debug_c( 2,
-                    ANSI_COLOR_BOLD_YELLOW,
-                    " Sending a blast ACK\n");
+                    ANSI_COLOR_BOLD_GREEN,
+                    "Sending a blast ACK\n");
       #endif
 
       // send the ACK as soon as the packet arrives
@@ -1156,38 +1185,79 @@ int demuxPacketFromNet( struct contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 1,
                     ANSI_COLOR_BOLD_GREEN,
-                    "  Sent blast ACK to the network. ID ");
-
+                    " Sent blast ACK to the network. ID ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     ntohs(ACK.header.identifier));
-
         do_debug_c( 1,
                     ANSI_COLOR_BOLD_GREEN,
-                    ", Length ");
-
+                    ", length ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
-                    ntohs(ACK.header.packetSize));
-
+                    BLAST_HEADER_SIZE);
         do_debug_c( 1,
                     ANSI_COLOR_BOLD_GREEN,
-                    " bytes\n");
+                    " (Blast header) plus ");
+        if (context->mode==UDP_MODE) {
+          do_debug_c( 1,
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      UDP_HEADER_SIZE + IPv4_HEADER_SIZE);
+        }
+        else {
+          #ifdef ASSERT
+            assert (context->mode==NETWORK_MODE);
+          #endif
+          do_debug_c( 1,
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      IPv4_HEADER_SIZE);
+        }
+        do_debug_c( 1,
+                    ANSI_COLOR_BOLD_GREEN,
+                    " (tunneling header) bytes\n");
       #endif
 
       // no need to add log here because 'sendPacketBlastFlavor()' already does it
     }
     else if((blastHeader->ACK & MASK ) == HEARTBEAT) {
-      #ifdef DEBUG
-        do_debug_c( 1,
-                    ANSI_COLOR_BOLD_YELLOW,
-                    " Arrived blast heartbeat\n");
-      #endif
+      // heartbeat received
 
-      uint64_t now = GetTimeStamp();
-      context->lastBlastHeartBeatReceived = now;
+      if(length != 0) {
+        perror("Problem with the length of the received blast heartbeat\n");
+        #ifdef DEBUG
+          do_debug_c( 1,
+                      ANSI_COLOR_RED,
+                      "Received wrong blast heartbeat: Its length isLength is %i, but it MUST be %i\n",
+                      length + BLAST_HEADER_SIZE,
+                      BLAST_HEADER_SIZE);
+        #endif
+      }
+      else {
+        #ifdef DEBUG
+          do_debug_c( 1,
+                      ANSI_COLOR_BOLD_YELLOW,
+                      " It is a blast heartbeat");
+          do_debug_c( 2,
+                      ANSI_COLOR_BOLD_YELLOW,
+                      ". Blast header size ");
+          do_debug_c( 2,
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      BLAST_HEADER_SIZE);
+          do_debug_c( 2,
+                      ANSI_COLOR_BOLD_YELLOW,
+                      " bytes");
+          do_debug_c( 1,
+                      ANSI_COLOR_BOLD_YELLOW,
+                      "\n");
+        #endif
+
+        uint64_t now = GetTimeStamp();
+        context->lastBlastHeartBeatReceived = now;
+      }
     }
     else {
       perror("Unknown blast packet type\n");
