@@ -95,7 +95,9 @@ Different [multiplexing policies](/documentation/multiplexing_policies.md) can b
 
 ### Summary
 
-The next table details the options that are available for each flavor.
+Simplemux has 3 _flavors_, 2 _tunnel modes_, 3 _modes_ (Network, UDP and TCP), and it can be used with or without RoCH compression. Therefore, it has 3x2x3x2 (36) options, in addition to the 4 multiplexing policies. However, not all the combinations have been implemented or make sense.
+
+The next table details the options that are available:
 ```
              +-----------------------+-------+-------------------------------+
              |         Mode          |       |                               |
@@ -114,9 +116,10 @@ The next table details the options that are available for each flavor.
 | Blast  +---+-------+-------+-------+-------+        Always 1 packet *      |
 |        |tap|   X   |   X   |       |       |                               |
 +--------+---+-------+-------+-------+-------+-------------------------------+
-
-* In blast flavor, the packet is sent immediately. The period defines the interval used to send copies of the packet.
 ```
+
+* In _blast_ flavor, the packet is sent immediately. The period defines the interval used to send copies of the packet.
+
 
 ## Limitations
 
