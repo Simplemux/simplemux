@@ -886,7 +886,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                     ANSI_COLOR_YELLOW,
                     " plus blast (");
         do_debug_c( 2,
-                    ANSI_COLOR_YELLOW,
+                    ANSI_COLOR_RESET,
                     "%i",
                     BLAST_HEADER_SIZE);
         do_debug_c( 2,
@@ -894,7 +894,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                     ") and tunneling (");
         if (context->mode==UDP_MODE) {
           do_debug_c( 2,
-                      ANSI_COLOR_YELLOW,
+                      ANSI_COLOR_RESET,
                       "%i",
                       UDP_HEADER_SIZE + IPv4_HEADER_SIZE);
         }
@@ -903,7 +903,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
             assert (context->mode==NETWORK_MODE);
           #endif
           do_debug_c( 2,
-                      ANSI_COLOR_YELLOW,
+                      ANSI_COLOR_RESET,
                       "%i",
                       IPv4_HEADER_SIZE);            
         }
