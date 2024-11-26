@@ -1,5 +1,4 @@
 #include "rohc.c"
-//#include <linux/if_tun.h>     // for using tun/tap interfaces
 
 // set the initial values of some context variables
 void initContext(struct contextSimplemux* context)

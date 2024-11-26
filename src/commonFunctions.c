@@ -1,12 +1,12 @@
 #include "commonFunctions.h"
 
-// global variable
+// global variable (defined as 'extern' in the .h file)
 int debug;            // 0:no debug
                       // 1:minimum debug level
                       // 2:medimum debug level
                       // 3:maximum debug level
 
-// variables related to ROHC compression
+// global variables related to ROHC compression (defined as 'extern' in the .h file)
 struct rohc_comp *compressor;         // the ROHC compressor
 uint8_t ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
 struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);  

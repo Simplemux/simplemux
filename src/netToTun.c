@@ -1,5 +1,3 @@
-//#include "commonFunctions.h"
-//#include "packetsToSend.c"
 #include "buildMuxedPacket.c"
 
 /* Reads a multiplexed packet from the network
@@ -676,39 +674,31 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                     ANSI_COLOR_YELLOW,
                     "SIMPLEMUX PACKET #%"PRIu32" from ",
                     context->net2tun);
-
         do_debug_c( 1,
                   ANSI_COLOR_RESET,
                   "%s",
                   context->mux_if_name);
-
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
                     ": IP muxed packet arrived to ");
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%s",
                     inet_ntoa(context->remote.sin_addr));
-
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
                     ", protocol ");        
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%d",
                     context->ipprotocol);
-
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
                     ": ");
-
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     nread_from_net + IPv4_HEADER_SIZE );
-
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
                     " bytes\n");

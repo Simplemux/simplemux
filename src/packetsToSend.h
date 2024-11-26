@@ -1,12 +1,6 @@
 // taken from https://www.tutorialspoint.com/data_structures_algorithms/linked_list_program_in_c.htm
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>  // required for using uint8_t, uint16_t, etc.
 #include "commonFunctions.c"
-//#include "buildMuxedPacket.c"
 
 #define MASK 0x03
 #define HEARTBEAT 0x02
