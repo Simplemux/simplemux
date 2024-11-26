@@ -21,13 +21,13 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
       #ifdef DEBUG
         if(context->lastBlastHeartBeatReceived == 0) {
           do_debug_c( 3,
-                      ANSI_COLOR_BLUE,
-                      " Period expired. But nothing is sent because no heartbeat has been received yet\n");
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      "Period expired. But nothing is sent because no heartbeat has been received yet\n");
         }
         else {
           do_debug_c( 3,
-                      ANSI_COLOR_BLUE,
-                      " Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n",
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      "Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n",
                       now_microsec - context->lastBlastHeartBeatReceived);
         }
       #endif
@@ -41,17 +41,27 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
 
       if (n > 0) {
         #ifdef DEBUG
+          if (context->tunnelMode == TUN_MODE) {
           do_debug_c( 1,
-                      ANSI_COLOR_BLUE,
-                      " Period expired: Sent %d blast packets (copies) at the end of the period\n",
-                      n);
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      "Period expired: Sent %d blast packet(s) (with copies of the stored packet(s))\n",
+                      n);            
+          }
+          else {
+            do_debug_c( 1,
+                        ANSI_COLOR_BRIGHT_BLUE,
+                        "Period expired: Sent %d blast packet(s) (with copies of the stored frame(s))\n",
+                        n);            
+          }
+
+          do_debug(2,"\n");
         #endif           
       }
       else {
         #ifdef DEBUG
           do_debug_c( 3,
-                      ANSI_COLOR_BLUE,
-                      " Period expired: Nothing to send\n");
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      "Period expired: Nothing to send\n");
         #endif         
       }        
     }            
@@ -81,6 +91,7 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
                   HEARTBEATPERIOD);
 
       do_debug(1, "\n");
+      do_debug(2, "\n");
     #endif
 
     context->lastBlastHeartBeatSent = now_microsec;          

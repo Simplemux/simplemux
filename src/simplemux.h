@@ -1,6 +1,7 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include <string.h>
+//#include <stdbool.h>            // for using the bool type
 #include <unistd.h>           // for using getopt()
 #include <net/if.h>
 #include <linux/if_tun.h>     // for using tun/tap interfaces
@@ -16,7 +17,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <inttypes.h>           // for printing uint_64 numbers
-#include <stdbool.h>            // for using the bool type
+
 #include <rohc/rohc.h>          // for using header compression
 #include <rohc/rohc_comp.h>
 #include <rohc/rohc_decomp.h>
@@ -26,13 +27,5 @@
 #include <poll.h>
 
 #include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
-//#include "packetsToSend.c"      // FIXME: Why not .h ¿?
-//#include "buildMuxedPacket.c"   // FIXME: Why not .h ¿?
-//#include "commonFunctions.c"
-//#include "netToTun.c"
-//#include "tunToNet.c"
-//#include "periodExpired.c"
-//#include "help.c"
-//#include "socketRequest.c"
-//#include "rohc.c"
+
 #include "init.c"

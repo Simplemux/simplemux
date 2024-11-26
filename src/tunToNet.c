@@ -294,6 +294,10 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 
       if(debug > 1)
         dump_packet ( ntohs(thisPacket->header.packetSize), thisPacket->tunneledPacket );
+
+      do_debug_c( 2,
+                  ANSI_COLOR_RESET,
+                  "\n");
     #endif            
   }
 }
