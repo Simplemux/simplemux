@@ -1,4 +1,4 @@
-#include "socketRequest.c"
+#include "rohc.h"
 
 static int gen_random_num(const struct rohc_comp *const comp,
                           void *const user_context)
@@ -78,7 +78,7 @@ static bool rtp_detect( const uint8_t *const ip __attribute__((unused)),
 }
 
 
-int initRohc( struct contextSimplemux* context )
+int initRohc(contextSimplemux* context)
 {
   if ( context->rohcMode > 0 ) {
 
@@ -106,8 +106,8 @@ int initRohc( struct contextSimplemux* context )
     
     /* Create a RoHC compressor with Large CIDs and the largest MAX_CID
      * possible for large CIDs */
-    compressor = rohc_comp_new2(ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, gen_random_num, NULL);
-    if(compressor == NULL) {
+    context->compressor = rohc_comp_new2(ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, gen_random_num, NULL);
+    if(context->compressor == NULL) {
       fprintf(stderr, "failed to create the RoHC compressor\n");
       /*fprintf(stderr, "an error occurred during program execution, "
       "abort program\n");
@@ -124,7 +124,7 @@ int initRohc( struct contextSimplemux* context )
     // Set the callback function to be used for detecting RTP.
     // RTP is not detected automatically. So you have to create a callback function "rtp_detect" where you specify the conditions.
     // In our case we will consider as RTP the UDP packets belonging to certain ports
-    if(!rohc_comp_set_rtp_detection_cb(compressor, rtp_detect, NULL)) {
+    if(!rohc_comp_set_rtp_detection_cb(context->compressor, rtp_detect, NULL)) {
       fprintf(stderr, "failed to set RTP detection callback\n");
       /*fprintf(stderr, "an error occurred during program execution, "
       "abort program\n");
@@ -135,13 +135,13 @@ int initRohc( struct contextSimplemux* context )
     }
 
     // set the function that will manage the RoHC compressing traces (it will be 'print_rohc_traces')
-    if(!rohc_comp_set_traces_cb2(compressor, print_rohc_traces, NULL)) {
+    if(!rohc_comp_set_traces_cb2(context->compressor, print_rohc_traces, NULL)) {
       fprintf(stderr, "failed to set the callback for traces on compressor\n");
       goto release_compressor;
     }
 
     /* Enable the RoHC compression profiles */
-    if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_UNCOMPRESSED)) {
+    if(!rohc_comp_enable_profile(context->compressor, ROHC_PROFILE_UNCOMPRESSED)) {
       fprintf(stderr, "failed to enable the Uncompressed compression profile\n");
       goto release_compressor;
     }
@@ -151,7 +151,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_IP)) {
+    if(!rohc_comp_enable_profile(context->compressor, ROHC_PROFILE_IP)) {
       fprintf(stderr, "failed to enable the IP-only compression profile\n");
       goto release_compressor;
     }
@@ -161,7 +161,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    if(!rohc_comp_enable_profiles(compressor, ROHC_PROFILE_UDP, ROHC_PROFILE_UDPLITE, -1)) {
+    if(!rohc_comp_enable_profiles(context->compressor, ROHC_PROFILE_UDP, ROHC_PROFILE_UDPLITE, -1)) {
       fprintf(stderr, "failed to enable the IP/UDP and IP/UDP-Lite compression profiles\n");
       goto release_compressor;
     }
@@ -171,7 +171,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_RTP)) {
+    if(!rohc_comp_enable_profile(context->compressor, ROHC_PROFILE_RTP)) {
       fprintf(stderr, "failed to enable the RTP compression profile\n");
       goto release_compressor;
     }
@@ -181,7 +181,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_ESP)) {
+    if(!rohc_comp_enable_profile(context->compressor, ROHC_PROFILE_ESP)) {
       fprintf(stderr, "failed to enable the ESP compression profile\n");
       goto release_compressor;
     }
@@ -191,7 +191,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_TCP)) {
+    if(!rohc_comp_enable_profile(context->compressor, ROHC_PROFILE_TCP)) {
       fprintf(stderr, "failed to enable the TCP compression profile\n");
       goto release_compressor;
     }
@@ -211,16 +211,16 @@ int initRohc( struct contextSimplemux* context )
     *  - ROHC_O_MODE: Bidirectional Optimistic mode (O-mode)
     *  - ROHC_U_MODE: Unidirectional mode (U-mode).    */
     if ( context->rohcMode == 1 ) {
-      decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_U_MODE);  // Unidirectional mode
+      context->decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_U_MODE);  // Unidirectional mode
     }
     else if ( context->rohcMode == 2 ) {
-      decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_O_MODE);  // Bidirectional Optimistic mode
+      context->decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_O_MODE);  // Bidirectional Optimistic mode
     }
     /*else if ( context->rohcMode == 3 ) {
-      decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);  // Bidirectional Reliable mode (not implemented yet)
+      context->decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);  // Bidirectional Reliable mode (not implemented yet)
     }*/
 
-    if(decompressor == NULL)
+    if(context->decompressor == NULL)
     {
       fprintf(stderr, "failed create the RoHC decompressor\n");
       goto release_decompressor;
@@ -231,13 +231,13 @@ int initRohc( struct contextSimplemux* context )
     #endif
 
     // set the function that will manage the RoHC decompressing traces (it will be 'print_rohc_traces')
-    if(!rohc_decomp_set_traces_cb2(decompressor, print_rohc_traces, NULL)) {
+    if(!rohc_decomp_set_traces_cb2(context->decompressor, print_rohc_traces, NULL)) {
       fprintf(stderr, "failed to set the callback for traces on decompressor\n");
       goto release_decompressor;
     }
 
     // enable rohc decompression profiles
-    status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UNCOMPRESSED, -1);
+    status = rohc_decomp_enable_profiles(context->decompressor, ROHC_PROFILE_UNCOMPRESSED, -1);
     if(!status)  {
       fprintf(stderr, "failed to enable the Uncompressed decompression profile\n");
       goto release_decompressor;
@@ -248,7 +248,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_IP, -1);
+    status = rohc_decomp_enable_profiles(context->decompressor, ROHC_PROFILE_IP, -1);
     if(!status)  {
       fprintf(stderr, "failed to enable the IP-only decompression profile\n");
       goto release_decompressor;
@@ -259,7 +259,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDP, -1);
+    status = rohc_decomp_enable_profiles(context->decompressor, ROHC_PROFILE_UDP, -1);
     if(!status)  {
       fprintf(stderr, "failed to enable the IP/UDP decompression profile\n");
       goto release_decompressor;
@@ -270,7 +270,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_UDPLITE, -1);
+    status = rohc_decomp_enable_profiles(context->decompressor, ROHC_PROFILE_UDPLITE, -1);
     if(!status)
     {
       fprintf(stderr, "failed to enable the IP/UDP-Lite decompression profile\n");
@@ -282,7 +282,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_RTP, -1);
+    status = rohc_decomp_enable_profiles(context->decompressor, ROHC_PROFILE_RTP, -1);
     if(!status)  {
       fprintf(stderr, "failed to enable the RTP decompression profile\n");
       goto release_decompressor;
@@ -293,7 +293,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_ESP,-1);
+    status = rohc_decomp_enable_profiles(context->decompressor, ROHC_PROFILE_ESP,-1);
     if(!status)  {
     fprintf(stderr, "failed to enable the ESP decompression profile\n");
       goto release_decompressor;
@@ -304,7 +304,7 @@ int initRohc( struct contextSimplemux* context )
       #endif
     }
 
-    status = rohc_decomp_enable_profiles(decompressor, ROHC_PROFILE_TCP, -1);
+    status = rohc_decomp_enable_profiles(context->decompressor, ROHC_PROFILE_TCP, -1);
     if(!status) {
       fprintf(stderr, "failed to enable the TCP decompression profile\n");
       goto release_decompressor;
@@ -324,11 +324,11 @@ int initRohc( struct contextSimplemux* context )
 
   /******* labels ************/
   release_compressor:
-    rohc_comp_free(compressor);
+    rohc_comp_free(context->compressor);
     return -1;
 
   release_decompressor:
-    rohc_decomp_free(decompressor);
+    rohc_decomp_free(context->decompressor);
     return -1;
   
   error:

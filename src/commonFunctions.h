@@ -1,9 +1,38 @@
+// header guard: avoids problems if this file is included twice
+#ifndef COMMONFUNCTIONS_H
+#define COMMONFUNCTIONS_H
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>  // required for using uint8_t, uint16_t, etc.
 #include <netinet/ip.h>       // for using iphdr type
+#include <unistd.h>           // for using getopt()
+#include <net/if.h>
+#include <linux/if_tun.h>     // for using tun/tap interfaces
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <arpa/inet.h> 
+#include <sys/select.h>
+#include <time.h>
+#include <sys/time.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <inttypes.h>           // for printing uint_64 numbers
+#include <ifaddrs.h>            // required for using getifaddrs()
+#include <netdb.h>              // required for using getifaddrs()
+#include <poll.h>
+
+#include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
+
+#include <rohc/rohc.h>          // for using header compression
+#include <rohc/rohc_comp.h>
+#include <rohc/rohc_decomp.h>
+
 
 // If you comment the next lines, the program will be a bit faster
 #define DEBUG 1   // if you comment this line, debug info is not allowed
@@ -87,7 +116,7 @@
 
 // this struct includes all the variables used in different places of the code
 // it is passed to the different functions
-struct contextSimplemux {
+typedef struct {
   char mode;        // Network ('N') or UDP ('U') or TCP server ('S') or TCP client ('T')
   char tunnelMode;  // TUN ('U', default) or TAP ('T')
   char flavor;      // Normal ('N', default), Fast ('F'), Blast ('B')
@@ -182,7 +211,32 @@ struct contextSimplemux {
   uint16_t pendingBytesMuxedPacket;   // number of bytes that still have to be read (TCP, fast flavor)
   uint16_t readTcpBytes;              // number of bytes of the content that have been read (TCP, fast flavor)
   uint8_t readTcpSeparatorBytes;      // number of bytes of the fast separator that have been read (TCP, fast flavor)
-};
+
+  /*
+  // rohc related variables
+  struct rohc_comp *compressor;         // the ROHC compressor
+  uint8_t ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
+  struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);  
+  uint8_t rohc_buffer[BUFSIZE];         // the buffer that will contain the resulting ROHC packet
+  struct rohc_buf rohc_packet = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
+  unsigned int seed;
+  rohc_status_t status;
+  struct rohc_decomp *decompressor;     // the ROHC decompressor
+  uint8_t ip_buffer_d[BUFSIZE];         // the buffer that will contain the resulting IP decompressed packet
+  struct rohc_buf ip_packet_d = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
+  uint8_t rohc_buffer_d[BUFSIZE];       // the buffer that will contain the ROHC packet to decompress
+  struct rohc_buf rohc_packet_d = rohc_buf_init_empty(rohc_buffer_d, BUFSIZE);
+
+  // structures to handle ROHC feedback
+  uint8_t rcvd_feedback_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet received
+  struct rohc_buf rcvd_feedback = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFSIZE);
+
+  uint8_t feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet to be sent
+  struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
+  */
+} contextSimplemux;
+
+
 
 #ifdef DEBUG
   void do_debug(int level, char *msg, ...);
@@ -223,11 +277,12 @@ void dump_packet (int packet_size, uint8_t packet[BUFSIZE]);
 
 int date_and_time(char buffer[25]);
 
-// global variable
+// global variable. It is defined in 'commonFunctions.c' and shared here
 extern int debug;     // 0:no debug
                       // 1:minimum debug level
                       // 2:medimum debug level
                       // 3:maximum debug level
+
 
 // global variables related to ROHC compression
 extern struct rohc_comp *compressor;         // the ROHC compressor
@@ -249,3 +304,5 @@ extern struct rohc_buf rcvd_feedback;// = rohc_buf_init_empty(rcvd_feedback_buff
 
 extern uint8_t feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet to be sent
 extern struct rohc_buf feedback_send;// = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
+
+#endif // COMMONFUNCTIONS_H

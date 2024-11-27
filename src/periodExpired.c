@@ -1,6 +1,6 @@
-#include "tunToNet.c"
+#include "periodExpired.h"
 
-void periodExpiredblastFlavor (struct contextSimplemux* context)
+void periodExpiredblastFlavor (contextSimplemux* context)
 {
   // blast flavor
   #ifdef ASSERT
@@ -110,7 +110,7 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
 }
 
 
-void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
+void periodExpiredNoblastFlavor (contextSimplemux* context)
 {
   // normal or fast flavor
   #ifdef ASSERT

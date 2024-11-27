@@ -1,7 +1,7 @@
-#include "help.c"
+#include "socketRequest.h"
 
 /*** Request a socket for writing and receiving muxed packets ***/
-int socketRequest(struct contextSimplemux* context, const int on)
+int socketRequest(contextSimplemux* context, const int on)
 {
   if ( context->mode== NETWORK_MODE ) {
     memset (&(context->iface), 0, sizeof (context->iface));
@@ -300,7 +300,7 @@ int socketRequest(struct contextSimplemux* context, const int on)
 
 
 /*** Request a socket for feedback packets ***/
-int feedbackSocketRequest(struct contextSimplemux* context)
+int feedbackSocketRequest(contextSimplemux* context)
 {
   // AF_INET (exactly the same as PF_INET)
   // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
