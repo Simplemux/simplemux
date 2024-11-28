@@ -35,8 +35,8 @@ Set the value of the compiler options in `commonFunctions.h`. You can define the
 #define ASSERT 1  // if you comment this line, assertions are not allowed
 ```
 
-And now, you can compile Simplemux:
+And now, you can compile and build Simplemux:
 ```
 $ cd simplemux/src
-$ gcc -o simplemux -g -Wall $(pkg-config rohc --cflags) simplemux.c $(pkg-config rohc --libs )
+$ gcc -o simplemux -g -Wall $(pkg-config rohc --cflags)  buildMuxedPacket.c packetsToSend.c netToTun.c tunToNet.c periodExpired.c help.c socketRequest.c init.c simplemux.c commonfunctions.c $(pkg-config rohc --libs )
 ```
