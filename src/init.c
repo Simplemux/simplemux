@@ -33,28 +33,6 @@ void initContext(contextSimplemux* context)
   context->pendingBytesMuxedPacket = 0;
   context->readTcpBytes = 0;
   context->readTcpSeparatorBytes = 0;
-
-  /*
-  context->rohc_comp *compressor;         // the ROHC compressor
-  context->ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
-  context->rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);  
-  context->rohc_buffer[BUFSIZE];         // the buffer that will contain the resulting ROHC packet
-  struct rohc_buf rohc_packet = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
-  unsigned int seed;
-  rohc_status_t status;
-  struct rohc_decomp *decompressor;     // the ROHC decompressor
-  uint8_t ip_buffer_d[BUFSIZE];         // the buffer that will contain the resulting IP decompressed packet
-  struct rohc_buf ip_packet_d = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
-  uint8_t rohc_buffer_d[BUFSIZE];       // the buffer that will contain the ROHC packet to decompress
-  struct rohc_buf rohc_packet_d = rohc_buf_init_empty(rohc_buffer_d, BUFSIZE);
-
-  // structures to handle ROHC feedback
-  uint8_t rcvd_feedback_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet received
-  struct rohc_buf rcvd_feedback = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFSIZE);
-
-  uint8_t feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet to be sent
-  struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
-  */
 }
 
 

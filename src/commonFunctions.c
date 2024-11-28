@@ -8,9 +8,10 @@ int debug;            // 0:no debug
 
 
 // global variables related to ROHC compression (defined as 'extern' in the .h file)
+// FIXME: Make them part of the context
 struct rohc_comp *compressor;         // the ROHC compressor
 uint8_t ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
-struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);  
+struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);  // FIXME: I don't know if 'rohc_buf_init_empty()' really works
 uint8_t rohc_buffer[BUFSIZE];         // the buffer that will contain the resulting ROHC packet
 struct rohc_buf rohc_packet = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
 unsigned int seed;
@@ -27,6 +28,7 @@ struct rohc_buf rcvd_feedback = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFS
 
 uint8_t feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet to be sent
 struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
+
 
 
 #ifdef DEBUG

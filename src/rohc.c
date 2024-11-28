@@ -85,25 +85,27 @@ static bool rtp_detect( const uint8_t *const ip __attribute__((unused)),
 
 int initRohc(contextSimplemux* context)
 {
-  if ( context->rohcMode > 0 ) {
 
-    // present some debug info
-    #ifdef DEBUG
-      switch(context->rohcMode) {
-        case 0:
-          do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC not activated\n", debug);
-          break;
-        case 1:
-          do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC Unidirectional Mode\n", debug);
-          break;
-        case 2:
-          do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC Bidirectional Optimistic Mode\n", debug);
-          break;
-        /*case 3:
-          do_debug (1, "RoHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
-          break;*/
-    }
-    #endif
+  // present some debug info
+  #ifdef DEBUG
+    switch(context->rohcMode) {
+      case 0:
+        do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC not activated\n", debug);
+        break;
+      case 1:
+        do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC Unidirectional Mode\n", debug);
+        break;
+      case 2:
+        do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC Bidirectional Optimistic Mode\n", debug);
+        break;
+      /*case 3:
+        do_debug (1, "RoHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
+        break;*/
+  }
+  #endif
+
+
+  if ( context->rohcMode > 0 ) {
 
     /* initialize the random generator */
     seed = time(NULL);
