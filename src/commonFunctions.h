@@ -1,3 +1,8 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <stdint.h>  // required for using uint8_t, uint16_t, etc.
 #include <netinet/ip.h>       // for using iphdr type
 
 // If you comment the next lines, the program will be a bit faster
@@ -14,6 +19,7 @@
 #define UDP_HEADER_SIZE 8
 //#define TCP_HEADER_SIZE 20
 #define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long
+#define BLAST_HEADER_SIZE 6     // fixme: we could use sizeof(simplemuxBlastHeader) instead
 
 #define TIME_UNTIL_SENDING_AGAIN_BLAST 5000000 // milliseconds before sending again a packet with the same ID
                                                 // there are 65536 possible values of the ID
@@ -71,9 +77,10 @@
 #define ANSI_COLOR_BOLD_RED     "\x1b[1;31m"
 #define ANSI_COLOR_GREEN        "\x1b[32m"
 #define ANSI_COLOR_BOLD_GREEN   "\x1b[1;32m"
-#define ANSI_COLOR_YELLOW       "\x1b[33m"
-#define ANSI_COLOR_BOLD_YELLOW  "\x1b[01;33m"
+#define ANSI_COLOR_BOLD_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_YELLOW       "\x1b[01;33m"
 #define ANSI_COLOR_BLUE         "\x1b[34m"
+#define ANSI_COLOR_BRIGHT_BLUE  "\x1b[94m"
 #define ANSI_COLOR_MAGENTA      "\x1b[35m"
 #define ANSI_COLOR_CYAN         "\x1b[36m"
 
@@ -136,6 +143,7 @@ struct contextSimplemux {
   uint32_t tun2net;           // number of packets read from tun
   uint32_t net2tun;           // number of packets read from net
   uint32_t feedback_pkts;     // number of ROHC feedback packets
+  uint16_t blastIdentifier;   // Identifier field of the blast header
 
   char remote_ip[16];       // dotted quad IP string with the IP of the remote machine
   char local_ip[16];        // dotted quad IP string with the IP of the local machine
@@ -178,6 +186,7 @@ struct contextSimplemux {
 
 #ifdef DEBUG
   void do_debug(int level, char *msg, ...);
+  void do_debug_c(int level, char* color, char *msg, ...);
 #endif
 
 unsigned short in_cksum(unsigned short *addr, int len);
@@ -213,3 +222,30 @@ void PrintByte(int debug_level, int num_bits, bool b[8]);
 void dump_packet (int packet_size, uint8_t packet[BUFSIZE]);
 
 int date_and_time(char buffer[25]);
+
+// global variable
+extern int debug;     // 0:no debug
+                      // 1:minimum debug level
+                      // 2:medimum debug level
+                      // 3:maximum debug level
+
+// global variables related to ROHC compression
+extern struct rohc_comp *compressor;         // the ROHC compressor
+extern uint8_t ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
+extern struct rohc_buf ip_packet;// = rohc_buf_init_empty(ip_buffer, BUFSIZE);  
+extern uint8_t rohc_buffer[BUFSIZE];         // the buffer that will contain the resulting ROHC packet
+extern struct rohc_buf rohc_packet;// = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
+extern unsigned int seed;
+extern rohc_status_t status;
+extern struct rohc_decomp *decompressor;     // the ROHC decompressor
+extern uint8_t ip_buffer_d[BUFSIZE];         // the buffer that will contain the resulting IP decompressed packet
+extern struct rohc_buf ip_packet_d;// = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
+extern uint8_t rohc_buffer_d[BUFSIZE];       // the buffer that will contain the ROHC packet to decompress
+extern struct rohc_buf rohc_packet_d;// = rohc_buf_init_empty(rohc_buffer_d, BUFSIZE);
+
+// structures to handle ROHC feedback
+extern uint8_t rcvd_feedback_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet received
+extern struct rohc_buf rcvd_feedback;// = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFSIZE);
+
+extern uint8_t feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet to be sent
+extern struct rohc_buf feedback_send;// = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);

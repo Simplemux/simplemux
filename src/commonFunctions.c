@@ -1,12 +1,12 @@
 #include "commonFunctions.h"
 
-// global variable
+// global variable (defined as 'extern' in the .h file)
 int debug;            // 0:no debug
                       // 1:minimum debug level
                       // 2:medimum debug level
                       // 3:maximum debug level
 
-// variables related to ROHC compression
+// global variables related to ROHC compression (defined as 'extern' in the .h file)
 struct rohc_comp *compressor;         // the ROHC compressor
 uint8_t ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
 struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);  
@@ -133,7 +133,11 @@ void BuildIPHeader( struct iphdr *iph,
 
 
 // Buid a Full IP Packet
-void BuildFullIPPacket(struct iphdr iph, uint8_t *data_packet, uint16_t len_data, uint8_t *full_ip_packet) {
+void BuildFullIPPacket( struct iphdr iph,
+                        uint8_t *data_packet,
+                        uint16_t len_data,
+                        uint8_t *full_ip_packet)
+{
   memset(full_ip_packet, 0, BUFSIZE);
   memcpy((struct iphdr*)full_ip_packet, &iph, sizeof(struct iphdr));
   memcpy((struct iphdr*)(full_ip_packet + sizeof(struct iphdr)), data_packet, len_data);
@@ -141,12 +145,16 @@ void BuildFullIPPacket(struct iphdr iph, uint8_t *data_packet, uint16_t len_data
 
 
 // Get the IP header from an IP packet
-void GetIpHeader(struct iphdr *iph, uint8_t *ip_packet) {  
+void GetIpHeader( struct iphdr *iph,
+                  uint8_t *ip_packet)
+{  
   memcpy(iph,(struct iphdr*)ip_packet,sizeof(struct iphdr));
 }
 
 // Set the IP header in an IP Packet
-void SetIpHeader(struct iphdr iph, uint8_t *ip_packet) {
+void SetIpHeader( struct iphdr iph,
+                  uint8_t *ip_packet)
+{
   memcpy((struct iphdr*)ip_packet,&iph,sizeof(struct iphdr));
 }
 
@@ -265,19 +273,28 @@ void FromByte(uint8_t c, bool b[8]) {
 /**************************************************************************
  * PrintByte: prints the bits of a byte                                   *
  **************************************************************************/
-void PrintByte(int debug_level, int num_bits, bool b[8]) {
+void PrintByte( int debug_level,
+                int num_bits,
+                bool b[8])
+{
   // num_bits is the number of bits to print
   // if 'num_bits' is smaller than 7, the function prints an '_' instead of the value
 
   int i;
   for (i= 7 ; i>= num_bits ; i--) {
-    do_debug(debug_level, "_");
+    do_debug_c( debug_level,
+                ANSI_COLOR_RESET,
+                "_");
   }
   for (i= num_bits -1 ; i>=0; i--) {
     if (b[i]) {
-      do_debug(debug_level, "1");
+      do_debug_c( debug_level,
+                  ANSI_COLOR_RESET,
+                  "1");
     } else {
-      do_debug(debug_level, "0");
+      do_debug_c( debug_level,
+                  ANSI_COLOR_RESET,
+                  "0");
     }
   }
 }
@@ -288,7 +305,9 @@ void PrintByte(int debug_level, int num_bits, bool b[8]) {
 /**************************************************************************
 ************ dump a packet ************************************************
 **************************************************************************/
-void dump_packet (int packet_size, uint8_t packet[BUFSIZE]) {
+void dump_packet (int packet_size,
+                  uint8_t packet[BUFSIZE])
+{
   int j;
 
   do_debug(2,"   ");

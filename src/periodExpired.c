@@ -20,11 +20,15 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
       //so it seems there are problems at the other side
       #ifdef DEBUG
         if(context->lastBlastHeartBeatReceived == 0) {
-          do_debug_c(3, ANSI_COLOR_BLUE, " Period expired. But nothing is sent because no heartbeat has been received yet\n");
+          do_debug_c( 3,
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      "Period expired. But nothing is sent because no heartbeat has been received yet\n");
         }
         else {
-          do_debug_c(3, ANSI_COLOR_BLUE, " Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n",
-            now_microsec - context->lastBlastHeartBeatReceived);
+          do_debug_c( 3,
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      "Period expired. But nothing is sent because the last heartbeat was received %"PRIu64" us ago\n",
+                      now_microsec - context->lastBlastHeartBeatReceived);
         }
       #endif
     }
@@ -37,12 +41,27 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
 
       if (n > 0) {
         #ifdef DEBUG
-          do_debug_c(1, ANSI_COLOR_BLUE, " Period expired: Sent %d blast packets (copies) at the end of the period\n", n);
+          if (context->tunnelMode == TUN_MODE) {
+          do_debug_c( 1,
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      "Period expired: Sent %d blast packet(s) (with copies of the stored packet(s))\n",
+                      n);            
+          }
+          else {
+            do_debug_c( 1,
+                        ANSI_COLOR_BRIGHT_BLUE,
+                        "Period expired: Sent %d blast packet(s) (with copies of the stored frame(s))\n",
+                        n);            
+          }
+
+          do_debug(2,"\n");
         #endif           
       }
       else {
         #ifdef DEBUG
-          do_debug_c(3, ANSI_COLOR_BLUE, " Period expired: Nothing to send\n");
+          do_debug_c( 3,
+                      ANSI_COLOR_BRIGHT_BLUE,
+                      "Period expired: Nothing to send\n");
         #endif         
       }        
     }            
@@ -61,18 +80,31 @@ void periodExpiredblastFlavor (struct contextSimplemux* context)
     sendPacketBlastFlavor(context, &heartBeat);
 
     #ifdef DEBUG
-      do_debug_c(1, ANSI_COLOR_BOLD_YELLOW, " Sent blast heartbeat to the network");
-      do_debug_c(3, ANSI_COLOR_BOLD_YELLOW, " (%"PRIu64" > %"PRIu64")", now_microsec - context->lastBlastHeartBeatSent, HEARTBEATPERIOD);
+      do_debug_c( 1,
+                  ANSI_COLOR_BOLD_YELLOW,
+                  "BLAST HEARTBEAT Sent to the network");
+
+      do_debug_c( 3,
+                  ANSI_COLOR_BOLD_YELLOW,
+                  " (%"PRIu64" > %"PRIu64")",
+                  now_microsec - context->lastBlastHeartBeatSent,
+                  HEARTBEATPERIOD);
+
       do_debug(1, "\n");
+      do_debug(2, "\n");
     #endif
+
     context->lastBlastHeartBeatSent = now_microsec;          
   }
   else {
     // heartbeat period not expired. Do nothing
 
     #ifdef DEBUG
-      do_debug_c(3, ANSI_COLOR_BOLD_YELLOW, " Not sending blast heartbeat to the network (%"PRIu64" < %"PRIu64")\n",
-        now_microsec - context->lastBlastHeartBeatSent, HEARTBEATPERIOD);
+      do_debug_c( 3,
+                  ANSI_COLOR_BOLD_YELLOW,
+                  "Not sending blast heartbeat to the network (%"PRIu64" < %"PRIu64")\n",
+                  now_microsec - context->lastBlastHeartBeatSent,
+                  HEARTBEATPERIOD);
     #endif
   }
 }
@@ -103,11 +135,15 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
     // Add the Single Protocol Bit in the first header (the most significant bit)
     // It is 1 if all the multiplexed packets belong to the same protocol
     if (single_protocol == 1) {
-      context->separatorsToMultiplex[0][0] = context->separatorsToMultiplex[0][0] + 0x80;  // this puts a '1' in the most significant bit position
-      context->sizeMuxedPacket = context->sizeMuxedPacket + 1;                // one byte corresponding to the 'protocol' field of the first header
+       // this puts a '1' in the most significant bit position
+      context->separatorsToMultiplex[0][0] = context->separatorsToMultiplex[0][0] + 0x80;
+
+      // one byte corresponding to the 'protocol' field of the first header
+      context->sizeMuxedPacket = context->sizeMuxedPacket + 1;
     }
     else {
-      context->sizeMuxedPacket = context->sizeMuxedPacket + context->numPktsStoredFromTun;    // one byte per packet, corresponding to the 'protocol' field
+      // one byte per packet, corresponding to the 'protocol' field
+      context->sizeMuxedPacket = context->sizeMuxedPacket + context->numPktsStoredFromTun;
     }
 
     #ifdef DEBUG
@@ -115,33 +151,145 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
       uint64_t now_microsec = GetTimeStamp();
       uint64_t time_difference = now_microsec - context->timeLastSent; 
       if (debug>0) {
-        do_debug(2, "\n");
-        do_debug_c(1, ANSI_COLOR_GREEN, "SENDING TRIGGERED (Period expired). Time since last trigger: %"PRIu64" us\n",time_difference);
+        do_debug_c( 1,
+                    ANSI_COLOR_CYAN,
+                    "SENDING TRIGGERED (Period expired). Time since last trigger: %"PRIu64" us\n",
+                    time_difference);
+
         if (single_protocol) {
-          do_debug_c(2, ANSI_COLOR_GREEN, " Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+          do_debug_c( 2,
+                      ANSI_COLOR_CYAN,
+                      " Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
         }
         else {
-          do_debug_c(2, ANSI_COLOR_GREEN, " Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",
-            context->numPktsStoredFromTun);
+          do_debug_c( 2,
+                      ANSI_COLOR_CYAN,
+                      " Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",
+                      context->numPktsStoredFromTun);
         }
         switch (context->mode) {
           case UDP_MODE:
-            do_debug_c(2, ANSI_COLOR_RESET, " Added tunneling header: %i bytes\n",
-              IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-            do_debug_c(1, ANSI_COLOR_GREEN, " Writing %i packets to network: %i bytes\n",
-              context->numPktsStoredFromTun, context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Added tunneling header: ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");
+
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " Writing ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->numPktsStoredFromTun);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " packets to network: ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");  
           break;
+
           case TCP_CLIENT_MODE:
-            do_debug_c(2, ANSI_COLOR_RESET, " Added tunneling header: %i bytes\n",
-              IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-            do_debug_c(1, ANSI_COLOR_GREEN, " Writing %i packets to network: %i bytes\n",
-              context->numPktsStoredFromTun, context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Added tunneling header: ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");
+
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " Writing ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->numPktsStoredFromTun);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " packets to network: ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");   
           break;
+
+          case TCP_SERVER_MODE:
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Added tunneling header: ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");
+
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " Writing ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->numPktsStoredFromTun);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " packets to network: ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");   
+          break;
+
           case NETWORK_MODE:
-            do_debug_c(2, ANSI_COLOR_RESET, " Added tunneling header: %i bytes\n",
-              IPv4_HEADER_SIZE );
-            do_debug_c(1, ANSI_COLOR_GREEN, " Writing %i packets to network: %i bytes\n",
-              context->numPktsStoredFromTun, context->sizeMuxedPacket + IPv4_HEADER_SIZE );
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Added tunneling header: ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        IPv4_HEADER_SIZE);
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");
+
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " Writing ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->numPktsStoredFromTun);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " packets to network: ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->sizeMuxedPacket + IPv4_HEADER_SIZE);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n"); 
           break;
         }
       }
@@ -160,32 +308,152 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
       uint64_t now_microsec = GetTimeStamp();
       uint64_t time_difference = now_microsec - context->timeLastSent;
       if (debug>0) {
-        do_debug(2, "\n");
-        do_debug_c(1, ANSI_COLOR_GREEN, "SENDING TRIGGERED (Period expired). Time since last trigger: %" PRIu64 " usec\n",
-          time_difference);
-        do_debug_c(2, ANSI_COLOR_GREEN, " Fast flavor: Added 1 Protocol byte in each separator. Total %i bytes\n",
-          context->numPktsStoredFromTun);
+        do_debug_c( 1,
+                    ANSI_COLOR_CYAN,
+                    "SENDING TRIGGERED (Period expired). Time since last trigger: ",
+                    time_difference);
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%"PRIu64"",
+                    time_difference);
+        do_debug_c( 1,
+                    ANSI_COLOR_CYAN,
+                    " usec\n");
+
+        do_debug_c( 2,
+                    ANSI_COLOR_CYAN,
+                    " Fast flavor: Added 1 Protocol byte in each separator. Total ");
+        do_debug_c( 2,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    context->numPktsStoredFromTun);
+        do_debug_c( 2,
+                    ANSI_COLOR_CYAN,
+                    " bytes\n");
 
         switch (context->mode) {
           case UDP_MODE:
-            do_debug_c(2, ANSI_COLOR_RESET, " Added tunneling header: %i bytes\n",
-              IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
-            do_debug_c(1, ANSI_COLOR_GREEN, " Writing %i packets to network: %i bytes\n",
-              context->numPktsStoredFromTun,
-              sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Added tunneling header: ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");
+
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " Writing ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->numPktsStoredFromTun);
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " packets to network: ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");
           break;
+
           case TCP_CLIENT_MODE:
-            do_debug_c(2, ANSI_COLOR_RESET, " Added tunneling header: %i bytes\n",
-              IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
-            do_debug_c(1, ANSI_COLOR_GREEN, " Writing %i packets to network: %i bytes\n",
-              context->numPktsStoredFromTun,
-              sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Added tunneling header: ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");
+ 
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " Writing ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->numPktsStoredFromTun);
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " packets to network: ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");  
           break;
+
+          case TCP_SERVER_MODE:
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Added tunneling header: ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        IPv4_HEADER_SIZE + TCP_HEADER_SIZE);
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");
+ 
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " Writing ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->numPktsStoredFromTun);
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " packets to network: ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");  
+          break;
+
           case NETWORK_MODE:
-            do_debug_c(2, ANSI_COLOR_RESET, " Added tunneling header: %i bytes\n", IPv4_HEADER_SIZE );
-            do_debug_c(1, ANSI_COLOR_GREEN, " Writing %i packets to network: %i bytes\n",
-              context->numPktsStoredFromTun,
-              sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE );
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Added tunneling header: ");
+            do_debug_c( 2,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        IPv4_HEADER_SIZE);
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");
+
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " Writing ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        context->numPktsStoredFromTun);
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " packets to network: ");  
+            do_debug_c( 1,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        sizeof(uint8_t) * context->numPktsStoredFromTun + context->sizeMuxedPacket + IPv4_HEADER_SIZE);  
+            do_debug_c( 1,
+                        ANSI_COLOR_CYAN,
+                        " bytes\n");  
           break;
         }
       }
@@ -200,17 +468,26 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
                                           single_protocol,
                                           muxed_packet);
 
+  do_debug( 2,"\n");
+
   // send the multiplexed packet
   switch (context->mode) {
     
     case NETWORK_MODE: ;
       // build the header
       struct iphdr ipheader;
-      BuildIPHeader(&ipheader, total_length, context->ipprotocol, context->local, context->remote);
+      BuildIPHeader(&ipheader,
+                    total_length,
+                    context->ipprotocol,
+                    context->local,
+                    context->remote);
 
       // build the full IP multiplexed packet
       uint8_t full_ip_packet[BUFSIZE];
-      BuildFullIPPacket(ipheader, muxed_packet, total_length, full_ip_packet);
+      BuildFullIPPacket(ipheader,
+                        muxed_packet,
+                        total_length,
+                        full_ip_packet);
 
       // send the packet
       if (sendto (context->network_mode_fd,
@@ -222,29 +499,45 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
         perror ("sendto() failed ");
         exit (EXIT_FAILURE);
       }
+
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
-          GetTimeStamp(),
-          context->sizeMuxedPacket + IPv4_HEADER_SIZE, context->tun2net,
-          inet_ntoa(context->remote.sin_addr), context->numPktsStoredFromTun);  
+        fprintf ( context->log_file,
+                  //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tperiod\n",
+                  GetTimeStamp(),
+                  context->sizeMuxedPacket + IPv4_HEADER_SIZE,
+                  context->tun2net,
+                  inet_ntoa(context->remote.sin_addr),
+                  0,  // there is no period in network mode
+                  context->numPktsStoredFromTun);  
       }
     break;
     
     case UDP_MODE:
       // send the packet. I don't need to build the header, because I have a UDP socket  
-      if (sendto(context->udp_mode_fd, muxed_packet, total_length, 0, (struct sockaddr *)&(context->remote), sizeof(context->remote))==-1) {
+      if (sendto( context->udp_mode_fd,
+                  muxed_packet,
+                  total_length,
+                  0,
+                  (struct sockaddr *)&(context->remote),
+                  sizeof(context->remote))==-1)
+      {
         perror("sendto()");
         exit (EXIT_FAILURE);
       }
+
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
-          GetTimeStamp(),
-          context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
-          context->tun2net,
-          inet_ntoa(context->remote.sin_addr),
-          context->numPktsStoredFromTun);  
+        fprintf ( context->log_file,
+                  //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tperiod\n",
+                  GetTimeStamp(),
+                  context->sizeMuxedPacket + IPv4_HEADER_SIZE + UDP_HEADER_SIZE,
+                  context->tun2net,
+                  inet_ntoa(context->remote.sin_addr),
+                  ntohs(context->remote.sin_port),
+                  context->numPktsStoredFromTun);  
       }
     break;
 
@@ -252,35 +545,49 @@ void periodExpiredNoblastFlavor ( struct contextSimplemux* context)
       // send the packet. I don't need to build the header, because I have a TCP socket
 
       // FIXME: This said 'tcp_welcoming_fd', but I think it was a bug            
-      if (write(context->tcp_server_fd, muxed_packet, total_length)==-1) {
+      if (write(context->tcp_server_fd,
+                muxed_packet,
+                total_length)==-1)
+      {
         perror("write() in TCP server mode failed");
         exit (EXIT_FAILURE);  
       }
+
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
-          GetTimeStamp(),
-          context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
-          context->tun2net,
-          inet_ntoa(context->remote.sin_addr),
-          context->numPktsStoredFromTun);  
+        fprintf ( context->log_file,
+                  //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tperiod\n",
+                  GetTimeStamp(),
+                  context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
+                  context->tun2net,
+                  inet_ntoa(context->remote.sin_addr),
+                  ntohs(context->remote.sin_port),
+                  context->numPktsStoredFromTun);  
       }
     break;
 
     case TCP_CLIENT_MODE:
       // send the packet. I don't need to build the header, because I have a TCP socket  
-      if (write(context->tcp_client_fd, muxed_packet, total_length)==-1) {
+      if (write(context->tcp_client_fd,
+                muxed_packet,
+                total_length)==-1)
+      {
         perror("write() in TCP client mode failed");
         exit (EXIT_FAILURE);  
       }
+
       // write the log file
       if ( context->log_file != NULL ) {
-        fprintf (context->log_file, "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
-          GetTimeStamp(),
-          context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
-          context->tun2net,
-          inet_ntoa(context->remote.sin_addr),
-          context->numPktsStoredFromTun);  
+        fprintf ( context->log_file,
+                  //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tperiod\n",
+                  "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tperiod\n",
+                  GetTimeStamp(),
+                  context->sizeMuxedPacket + IPv4_HEADER_SIZE + TCP_HEADER_SIZE,
+                  context->tun2net,
+                  inet_ntoa(context->remote.sin_addr),
+                  ntohs(context->remote.sin_port),
+                  context->numPktsStoredFromTun);  
       }
     break;
   }

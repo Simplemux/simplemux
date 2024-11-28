@@ -1,5 +1,4 @@
 #include "rohc.c"
-//#include <linux/if_tun.h>     // for using tun/tap interfaces
 
 // set the initial values of some context variables
 void initContext(struct contextSimplemux* context)
@@ -12,6 +11,7 @@ void initContext(struct contextSimplemux* context)
   context->tun2net = 0;
   context->net2tun = 0; 
   context->feedback_pkts = 0;
+  context->blastIdentifier = 0;
   context->acceptingTcpConnections = false;
   context->remote_ip[0] = '\0';
   context->local_ip[0] = '\0';
