@@ -476,39 +476,39 @@ int demuxPacketFromNet( contextSimplemux* context,
   switch (context->mode) {
     case UDP_MODE:
       #ifdef DEBUG
-      do_debug_c( 1,
-                  ANSI_COLOR_YELLOW,
-                  "SIMPLEMUX PACKET #%"PRIu32" from ",
-                  context->net2tun);
-      do_debug_c( 1,
-                  ANSI_COLOR_RESET,
-                  "%s",
-                  context->mux_if_name);
-      do_debug_c( 1,
-                  ANSI_COLOR_YELLOW,
-                  ": UDP muxed packet from ",
-                  context->net2tun);
-      do_debug_c( 1,
-                  ANSI_COLOR_RESET,
-                  "%s",
-                  inet_ntoa(context->remote.sin_addr));
-      do_debug_c( 1,
-                  ANSI_COLOR_YELLOW,
-                  ":");
-      do_debug_c( 1,
-                  ANSI_COLOR_RESET,
-                  "%d",
-                  ntohs(context->remote.sin_port));
-      do_debug_c( 1,
-                  ANSI_COLOR_YELLOW,
-                  ",");
-      do_debug_c( 1,
-                  ANSI_COLOR_RESET,
-                  " %i",
-                  nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
-      do_debug_c( 1,
-                  ANSI_COLOR_YELLOW,
-                  " bytes\n");
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    "SIMPLEMUX PACKET #%"PRIu32" from ",
+                    context->net2tun);
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    context->mux_if_name);
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ": UDP muxed packet from ",
+                    context->net2tun);
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    inet_ntoa(context->remote.sin_addr));
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ":");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%d",
+                    ntohs(context->remote.sin_port));
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ",");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    " %i",
+                    nread_from_net + IPv4_HEADER_SIZE + UDP_HEADER_SIZE );
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " bytes\n");
       #endif
 
       #ifdef LOGFILE
@@ -1059,7 +1059,7 @@ int demuxPacketFromNet( contextSimplemux* context,
                       &buffer_from_net[sizeof(simplemuxBlastHeader)],
                       packetLength ) != packetLength)
           {
-            perror("could not write the packet correctly");
+            perror("could not write the packet correctly (tun mode, blast)");
           }
           else {
             #ifdef DEBUG
@@ -1135,8 +1135,11 @@ int demuxPacketFromNet( contextSimplemux* context,
                           "\n");
             #endif
 
-            if(cwrite ( context->tun_fd, &buffer_from_net[sizeof(simplemuxBlastHeader)], packetLength ) != packetLength) {
-              perror("could not write the frame correctly");
+            if(cwrite ( context->tun_fd,
+                        &buffer_from_net[sizeof(simplemuxBlastHeader)],
+                        packetLength ) != packetLength)
+            {
+              perror("could not write the frame correctly (tap mode, blast)");
             }
             else {
               #ifdef DEBUG
@@ -2202,7 +2205,12 @@ int demuxPacketFromNet( contextSimplemux* context,
                           "\n");
             #endif
 
-            cwrite ( context->tun_fd, demuxed_packet, packet_length );
+            if (cwrite (context->tun_fd,
+                        demuxed_packet,
+                        packet_length ) != packet_length)
+            {
+              perror("could not write the demuxed packet correctly (tun mode)");
+            }
           }
           // tap mode
           else if(context->tunnelMode == TAP_MODE) {
@@ -2237,7 +2245,12 @@ int demuxPacketFromNet( contextSimplemux* context,
                             "\n");
               #endif
 
-              cwrite ( context->tun_fd, demuxed_packet, packet_length );
+              if (cwrite (context->tun_fd,
+                          demuxed_packet,
+                          packet_length ) != packet_length)
+              {
+                perror("could not write the demuxed packet correctly (tap mode)");
+              }
             }
           }
           else {

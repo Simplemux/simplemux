@@ -319,20 +319,27 @@ int main(int argc, char *argv[]) {
                           context.net2tun,
                           nread_from_net);
             #endif
-            cwrite ( context.tun_fd, buffer_from_net, nread_from_net);
-  
-            // write the log file
-            if ( context.log_file != NULL ) {
-              // the packet is good
-              fprintf(context.log_file,
-                      "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
-                      GetTimeStamp(),
-                      nread_from_net,
-                      context.net2tun,
-                      inet_ntoa(context.remote.sin_addr),
-                      ntohs(context.remote.sin_port));
+            
+            if (cwrite (context.tun_fd,
+                        buffer_from_net,
+                        nread_from_net) != nread_from_net)
+            {
+              perror("could not write the non-multiplexed packet correctly");
+            }
+            else {
+              // write the log file
+              if ( context.log_file != NULL ) {
+                // the packet is good
+                fprintf(context.log_file,
+                        "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
+                        GetTimeStamp(),
+                        nread_from_net,
+                        context.net2tun,
+                        inet_ntoa(context.remote.sin_addr),
+                        ntohs(context.remote.sin_port));
 
-              fflush(context.log_file);
+                fflush(context.log_file);              
+              }
             }
           }
         }
@@ -440,20 +447,27 @@ int main(int argc, char *argv[]) {
                           "NON-FEEDBACK PACKET %"PRIu32": Non-feedback packet arrived to feecback port. Writing %i bytes to tun\n",
                           context.net2tun, nread_from_net);
             #endif
-            cwrite ( context.tun_fd, buffer_from_net, nread_from_net);
-  
-            // write the log file
-            if ( context.log_file != NULL ) {
-              // the packet is good
-              fprintf(context.log_file,
-                      "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
-                      GetTimeStamp(),
-                      nread_from_net,
-                      context.net2tun,
-                      inet_ntoa(context.remote.sin_addr),
-                      ntohs(context.remote.sin_port));
 
-              fflush(context.log_file);
+            if (cwrite (context.tun_fd,
+                        buffer_from_net,
+                        nread_from_net) != nread_from_net)
+            {
+              perror("could not write the non-feedback packet correctly");
+            }
+            else {
+              // write the log file
+              if ( context.log_file != NULL ) {
+                // the packet is good
+                fprintf(context.log_file,
+                        "%"PRIu64"\tforward\tnative\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
+                        GetTimeStamp(),
+                        nread_from_net,
+                        context.net2tun,
+                        inet_ntoa(context.remote.sin_addr),
+                        ntohs(context.remote.sin_port));
+
+                fflush(context.log_file);              
+              }
             }
           }
         }

@@ -468,7 +468,9 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
                                           single_protocol,
                                           muxed_packet);
 
-  do_debug( 2,"\n");
+  #ifdef DEBUG
+    do_debug( 2,"\n");
+  #endif
 
   // send the multiplexed packet
   switch (context->mode) {
