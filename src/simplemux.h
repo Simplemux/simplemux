@@ -28,4 +28,13 @@
 
 #include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
 
-#include "init.c"
+#include "init.h"
+#include "help.h"
+#include "socketRequest.h"
+#include "packetsToSend.h"
+#include "periodExpired.h"
+#include "netToTun.h"
+#include "tunToNet.h"
+#include "commonfunctions.h"
+
+#include "rohc.c"     // FIXME: if I do it with rohc.h, I cannot compile

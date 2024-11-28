@@ -1,4 +1,9 @@
-#include "socketRequest.c"
+#include <rohc/rohc.h>          // for using header compression
+#include <rohc/rohc_comp.h>
+#include <rohc/rohc_decomp.h>
+
+#include "commonFunctions.h"
+// #include "rohc.h"
 
 static int gen_random_num(const struct rohc_comp *const comp,
                           void *const user_context)
@@ -78,27 +83,29 @@ static bool rtp_detect( const uint8_t *const ip __attribute__((unused)),
 }
 
 
-int initRohc( struct contextSimplemux* context )
+int initRohc(contextSimplemux* context)
 {
-  if ( context->rohcMode > 0 ) {
 
-    // present some debug info
-    #ifdef DEBUG
-      switch(context->rohcMode) {
-        case 0:
-          do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC not activated\n", debug);
-          break;
-        case 1:
-          do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC Unidirectional Mode\n", debug);
-          break;
-        case 2:
-          do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC Bidirectional Optimistic Mode\n", debug);
-          break;
-        /*case 3:
-          do_debug (1, "RoHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
-          break;*/
-    }
-    #endif
+  // present some debug info
+  #ifdef DEBUG
+    switch(context->rohcMode) {
+      case 0:
+        do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC not activated\n", debug);
+        break;
+      case 1:
+        do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC Unidirectional Mode\n", debug);
+        break;
+      case 2:
+        do_debug_c(1, ANSI_COLOR_MAGENTA, "RoHC Bidirectional Optimistic Mode\n", debug);
+        break;
+      /*case 3:
+        do_debug (1, "RoHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
+        break;*/
+  }
+  #endif
+
+
+  if ( context->rohcMode > 0 ) {
 
     /* initialize the random generator */
     seed = time(NULL);
@@ -216,7 +223,7 @@ int initRohc( struct contextSimplemux* context )
     else if ( context->rohcMode == 2 ) {
       decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_O_MODE);  // Bidirectional Optimistic mode
     }
-    /*else if ( context->rohcMode == 3 ) {
+    /*else if ( rohcMode == 3 ) {
       decompressor = rohc_decomp_new2 (ROHC_LARGE_CID, ROHC_LARGE_CID_MAX, ROHC_R_MODE);  // Bidirectional Reliable mode (not implemented yet)
     }*/
 

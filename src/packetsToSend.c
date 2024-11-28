@@ -3,8 +3,8 @@
 #include "packetsToSend.h"
 
 //display the list
-void printList(struct packet** head_ref) {
-  struct packet *ptr = *head_ref;
+void printList(packet** head_ref) {
+  packet *ptr = *head_ref;
   printf("List of stored packets: [ ");
   
   while(ptr != NULL) {
@@ -19,9 +19,9 @@ void printList(struct packet** head_ref) {
 
 
 //insert link at the first location
-void insertFirst(struct packet** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload) {
+void insertFirst(packet** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload) {
   //create a link
-  struct packet *link = (struct packet*) malloc(sizeof(struct packet));
+  packet *link = (packet*) malloc(sizeof(packet));
   
   link->header.identifier = htons(identifier);
   link->header.packetSize = htons(size);
@@ -36,7 +36,7 @@ void insertFirst(struct packet** head_ref, uint16_t identifier, uint16_t size, u
 
 
 // find the last packet
-struct packet* findLast(struct packet** head_ref) {
+packet* findLast( packet** head_ref) {
 
   if(isEmpty(*head_ref)) {
     //printf("[findLast] Empty list\n");
@@ -45,7 +45,7 @@ struct packet* findLast(struct packet** head_ref) {
   else {
     // the list at least has 1 element
     int length = 1;
-    struct packet *current = *head_ref;
+    packet *current = *head_ref;
     while(current->next != NULL) {
       current = current->next;
       length ++;
@@ -57,10 +57,10 @@ struct packet* findLast(struct packet** head_ref) {
 
 
 //insert packet at the last location
-struct packet* insertLast(struct packet** head_ref, uint16_t size, uint8_t* payload) {
+packet* insertLast(packet** head_ref, uint16_t size, uint8_t* payload) {
 
   // create a link
-  struct packet *link = (struct packet*) malloc(sizeof(struct packet));
+  packet *link = (packet*) malloc(sizeof(packet));
 
   // fill the content of the link  
   if(size!=0)
@@ -80,7 +80,7 @@ struct packet* insertLast(struct packet** head_ref, uint16_t size, uint8_t* payl
     // this is not the first packet
 
     // find the last packet of the list
-    struct packet *last = findLast(head_ref);
+    packet *last = findLast(head_ref);
 
     // insert the new link
     last->next = link;     
@@ -91,10 +91,10 @@ struct packet* insertLast(struct packet** head_ref, uint16_t size, uint8_t* payl
 
 
 //delete first item
-struct packet* deleteFirst(struct packet** head_ref) {
+packet* deleteFirst(packet** head_ref) {
 
   //save reference to first link
-  struct packet *tempLink = *head_ref;
+  packet *tempLink = *head_ref;
 
   //mark next to first link as first 
   *head_ref = (*head_ref)->next;
@@ -105,7 +105,7 @@ struct packet* deleteFirst(struct packet** head_ref) {
 
 
 //is the list empty?
-bool isEmpty(struct packet* head_ref) {
+bool isEmpty(packet* head_ref) {
   if(head_ref == NULL)
     return true;
   else
@@ -113,9 +113,9 @@ bool isEmpty(struct packet* head_ref) {
 }
 
 
-int length(struct packet** head_ref) {
+int length(packet** head_ref) {
   int length = 0;
-  struct packet *current = *head_ref;
+  packet *current = *head_ref;
 
   while(current!=NULL) {
     length++;
@@ -126,10 +126,10 @@ int length(struct packet** head_ref) {
 
 
 //find a link with given identifier
-struct packet* find(struct packet** head_ref, uint16_t identifier) {
+packet* find(packet** head_ref, uint16_t identifier) {
 
   //start from the first link
-  struct packet* current = *head_ref;
+  packet* current = *head_ref;
 
   //if list is empty
   if(head_ref == NULL) {
@@ -154,14 +154,14 @@ struct packet* find(struct packet** head_ref, uint16_t identifier) {
 }
 
 
-void sendPacketBlastFlavor( struct contextSimplemux* context,
-                            struct packet* packetToSend)
+void sendPacketBlastFlavor(  contextSimplemux* context,
+                             packet* packetToSend)
 {
   // send the tunneled packet
   // 'packetToSend' is a pointer to the packet
 
   // calculate the length of the Simplemux header + the tunneled packet
-  int total_length = sizeof(struct simplemuxBlastHeader) + ntohs(packetToSend->header.packetSize);
+  int total_length = sizeof(simplemuxBlastHeader) + ntohs(packetToSend->header.packetSize);
 
   switch (context->mode) {
     case UDP_MODE:
@@ -360,11 +360,11 @@ void sendPacketBlastFlavor( struct contextSimplemux* context,
 
 
 // send again the packets which sentTimestamp + period >= now
-int sendExpiredPackets(struct contextSimplemux* context,
+int sendExpiredPackets( contextSimplemux* context,
                         uint64_t now)
 {
   int sentPackets = 0; // number of packets sent
-  struct packet *current = context->unconfirmedPacketsBlast;
+  packet *current = context->unconfirmedPacketsBlast;
   
   while(current != NULL) {
     #ifdef DEBUG
@@ -424,10 +424,10 @@ int sendExpiredPackets(struct contextSimplemux* context,
 }
 
 
-uint64_t findLastSentTimestamp (struct packet* head_ref)
+uint64_t findLastSentTimestamp (packet* head_ref)
 {
   //start from the first link
-  struct packet* current = head_ref;
+  packet* current = head_ref;
 
   #ifdef DEBUG
     //printList(&head_ref);
@@ -507,9 +507,9 @@ uint64_t findLastSentTimestamp (struct packet* head_ref)
 
 //delete a link with a given identifier
 // inspired by https://www.geeksforgeeks.org/linked-list-set-3-deleting-node/
-bool delete(struct packet** head_ref, uint16_t identifier) {
+bool delete(packet** head_ref, uint16_t identifier) {
 
-  struct packet* temp = *head_ref, *prev;
+  packet* temp = *head_ref, *prev;
 
   // If the head node itself holds the key to be deleted
   if (temp != NULL && ntohs(temp->header.identifier) == identifier) {
@@ -538,10 +538,10 @@ bool delete(struct packet** head_ref, uint16_t identifier) {
 }
 
 
-void reverse(struct packet** head_ref) {
-  struct packet* prev    = NULL;
-  struct packet* current = *head_ref;
-  struct packet* next;
+void reverse(packet** head_ref) {
+  packet* prev    = NULL;
+  packet* current = *head_ref;
+  packet* next;
 
   while (current != NULL) {
     next  = current->next;
@@ -555,14 +555,14 @@ void reverse(struct packet** head_ref) {
 
 
 void test() {
-  struct packet *head = NULL;
+  packet *head = NULL;
 
   uint8_t packet1[BUFSIZE]= "Hello World";
   uint8_t packet2[BUFSIZE]= "Hello World2";
   uint16_t packetSize1 = 11;
   uint16_t packetSize2 = 12;
 
-  struct packet *last = findLast(&head);
+  packet *last = findLast(&head);
   printf("Last element of the list: ");
   printList(&last);
 
@@ -576,7 +576,7 @@ void test() {
   //print list
   printList(&head);
 
-  struct packet *current = insertLast(&head,7,/*packetSize2,*/packet2); 
+  packet *current = insertLast(&head,7,/*packetSize2,*/packet2); 
   current->header.packetSize=packetSize2;
 
   printf("List with 7 elements: "); 
@@ -589,7 +589,7 @@ void test() {
   printList(&last);
 
   while(!isEmpty(head)) {        
-    struct packet *temp = deleteFirst(&head);
+    packet *temp = deleteFirst(&head);
     printf("\nDeleted value:");
     printf("(%d) ",temp->header.identifier);
   }  
@@ -616,7 +616,7 @@ void test() {
   printf("Last element of the list: ");
   printList(&last);
 
-  struct packet *foundLink = find(&head,4);
+  packet *foundLink = find(&head,4);
 
   if(foundLink != NULL) {
     printf("Element found: ");

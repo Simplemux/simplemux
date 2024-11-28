@@ -1,4 +1,4 @@
-#include "buildMuxedPacket.c"
+#include "netToTun.h"
 
 /* Reads a multiplexed packet from the network
  * it returns:
@@ -6,7 +6,7 @@
  * 0  a correct but not multiplexed packet has been read from the network
  * -1 error. Incorrect read
  */
-int readPacketFromNet(struct contextSimplemux* context,
+int readPacketFromNet(contextSimplemux* context,
                       uint8_t* buffer_from_net,
                       int* nread_from_net,
                       uint16_t* packet_length )
@@ -463,7 +463,7 @@ int readPacketFromNet(struct contextSimplemux* context,
 }
 
 
-int demuxPacketFromNet( struct contextSimplemux* context,
+int demuxPacketFromNet( contextSimplemux* context,
                         int nread_from_net,
                         uint16_t packet_length,
                         uint8_t* buffer_from_net,
@@ -526,7 +526,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           // Blast mode: these two columns are only printed if we are in blast mode
           if(context->flavor == 'B') {
             // apply the structure of a blast mode packet
-            struct simplemuxBlastHeader* blastHeader = (struct simplemuxBlastHeader*) (buffer_from_net);
+            simplemuxBlastHeader* blastHeader = (simplemuxBlastHeader*) (buffer_from_net);
 
             //int length = ntohs(blastHeader->packetSize);
 
@@ -718,7 +718,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           // Blast mode: these two columns are only printed if we are in blast mode
           if(context->flavor == 'B') {
             // apply the structure of a blast mode packet
-            struct simplemuxBlastHeader* blastHeader = (struct simplemuxBlastHeader*) (buffer_from_net);
+            simplemuxBlastHeader* blastHeader = (simplemuxBlastHeader*) (buffer_from_net);
 
             if (blastHeader->ACK == HEARTBEAT) {
               // heartbeat
@@ -770,7 +770,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
     // there should be a single packet
 
     // apply the structure of a blast mode packet
-    struct simplemuxBlastHeader* blastHeader = (struct simplemuxBlastHeader*) (buffer_from_net);
+    simplemuxBlastHeader* blastHeader = (simplemuxBlastHeader*) (buffer_from_net);
 
     int packetLength = ntohs(blastHeader->packetSize);
 
@@ -1018,7 +1018,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                         ANSI_COLOR_YELLOW,
                         ":\n");
 
-            dump_packet (packetLength, &buffer_from_net[sizeof(struct simplemuxBlastHeader)]);                    
+            dump_packet (packetLength, &buffer_from_net[sizeof(simplemuxBlastHeader)]);                    
           }
           else {
             do_debug_c( 2,
@@ -1056,7 +1056,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           #endif
 
           if (cwrite (context->tun_fd,
-                      &buffer_from_net[sizeof(struct simplemuxBlastHeader)],
+                      &buffer_from_net[sizeof(simplemuxBlastHeader)],
                       packetLength ) != packetLength)
           {
             perror("could not write the packet correctly");
@@ -1135,7 +1135,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
                           "\n");
             #endif
 
-            if(cwrite ( context->tun_fd, &buffer_from_net[sizeof(struct simplemuxBlastHeader)], packetLength ) != packetLength) {
+            if(cwrite ( context->tun_fd, &buffer_from_net[sizeof(simplemuxBlastHeader)], packetLength ) != packetLength) {
               perror("could not write the frame correctly");
             }
             else {
@@ -1705,7 +1705,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           //do_debug(0,"buffer_from_net[position] << 8: 0x%02x  buffer_from_net[position+1]: 0x%02x\n", buffer_from_net[position] << 8, buffer_from_net[position+1]);
 
           // apply the structure of a fast mode packet
-          struct simplemuxFastHeader* fastHeader = (struct simplemuxFastHeader*) (&buffer_from_net[position]);
+          simplemuxFastHeader* fastHeader = (simplemuxFastHeader*) (&buffer_from_net[position]);
           packet_length = ntohs(fastHeader->packetSize);
           //packet_length = (buffer_from_net[position] << 8 ) + buffer_from_net[position+1];
 
@@ -1756,7 +1756,7 @@ int demuxPacketFromNet( struct contextSimplemux* context,
           #endif
 
           // move 'position' to the end of the simplemuxFast header
-          position = position + sizeof(struct simplemuxFastHeader);
+          position = position + sizeof(simplemuxFastHeader);
         }
       }
 

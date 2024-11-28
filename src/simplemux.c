@@ -1,9 +1,10 @@
 #include "simplemux.h"
 
+
 int main(int argc, char *argv[]) {
 
   // almost all the variables are stored in 'context'
-  struct contextSimplemux context;
+  contextSimplemux context;
 
   // set the initial values of some context variables
   initContext(&context);
@@ -53,6 +54,7 @@ int main(int argc, char *argv[]) {
     else if ( context.rohcMode > 2 ) { 
       context.rohcMode = 2;
     }
+
 
     // initialize the tun/tap interface
     initTunTapInterface(&context);

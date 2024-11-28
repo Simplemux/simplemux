@@ -4,7 +4,7 @@
 //size of a multiplexed packet including all of them
 // 'single_prot': if all the packets belong to the same protocol
 // returns: the length of the multiplexed packet
-uint16_t predictSizeMultiplexedPacket ( struct contextSimplemux* context,
+uint16_t predictSizeMultiplexedPacket ( contextSimplemux* context,
                                         int single_prot)
 {
   // only used in normal or fast flavor
@@ -55,7 +55,7 @@ uint16_t predictSizeMultiplexedPacket ( struct contextSimplemux* context,
 // 'single_prot': if all the packets belong to the same protocol
 // the multiplexed packet is stored in 'mux_packet'
 // returns: the length of the multiplexed packet
-uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
+uint16_t buildMultiplexedPacket ( contextSimplemux* context,
                                   int single_prot,
                                   uint8_t mux_packet[BUFSIZE])
 {
@@ -153,7 +153,7 @@ uint16_t buildMultiplexedPacket ( struct contextSimplemux* context,
 }
 
 
-void sendMultiplexedPacket (struct contextSimplemux* context,
+void sendMultiplexedPacket (contextSimplemux* context,
                             uint16_t total_length,
                             uint8_t muxed_packet[BUFSIZE],
                             uint64_t time_difference)

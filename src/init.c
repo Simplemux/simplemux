@@ -1,7 +1,7 @@
-#include "rohc.c"
+#include "init.h"
 
 // set the initial values of some context variables
-void initContext(struct contextSimplemux* context)
+void initContext(contextSimplemux* context)
 {
   context->flavor = 'N';  // by default 'normal flavor' is selected
   context->rohcMode = 0;  // by default it is 0: ROHC is not used
@@ -37,7 +37,7 @@ void initContext(struct contextSimplemux* context)
 
 
 // parse the command line options
-void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
+void parseCommandLine(int argc, char *argv[], contextSimplemux* context)
 {
   int option; // command line options
   char mode_string[10];
@@ -195,7 +195,7 @@ void parseCommandLine(int argc, char *argv[], struct contextSimplemux* context)
 
 
 // check the correctness of the command line options
-int checkCommandLineOptions(int argc, char *progname, struct contextSimplemux* context)
+int checkCommandLineOptions(int argc, char *progname, contextSimplemux* context)
 {
 
   if(argc > 0) {
@@ -339,7 +339,7 @@ int tun_alloc(char *dev,    // the name of an interface (or '\0')
 
 
 // initialize tun/tap interface
-void initTunTapInterface(struct contextSimplemux* context)
+void initTunTapInterface(contextSimplemux* context)
 {
   if (context->tunnelMode == TUN_MODE) {
     // tun tunnel mode (i.e. send IP packets)
@@ -378,7 +378,7 @@ void initTunTapInterface(struct contextSimplemux* context)
 // - selectedMtu
 // - userMtu
 // - sizeMax
-void initSizeMax(struct contextSimplemux* context)
+void initSizeMax(contextSimplemux* context)
 {
   // the real MTU of the interface
   int interface_mtu;
@@ -480,7 +480,7 @@ void initSizeMax(struct contextSimplemux* context)
 
 // initialize trigger paramteter
 // set the triggering parameters according to user selections (or default values)
-void initTriggerParameters(struct contextSimplemux* context)
+void initTriggerParameters(contextSimplemux* context)
 {
   // there are four possibilities for triggering the sending of the packets:
   // - a threshold of the accumulated packet size. Two different options apply:
@@ -513,7 +513,7 @@ void initTriggerParameters(struct contextSimplemux* context)
 
 
 // initializations for blast flavor
-void initBlastFlavor(struct contextSimplemux* context)
+void initBlastFlavor(contextSimplemux* context)
 {
   // fill the vector of timestamps with zeroes
   for(int i=0; i < 0xFFFF + 1; i++) {

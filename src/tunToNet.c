@@ -1,7 +1,7 @@
-#include "netToTun.c"
+#include "netToTun.h"
 
 // packet/frame arrived at tun: read it, and send a blast packet to the network
-void tunToNetBlastFlavor (struct contextSimplemux* context)
+void tunToNetBlastFlavor (contextSimplemux* context)
 {
   // blast flavor
   #ifdef ASSERT
@@ -303,7 +303,7 @@ void tunToNetBlastFlavor (struct contextSimplemux* context)
 }
 
 
-bool checkPacketSize (struct contextSimplemux* context, uint16_t size)
+bool checkPacketSize (contextSimplemux* context, uint16_t size)
 {
   bool dropPacket = false;
 
@@ -404,7 +404,7 @@ bool checkPacketSize (struct contextSimplemux* context, uint16_t size)
 }
 
 
-void compressPacket(struct contextSimplemux* context, uint16_t size)
+void compressPacket(contextSimplemux* context, uint16_t size)
 {
   // note
   // the next global variables are used:
@@ -510,7 +510,7 @@ void compressPacket(struct contextSimplemux* context, uint16_t size)
 }
 
 
-int allSameProtocol(struct contextSimplemux* context)
+int allSameProtocol(contextSimplemux* context)
 {
   // in fast flavor I will send the protocol in every packet
   // in normal flavor I may avoid the protocol field in many packets
@@ -541,7 +541,7 @@ int allSameProtocol(struct contextSimplemux* context)
 // - I send the previously stored packets
 // - I store the present one
 // - I reset the period
-void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
+void emptyBufferIfNeeded(contextSimplemux* context, int single_protocol)
 {
   // calculate the size without the present packet
   int predictedSizeMuxedPacket;        // size of the muxed packet if the arrived packet was added to it
@@ -1247,7 +1247,7 @@ void emptyBufferIfNeeded(struct contextSimplemux* context, int single_protocol)
 
 // create the Simplemux separator. normal flavor
 // it does NOT add the Protocol field of the separators (1 byte)
-void createSimplemuxSeparatorNormal(struct contextSimplemux* context)
+void createSimplemuxSeparatorNormal(contextSimplemux* context)
 {
   // I have to add the multiplexing separator
   //   - It is 1 byte long if the length is smaller than 64 (or 128 for non-first separators) 
@@ -1549,7 +1549,7 @@ void createSimplemuxSeparatorNormal(struct contextSimplemux* context)
 
 // create the Simplemux separator. fast flavor
 // it does NOT add the Protocol field of the separators (1 byte)
-void createSimplemuxSeparatorFast(struct contextSimplemux* context)
+void createSimplemuxSeparatorFast(contextSimplemux* context)
 {
   // the length requires two bytes in fast flavor
   context->sizeSeparatorsToMultiplex[context->numPktsStoredFromTun] = sizeof(uint16_t);
@@ -1632,7 +1632,7 @@ void createSimplemuxSeparatorFast(struct contextSimplemux* context)
 
 
 // adds the size of the Protocol field to the global size of the muxed packet
-int addSizeOfProtocolField(struct contextSimplemux* context)
+int addSizeOfProtocolField(contextSimplemux* context)
 {
   int single_protocol = 1;
 
@@ -1670,7 +1670,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 }
 
 #ifdef DEBUG
-  void debugInformationAboutTrigger(struct contextSimplemux* context,
+  void debugInformationAboutTrigger(contextSimplemux* context,
                                     int single_protocol,
                                     uint64_t time_difference)
   {
@@ -2117,7 +2117,7 @@ int addSizeOfProtocolField(struct contextSimplemux* context)
 // packet/frame arrived at tun: read it, and check if:
 // - the packet has to be stored
 // - a multiplexed packet has to be sent to the network
-void tunToNetNoBlastFlavor (struct contextSimplemux* context)
+void tunToNetNoBlastFlavor (contextSimplemux* context)
 {
   // normal or fast flavor
   #ifdef ASSERT

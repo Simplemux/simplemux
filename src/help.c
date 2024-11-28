@@ -1,4 +1,4 @@
-#include "periodExpired.c"
+#include "help.h"
 
 /**************************************************************************
  * usage: prints usage and exits.                                         *
