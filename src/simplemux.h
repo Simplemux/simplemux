@@ -35,5 +35,6 @@
 #include "periodExpired.h"
 #include "netToTun.h"
 #include "tunToNet.h"
-#include "rohc.c"
-#include "commonfunctions.c"
+#include "commonfunctions.h"
+
+#include "rohc.c"     // FIXME: if I do it with rohc.h, I cannot compile
