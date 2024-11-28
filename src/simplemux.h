@@ -35,4 +35,5 @@
 #include "periodExpired.h"
 #include "netToTun.h"
 #include "tunToNet.h"
-#include "rohc.h"
+#include "rohc.c"
+#include "commonfunctions.c"
