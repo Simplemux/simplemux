@@ -302,7 +302,7 @@ int main(int argc, char *argv[]) {
           }
           
           else if (is_multiplexed_packet == 1) {
-            demuxPacketFromNet( &context,
+            demuxBundleFromNet( &context,
                                 nread_from_net,
                                 packet_length,
                                 buffer_from_net,

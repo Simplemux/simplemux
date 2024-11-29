@@ -1288,10 +1288,483 @@ void demuxPacketBlast(contextSimplemux* context,
     }
 }
 
+// demux a Normal packet/frame
+int demuxPacketNormal(contextSimplemux* context,
+                      uint8_t* buffer_from_net,
+                      int* position,
+                      int num_demuxed_packets,
+                      int* first_header_read,
+                      int *single_protocol_rec,
+                      int *LXT_first_byte,
+                      int *maximum_packet_length)
+{
+  int demuxedPacketLength;  // it will store the length of the demuxed packet/frame
+
+  int initialposition = *position;
+
+  // check if this is the first separator or not
+  if (*first_header_read == 0) {
+
+    // this is a first header:
+    //  - SPB will be stored in the most significant bit (0x80)
+    //  - LXT will be stored in the 7th bit (0x40)
+    
+    // Read SPB (one bit)
+    // It only appears in the first Simplemux header 
+    //  - It is set to '0' if all the multiplexed
+    //    packets belong to the same protocol (in this case, the "protocol"
+    //    field will only appear in the first Simplemux header)
+    //  - It is set to '1' when each packet MAY belong to a different protocol.
+
+    // check if the most significant bit (0x80) is '1'
+    if  ((0x80 & buffer_from_net[*position] ) == 0x80 ) {
+      *single_protocol_rec = 1;
+      //do_debug(2, "single protocol\n");
+    }
+    else {
+      *single_protocol_rec = 0;
+      //do_debug(2, "multi protocol\n");
+    }
+
+    // Read LXT (one bit)
+    // as this is a first header
+    //  - LXT bit is the second one (0x40) 
+    //  - the maximum length of a single-byte packet is 64 bytes                
+    if ((0x40 & buffer_from_net[*position]) == 0x00)
+      *LXT_first_byte = 0;
+    else
+      *LXT_first_byte = 1;
+
+    *maximum_packet_length = 64;
+  }
+
+  else { 
+    // this is a non-first header
+    //  - There is no SPB bit
+    //  - LXT will be stored in the most significant bit (0x80)
+    //  - the maximum length of a single-byte packet is 128 bytes
+    if ((0x80 & buffer_from_net[*position]) == 0x00)
+      *LXT_first_byte = 0;
+    else
+      *LXT_first_byte = 1;
+    
+    *maximum_packet_length = 128;
+  }
+
+  #ifdef DEBUG
+    if((context->mode == UDP_MODE) || (context->mode == NETWORK_MODE) ) {
+
+      if(context->tunnelMode == TUN_MODE) {
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " DEMUXED PACKET #");
+      }
+      else {
+        // TAP_MODE
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " DEMUXED FRAME #");
+      }
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "%i",
+                  num_demuxed_packets);
+
+      do_debug_c( 2,
+                  ANSI_COLOR_YELLOW,
+                  ":");
+    }
+    else {
+      // TCP_SERVER_MODE or TCP_CLIENT_MODE
+      if(context->tunnelMode == TUN_MODE) {
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    " PACKET DEMUXED");
+      }
+      else {
+        // TAP_MODE
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    " FRAME DEMUXED");
+      }
+      do_debug_c( 2,
+                  ANSI_COLOR_YELLOW,
+                  ":"); 
+    }
+  #endif
+
+  if (*LXT_first_byte == 0) {
+    // the LXT bit of the first byte is 0 => the separator is one-byte long
+
+    // I have to convert the 6 (or 7) less significant bits to an integer, which means the length of the packet
+    // since the two most significant bits are 0, the length is the value of the char
+    demuxedPacketLength = buffer_from_net[*position] % *maximum_packet_length;
+
+    #ifdef DEBUG
+      if (debug>0) {
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    "  Mux separator of 1 byte: ");
+        do_debug_c( 2,
+                    ANSI_COLOR_RESET,
+                    "0x%02x",
+                    buffer_from_net[*position]);
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    " (");
+
+        bool bits[8];   // used for printing the bits of a byte in debug mode
+        FromByte(buffer_from_net[*position], bits);
+        PrintByte(2, 8, bits);
+        do_debug_c(2, ANSI_COLOR_YELLOW, ")");
+      }
+    #endif
+
+    // the length is one byte, so advance one position
+    *position = *position + 1;
+  }
+
+  else {
+    // the LXT bit of the first byte is 1 => the separator is NOT one-byte
+
+    // check whether this is a 2-byte or a 3-byte length
+    // check the bit 7 of the second byte
+
+    // If the LXT bit is 0, this is a two-byte length
+    if ((0x80 & buffer_from_net[*position + 1] ) == 0x00 ) {
+
+      // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
+      // I do the product by 128, because the next byte includes 7 bits of the length
+      demuxedPacketLength = ((buffer_from_net[*position] % *maximum_packet_length) * 128 );
+      #ifdef DEBUG
+        do_debug_c( 3,
+                    ANSI_COLOR_YELLOW,
+                    " initial packet_length (only most significant bits): ");
+        do_debug_c( 3,
+                    ANSI_COLOR_RESET,
+                    "%d, ",
+                    demuxedPacketLength);
+      #endif
+      /*
+      uint8_t mask;
+      if (*maximum_packet_length == 64)
+        mask = 0x3F;
+      else
+        mask = 0x7F;
+      demuxedPacketLength = ((buffer_from_net[*position] & *maximum_packet_length) << 7 );*/
+
+      // I add the value of the 7 less significant bits of the second byte
+      demuxedPacketLength = demuxedPacketLength + (buffer_from_net[*position + 1] % 128);
+      #ifdef DEBUG
+        do_debug_c( 3,
+                    ANSI_COLOR_YELLOW,
+                    "packet_length (all the bits): ");
+        do_debug_c( 3,
+                    ANSI_COLOR_RESET,
+                    "%d\n",
+                    demuxedPacketLength);
+      #endif
+      //demuxedPacketLength = demuxedPacketLength + (buffer_from_net[*position + 1] & 0x7F);
+
+      #ifdef DEBUG
+        if (debug>0) {
+          bool bits[8];   // used for printing the bits of a byte in debug mode
+
+          // print the first byte
+          FromByte(buffer_from_net[*position], bits);
+          do_debug_c( 2,
+                      ANSI_COLOR_YELLOW,
+                      "  Mux separator of 2 bytes: ");
+          do_debug_c( 2,
+                      ANSI_COLOR_RESET,
+                      "0x%02x",
+                      buffer_from_net[*position]);
+          do_debug_c( 2,
+                      ANSI_COLOR_YELLOW,
+                      " (");
+          PrintByte(2, 8, bits);
+          
+          // print the second byte
+          FromByte(buffer_from_net[*position + 1], bits);
+          do_debug_c( 2,
+                      ANSI_COLOR_YELLOW,
+                      ") ");
+          do_debug_c( 2,
+                      ANSI_COLOR_RESET,
+                      "0x%02x",
+                      buffer_from_net[*position + 1]);
+          do_debug_c( 2,
+                      ANSI_COLOR_YELLOW,
+                      " (");
+          PrintByte(2, 8, bits);
+          do_debug_c(2, ANSI_COLOR_YELLOW, ")");
+        }
+      #endif
+
+      // the length is two bytes, so advance two positions
+      *position = *position + 2;
+    }
+
+    // If the LXT bit of the second byte is 1, this is a three-byte length
+    else {
+      // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
+      // I do the product by 16384 (2^14), because the next two bytes include 14 bits of the length
+      //demuxedPacketLength = ((buffer_from_net[*position] % maximum_packet_length) * 16384 );
+      demuxedPacketLength = ((buffer_from_net[*position] % *maximum_packet_length) << 14 );
+
+      // I get the 6 (or 7) less significant bits of the second byte by using modulo 128
+      // I do the product by 128, because the next byte includes 7 bits of the length
+      //demuxedPacketLength = demuxedPacketLength + ((buffer_from_net[*position + 1] % 128) * 128 );
+      demuxedPacketLength = demuxedPacketLength + ((buffer_from_net[*position + 1] & 0x7F) << 7 );
+
+      // I add the value of the 7 less significant bits of the second byte
+      //demuxedPacketLength = demuxedPacketLength + (buffer_from_net[*position + 2] % 128);
+      demuxedPacketLength = demuxedPacketLength + (buffer_from_net[*position + 2] & 0x7F);
+
+      #ifdef DEBUG
+        if (debug > 0) {
+          bool bits[8];   // used for printing the bits of a byte in debug mode
+
+          // print the first byte
+          FromByte(buffer_from_net[*position], bits);
+          do_debug_c( 2,
+                      ANSI_COLOR_GREEN,
+                      "  Mux separator of 3 bytes: ");
+          do_debug_c( 2,
+                      ANSI_COLOR_RESET,
+                      "0x%02x ",
+                      buffer_from_net[*position]);
+          PrintByte(2, 8, bits);
+          
+          // print the second byte
+          FromByte(buffer_from_net[*position + 1], bits);
+          do_debug_c( 2,
+                      ANSI_COLOR_RESET,
+                      " %02x ",
+                      buffer_from_net[*position + 1]);
+          PrintByte(2, 8, bits);  
+          
+          // print the third byte
+          FromByte(buffer_from_net[*position + 2], bits);
+          do_debug_c( 2,
+                      ANSI_COLOR_RESET,
+                      " %02x ",
+                      buffer_from_net[*position + 2]);
+          PrintByte(2, 8, bits);
+        }
+      #endif
+
+      // the length is three bytes, so advance three positions
+      *position = *position + 3;
+    }
+  }
+
+  // read the 'Protocol'
+
+  // check if this is the first separator or not
+  if (*first_header_read == 0) {    // this is the first separator. The protocol field will always be present
+    // the next thing I expect is a 'protocol' field
+    context->protocol_rec = buffer_from_net[*position];
+    #ifdef DEBUG
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  ". Protocol");
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "0x%02x",
+                  buffer_from_net[*position]);
+
+      if(context->protocol_rec == IPPROTO_IP_ON_IP)
+        do_debug_c(1, ANSI_COLOR_RESET, " (IP)");
+      else if(context->protocol_rec == IPPROTO_ROHC)
+        do_debug_c(1, ANSI_COLOR_RESET, " (RoHC)");
+      else if(context->protocol_rec == IPPROTO_ETHERNET)
+        do_debug_c(1, ANSI_COLOR_RESET, " (Ethernet)");
+    #endif
+
+    // the Protocol is one byte, so move one position
+    *position = *position + 1;
+
+    // if I am here, it means that I have read the first separator
+    *first_header_read = 1;
+  }
+  else {
+    // non-first separator. The protocol field may or may not be present
+    if ( *single_protocol_rec == 0 ) {
+      // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
+      context->protocol_rec = buffer_from_net[*position];
+      if(*single_protocol_rec == 0) {
+        #ifdef DEBUG
+          do_debug_c( 1,
+                      ANSI_COLOR_YELLOW,
+                      ". Protocol");
+          do_debug_c( 1,
+                      ANSI_COLOR_RESET,
+                      "0x%02x",
+                      buffer_from_net[*position]);
+          
+          if(context->protocol_rec == IPPROTO_IP_ON_IP)
+            do_debug_c(1, ANSI_COLOR_RESET, " (IP)");
+          else if(context->protocol_rec == IPPROTO_ROHC)
+            do_debug_c(1, ANSI_COLOR_RESET, " (RoHC)");
+          else if(context->protocol_rec == IPPROTO_ETHERNET)
+            do_debug_c(1, ANSI_COLOR_RESET, " (Ethernet)");
+        #endif
+      }
+
+      // the Protocol is one byte, so move one position
+      *position ++;
+    }
+  }
+  #ifdef DEBUG
+    do_debug_c( 1,
+                ANSI_COLOR_YELLOW,
+                ". Length ");
+    do_debug_c( 1,
+                ANSI_COLOR_RESET,
+                "%i",
+                demuxedPacketLength);
+    do_debug_c( 1,
+                ANSI_COLOR_YELLOW,
+                " bytes\n");
+  #endif
+
+  return demuxedPacketLength;
+}
+
+int demuxPacketFast(contextSimplemux* context,
+                    uint16_t bundleLength,
+                    uint8_t* buffer_from_net,
+                    int* position,
+                    int num_demuxed_packets)
+{
+  int demuxedPacketLength = 0;
+
+  #ifdef DEBUG
+    if((context->mode == UDP_MODE) || (context->mode == NETWORK_MODE) ) {
+      if(context->tunnelMode == TUN_MODE) {
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " DEMUXED PACKET #");
+      }
+      else {
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " DEMUXED FRAME #");
+      }
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "%i",
+                  num_demuxed_packets);          
+      do_debug_c( 2,
+                  ANSI_COLOR_YELLOW,
+                  ":");
+    }
+    else {
+      // TCP_SERVER_MODE or TCP_CLIENT_MODE
+      if(context->tunnelMode == TUN_MODE) {
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    " PACKET DEMUXED");
+      }
+      else {
+        // TAP_MODE
+        do_debug_c( 2,
+                    ANSI_COLOR_YELLOW,
+                    " FRAME DEMUXED");
+      }
+      do_debug_c( 2,
+                  ANSI_COLOR_YELLOW,
+                  ":"); 
+    }
+  #endif
+
+
+  if ((context->mode == TCP_SERVER_MODE) || (context->mode == TCP_CLIENT_MODE)) {
+    // do nothing, because in TCP mode I have already read the length
+    #ifdef DEBUG
+      do_debug_c( 2,
+                  ANSI_COLOR_YELLOW,
+                  " Length ");
+      do_debug_c( 2,
+                  ANSI_COLOR_RESET,
+                  "%i",
+                  bundleLength);
+      do_debug_c( 2,
+                  ANSI_COLOR_YELLOW,
+                  " bytes.\n");
+    #endif
+
+    // do nothing, because I have already read the Protocol
+  }
+  else {
+    // I am in fast mode, but not in TCP mode, so I still have to read the length
+    // It is in the two first bytes of the buffer
+    //do_debug(0,"buffer_from_net[*position] << 8: 0x%02x  buffer_from_net[*position+1]: 0x%02x\n", buffer_from_net[*position] << 8, buffer_from_net[position+1]);
+
+    // apply the structure of a fast mode packet
+    simplemuxFastHeader* fastHeader = (simplemuxFastHeader*) (&buffer_from_net[*position]);
+
+    // read the length
+    demuxedPacketLength = ntohs(fastHeader->packetSize);
+    //demuxedPacketLength = (buffer_from_net[*position] << 8 ) + buffer_from_net[*position+1];
+
+    #ifdef DEBUG
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  " Length ");
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "%i",
+                  demuxedPacketLength);
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  " bytes. ");
+    #endif
+
+    // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
+    context->protocol_rec = fastHeader->protocolID;
+
+    #ifdef DEBUG
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  "Protocol ");
+
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "0x%02x",
+                  context->protocol_rec);
+
+      if(context->protocol_rec == IPPROTO_IP_ON_IP)
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    " (IP)\n");
+
+      else if(context->protocol_rec == IPPROTO_ROHC)
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    " (RoHC)\n");
+
+      else if(context->protocol_rec == IPPROTO_ETHERNET)
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    " (Ethernet)\n");
+      else
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "\n");          
+    #endif
+
+    // move 'position' to the end of the simplemuxFast header
+    *position = *position + sizeof(simplemuxFastHeader);
+  }
+  return demuxedPacketLength;
+}
+
 // send the demuxed/decompressed packet/frame to the tun/tap interface
 void sendPacketToTun (contextSimplemux* context,
                       uint8_t* demuxed_packet,
-                      int packet_length)
+                      int demuxedPacketLength)
 {
   // tun mode
   if(context->tunnelMode == TUN_MODE) {
@@ -1303,7 +1776,7 @@ void sendPacketToTun (contextSimplemux* context,
       do_debug_c( 1,
                   ANSI_COLOR_RESET,
                   "%i",
-                  packet_length);
+                  demuxedPacketLength);
       do_debug_c( 1,
                   ANSI_COLOR_YELLOW,
                   " bytes to ");
@@ -1318,7 +1791,7 @@ void sendPacketToTun (contextSimplemux* context,
 
     if (cwrite (context->tun_fd,
                 demuxed_packet,
-                packet_length ) != packet_length)
+                demuxedPacketLength ) != demuxedPacketLength)
     {
       perror("could not write the demuxed packet correctly (tun mode)");
     }
@@ -1343,7 +1816,7 @@ void sendPacketToTun (contextSimplemux* context,
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
-                    packet_length);
+                    demuxedPacketLength);
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
                     " bytes to ");
@@ -1358,7 +1831,7 @@ void sendPacketToTun (contextSimplemux* context,
 
       if (cwrite (context->tun_fd,
                   demuxed_packet,
-                  packet_length ) != packet_length)
+                  demuxedPacketLength ) != demuxedPacketLength)
       {
         perror("could not write the demuxed packet correctly (tap mode)");
       }
@@ -1379,7 +1852,7 @@ void sendPacketToTun (contextSimplemux* context,
       fprintf ( context->log_file,
                 "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n",
                 GetTimeStamp(),
-                packet_length,
+                demuxedPacketLength,
                 context->net2tun);  // the packet is good
       
       fflush(context->log_file);
@@ -1387,13 +1860,13 @@ void sendPacketToTun (contextSimplemux* context,
   #endif
 }
 
-// demux and decompress a Simplemux packet and extract each of the
+// demux and decompress a Simplemux bundle and extract each of the
 //packets/frames it contains
 // returns 1 if everything is correct
 //        -1 otherwise
-int demuxPacketFromNet( contextSimplemux* context,
+int demuxBundleFromNet( contextSimplemux* context,
                         int nread_from_net,
-                        uint16_t packet_length,
+                        uint16_t bundleLength,
                         uint8_t* buffer_from_net,
                         rohc_status_t* status )
 {
@@ -1418,333 +1891,20 @@ int demuxPacketFromNet( contextSimplemux* context,
     int LXT_first_byte;                     // length extension of the first byte
     int maximum_packet_length;              // the maximum length of a packet. It may be 64 (first header) or 128 (non-first header)
 
-    while (position < nread_from_net) {   
+    while (position < nread_from_net) {
+      num_demuxed_packets ++;   // I have demuxed another packet
+      int demuxedPacketLength;  // to store the length of the packet/frame extracted from the bundle
+
       if (context->flavor == 'N') {
         // normal flavor
-
-        // check if this is the first separator or not
-        if (first_header_read == 0) {
-
-          // this is a first header:
-          //  - SPB will be stored in the most significant bit (0x80)
-          //  - LXT will be stored in the 7th bit (0x40)
-          
-          // Read SPB (one bit)
-          // It only appears in the first Simplemux header 
-          //  - It is set to '0' if all the multiplexed
-          //    packets belong to the same protocol (in this case, the "protocol"
-          //    field will only appear in the first Simplemux header)
-          //  - It is set to '1' when each packet MAY belong to a different protocol.
-
-          // check if the most significant bit (0x80) is '1'
-          if  ((0x80 & buffer_from_net[position] ) == 0x80 ) {
-            single_protocol_rec = 1;
-            //do_debug(2, "single protocol\n");
-          }
-          else {
-            single_protocol_rec = 0;
-            //do_debug(2, "multi protocol\n");
-          }
-
-          // Read LXT (one bit)
-          // as this is a first header
-          //  - LXT bit is the second one (0x40) 
-          //  - the maximum length of a single-byte packet is 64 bytes                
-          if ((0x40 & buffer_from_net[position]) == 0x00)
-            LXT_first_byte = 0;
-          else
-            LXT_first_byte = 1;
-
-          maximum_packet_length = 64;
-        }
-
-        else { 
-          // this is a non-first header
-          //  - There is no SPB bit
-          //  - LXT will be stored in the most significant bit (0x80)
-          //  - the maximum length of a single-byte packet is 128 bytes
-          if ((0x80 & buffer_from_net[position]) == 0x00)
-            LXT_first_byte = 0;
-          else
-            LXT_first_byte = 1;
-          
-          maximum_packet_length = 128;
-        }
-
-        // I have demuxed another packet
-        num_demuxed_packets ++;
-
-        #ifdef DEBUG
-          if((context->mode == UDP_MODE) || (context->mode == NETWORK_MODE) ) {
-
-            if(context->tunnelMode == TUN_MODE) {
-              do_debug_c( 1,
-                          ANSI_COLOR_YELLOW,
-                          " DEMUXED PACKET #");
-            }
-            else {
-              // TAP_MODE
-              do_debug_c( 1,
-                          ANSI_COLOR_YELLOW,
-                          " DEMUXED FRAME #");
-            }
-            do_debug_c( 1,
-                        ANSI_COLOR_RESET,
-                        "%i",
-                        num_demuxed_packets);
-
-            do_debug_c( 2,
-                        ANSI_COLOR_YELLOW,
-                        ":");
-          }
-          else {
-            // TCP_SERVER_MODE or TCP_CLIENT_MODE
-            if(context->tunnelMode == TUN_MODE) {
-              do_debug_c( 2,
-                          ANSI_COLOR_YELLOW,
-                          " PACKET DEMUXED");
-            }
-            else {
-              // TAP_MODE
-              do_debug_c( 2,
-                          ANSI_COLOR_YELLOW,
-                          " FRAME DEMUXED");
-            }
-            do_debug_c( 2,
-                        ANSI_COLOR_YELLOW,
-                        ":"); 
-          }
-        #endif
-
-        // normal flavor
-
-        if (LXT_first_byte == 0) {
-          // the LXT bit of the first byte is 0 => the separator is one-byte long
-
-          // I have to convert the 6 (or 7) less significant bits to an integer, which means the length of the packet
-          // since the two most significant bits are 0, the length is the value of the char
-          packet_length = buffer_from_net[position] % maximum_packet_length;
-
-          #ifdef DEBUG
-            if (debug>0) {
-              do_debug_c( 2,
-                          ANSI_COLOR_YELLOW,
-                          "  Mux separator of 1 byte: ");
-              do_debug_c( 2,
-                          ANSI_COLOR_RESET,
-                          "0x%02x",
-                          buffer_from_net[position]);
-              do_debug_c( 2,
-                          ANSI_COLOR_YELLOW,
-                          " (");
-
-              bool bits[8];   // used for printing the bits of a byte in debug mode
-              FromByte(buffer_from_net[position], bits);
-              PrintByte(2, 8, bits);
-              do_debug_c(2, ANSI_COLOR_YELLOW, ")");
-            }
-          #endif
-          position ++;
-        }
-
-        else {
-          // the LXT bit of the first byte is 1 => the separator is NOT one-byte
-
-          // check whether this is a 2-byte or a 3-byte length
-          // check the bit 7 of the second byte
-
-          // If the LXT bit is 0, this is a two-byte length
-          if ((0x80 & buffer_from_net[position+1] ) == 0x00 ) {
-
-            // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
-            // I do the product by 128, because the next byte includes 7 bits of the length
-            packet_length = ((buffer_from_net[position] % maximum_packet_length) * 128 );
-            #ifdef DEBUG
-              do_debug_c( 3,
-                          ANSI_COLOR_YELLOW,
-                          " initial packet_length (only most significant bits): ");
-              do_debug_c( 3,
-                          ANSI_COLOR_RESET,
-                          "%d, ",
-                          packet_length);
-            #endif
-            /*
-            uint8_t mask;
-            if (maximum_packet_length == 64)
-              mask = 0x3F;
-            else
-              mask = 0x7F;
-            packet_length = ((buffer_from_net[position] & maximum_packet_length) << 7 );*/
-
-            // I add the value of the 7 less significant bits of the second byte
-            packet_length = packet_length + (buffer_from_net[position + 1] % 128);
-            #ifdef DEBUG
-              do_debug_c( 3,
-                          ANSI_COLOR_YELLOW,
-                          "packet_length (all the bits): ");
-              do_debug_c( 3,
-                          ANSI_COLOR_RESET,
-                          "%d\n",
-                          packet_length);
-            #endif
-            //packet_length = packet_length + (buffer_from_net[position+1] & 0x7F);
-
-            #ifdef DEBUG
-            if (debug>0) {
-              bool bits[8];   // used for printing the bits of a byte in debug mode
-
-              // print the first byte
-              FromByte(buffer_from_net[position], bits);
-              do_debug_c( 2,
-                          ANSI_COLOR_YELLOW,
-                          "  Mux separator of 2 bytes: ");
-              do_debug_c( 2,
-                          ANSI_COLOR_RESET,
-                          "0x%02x",
-                          buffer_from_net[position]);
-              do_debug_c( 2,
-                          ANSI_COLOR_YELLOW,
-                          " (");
-              PrintByte(2, 8, bits);
-              
-              // print the second byte
-              FromByte(buffer_from_net[position+1], bits);
-              do_debug_c( 2,
-                          ANSI_COLOR_YELLOW,
-                          ") ");
-              do_debug_c( 2,
-                          ANSI_COLOR_RESET,
-                          "0x%02x",
-                          buffer_from_net[position+1]);
-              do_debug_c( 2,
-                          ANSI_COLOR_YELLOW,
-                          " (");
-              PrintByte(2, 8, bits);
-              do_debug_c(2, ANSI_COLOR_YELLOW, ")");
-            }
-            #endif
-
-            position = position + 2;
-          }
-
-          // If the LXT bit of the second byte is 1, this is a three-byte length
-          else {
-            // I get the 6 (or 7) less significant bits of the first byte by using modulo maximum_packet_length
-            // I do the product by 16384 (2^14), because the next two bytes include 14 bits of the length
-            //packet_length = ((buffer_from_net[position] % maximum_packet_length) * 16384 );
-            packet_length = ((buffer_from_net[position] % maximum_packet_length) << 14 );
-
-            // I get the 6 (or 7) less significant bits of the second byte by using modulo 128
-            // I do the product by 128, because the next byte includes 7 bits of the length
-            //packet_length = packet_length + ((buffer_from_net[position+1] % 128) * 128 );
-            packet_length = packet_length + ((buffer_from_net[position+1] & 0x7F) << 7 );
-
-            // I add the value of the 7 less significant bits of the second byte
-            //packet_length = packet_length + (buffer_from_net[position+2] % 128);
-            packet_length = packet_length + (buffer_from_net[position+2] & 0x7F);
-
-            #ifdef DEBUG
-            if (debug>0) {
-              bool bits[8];   // used for printing the bits of a byte in debug mode
-
-              // print the first byte
-              FromByte(buffer_from_net[position], bits);
-              do_debug_c( 2,
-                          ANSI_COLOR_GREEN,
-                          "  Mux separator of 2 bytes: ");
-              do_debug_c( 2,
-                          ANSI_COLOR_RESET,
-                          "0x%02x ",
-                          buffer_from_net[position]);
-              PrintByte(2, 8, bits);
-              
-              // print the second byte
-              FromByte(buffer_from_net[position+1], bits);
-              do_debug_c( 2,
-                          ANSI_COLOR_RESET,
-                          " %02x ",
-                          buffer_from_net[position+1]);
-              PrintByte(2, 8, bits);  
-              
-              // print the third byte
-              FromByte(buffer_from_net[position+2], bits);
-              do_debug_c( 2,
-                          ANSI_COLOR_RESET,
-                          " %02x ",
-                          buffer_from_net[position+2]);
-              PrintByte(2, 8, bits);
-            }
-            #endif
-
-            position = position + 3;
-          }
-        }
-
-        // read the 'Protocol'
-
-        // check if this is the first separator or not
-        if (first_header_read == 0) {    // this is the first separator. The protocol field will always be present
-          // the next thing I expect is a 'protocol' field
-          context->protocol_rec = buffer_from_net[position];
-          #ifdef DEBUG
-            do_debug_c( 1,
-                        ANSI_COLOR_YELLOW,
-                        ". Protocol ");
-            do_debug_c( 1,
-                        ANSI_COLOR_RESET,
-                        "0x%02x",
-                        buffer_from_net[position]);
-
-            if(context->protocol_rec == IPPROTO_IP_ON_IP)
-              do_debug_c(1, ANSI_COLOR_RESET, " (IP)");
-            else if(context->protocol_rec == IPPROTO_ROHC)
-              do_debug_c(1, ANSI_COLOR_RESET, " (RoHC)");
-            else if(context->protocol_rec == IPPROTO_ETHERNET)
-              do_debug_c(1, ANSI_COLOR_RESET, " (Ethernet)");
-          #endif
-          position ++;
-
-          // if I am here, it means that I have read the first separator
-          first_header_read = 1;
-        }
-        else {      // non-first separator. The protocol field may or may not be present
-          if ( single_protocol_rec == 0 ) {
-            // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
-            context->protocol_rec = buffer_from_net[position];
-            if(single_protocol_rec == 0) {
-              #ifdef DEBUG
-                do_debug_c( 1,
-                            ANSI_COLOR_YELLOW,
-                            ". Protocol ");
-                do_debug_c( 1,
-                            ANSI_COLOR_RESET,
-                            "0x%02x",
-                            buffer_from_net[position]);
-                
-                if(context->protocol_rec == IPPROTO_IP_ON_IP)
-                  do_debug_c(1, ANSI_COLOR_RESET, " (IP)");
-                else if(context->protocol_rec == IPPROTO_ROHC)
-                  do_debug_c(1, ANSI_COLOR_RESET, " (RoHC)");
-                else if(context->protocol_rec == IPPROTO_ETHERNET)
-                  do_debug_c(1, ANSI_COLOR_RESET, " (Ethernet)");
-              #endif
-            }
-            position ++;
-          }
-        }
-        #ifdef DEBUG
-          do_debug_c( 1,
-                      ANSI_COLOR_YELLOW,
-                      ". Length ");
-          do_debug_c( 1,
-                      ANSI_COLOR_RESET,
-                      "%i",
-                      packet_length);
-          do_debug_c( 1,
-                      ANSI_COLOR_YELLOW,
-                      " bytes\n");
-        #endif
-
+        demuxedPacketLength = demuxPacketNormal(context,
+                                                buffer_from_net,
+                                                &position,
+                                                num_demuxed_packets,
+                                                &first_header_read,
+                                                &single_protocol_rec,
+                                                &LXT_first_byte,
+                                                &maximum_packet_length);
       }
       else {
         // fast flavor
@@ -1752,136 +1912,29 @@ int demuxPacketFromNet( contextSimplemux* context,
           assert(context->flavor == 'F');
         #endif
 
-        // I have demuxed another packet
-        num_demuxed_packets ++;
-        #ifdef DEBUG
-          if((context->mode == UDP_MODE) || (context->mode == NETWORK_MODE) ) {
-            if(context->tunnelMode == TUN_MODE) {
-              do_debug_c( 1,
-                          ANSI_COLOR_YELLOW,
-                          " DEMUXED PACKET #");
-            }
-            else {
-              do_debug_c( 1,
-                          ANSI_COLOR_YELLOW,
-                          " DEMUXED FRAME #");
-            }
-            do_debug_c( 1,
-                        ANSI_COLOR_RESET,
-                        "%i",
-                        num_demuxed_packets);          
-            do_debug_c( 2,
-                        ANSI_COLOR_YELLOW,
-                        ":");
-          }
-          else {
-            // TCP_SERVER_MODE or TCP_CLIENT_MODE
-            if(context->tunnelMode == TUN_MODE) {
-              do_debug_c( 2,
-                          ANSI_COLOR_YELLOW,
-                          " PACKET DEMUXED");
-            }
-            else {
-              // TAP_MODE
-              do_debug_c( 2,
-                          ANSI_COLOR_YELLOW,
-                          " FRAME DEMUXED");
-            }
-            do_debug_c( 2,
-                        ANSI_COLOR_YELLOW,
-                        ":"); 
-          }
-        #endif
+        demuxedPacketLength = demuxPacketFast(context,
+                                              bundleLength,
+                                              buffer_from_net,
+                                              &position,
+                                              num_demuxed_packets);
 
-        // fast flavor
-        #ifdef ASSERT
-          assert(context->flavor == 'F');
-        #endif
-
-        if ((context->mode == TCP_SERVER_MODE) || (context->mode == TCP_CLIENT_MODE)) {
-          // do nothing, because I have already read the length
-          #ifdef DEBUG
-            do_debug_c( 2,
-                        ANSI_COLOR_YELLOW,
-                        " Length ");
-            do_debug_c( 2,
-                        ANSI_COLOR_RESET,
-                        "%i",
-                        packet_length);
-            do_debug_c( 2,
-                        ANSI_COLOR_YELLOW,
-                        " bytes.\n");
-          #endif
-
-          // do nothing, because I have already read the Protocol
-        }
-        else {
-          // I am in fast mode, but not in TCP mode, so I still have to read the length
-          // It is in the two first bytes of the buffer
-          //do_debug(0,"buffer_from_net[position] << 8: 0x%02x  buffer_from_net[position+1]: 0x%02x\n", buffer_from_net[position] << 8, buffer_from_net[position+1]);
-
-          // apply the structure of a fast mode packet
-          simplemuxFastHeader* fastHeader = (simplemuxFastHeader*) (&buffer_from_net[position]);
-          packet_length = ntohs(fastHeader->packetSize);
-          //packet_length = (buffer_from_net[position] << 8 ) + buffer_from_net[position+1];
-
-          #ifdef DEBUG
-            do_debug_c( 1,
-                        ANSI_COLOR_YELLOW,
-                        " Length ");
-            do_debug_c( 1,
-                        ANSI_COLOR_RESET,
-                        "%i",
-                        packet_length);
-            do_debug_c( 1,
-                        ANSI_COLOR_YELLOW,
-                        " bytes. ");
-          #endif
-
-          // each packet may belong to a different protocol, so the first thing is the 'Protocol' field
-          context->protocol_rec = fastHeader->protocolID;
-
-          #ifdef DEBUG
-            do_debug_c( 1,
-                        ANSI_COLOR_YELLOW,
-                        "Protocol ");
-
-            do_debug_c( 1,
-                        ANSI_COLOR_RESET,
-                        "0x%02x",
-                        context->protocol_rec);
-
-            if(context->protocol_rec == IPPROTO_IP_ON_IP)
-              do_debug_c( 1,
-                          ANSI_COLOR_RESET,
-                          " (IP)\n");
-
-            else if(context->protocol_rec == IPPROTO_ROHC)
-              do_debug_c( 1,
-                          ANSI_COLOR_RESET,
-                          " (RoHC)\n");
-
-            else if(context->protocol_rec == IPPROTO_ETHERNET)
-              do_debug_c( 1,
-                          ANSI_COLOR_RESET,
-                          " (Ethernet)\n");
-            else
-              do_debug_c( 1,
-                          ANSI_COLOR_RESET,
-                          "\n");          
-          #endif
-
-          // move 'position' to the end of the simplemuxFast header
-          position = position + sizeof(simplemuxFastHeader);
+        if((context->mode == TCP_SERVER_MODE) || (context->mode == TCP_CLIENT_MODE) ) {
+          // for TCP, demuxedPacketLength will return 0
+          // in this case, the length of the bundle is
+          //the same as the length of the demuxed packet
+          //because it is seen as a continuous flow of bytes      
+          demuxedPacketLength = bundleLength;   
         }
       }
 
+      // this part is used by both Normal and Fast flavors
 
-      // copy the packet to a new string 'demuxed_packet'
-      uint8_t demuxed_packet[BUFSIZE];          // stores each demultiplexed packet
+      // copy the demultiplexed packet to a new string 'demuxed_packet'
+      uint8_t demuxed_packet[BUFSIZE];
+      memcpy (demuxed_packet, &buffer_from_net[position], demuxedPacketLength);
 
-      memcpy (demuxed_packet, &buffer_from_net[position], packet_length);
-      position = position + packet_length;
+      // move the pointer
+      position = position + demuxedPacketLength;
 
       // at this point, I have extracted one packet/frame from the arrived muxed one
       // the demuxed packet is in 'demuxed_packet'
@@ -1936,7 +1989,7 @@ int demuxPacketFromNet( contextSimplemux* context,
           #ifdef DEBUG
             // the length and the protocol of this packet have already been presented
             // dump the received packet on terminal
-            dump_packet ( packet_length, demuxed_packet );
+            dump_packet ( demuxedPacketLength, demuxed_packet );
           #endif
         }
         else {
@@ -1957,7 +2010,7 @@ int demuxPacketFromNet( contextSimplemux* context,
                 fprintf ( context->log_file,
                           "%"PRIu64"\tdrop\tno_RoHC_mode\t%i\t%"PRIu32"\n",
                           GetTimeStamp(),
-                          packet_length,
+                          demuxedPacketLength,
                           context->net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
                 
                 fflush(context->log_file);
@@ -1972,18 +2025,18 @@ int demuxPacketFromNet( contextSimplemux* context,
             rohc_buf_reset (&feedback_send);
 
             // Copy the compressed length and the compressed packet
-            rohc_packet_d.len = packet_length;
+            rohc_packet_d.len = demuxedPacketLength;
       
             // Copy the packet itself
-            for (int l = 0; l < packet_length ; l++) {
+            for (int l = 0; l < demuxedPacketLength ; l++) {
               rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
             }
             // I try to use memcpy instead, but it does not work properly
-            // memcpy(demuxed_packet, rohc_buf_data_at(rohc_packet_d, 0), packet_length);
+            // memcpy(demuxed_packet, rohc_buf_data_at(rohc_packet_d, 0), demuxedPacketLength);
 
             #ifdef DEBUG
               // dump the ROHC packet on terminal
-              dump_packet (packet_length, demuxed_packet);
+              dump_packet (demuxedPacketLength, demuxed_packet);
             #endif
 
             // decompress the packet
@@ -2118,21 +2171,21 @@ int demuxPacketFromNet( contextSimplemux* context,
               if(!rohc_buf_is_empty(ip_packet_d))  {  // decompressed packet is not empty
           
                 // ip_packet.len bytes of decompressed IP data available in ip_packet
-                packet_length = ip_packet_d.len;
+                demuxedPacketLength = ip_packet_d.len;
 
                 // copy the packet
-                memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), packet_length);
+                memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), demuxedPacketLength);
 
                 #ifdef DEBUG
                   //dump the IP packet on the standard output
                   do_debug_c( 1,
                               ANSI_COLOR_MAGENTA,
                               "  IP packet resulting from the ROHC decompression: ",
-                              packet_length);
+                              demuxedPacketLength);
                   do_debug_c( 1,
                               ANSI_COLOR_RESET,
                               "%i",
-                              packet_length);
+                              demuxedPacketLength);
                   do_debug_c( 1,
                               ANSI_COLOR_MAGENTA,
                               " bytes\n");
@@ -2305,7 +2358,7 @@ int demuxPacketFromNet( contextSimplemux* context,
           // write the demuxed (and perhaps decompressed) packet to the tun/tap interface
           // if compression is used, check that RoHC has decompressed correctly
           if ( ( context->protocol_rec != IPPROTO_ROHC ) || ((context->protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
-            sendPacketToTun(context, demuxed_packet, packet_length);
+            sendPacketToTun(context, demuxed_packet, demuxedPacketLength);
           }
         }
         else {

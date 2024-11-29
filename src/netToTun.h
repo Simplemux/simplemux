@@ -9,7 +9,7 @@ int readPacketFromNet(contextSimplemux* context,
                       int* nread_from_net,
                       uint16_t* packet_length );
 
-int demuxPacketFromNet( contextSimplemux* context,
+int demuxBundleFromNet( contextSimplemux* context,
                         int nread_from_net,
                         uint16_t packet_length,
                         uint8_t* buffer_from_net,
