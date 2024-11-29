@@ -792,8 +792,8 @@ void demuxPacketBlast(contextSimplemux* context,
           do_debug_c( 1,
                       ANSI_COLOR_RED,
                       "Received wrong blast ACK: Its length is %i, but it MUST be %i\n",
-                      packetLength + BLAST_HEADER_SIZE,
-                      BLAST_HEADER_SIZE);
+                      packetLength + sizeof(blastHeader),
+                      sizeof(blastHeader));
         #endif
       }
       else {
@@ -811,7 +811,7 @@ void demuxPacketBlast(contextSimplemux* context,
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "%i",
-                      BLAST_HEADER_SIZE);
+                      sizeof(blastHeader));
           do_debug_c( 1,
                       ANSI_COLOR_BOLD_GREEN,
                       " bytes\n");
@@ -903,7 +903,7 @@ void demuxPacketBlast(contextSimplemux* context,
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "%i",
-                    BLAST_HEADER_SIZE);
+                    sizeof(blastHeader));
         do_debug_c( 2,
                     ANSI_COLOR_YELLOW,
                     ") and tunneling (");
@@ -1213,7 +1213,7 @@ void demuxPacketBlast(contextSimplemux* context,
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
-                    BLAST_HEADER_SIZE);
+                    sizeof(blastHeader));
         do_debug_c( 1,
                     ANSI_COLOR_BOLD_GREEN,
                     " (Blast header) plus ");
@@ -1252,8 +1252,8 @@ void demuxPacketBlast(contextSimplemux* context,
           do_debug_c( 1,
                       ANSI_COLOR_RED,
                       "Received wrong blast heartbeat: Its length is %i, but it MUST be %i\n",
-                      packetLength + BLAST_HEADER_SIZE,
-                      BLAST_HEADER_SIZE);
+                      packetLength + sizeof(blastHeader),
+                      sizeof(blastHeader));
         #endif
       }
       else {
@@ -1267,7 +1267,7 @@ void demuxPacketBlast(contextSimplemux* context,
           do_debug_c( 2,
                       ANSI_COLOR_RESET,
                       "%i",
-                      BLAST_HEADER_SIZE);
+                      sizeof(blastHeader));
           do_debug_c( 2,
                       ANSI_COLOR_BOLD_YELLOW,
                       " bytes");

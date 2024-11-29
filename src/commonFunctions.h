@@ -48,7 +48,6 @@
 #define UDP_HEADER_SIZE 8
 //#define TCP_HEADER_SIZE 20
 #define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long
-#define BLAST_HEADER_SIZE 6     // fixme: we could use sizeof(simplemuxBlastHeader) instead
 
 #define TIME_UNTIL_SENDING_AGAIN_BLAST 5000000 // milliseconds before sending again a packet with the same ID
                                                 // there are 65536 possible values of the ID
