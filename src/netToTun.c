@@ -467,7 +467,6 @@ int demuxPacketFromNet( contextSimplemux* context,
                         int nread_from_net,
                         uint16_t packet_length,
                         uint8_t* buffer_from_net,
-                        //uint8_t* protocol_rec,
                         rohc_status_t* status )
 {
   // increase the counter of the number of packets read from the network
@@ -1289,11 +1288,11 @@ int demuxPacketFromNet( contextSimplemux* context,
     }
   }
 
-  // no blast flavor
+  // no blast flavor (i.e. normal or fast)
   else {
     // if the packet comes from the multiplexing port, I have to demux 
-    //it and write each packet to the tun / tap interface
-    int position = 0; //this is the index for reading the packet/frame
+    //it and write it packet to the tun / tap interface
+    int position = 0;                       // the index for reading the packet/frame
     int num_demuxed_packets = 0;            // a counter of the number of packets inside a muxed one
     int first_header_read = 0;              // it is 0 when the first header has not been read
     int single_protocol_rec;                // it is the bit Single-Protocol-Bit received in a muxed packet
@@ -1456,7 +1455,6 @@ int demuxPacketFromNet( contextSimplemux* context,
           // I have to convert the 6 (or 7) less significant bits to an integer, which means the length of the packet
           // since the two most significant bits are 0, the length is the value of the char
           packet_length = buffer_from_net[position] % maximum_packet_length;
-          //packet_length = buffer_from_net[position] & maximum_packet_length;
 
           #ifdef DEBUG
             if (debug>0) {
@@ -1769,6 +1767,9 @@ int demuxPacketFromNet( contextSimplemux* context,
       memcpy (demuxed_packet, &buffer_from_net[position], packet_length);
       position = position + packet_length;
 
+      // at this point, I have extracted one packet/frame from the arrived muxed one
+      // the demuxed packet is in 'demuxed_packet'
+
       // Check if the position has gone beyond the size of the packet (wrong packet)
       if (position > nread_from_net) {
         // The last length read from the separator goes beyond the end of the packet
@@ -1808,25 +1809,26 @@ int demuxPacketFromNet( contextSimplemux* context,
       
       else {
 
-        /************ decompress the packet if needed ***************/
+        // check if the demuxed packet/frame has to be decompressed
 
-        // if the number of the protocol is NOT 142 (ROHC) I do not decompress the packet
+        // set to 1 if this demuxed packet/frame has to be dropped
+        int dropPacket = 0;
+
+        // if the number of the protocol is NOT 142 (RoHC) I do not decompress the packet
         if ( context->protocol_rec != IPPROTO_ROHC ) {
           // non-compressed packet
-            #ifdef DEBUG
+          #ifdef DEBUG
+            // the length and the protocol of this packet have already been presented
             // dump the received packet on terminal
-            if (debug>0) {
-              //do_debug_c(1, ANSI_COLOR_RESET, " Received ");
-              //do_debug(2, "   ");
-              dump_packet ( packet_length, demuxed_packet );
-            }
+            dump_packet ( packet_length, demuxed_packet );
           #endif
         }
         else {
-          // ROHC-compressed packet
+          // it is a RoHC-compressed packet
 
           // I cannot decompress the packet if I am not in ROHC mode
           if ( context->rohcMode == 0 ) {
+            dropPacket = 1;
             #ifdef DEBUG
               do_debug_c( 1,
                           ANSI_COLOR_RED,
@@ -1865,8 +1867,7 @@ int demuxPacketFromNet( contextSimplemux* context,
 
             #ifdef DEBUG
               // dump the ROHC packet on terminal
-              if (debug > 1)
-                dump_packet (packet_length, demuxed_packet);
+              dump_packet (packet_length, demuxed_packet);
             #endif
 
             // decompress the packet
@@ -2059,6 +2060,8 @@ int demuxPacketFromNet( contextSimplemux* context,
 
             else if ( *status == ROHC_STATUS_NO_CONTEXT ) {
               // failure: decompressor failed to decompress the ROHC packet
+              dropPacket = 1; // this packet has to be dropped
+
               #ifdef DEBUG
                 do_debug_c( 1,
                             ANSI_COLOR_RED,
@@ -2081,6 +2084,8 @@ int demuxPacketFromNet( contextSimplemux* context,
 
             else if ( *status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {  // the output buffer is too small for the compressed packet
               // failure: decompressor failed to decompress the ROHC packet 
+              dropPacket = 1; // this packet has to be dropped
+
               #ifdef DEBUG
                 do_debug_c( 1,
                             ANSI_COLOR_RED,
@@ -2105,6 +2110,7 @@ int demuxPacketFromNet( contextSimplemux* context,
             else if ( *status == ROHC_STATUS_MALFORMED ) {
               // the decompression failed because the ROHC packet is malformed 
               // failure: decompressor failed to decompress the ROHC packet
+              dropPacket = 1; // this packet has to be dropped
 
               #ifdef DEBUG 
                 do_debug_c( 1,
@@ -2129,6 +2135,7 @@ int demuxPacketFromNet( contextSimplemux* context,
 
             else if ( *status == ROHC_STATUS_BAD_CRC ) {      // the CRC detected a transmission or decompression problem
               // failure: decompressor failed to decompress the ROHC packet 
+              dropPacket = 1; // this packet has to be dropped
 
               #ifdef DEBUG
                 do_debug_c( 1,
@@ -2153,6 +2160,7 @@ int demuxPacketFromNet( contextSimplemux* context,
 
             else if ( *status == ROHC_STATUS_ERROR ) {        // another problem occurred
               // failure: decompressor failed to decompress the ROHC packet
+              dropPacket = 1; // this packet has to be dropped
 
               #ifdef DEBUG
                 do_debug_c( 1,
@@ -2176,59 +2184,19 @@ int demuxPacketFromNet( contextSimplemux* context,
             }
           }
         }
-        /*********** end decompression **************/
 
-        // write the demuxed (and perhaps decompressed) packet to the tun interface
-        // if compression is used, check that ROHC has decompressed correctly
-        if ( ( context->protocol_rec != IPPROTO_ROHC ) || ((context->protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
+        if (!dropPacket) {
+          // write the demuxed (and perhaps decompressed) packet to the tun/tap interface
+          // if compression is used, check that RoHC has decompressed correctly
+          if ( ( context->protocol_rec != IPPROTO_ROHC ) || ((context->protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
 
-          // tun mode
-          if(context->tunnelMode == TUN_MODE) {
-             // write the demuxed packet to the tun interface
-            #ifdef DEBUG
-              do_debug_c( 1,
-                          ANSI_COLOR_YELLOW,
-                          " Sending packet of ");
-              do_debug_c( 1,
-                          ANSI_COLOR_RESET,
-                          "%i",
-                          packet_length);
-              do_debug_c( 1,
-                          ANSI_COLOR_YELLOW,
-                          " bytes to ");
-              do_debug_c( 1,
-                          ANSI_COLOR_RESET,
-                          "%s",
-                          context->tun_if_name);
-              do_debug_c( 1,
-                          ANSI_COLOR_YELLOW,
-                          "\n");
-            #endif
-
-            if (cwrite (context->tun_fd,
-                        demuxed_packet,
-                        packet_length ) != packet_length)
-            {
-              perror("could not write the demuxed packet correctly (tun mode)");
-            }
-          }
-          // tap mode
-          else if(context->tunnelMode == TAP_MODE) {
-            if (context->protocol_rec != IPPROTO_ETHERNET) {
-              #ifdef DEBUG
-                do_debug_c( 2,
-                            ANSI_COLOR_RED,
-                            "wrong value of 'Protocol' field received. It should be %i, but it is %i",
-                            IPPROTO_ETHERNET,
-                            context->protocol_rec);
-              #endif            
-            }
-            else {
-               // write the demuxed packet to the tap interface
+            // tun mode
+            if(context->tunnelMode == TUN_MODE) {
+               // write the demuxed packet to the tun interface
               #ifdef DEBUG
                 do_debug_c( 1,
                             ANSI_COLOR_YELLOW,
-                            " Sending frame of ");
+                            " Sending packet of ");
                 do_debug_c( 1,
                             ANSI_COLOR_RESET,
                             "%i",
@@ -2249,31 +2217,84 @@ int demuxPacketFromNet( contextSimplemux* context,
                           demuxed_packet,
                           packet_length ) != packet_length)
               {
-                perror("could not write the demuxed packet correctly (tap mode)");
+                perror("could not write the demuxed packet correctly (tun mode)");
               }
             }
-          }
-          else {
-            perror ("wrong value of 'tunnelMode'");
-            exit (EXIT_FAILURE);
-          }
-          
-          #ifdef DEBUG
-            do_debug(2, "\n");
-            //do_debug(2, "packet length (without separator): %i\n", packet_length);
-          #endif
+            // tap mode
+            else if(context->tunnelMode == TAP_MODE) {
+              if (context->protocol_rec != IPPROTO_ETHERNET) {
+                #ifdef DEBUG
+                  do_debug_c( 2,
+                              ANSI_COLOR_RED,
+                              "wrong value of 'Protocol' field received. It should be %i, but it is %i",
+                              IPPROTO_ETHERNET,
+                              context->protocol_rec);
+                #endif            
+              }
+              else {
+                 // write the demuxed packet to the tap interface
+                #ifdef DEBUG
+                  do_debug_c( 1,
+                              ANSI_COLOR_YELLOW,
+                              " Sending frame of ");
+                  do_debug_c( 1,
+                              ANSI_COLOR_RESET,
+                              "%i",
+                              packet_length);
+                  do_debug_c( 1,
+                              ANSI_COLOR_YELLOW,
+                              " bytes to ");
+                  do_debug_c( 1,
+                              ANSI_COLOR_RESET,
+                              "%s",
+                              context->tun_if_name);
+                  do_debug_c( 1,
+                              ANSI_COLOR_YELLOW,
+                              "\n");
+                #endif
 
-          #ifdef LOGFILE
-            // write the log file
-            if ( context->log_file != NULL ) {
-              fprintf ( context->log_file,
-                        "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n",
-                        GetTimeStamp(),
-                        packet_length,
-                        context->net2tun);  // the packet is good
-              
-              fflush(context->log_file);
+                if (cwrite (context->tun_fd,
+                            demuxed_packet,
+                            packet_length ) != packet_length)
+                {
+                  perror("could not write the demuxed packet correctly (tap mode)");
+                }
+              }
             }
+            else {
+              perror ("wrong value of 'tunnelMode'");
+              exit (EXIT_FAILURE);
+            }
+            
+            #ifdef DEBUG
+              do_debug(2, "\n");
+            #endif
+
+            #ifdef LOGFILE
+              // write the log file
+              if ( context->log_file != NULL ) {
+                fprintf ( context->log_file,
+                          "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n",
+                          GetTimeStamp(),
+                          packet_length,
+                          context->net2tun);  // the packet is good
+                
+                fflush(context->log_file);
+              }
+            #endif
+          }
+        }
+        else {
+          // the packet has to be dropped. Do nothing
+          #ifdef DEBUG
+            if (context->tunnelMode == TUN_MODE)
+              do_debug_c( 2,
+                          ANSI_COLOR_RED,
+                          " The demuxed packet has been dropped\n\n");
+            else
+              do_debug_c( 2,
+                          ANSI_COLOR_RED,
+                          " The demuxed frame has been dropped\n\n");              
           #endif
         }
       }

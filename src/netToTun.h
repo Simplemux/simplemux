@@ -13,7 +13,6 @@ int demuxPacketFromNet( contextSimplemux* context,
                         int nread_from_net,
                         uint16_t packet_length,
                         uint8_t* buffer_from_net,
-                        //uint8_t* protocol_rec,
                         rohc_status_t* status );
 
 #endif  // NETTOTUN_H
