@@ -462,6 +462,103 @@ int readPacketFromNet(contextSimplemux* context,
   return is_multiplexed_packet;
 }
 
+void sendPacketToTun (contextSimplemux* context,
+                      uint8_t* demuxed_packet,
+                      int packet_length)
+{
+  // tun mode
+  if(context->tunnelMode == TUN_MODE) {
+     // write the demuxed packet to the tun interface
+    #ifdef DEBUG
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  " Sending packet of ");
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "%i",
+                  packet_length);
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  " bytes to ");
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "%s",
+                  context->tun_if_name);
+      do_debug_c( 1,
+                  ANSI_COLOR_YELLOW,
+                  "\n");
+    #endif
+
+    if (cwrite (context->tun_fd,
+                demuxed_packet,
+                packet_length ) != packet_length)
+    {
+      perror("could not write the demuxed packet correctly (tun mode)");
+    }
+  }
+  // tap mode
+  else if(context->tunnelMode == TAP_MODE) {
+    if (context->protocol_rec != IPPROTO_ETHERNET) {
+      #ifdef DEBUG
+        do_debug_c( 2,
+                    ANSI_COLOR_RED,
+                    "wrong value of 'Protocol' field received. It should be %i, but it is %i",
+                    IPPROTO_ETHERNET,
+                    context->protocol_rec);
+      #endif            
+    }
+    else {
+       // write the demuxed packet to the tap interface
+      #ifdef DEBUG
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " Sending frame of ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    packet_length);
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " bytes to ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    context->tun_if_name);
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    "\n");
+      #endif
+
+      if (cwrite (context->tun_fd,
+                  demuxed_packet,
+                  packet_length ) != packet_length)
+      {
+        perror("could not write the demuxed packet correctly (tap mode)");
+      }
+    }
+  }
+  else {
+    perror ("wrong value of 'tunnelMode'");
+    exit (EXIT_FAILURE);
+  }
+  
+  #ifdef DEBUG
+    do_debug(2, "\n");
+  #endif
+
+  #ifdef LOGFILE
+    // write the log file
+    if ( context->log_file != NULL ) {
+      fprintf ( context->log_file,
+                "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n",
+                GetTimeStamp(),
+                packet_length,
+                context->net2tun);  // the packet is good
+      
+      fflush(context->log_file);
+    }
+  #endif
+}
 
 int demuxPacketFromNet( contextSimplemux* context,
                         int nread_from_net,
@@ -2189,99 +2286,7 @@ int demuxPacketFromNet( contextSimplemux* context,
           // write the demuxed (and perhaps decompressed) packet to the tun/tap interface
           // if compression is used, check that RoHC has decompressed correctly
           if ( ( context->protocol_rec != IPPROTO_ROHC ) || ((context->protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
-
-            // tun mode
-            if(context->tunnelMode == TUN_MODE) {
-               // write the demuxed packet to the tun interface
-              #ifdef DEBUG
-                do_debug_c( 1,
-                            ANSI_COLOR_YELLOW,
-                            " Sending packet of ");
-                do_debug_c( 1,
-                            ANSI_COLOR_RESET,
-                            "%i",
-                            packet_length);
-                do_debug_c( 1,
-                            ANSI_COLOR_YELLOW,
-                            " bytes to ");
-                do_debug_c( 1,
-                            ANSI_COLOR_RESET,
-                            "%s",
-                            context->tun_if_name);
-                do_debug_c( 1,
-                            ANSI_COLOR_YELLOW,
-                            "\n");
-              #endif
-
-              if (cwrite (context->tun_fd,
-                          demuxed_packet,
-                          packet_length ) != packet_length)
-              {
-                perror("could not write the demuxed packet correctly (tun mode)");
-              }
-            }
-            // tap mode
-            else if(context->tunnelMode == TAP_MODE) {
-              if (context->protocol_rec != IPPROTO_ETHERNET) {
-                #ifdef DEBUG
-                  do_debug_c( 2,
-                              ANSI_COLOR_RED,
-                              "wrong value of 'Protocol' field received. It should be %i, but it is %i",
-                              IPPROTO_ETHERNET,
-                              context->protocol_rec);
-                #endif            
-              }
-              else {
-                 // write the demuxed packet to the tap interface
-                #ifdef DEBUG
-                  do_debug_c( 1,
-                              ANSI_COLOR_YELLOW,
-                              " Sending frame of ");
-                  do_debug_c( 1,
-                              ANSI_COLOR_RESET,
-                              "%i",
-                              packet_length);
-                  do_debug_c( 1,
-                              ANSI_COLOR_YELLOW,
-                              " bytes to ");
-                  do_debug_c( 1,
-                              ANSI_COLOR_RESET,
-                              "%s",
-                              context->tun_if_name);
-                  do_debug_c( 1,
-                              ANSI_COLOR_YELLOW,
-                              "\n");
-                #endif
-
-                if (cwrite (context->tun_fd,
-                            demuxed_packet,
-                            packet_length ) != packet_length)
-                {
-                  perror("could not write the demuxed packet correctly (tap mode)");
-                }
-              }
-            }
-            else {
-              perror ("wrong value of 'tunnelMode'");
-              exit (EXIT_FAILURE);
-            }
-            
-            #ifdef DEBUG
-              do_debug(2, "\n");
-            #endif
-
-            #ifdef LOGFILE
-              // write the log file
-              if ( context->log_file != NULL ) {
-                fprintf ( context->log_file,
-                          "%"PRIu64"\tsent\tdemuxed\t%i\t%"PRIu32"\n",
-                          GetTimeStamp(),
-                          packet_length,
-                          context->net2tun);  // the packet is good
-                
-                fflush(context->log_file);
-              }
-            #endif
+            sendPacketToTun(context, demuxed_packet, packet_length);
           }
         }
         else {
