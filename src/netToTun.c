@@ -1632,6 +1632,9 @@ int demuxPacketNormal(contextSimplemux* context,
   return demuxedPacketLength;
 }
 
+// demux a fast packet/frame
+// for TCP it returns 0
+// for UDP/network it returns the length of the demuxed packet
 int demuxPacketFast(contextSimplemux* context,
                     uint16_t bundleLength,
                     uint8_t* buffer_from_net,
@@ -1875,21 +1878,22 @@ int demuxBundleFromNet( contextSimplemux* context,
 
   showDebugInfoFromNet(context, nread_from_net, buffer_from_net);
 
-  // blast flavor
+  // 'blast' flavor
   if(context->flavor == 'B') {
     demuxPacketBlast(context, nread_from_net, buffer_from_net);
   }
 
-  // no blast flavor (i.e. normal or fast)
+  // no blast flavor (i.e. 'normal' or 'fast')
   else {
     // if the packet comes from the multiplexing port, I have to demux 
-    //it and write it packet to the tun / tap interface
-    int position = 0;                       // the index for reading the packet/frame
-    int num_demuxed_packets = 0;            // a counter of the number of packets inside a muxed one
-    int first_header_read = 0;              // it is 0 when the first header has not been read
-    int single_protocol_rec;                // it is the bit Single-Protocol-Bit received in a muxed packet
-    int LXT_first_byte;                     // length extension of the first byte
-    int maximum_packet_length;              // the maximum length of a packet. It may be 64 (first header) or 128 (non-first header)
+    //it and write the packets/frames it contains, to the tun / tap interface
+
+    int position = 0;               // the index for reading the packet/frame
+    int num_demuxed_packets = 0;    // a counter of the number of packets inside a muxed one
+    int first_header_read = 0;      // it is 0 when the first header has not been read
+    int single_protocol_rec;        // it is the bit Single-Protocol-Bit received in a muxed packet
+    int LXT_first_byte;             // length extension of the first byte
+    int maximum_packet_length;      // the maximum length of a packet. It may be 64 (first header) or 128 (non-first header)
 
     while (position < nread_from_net) {
       num_demuxed_packets ++;   // I have demuxed another packet
@@ -1933,11 +1937,11 @@ int demuxBundleFromNet( contextSimplemux* context,
       uint8_t demuxed_packet[BUFSIZE];
       memcpy (demuxed_packet, &buffer_from_net[position], demuxedPacketLength);
 
-      // move the pointer
-      position = position + demuxedPacketLength;
-
       // at this point, I have extracted one packet/frame from the arrived muxed one
       // the demuxed packet is in 'demuxed_packet'
+
+      // move the pointer
+      position = position + demuxedPacketLength;
 
       // Check if the position has gone beyond the size of the packet (wrong packet)
       if (position > nread_from_net) {
@@ -1993,7 +1997,7 @@ int demuxBundleFromNet( contextSimplemux* context,
           #endif
         }
         else {
-          // it is a RoHC-compressed packet
+          // the demuxed packet is a RoHC-compressed packet
 
           // I cannot decompress the packet if I am not in ROHC mode
           if ( context->rohcMode == 0 ) {
