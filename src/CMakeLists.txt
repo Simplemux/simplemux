@@ -9,6 +9,6 @@ set(rohc_decomp)
 set(rohc_common)
 
 # Add the executable
-add_executable(simplemux buildMuxedPacket.c packetsToSend.c commonFunctions.c netToTun.c tunToNet.c periodExpired.c help.c socketRequest.c init.c simplemux.c)
+add_executable(simplemux buildMuxedPacket.c packetsToSend.c commonFunctions.c netToTunUtilities.c netToTun.c tunToNet.c periodExpired.c help.c socketRequest.c init.c simplemux.c)
 
 target_link_libraries(simplemux rohc rohc_comp rohc_decomp rohc_common)

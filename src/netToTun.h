@@ -3,6 +3,7 @@
 #define NETTOTUN_H
 
 #include "buildMuxedPacket.h"
+#include "netToTunUtilities.h"
 
 int readPacketFromNet(contextSimplemux* context,
                       uint8_t* buffer_from_net,
