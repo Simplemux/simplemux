@@ -157,21 +157,32 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
                     time_difference);
 
         if (single_protocol) {
-          do_debug_c( 2,
-                      ANSI_COLOR_CYAN,
-                      " Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+          if (context->tunnelMode == TUN_MODE)
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        "  Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+          else
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        "  Normal flavor. All frames belong to the same protocol. Added 1 Protocol byte in the first separator\n");           
         }
         else {
+          if (context->tunnelMode == TUN_MODE)
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        "  Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",
+                        context->numPktsStoredFromTun);
+          else
           do_debug_c( 2,
                       ANSI_COLOR_CYAN,
-                      " Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",
+                      "  Normal flavor. Not all frames belong to the same protocol. Added 1 Protocol byte in each separator. Total %i bytes\n",
                       context->numPktsStoredFromTun);
         }
         switch (context->mode) {
           case UDP_MODE:
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Added tunneling header: ");
+                        "  Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -182,14 +193,19 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
 
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " Writing ");  
+                        "  Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
-                        context->numPktsStoredFromTun);  
-            do_debug_c( 1,
-                        ANSI_COLOR_CYAN,
-                        " packets to network: ");  
+                        context->numPktsStoredFromTun);
+            if (context->tunnelMode == TUN_MODE)
+              do_debug_c( 1,
+                          ANSI_COLOR_CYAN,
+                          " packets to the network: ");
+            else
+              do_debug_c( 1,
+                          ANSI_COLOR_CYAN,
+                          " frames to the network: "); 
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -202,7 +218,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
           case TCP_CLIENT_MODE:
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Added tunneling header: ");
+                        "  Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -213,14 +229,14 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
 
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " Writing ");  
+                        "  Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);  
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to network: ");  
+                        " packets to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -233,7 +249,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
           case TCP_SERVER_MODE:
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Added tunneling header: ");
+                        "  Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -244,14 +260,14 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
 
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " Writing ");  
+                        "  Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);  
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to network: ");  
+                        " packets to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -264,7 +280,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
           case NETWORK_MODE:
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Added tunneling header: ");
+                        "  Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -275,14 +291,14 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
 
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " Writing ");  
+                        "  Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);  
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to network: ");  
+                        " packets to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -322,7 +338,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
 
         do_debug_c( 2,
                     ANSI_COLOR_CYAN,
-                    " Fast flavor: Added 1 Protocol byte in each separator. Total ");
+                    "  Fast flavor: Added 1 Protocol byte in each separator. Total ");
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "%i",
@@ -335,7 +351,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
           case UDP_MODE:
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Added tunneling header: ");
+                        "  Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -346,14 +362,14 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
 
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " Writing ");  
+                        "  Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to network: ");  
+                        " packets to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -366,7 +382,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
           case TCP_CLIENT_MODE:
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Added tunneling header: ");
+                        "  Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -377,14 +393,14 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
  
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " Writing ");  
+                        "  Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to network: ");  
+                        " packets to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -397,7 +413,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
           case TCP_SERVER_MODE:
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Added tunneling header: ");
+                        "  Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -408,14 +424,14 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
  
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " Writing ");  
+                        "  Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to network: ");  
+                        " packets to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -428,7 +444,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
           case NETWORK_MODE:
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Added tunneling header: ");
+                        "  Added tunneling header: ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -439,14 +455,14 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
 
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " Writing ");  
+                        "  Writing ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to network: ");  
+                        " packets to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",

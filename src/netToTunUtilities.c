@@ -571,7 +571,7 @@ void demuxPacketBlast(contextSimplemux* context,
 
             do_debug_c( 2,
                         ANSI_COLOR_YELLOW,
-                        " Sending packet of ");
+                        "  Sending packet of ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -651,7 +651,7 @@ void demuxPacketBlast(contextSimplemux* context,
             #ifdef DEBUG
               do_debug_c( 2,
                           ANSI_COLOR_YELLOW,
-                          " Sending frame of ");
+                          "  Sending frame of ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -834,8 +834,6 @@ int demuxPacketNormal(contextSimplemux* context,
 {
   int demuxedPacketLength;  // it will store the length of the demuxed packet/frame
 
-  int initialposition = *position;
-
   // check if this is the first separator or not
   if (*first_header_read == 0) {
 
@@ -938,7 +936,7 @@ int demuxPacketNormal(contextSimplemux* context,
       if (debug>0) {
         do_debug_c( 2,
                     ANSI_COLOR_YELLOW,
-                    "  Mux separator of 1 byte: ");
+                    " Mux separator of 1 byte: ");
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "0x%02x",
@@ -1008,7 +1006,7 @@ int demuxPacketNormal(contextSimplemux* context,
           FromByte(buffer_from_net[*position], bits);
           do_debug_c( 2,
                       ANSI_COLOR_YELLOW,
-                      "  Mux separator of 2 bytes: ");
+                      " Mux separator of 2 bytes: ");
           do_debug_c( 2,
                       ANSI_COLOR_RESET,
                       "0x%02x",
@@ -1063,7 +1061,7 @@ int demuxPacketNormal(contextSimplemux* context,
           FromByte(buffer_from_net[*position], bits);
           do_debug_c( 2,
                       ANSI_COLOR_GREEN,
-                      "  Mux separator of 3 bytes: ");
+                      " Mux separator of 3 bytes: ");
           do_debug_c( 2,
                       ANSI_COLOR_RESET,
                       "0x%02x ",
@@ -1102,7 +1100,7 @@ int demuxPacketNormal(contextSimplemux* context,
     #ifdef DEBUG
       do_debug_c( 1,
                   ANSI_COLOR_YELLOW,
-                  ". Protocol");
+                  ". Protocol ");
       do_debug_c( 1,
                   ANSI_COLOR_RESET,
                   "0x%02x",
@@ -1131,7 +1129,7 @@ int demuxPacketNormal(contextSimplemux* context,
         #ifdef DEBUG
           do_debug_c( 1,
                       ANSI_COLOR_YELLOW,
-                      ". Protocol");
+                      ". Protocol ");
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
                       "0x%02x",
@@ -1147,7 +1145,7 @@ int demuxPacketNormal(contextSimplemux* context,
       }
 
       // the Protocol is one byte, so move one position
-      *position ++;
+      *position = *position + 1;
     }
   }
   #ifdef DEBUG
@@ -1309,7 +1307,7 @@ void sendPacketToTun (contextSimplemux* context,
     #ifdef DEBUG
       do_debug_c( 1,
                   ANSI_COLOR_YELLOW,
-                  " Sending packet of ");
+                  "  Sending packet of ");
       do_debug_c( 1,
                   ANSI_COLOR_RESET,
                   "%i",
@@ -1349,7 +1347,7 @@ void sendPacketToTun (contextSimplemux* context,
       #ifdef DEBUG
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
-                    " Sending frame of ");
+                    "  Sending frame of ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
@@ -1507,7 +1505,7 @@ int decompressRohcPacket( contextSimplemux* context,
           #ifdef DEBUG
             do_debug_c( 3,
                         ANSI_COLOR_MAGENTA,
-                        "Feedback from the remote compressor delivered to the compressor: ");
+                        "   Feedback from the remote compressor delivered to the compressor: ");
             do_debug_c( 3,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -1531,7 +1529,7 @@ int decompressRohcPacket( contextSimplemux* context,
         #ifdef DEBUG
           do_debug_c( 3,
                       ANSI_COLOR_MAGENTA,
-                      "Generated feedback (");
+                      "   Generated feedback (");
           do_debug_c( 3,
                       ANSI_COLOR_RESET,
                       "%i",
@@ -1540,11 +1538,11 @@ int decompressRohcPacket( contextSimplemux* context,
                       ANSI_COLOR_MAGENTA,
                       " bytes) to be sent by the feedback channel to the peer\n");
 
-          // dump the ROHC packet on terminal
+          // dump the RoHC packet on terminal
           if (debug>0) {
             do_debug_c( 2,
                         ANSI_COLOR_MAGENTA,
-                        "  ROHC feedback packet generated\n");
+                        "  RoHC feedback packet generated by the decompressor\n");
 
             dump_packet (feedback_send.len, feedback_send.data );
           }
@@ -1558,20 +1556,20 @@ int decompressRohcPacket( contextSimplemux* context,
                     (struct sockaddr *)&(context->feedback_remote),
                     sizeof(context->feedback_remote)) == -1)
         {
-          perror("sendto() failed when sending a ROHC packet");
+          perror("sendto() failed when sending a RoHC feedback packet");
         }
         else {
           #ifdef DEBUG
-            do_debug_c( 3,
+            do_debug_c( 2,
                         ANSI_COLOR_MAGENTA,
-                        "Feedback generated by the decompressor (");
-            do_debug_c( 3,
+                        "  RoHC feedback packet (");
+            do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%i",
                         feedback_send.len);
-            do_debug_c( 3,
+            do_debug_c( 2,
                         ANSI_COLOR_MAGENTA,
-                        " bytes), sent to the compressor\n");
+                        " bytes) sent to the compressor\n");
           #endif
         }
       }
@@ -1602,7 +1600,7 @@ int decompressRohcPacket( contextSimplemux* context,
           //dump the IP packet on the standard output
           do_debug_c( 1,
                       ANSI_COLOR_MAGENTA,
-                      "  IP packet resulting from the ROHC decompression: ",
+                      "  IP packet resulting from the RoHC decompression: ",
                       *demuxedPacketLength);
           do_debug_c( 1,
                       ANSI_COLOR_RESET,

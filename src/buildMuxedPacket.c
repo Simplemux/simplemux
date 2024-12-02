@@ -72,7 +72,7 @@ uint16_t buildMultiplexedPacket ( contextSimplemux* context,
         // add a tab before the first separator
         do_debug_c( 2,
                     ANSI_COLOR_CYAN,
-                    " Separator(s): ");
+                    "  Separator(s): ");
       else
         // add a semicolon before the 2nd and subsequent separators
         do_debug_c( 2,
@@ -175,14 +175,14 @@ void sendMultiplexedPacket (contextSimplemux* context,
           #ifdef DEBUG
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Packet sent (includes ");
+                        "  Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         context->numPktsStoredFromTun);
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        "  muxed packet(s)). Protocol ");
+                        " muxed packet(s)). Protocol ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
@@ -203,14 +203,14 @@ void sendMultiplexedPacket (contextSimplemux* context,
           #ifdef DEBUG
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Packet sent (includes ");
+                        "  Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
                         context->numPktsStoredFromTun);
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        "  muxed frame(s)). Protocol ");
+                        " muxed frame(s)). Protocol ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
@@ -266,10 +266,10 @@ void sendMultiplexedPacket (contextSimplemux* context,
           #ifdef DEBUG
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Packet sent (includes ");
+                        "  Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
-                        " %d",
+                        "%d",
                         context->numPktsStoredFromTun);
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
@@ -287,10 +287,10 @@ void sendMultiplexedPacket (contextSimplemux* context,
           #ifdef DEBUG
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Packet sent (includes ");
+                        "  Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
-                        " %d",
+                        "%d",
                         context->numPktsStoredFromTun);
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
@@ -326,7 +326,7 @@ void sendMultiplexedPacket (contextSimplemux* context,
           #ifdef DEBUG
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Packet sent (includes ");
+                        "  Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
@@ -354,7 +354,7 @@ void sendMultiplexedPacket (contextSimplemux* context,
           #ifdef DEBUG
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
-                        " Packet sent (includes ");
+                        "  Packet sent (includes ");
             do_debug_c( 2,
                         ANSI_COLOR_RESET,
                         "%d",
@@ -409,7 +409,7 @@ void sendMultiplexedPacket (contextSimplemux* context,
             #ifdef DEBUG
               do_debug_c( 2,
                           ANSI_COLOR_CYAN,
-                          " Packet sent (includes ");
+                          "  Packet sent (includes ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%d",
@@ -437,7 +437,7 @@ void sendMultiplexedPacket (contextSimplemux* context,
             #ifdef DEBUG
               do_debug_c( 2,
                           ANSI_COLOR_CYAN,
-                          " Packet sent (includes ");
+                          "  Packet sent (includes ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%d",

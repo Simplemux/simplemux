@@ -452,12 +452,12 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
         if (context->tunnelMode == TUN_MODE) {
           do_debug_c( 1,
                       ANSI_COLOR_BRIGHT_BLUE,
-                      " Packet stopped: accumulated ");
+                      "  Packet stopped: accumulated ");
         }
         else {
           do_debug_c( 1,
                       ANSI_COLOR_BRIGHT_BLUE,
-                      " Frame stopped: accumulated ");          
+                      "  Frame stopped: accumulated ");          
         }
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
@@ -466,12 +466,12 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
         if (context->tunnelMode == TUN_MODE) {
           do_debug_c( 1,
                       ANSI_COLOR_BRIGHT_BLUE,
-                      " pkts: ");
+                      " packet(s): ");
         }
         else {
           do_debug_c( 1,
                       ANSI_COLOR_BRIGHT_BLUE,
-                      " frames: ");          
+                      " frame(s): ");          
         }
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
@@ -488,12 +488,12 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
         if (context->tunnelMode == TUN_MODE) {
           do_debug_c( 1,
                       ANSI_COLOR_BRIGHT_BLUE,
-                      " Packet stopped: accumulated ");
+                      "  Packet stopped: accumulated ");
         }
         else {
           do_debug_c( 1,
                       ANSI_COLOR_BRIGHT_BLUE,
-                      " Frame stopped: accumulated ");
+                      "  Frame stopped: accumulated ");
         }
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
@@ -502,12 +502,12 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
         if (context->tunnelMode == TUN_MODE) {
           do_debug_c( 1,
                       ANSI_COLOR_BRIGHT_BLUE,
-                      " pkts: ");
+                      " packet(s): ");
         }
         else {
           do_debug_c( 1,
                       ANSI_COLOR_BRIGHT_BLUE,
-                      " frames: ");          
+                      " frame(s): ");          
         }
         do_debug_c( 1,
                     ANSI_COLOR_RESET,

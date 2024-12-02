@@ -153,7 +153,7 @@ void compressPacket(contextSimplemux* context, uint16_t size)
       if (debug >= 1 ) {
         do_debug_c( 1,
                     ANSI_COLOR_MAGENTA,
-                    " RoHC-compressed to ");
+                    "  RoHC-compressed to ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
@@ -414,14 +414,26 @@ void emptyBufferIfNeeded(contextSimplemux* context, int single_protocol)
         // normal flavor
 
         if (single_protocol) {
-          do_debug_c( 2,
-                      ANSI_COLOR_CYAN,
-                      " Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+          if (context->tunnelMode == TUN_MODE)
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+          else
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Normal flavor. All frames belong to the same protocol. Added 1 Protocol byte in the first separator\n");
+
         }
         else {
-          do_debug_c( 2,
-                      ANSI_COLOR_CYAN,
-                      " Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total ");
+          if (context->tunnelMode == TUN_MODE)
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total ");
+          else
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        " Normal flavor. Not all frames belong to the same protocol. Added 1 Protocol byte in each separator. Total ");
+
           do_debug_c( 2,
                       ANSI_COLOR_RESET,
                       "%i",
@@ -1004,7 +1016,7 @@ void createSimplemuxSeparatorNormal(contextSimplemux* context)
 
         do_debug_c( 2,
                     ANSI_COLOR_BRIGHT_BLUE,
-                    " Mux separator of 1 byte (plus Protocol): ");
+                    "  Mux separator of 1 byte (plus Protocol): ");
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "0x%02x",
@@ -1093,7 +1105,7 @@ void createSimplemuxSeparatorNormal(contextSimplemux* context)
 
         do_debug_c( 2,
                     ANSI_COLOR_BRIGHT_BLUE,
-                    " Mux separator of 2 bytes (plus Protocol): ");
+                    "  Mux separator of 2 bytes (plus Protocol): ");
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "0x%02x",
@@ -1189,7 +1201,7 @@ void createSimplemuxSeparatorNormal(contextSimplemux* context)
 
         do_debug_c( 2,
                     ANSI_COLOR_GREEN,
-                    " Mux separator of 3 bytes: (");
+                    "  Mux separator of 3 bytes: (");
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "0x%02x",
@@ -1275,7 +1287,7 @@ void createSimplemuxSeparatorFast(contextSimplemux* context)
 
       do_debug_c( 2,
                   ANSI_COLOR_BRIGHT_BLUE,
-                  " Mux separator of 3 bytes (fast flavor). Length: ");
+                  "  Mux separator of 3 bytes (fast flavor). Length: ");
       do_debug_c( 2,
                   ANSI_COLOR_RESET,
                   "0x%02x",
@@ -1413,7 +1425,7 @@ int addSizeOfProtocolField(contextSimplemux* context)
       if (time_difference > context->timeout) {
         do_debug_c( 1,
                     ANSI_COLOR_CYAN,
-                    "timeout reached: ");
+                    " timeout reached: ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%"PRIu64"",
@@ -1433,10 +1445,16 @@ int addSizeOfProtocolField(contextSimplemux* context)
       if (context->flavor == 'N') {
         // normal flavor
         if (single_protocol) {
-          do_debug_c( 2,
+          if (context->tunnelMode == TUN_MODE)
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        "  Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte (0x%02x",
+                        context->protocol[0]);
+          else
+            do_debug_c( 2,
                       ANSI_COLOR_CYAN,
-                      " Normal flavor. All packets belong to the same protocol. Added 1 Protocol byte (0x%02x",
-                      context->protocol[0]);
+                        "  Normal flavor. All frames belong to the same protocol. Added 1 Protocol byte (0x%02x",
+                        context->protocol[0]);
 
           if(context->protocol[0] == IPPROTO_IP_ON_IP)
             do_debug_c( 2,
@@ -1456,9 +1474,15 @@ int addSizeOfProtocolField(contextSimplemux* context)
                       context->protocol[0]);
         }
         else {
-          do_debug_c( 2,
-                      ANSI_COLOR_CYAN,
-                      " Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total ");
+          if (context->tunnelMode == TUN_MODE)
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        "  Normal flavor. Not all packets belong to the same protocol. Added 1 Protocol byte in each separator. Total ");
+          else
+            do_debug_c( 2,
+                        ANSI_COLOR_CYAN,
+                        "  Normal flavor. Not all frames belong to the same protocol. Added 1 Protocol byte in each separator. Total ");
+
           do_debug_c( 2,
                       ANSI_COLOR_RESET,
                       "%i",
@@ -1472,7 +1496,7 @@ int addSizeOfProtocolField(contextSimplemux* context)
         // fast flavor
         do_debug_c( 2,
                     ANSI_COLOR_CYAN,
-                    " Fast flavor. Added headers: length (2 bytes) + protocol (1 byte) in each separator. Total "); 
+                    "  Fast flavor. Added headers: length (2 bytes) + protocol (1 byte) in each separator. Total "); 
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "%i",
@@ -1488,7 +1512,7 @@ int addSizeOfProtocolField(contextSimplemux* context)
             case UDP_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_CYAN,
-                          " Added tunneling header: ");
+                          "  Added tunneling header: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -1499,7 +1523,7 @@ int addSizeOfProtocolField(contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " Sending from ");
+                          "  Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
@@ -1533,11 +1557,11 @@ int addSizeOfProtocolField(contextSimplemux* context)
             case TCP_CLIENT_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_CYAN,
-                          " Added tunneling header: IPv4 + TCP\n");
+                          "  Added tunneling header: IPv4 + TCP\n");
 
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " Sending from ");
+                          "  Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
@@ -1571,11 +1595,11 @@ int addSizeOfProtocolField(contextSimplemux* context)
             case TCP_SERVER_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_CYAN,
-                          " Added tunneling header: IPv4 + TCP\n");
+                          "  Added tunneling header: IPv4 + TCP\n");
 
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " Sending from ");
+                          "  Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
@@ -1609,7 +1633,7 @@ int addSizeOfProtocolField(contextSimplemux* context)
             case NETWORK_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_CYAN,
-                          " Added tunneling header: ");
+                          "  Added tunneling header: ");
               do_debug_c( 2,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -1620,7 +1644,7 @@ int addSizeOfProtocolField(contextSimplemux* context)
 
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " Sending from ");
+                          "  Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
@@ -1658,11 +1682,11 @@ int addSizeOfProtocolField(contextSimplemux* context)
             case UDP_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_CYAN,
-                          " Added tunneling header: %i bytes\n",
+                          "  Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE + UDP_HEADER_SIZE);
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " Sending from ");
+                          "  Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
@@ -1696,10 +1720,10 @@ int addSizeOfProtocolField(contextSimplemux* context)
             case TCP_CLIENT_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_CYAN,
-                          " Added tunneling header: IPv4 + TCP\n");
+                          "  Added tunneling header: IPv4 + TCP\n");
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " Sending from ");
+                          "  Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
@@ -1733,10 +1757,10 @@ int addSizeOfProtocolField(contextSimplemux* context)
             case TCP_SERVER_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_CYAN,
-                          " Added tunneling header: IPv4 + TCP\n");
+                          "  Added tunneling header: IPv4 + TCP\n");
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " Sending from ");
+                          "  Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
@@ -1770,11 +1794,11 @@ int addSizeOfProtocolField(contextSimplemux* context)
             case NETWORK_MODE:
               do_debug_c( 2,
                           ANSI_COLOR_CYAN,
-                          " Added tunneling header: %i bytes\n",
+                          "  Added tunneling header: %i bytes\n",
                           IPv4_HEADER_SIZE );
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " Sending from ");
+                          "  Sending from ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
