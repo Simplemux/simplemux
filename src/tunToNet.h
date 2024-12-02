@@ -2,8 +2,8 @@
 #ifndef TUNTONET_H
 #define TUNTONET_H
 
-#include "netToTun.h"
 #include "tunToNetUtilities.h"
+#include "netToTun.h"
 
 void tunToNetBlastFlavor (contextSimplemux* context);
 void tunToNetNoBlastFlavor (contextSimplemux* context);

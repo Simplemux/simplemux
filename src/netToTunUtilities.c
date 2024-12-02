@@ -1,14 +1,14 @@
 #include "netToTunUtilities.h"
 
-// shows the debug information when a new packet arrives
-//from the network
-void showDebugInfoFromNet(contextSimplemux* context,
-                          int nread_from_net,
-                          uint8_t* buffer_from_net)
-{
-  switch (context->mode) {
-    case UDP_MODE:
-      #ifdef DEBUG
+#ifdef DEBUG
+  // shows the debug information when a new packet arrives
+  //from the network
+  void showDebugInfoFromNet(contextSimplemux* context,
+                            int nread_from_net,
+                            uint8_t* buffer_from_net)
+  {
+    switch (context->mode) {
+      case UDP_MODE:
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
                     "SIMPLEMUX PACKET #%"PRIu32" from ",
@@ -42,11 +42,132 @@ void showDebugInfoFromNet(contextSimplemux* context,
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
                     " bytes\n");
-      #endif
+      break;
 
-      #ifdef LOGFILE
-        // write the log file
+      case TCP_CLIENT_MODE:
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    "SIMPLEMUX PACKET #%"PRIu32" from ",
+                    context->net2tun);
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    context->mux_if_name);
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ": TCP info from ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    inet_ntoa(context->remote.sin_addr));
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ":");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%d",
+                    ntohs(context->remote.sin_port));
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ", ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    nread_from_net);
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " bytes\n");
+      break;
 
+      case TCP_SERVER_MODE:
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    "SIMPLEMUX PACKET #%"PRIu32" from ",
+                    context->net2tun);
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    context->mux_if_name);
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ": TCP info from ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    inet_ntoa(context->remote.sin_addr));
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ":");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%d",
+                    ntohs(context->remote.sin_port));
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ", ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    nread_from_net);
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " bytes\n");
+      break;
+
+      case NETWORK_MODE:
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    "SIMPLEMUX PACKET #%"PRIu32" from ",
+                    context->net2tun);
+        do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "%s",
+                  context->mux_if_name);
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ": IP muxed packet arrived to ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%s",
+                    inet_ntoa(context->remote.sin_addr));
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ", protocol ");        
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%d",
+                    context->ipprotocol);
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    ": ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    nread_from_net + IPv4_HEADER_SIZE );
+        do_debug_c( 1,
+                    ANSI_COLOR_YELLOW,
+                    " bytes\n");
+      break;
+    }
+
+
+    if(debug>0) {
+      uint64_t now = GetTimeStamp();
+      do_debug_c( 3,
+                  ANSI_COLOR_YELLOW,
+                  "%"PRIu64" Packet arrived from the network\n",
+                  now);         
+    }
+  }
+#endif
+
+#ifdef LOGFILE
+  void logInfoFromNet(contextSimplemux* context,
+                      int nread_from_net,
+                      uint8_t* buffer_from_net)
+  {
+    switch (context->mode) {
+      case UDP_MODE:
         if ( context->log_file != NULL ) {
           // in any case, print this information
           fprintf ( context->log_file,
@@ -94,47 +215,9 @@ void showDebugInfoFromNet(contextSimplemux* context,
 
           fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write
         }
-      #endif
-    break;
+      break;
 
-    case TCP_CLIENT_MODE:
-      #ifdef DEBUG
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    "SIMPLEMUX PACKET #%"PRIu32" from ",
-                    context->net2tun);
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%s",
-                    context->mux_if_name);
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    ": TCP info from ");
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%s",
-                    inet_ntoa(context->remote.sin_addr));
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    ":");
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%d",
-                    ntohs(context->remote.sin_port));
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    ", ");
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%i",
-                    nread_from_net);
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    " bytes\n");
-      #endif
-
-      #ifdef LOGFILE
-        // write the log file
+      case TCP_CLIENT_MODE:
         if ( context->log_file != NULL ) {
           fprintf ( context->log_file,
                     "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
@@ -146,47 +229,9 @@ void showDebugInfoFromNet(contextSimplemux* context,
           
           fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write
         }
-      #endif
-    break;
+      break;
 
-    case TCP_SERVER_MODE:
-      #ifdef DEBUG
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    "SIMPLEMUX PACKET #%"PRIu32" from ",
-                    context->net2tun);
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%s",
-                    context->mux_if_name);
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    ": TCP info from ");
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%s",
-                    inet_ntoa(context->remote.sin_addr));
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    ":");
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%d",
-                    ntohs(context->remote.sin_port));
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    ", ");
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%i",
-                    nread_from_net);
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    " bytes\n");
-      #endif
-
-      #ifdef LOGFILE
-        // write the log file
+      case TCP_SERVER_MODE:
         if ( context->log_file != NULL ) {
           fprintf ( context->log_file,
                     "%"PRIu64"\trec\tmuxed\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
@@ -198,47 +243,9 @@ void showDebugInfoFromNet(contextSimplemux* context,
 
           fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write
         }
-      #endif
-    break;
+      break;
 
-    case NETWORK_MODE:
-      #ifdef DEBUG
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    "SIMPLEMUX PACKET #%"PRIu32" from ",
-                    context->net2tun);
-        do_debug_c( 1,
-                  ANSI_COLOR_RESET,
-                  "%s",
-                  context->mux_if_name);
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    ": IP muxed packet arrived to ");
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%s",
-                    inet_ntoa(context->remote.sin_addr));
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    ", protocol ");        
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%d",
-                    context->ipprotocol);
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    ": ");
-        do_debug_c( 1,
-                    ANSI_COLOR_RESET,
-                    "%i",
-                    nread_from_net + IPv4_HEADER_SIZE );
-        do_debug_c( 1,
-                    ANSI_COLOR_YELLOW,
-                    " bytes\n");
-      #endif
-
-      #ifdef LOGFILE
-        // write the log file
+      case NETWORK_MODE:
         if ( context->log_file != NULL ) {
           // in any case, print this information
           fprintf ( context->log_file,
@@ -283,21 +290,10 @@ void showDebugInfoFromNet(contextSimplemux* context,
           fprintf ( context->log_file,"\n");
           fflush(context->log_file);  // If the IO is buffered, I have to insert fflush(fp) after the write
         }
-
-      #endif
-    break;
-  }
-
-  #ifdef DEBUG
-    if(debug>0) {
-      uint64_t now = GetTimeStamp();
-      do_debug_c( 3,
-                  ANSI_COLOR_YELLOW,
-                  "%"PRIu64" Packet arrived from the network\n",
-                  now);         
+      break;
     }
-  #endif
-}
+  }
+#endif
 
 // demux a Blast packet
 void demuxPacketBlast(contextSimplemux* context,

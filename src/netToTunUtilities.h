@@ -5,9 +5,18 @@
 #include "commonFunctions.h"
 #include "buildMuxedPacket.h"
 
-void showDebugInfoFromNet(contextSimplemux* context,
-                          int nread_from_net,
-                          uint8_t* buffer_from_net);
+
+#ifdef DEBUG
+  void showDebugInfoFromNet(contextSimplemux* context,
+                            int nread_from_net,
+                            uint8_t* buffer_from_net);
+#endif
+
+#ifdef LOGFILE
+  void logInfoFromNet(contextSimplemux* context,
+                      int nread_from_net,
+                      uint8_t* buffer_from_net);
+#endif
 
 void demuxPacketBlast(contextSimplemux* context,
                       int nread_from_net,

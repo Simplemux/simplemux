@@ -475,7 +475,13 @@ int demuxBundleFromNet( contextSimplemux* context,
   // increase the counter of the number of packets read from the network
   (context->net2tun)++;
 
-  showDebugInfoFromNet(context, nread_from_net, buffer_from_net);
+  #ifdef DEBUG
+    showDebugInfoFromNet(context, nread_from_net, buffer_from_net);
+  #endif
+
+  #ifdef LOGFILE
+    logInfoFromNet(context, nread_from_net, buffer_from_net);
+  #endif
 
   // 'blast' flavor
   if(context->flavor == 'B') {
