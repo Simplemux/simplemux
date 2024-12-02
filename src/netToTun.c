@@ -2392,10 +2392,13 @@ int demuxBundleFromNet( contextSimplemux* context,
 
         if (sendPacket) {
           // write the demuxed (and perhaps decompressed) packet/frame to the tun/tap interface
+          sendPacketToTun(context, demuxed_packet, demuxedPacketLength);
+
+          /*
           // if compression is used, check that RoHC has decompressed correctly
           if ( ( context->protocol_rec != IPPROTO_ROHC ) || ((context->protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
             sendPacketToTun(context, demuxed_packet, demuxedPacketLength);
-          }
+          }*/
         }
         else {
           // the packet has to be dropped. Do nothing
