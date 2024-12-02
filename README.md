@@ -37,10 +37,9 @@ The size of the simplemux separators is kept very low (it may be a single byte w
 
 This repository includes a Linux user-space implementation of Simplemux, written in C. It uses Simplemux as the multiplexing protocol, and different options for the multiplexed and tunneling protocols:
 - Multiplexed protocol: Ethernet, IP, RoHC ([RFC 5795](https://datatracker.ietf.org/doc/html/rfc5795)).
-- Multiplexing protocol: Simplemux.
+- Multiplexing protocol: Simplemux. It includes a _Protocol_ field.
 - Tunneling protocol: IP, TCP/IP or UDP/IP.
 
-IPv6 is not supported in this implementation.
 
 ### Folders
 
@@ -59,7 +58,7 @@ You will find the next folders:
 
 Simplemux has two *tunnel modes*, so it can include the next multiplexed protocols:
 
-- **Tun mode**: it aggregates IP or RoHC ([RFC 5795](https://datatracker.ietf.org/doc/html/rfc5795)) packets. RoCH feedback messages are always sent in IP/UDP packets.
+- **Tun mode**: it aggregates IP or RoHC ([RFC 5795](https://datatracker.ietf.org/doc/html/rfc5795)) packets. RoCH feedback messages are always sent in UDP/IP packets.
 - **Tap mode**: it aggregates Ethernet frames.
 
 
@@ -87,15 +86,15 @@ In TCP *mode*, the use of Simplemux *fast* is compulsory.
 
 Different [multiplexing policies](/documentation/multiplexing_policies.md) can be employed, depending on the flavor, i.e. four different conditions can be used and combined for triggering the sending of a multiplexed packet:
 
-- Number of packets
-- Size
-- Timeout
-- Period
+- Number of packets/frames: A number of packets/frames is defined. For example, if N=3, the optimizer will send one packet every three input packets/frames.
+- Size: A maximum size is defined. When it is reached, the sending is triggered.
+- Timeout: A time is defined. If it has expired when a packet/frame arrives, the sending is triggered.
+- Period: A period is defined. At the end of the period, all the stored packets are sent.
 
 
 ### Summary
 
-Simplemux has 3 _flavors_, 2 _tunnel modes_, 3 _modes_ (Network, UDP and TCP), and it can be used with or without RoCH compression. Therefore, it has 3x2x3x2 (36) options, in addition to the 4 multiplexing policies. However, not all the combinations have been implemented or make sense.
+Simplemux has 3 _flavors_ (_Normal_, _Fast_ and _Blast_), 2 _tunnel modes_ (_Tun_ and _Tap_), 3 _modes_ (_Network_, _UDP_ and _TCP)_, and it can be used with or without RoHC compression. Therefore, it has 3x2x3x2 (36) options, in addition to the 4 multiplexing policies. However, not all the combinations have been implemented or do make sense.
 
 The next table details the options that are available:
 ```
@@ -121,21 +120,22 @@ The next table details the options that are available:
 * In _blast_ flavor, the packet is sent immediately. The period defines the interval used to send copies of the packet.
 
 
-## Limitations
+## Limitations of this implementation
 
-- In *network* flavor, only 20-byte headers are supported.
+- In _network_ flavor, only 20-byte IP headers are supported.
+- IPv6 is not supported.
 
 
 ## Specifications (IETF drafts)
 
-The specification of Simplemux can be found here: http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/. It was not adopted by the IETF, although some discussion took place. It specifies the *Fast flavor* and the *Normal flavor* (called *Compressed flavor* in the IETF draft).
+The specification of Simplemux can be found here: http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/. It was not adopted by the IETF, although some discussion took place. It specifies the *Fast * and the *Normal* flavors (called *Compressed flavor* in the IETF draft).
 
 The specification of Simplemux *Blast flavor* can be found here: https://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux-blast/. It has never been discussed nor adopted by the IETF.
 
 
 ## Logs and statistics
 
-The program [generates logs](/documentation/logs.md), and some [Perl scripts](/perl) have been built to get statistics and real-time information.
+The tool [generates logs](/documentation/logs.md), and some [Perl scripts](/perl) have been built to get statistics and real-time information.
 
 
 ## Research papers
@@ -145,7 +145,7 @@ A research paper about Simplemux *Normal flavor* can be found here:
 **Jose Saldana**, Ignacio Forcen, Julian Fernández-Navajas, Jose Ruiz-Mas, "[_Improving Network Efficiency with Simplemux_](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=7363105)," [IEEE CIT 2015](http://cse.stfx.ca/~cit2015/), International Conference on Computer and Information Technology, pp. 446-453, 26-28 October 2015, Liverpool, UK. [Presentation](http://es.slideshare.net/josemariasaldana/improving-network-efficiency-with-simplemux). [Open dataset in Zenodo](http://dx.doi.org/10.5281/zenodo.35246). doi: [10.1109/CIT/IUCC/DASC/PICOM.2015.64](http://dx.doi.org/10.1109/CIT/IUCC/DASC/PICOM.2015.64). [**Author's PDF version in Researchgate**](https://www.researchgate.net/publication/304674195_Improving_Network_Efficiency_with_Simplemux).
 
 
-A research paper about Simplemux *Blast flavor* can be found here:
+A research paper using Simplemux *Blast flavor* can be found here:
 
 **Jose Saldana**, Aníbal Antonio Prada Hurtado, Eduardo Martinez Carrasco, Yasmina Galve, Jesús Torres, "[_Fast and Reliable Sending of Generic Object Oriented Substation Event Frames between Remote Locations over Loss-Prone Networks_](https://www.mdpi.com/1424-8220/23/21/8879)," in [Sensors](https://www.mdpi.com/journal/sensors) 2023, 23(21), 8879. doi: [10.3390/s23218879](https://doi.org/10.3390/s23218879), [**Open Access**](https://www.mdpi.com/1424-8220/23/21/8879/pdf).
 
@@ -206,6 +206,7 @@ Some examples of the command to run Simplemux:
 ## Test with [Valgrind](https://valgrind.org/)
 
 [Test with Valgrind](/documentation/valgrind_test.md)
+
 
 ## Acknowledgements
 
