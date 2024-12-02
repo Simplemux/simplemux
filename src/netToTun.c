@@ -1863,6 +1863,388 @@ void sendPacketToTun (contextSimplemux* context,
   #endif
 }
 
+// decompress a RoHC packet
+// It returns:
+//  1 if the packet has been decompressed correctly
+//  0 if the packet could not be decompressed
+//
+// demuxedPacketLength is modified: at the beginning, it contains
+//the length of the demuxed (RoHC-compressed) packet. At the end,
+//it contains the length of the decompressed packet
+//
+// RoHC variables are global, so I don't need to pass them as arguments
+int decompressRohcPacket( contextSimplemux* context,
+                          uint8_t* demuxed_packet,
+                          int* demuxedPacketLength,
+                          rohc_status_t* status,
+                          int nread_from_net)
+{
+  int sendPacket; // this is the value returned by this function
+
+  if ( context->rohcMode == 0 ) {
+    // I cannot decompress the packet if I am not in ROHC mode
+    sendPacket = 0;
+
+    #ifdef DEBUG
+      do_debug_c( 1,
+                  ANSI_COLOR_RED,
+                  " RoHC packet received, but not in RoHC mode. Packet dropped\n");
+    #endif
+
+    #ifdef LOGFILE
+      // write the log file
+      if ( context->log_file != NULL ) {
+        fprintf ( context->log_file,
+                  "%"PRIu64"\tdrop\tno_RoHC_mode\t%i\t%"PRIu32"\n",
+                  GetTimeStamp(),
+                  *demuxedPacketLength,
+                  context->net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
+        
+        fflush(context->log_file);
+      }
+    #endif
+  }
+  else {
+    // reset the buffers where the rohc packets, ip packets and feedback info are to be stored
+    rohc_buf_reset (&ip_packet_d);
+    rohc_buf_reset (&rohc_packet_d);
+    rohc_buf_reset (&rcvd_feedback);
+    rohc_buf_reset (&feedback_send);
+
+    // Copy the compressed length and the compressed packet
+    rohc_packet_d.len = *demuxedPacketLength;
+
+    // Copy the packet itself
+    for (int l = 0; l < *demuxedPacketLength ; l++) {
+      rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
+    }
+    // I try to use memcpy instead, but it does not work properly
+    // memcpy(demuxed_packet, rohc_buf_data_at(rohc_packet_d, 0), demuxedPacketLength);
+
+    #ifdef DEBUG
+      // dump the ROHC packet on terminal
+      dump_packet (*demuxedPacketLength, demuxed_packet);
+    #endif
+
+    // decompress the packet
+    *status = rohc_decompress3( decompressor,
+                                rohc_packet_d,
+                                &ip_packet_d,
+                                &rcvd_feedback,
+                                &feedback_send);
+
+    // if bidirectional mode has been set, check the feedback
+    if ( context->rohcMode > 1 ) {
+
+      // check if the decompressor has received feedback, and it has to be delivered to the local compressor
+      if ( !rohc_buf_is_empty( rcvd_feedback) ) {
+        #ifdef DEBUG
+          do_debug_c( 3,
+                      ANSI_COLOR_MAGENTA,
+                      "Feedback received from the remote compressor by the decompressor (");
+          do_debug_c( 3,
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      rcvd_feedback.len);
+          do_debug_c( 3,
+                      ANSI_COLOR_MAGENTA,
+                      " bytes), to be delivered to the local compressor\n");
+
+          // dump the feedback packet on terminal
+          if (debug>0) {
+            do_debug_c( 2,
+                        ANSI_COLOR_MAGENTA,
+                        "  RoHC feedback packet received\n");
+
+            dump_packet (rcvd_feedback.len, rcvd_feedback.data );
+          }
+        #endif
+
+        // deliver the feedback received to the local compressor
+        //https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
+        if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
+          #ifdef DEBUG
+            do_debug_c( 3,
+                        ANSI_COLOR_RED,
+                        "Error delivering feedback received from the remote compressor to the compressor\n");
+          #endif
+        }
+        else {
+          #ifdef DEBUG
+            do_debug_c( 3,
+                        ANSI_COLOR_MAGENTA,
+                        "Feedback from the remote compressor delivered to the compressor: ");
+            do_debug_c( 3,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        rcvd_feedback.len);
+            do_debug_c( 3,
+                        ANSI_COLOR_MAGENTA,
+                        " bytes\n");
+          #endif
+        }
+      }
+      else {
+        #ifdef DEBUG
+          do_debug_c( 3,
+                      ANSI_COLOR_RED,
+                      "No feedback received by the decompressor from the remote compressor\n");
+        #endif
+      }
+
+      // check if the decompressor has generated feedback to be sent by the feedback channel to the other peer
+      if ( !rohc_buf_is_empty( feedback_send ) ) {
+        #ifdef DEBUG
+          do_debug_c( 3,
+                      ANSI_COLOR_MAGENTA,
+                      "Generated feedback (");
+          do_debug_c( 3,
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      feedback_send.len);
+          do_debug_c( 3,
+                      ANSI_COLOR_MAGENTA,
+                      " bytes) to be sent by the feedback channel to the peer\n");
+
+          // dump the ROHC packet on terminal
+          if (debug>0) {
+            do_debug_c( 2,
+                        ANSI_COLOR_MAGENTA,
+                        "  ROHC feedback packet generated\n");
+
+            dump_packet (feedback_send.len, feedback_send.data );
+          }
+        #endif
+
+        // send the feedback packet to the peer
+        if (sendto( context->feedback_fd,
+                    feedback_send.data,
+                    feedback_send.len,
+                    0,
+                    (struct sockaddr *)&(context->feedback_remote),
+                    sizeof(context->feedback_remote)) == -1)
+        {
+          perror("sendto() failed when sending a ROHC packet");
+        }
+        else {
+          #ifdef DEBUG
+            do_debug_c( 3,
+                        ANSI_COLOR_MAGENTA,
+                        "Feedback generated by the decompressor (");
+            do_debug_c( 3,
+                        ANSI_COLOR_RESET,
+                        "%i",
+                        feedback_send.len);
+            do_debug_c( 3,
+                        ANSI_COLOR_MAGENTA,
+                        " bytes), sent to the compressor\n");
+          #endif
+        }
+      }
+      else {
+        #ifdef DEBUG
+          do_debug_c( 3,
+                      ANSI_COLOR_MAGENTA,
+                      "No feedback generated by the decompressor\n");
+        #endif
+      }
+    }
+
+    // check the result of the decompression
+
+    // decompression is successful
+    if ( *status == ROHC_STATUS_OK) {
+      sendPacket = 1; // this packet has to be sent
+
+      if(!rohc_buf_is_empty(ip_packet_d))  {  // decompressed packet is not empty
+  
+        // ip_packet.len bytes of decompressed IP data available in ip_packet
+        *demuxedPacketLength = ip_packet_d.len;
+
+        // copy the packet
+        memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), *demuxedPacketLength);
+
+        #ifdef DEBUG
+          //dump the IP packet on the standard output
+          do_debug_c( 1,
+                      ANSI_COLOR_MAGENTA,
+                      "  IP packet resulting from the ROHC decompression: ",
+                      *demuxedPacketLength);
+          do_debug_c( 1,
+                      ANSI_COLOR_RESET,
+                      "%i",
+                      *demuxedPacketLength);
+          do_debug_c( 1,
+                      ANSI_COLOR_MAGENTA,
+                      " bytes\n");
+
+          if (debug > 1) {
+            // dump the decompressed IP packet on terminal
+            dump_packet (ip_packet_d.len, ip_packet_d.data );
+          }
+        #endif
+      }
+      else {
+        // no IP packet was decompressed because of ROHC segmentation or
+        // feedback-only packet:
+        //  - the ROHC packet was a non-final segment, so at least another
+        //    ROHC segment is required to be able to decompress the full
+        //    ROHC packet
+        //  - the ROHC packet was a feedback-only packet, it contained only
+        //    feedback information, so there was nothing to decompress
+        #ifdef DEBUG
+          do_debug_c( 1,
+                      ANSI_COLOR_RED,
+                      "  no IP packet decompressed\n");
+        #endif
+
+        #ifdef LOGFILE
+          // write the log file
+          if ( context->log_file != NULL ) {
+            fprintf ( context->log_file,
+                      "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
+                      GetTimeStamp(),
+                      nread_from_net,
+                      context->net2tun,
+                      inet_ntoa(context->remote.sin_addr),
+                      ntohs(context->remote.sin_port));  // the packet is bad so I add a line
+            
+            fflush(context->log_file);
+          }
+        #endif
+      }
+    }
+
+    else if ( *status == ROHC_STATUS_NO_CONTEXT ) {
+      // failure: decompressor failed to decompress the ROHC packet
+      sendPacket = 0; // this packet has to be dropped
+
+      #ifdef DEBUG
+        do_debug_c( 1,
+                    ANSI_COLOR_RED,
+                    "  decompression of ROHC packet failed. No context\n");
+      #endif
+
+      #ifdef LOGFILE
+        // write the log file
+        if ( context->log_file != NULL ) {
+          // the packet is bad
+          fprintf ( context->log_file,
+                    "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n",
+                    GetTimeStamp(),
+                    nread_from_net, context->net2tun);  
+          
+          fflush(context->log_file);
+        }
+      #endif
+    }
+
+    else if ( *status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {  // the output buffer is too small for the compressed packet
+      // failure: decompressor failed to decompress the ROHC packet 
+      sendPacket = 0; // this packet has to be dropped
+
+      #ifdef DEBUG
+        do_debug_c( 1,
+                    ANSI_COLOR_RED,
+                    "  decompression of ROHC packet failed. Output buffer is too small\n");
+      #endif
+
+      #ifdef LOGFILE
+        // write the log file
+        if ( context->log_file != NULL ) {
+          // the packet is bad
+          fprintf ( context->log_file,
+                    "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n",
+                    GetTimeStamp(),
+                    nread_from_net,
+                    context->net2tun);  
+          
+          fflush(context->log_file);
+        }
+      #endif
+    }
+
+    else if ( *status == ROHC_STATUS_MALFORMED ) {
+      // the decompression failed because the ROHC packet is malformed 
+      // failure: decompressor failed to decompress the ROHC packet
+      sendPacket = 0; // this packet has to be dropped
+
+      #ifdef DEBUG 
+        do_debug_c( 1,
+                    ANSI_COLOR_RED,
+                    "  decompression of ROHC packet failed. No context\n");
+      #endif
+
+      #ifdef LOGFILE
+        // write the log file
+        if ( context->log_file != NULL ) {
+          // the packet is bad
+          fprintf ( context->log_file,
+                    "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n",
+                    GetTimeStamp(),
+                    nread_from_net,
+                    context->net2tun);  
+          
+          fflush(context->log_file);
+        }
+      #endif
+    }
+
+    else if ( *status == ROHC_STATUS_BAD_CRC ) {      // the CRC detected a transmission or decompression problem
+      // failure: decompressor failed to decompress the ROHC packet 
+      sendPacket = 0; // this packet has to be dropped
+
+      #ifdef DEBUG
+        do_debug_c( 1,
+                    ANSI_COLOR_RED,
+                    "  decompression of ROHC packet failed. Bad CRC\n");
+      #endif
+
+      #ifdef LOGFILE
+        // write the log file
+        if ( context->log_file != NULL ) {
+          // the packet is bad
+          fprintf ( context->log_file,
+                    "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n",
+                    GetTimeStamp(),
+                    nread_from_net,
+                    context->net2tun);  
+          
+          fflush(context->log_file);
+        }
+      #endif
+    }
+
+    else if ( *status == ROHC_STATUS_ERROR ) {        // another problem occurred
+      // failure: decompressor failed to decompress the ROHC packet
+      sendPacket = 0; // this packet has to be dropped
+
+      #ifdef DEBUG
+        do_debug_c( 1,
+                    ANSI_COLOR_RED,
+                    "  decompression of ROHC packet failed. Other error\n");
+      #endif
+
+      #ifdef LOGFILE
+        // write the log file
+        if ( context->log_file != NULL ) {
+          // the packet is bad
+          fprintf ( context->log_file,
+                    "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n",
+                    GetTimeStamp(),
+                    nread_from_net,
+                    context->net2tun);  
+          
+          fflush(context->log_file);
+        }
+      #endif
+    }
+  }
+  return sendPacket;
+}
+
+
+
 // demux and decompress a Simplemux bundle and extract each of the
 //packets/frames it contains
 // returns 1 if everything is correct
@@ -1871,7 +2253,7 @@ int demuxBundleFromNet( contextSimplemux* context,
                         int nread_from_net,
                         uint16_t bundleLength,
                         uint8_t* buffer_from_net,
-                        rohc_status_t* status )
+                        rohc_status_t* status)
 {
   // increase the counter of the number of packets read from the network
   (context->net2tun)++;
@@ -1984,382 +2366,32 @@ int demuxBundleFromNet( contextSimplemux* context,
 
         // check if the demuxed packet/frame has to be decompressed
 
-        // set to 1 if this demuxed packet/frame has to be dropped
-        int dropPacket = 0;
+        // set to 0 if this demuxed packet/frame has to be dropped
+        int sendPacket;
 
         // if the number of the protocol is NOT 142 (RoHC) I do not decompress the packet
         if ( context->protocol_rec != IPPROTO_ROHC ) {
+          // This packet/frame can be sent
+          sendPacket = 1;
+
           // non-compressed packet
           #ifdef DEBUG
-            // the length and the protocol of this packet have already been presented
+            // the length and the protocol of this packet have already been shown in the debug info
             // dump the received packet on terminal
             dump_packet ( demuxedPacketLength, demuxed_packet );
           #endif
         }
         else {
-          // the demuxed packet is a RoHC-compressed packet
-
-          // I cannot decompress the packet if I am not in ROHC mode
-          if ( context->rohcMode == 0 ) {
-            dropPacket = 1;
-            #ifdef DEBUG
-              do_debug_c( 1,
-                          ANSI_COLOR_RED,
-                          " RoHC packet received, but not in RoHC mode. Packet dropped\n");
-            #endif
-
-            #ifdef LOGFILE
-              // write the log file
-              if ( context->log_file != NULL ) {
-                fprintf ( context->log_file,
-                          "%"PRIu64"\tdrop\tno_RoHC_mode\t%i\t%"PRIu32"\n",
-                          GetTimeStamp(),
-                          demuxedPacketLength,
-                          context->net2tun);  // the packet may be good, but the decompressor is not in ROHC mode
-                
-                fflush(context->log_file);
-              }
-            #endif
-          }
-          else {
-            // reset the buffers where the rohc packets, ip packets and feedback info are to be stored
-            rohc_buf_reset (&ip_packet_d);
-            rohc_buf_reset (&rohc_packet_d);
-            rohc_buf_reset (&rcvd_feedback);
-            rohc_buf_reset (&feedback_send);
-
-            // Copy the compressed length and the compressed packet
-            rohc_packet_d.len = demuxedPacketLength;
-      
-            // Copy the packet itself
-            for (int l = 0; l < demuxedPacketLength ; l++) {
-              rohc_buf_byte_at(rohc_packet_d, l) = demuxed_packet[l];
-            }
-            // I try to use memcpy instead, but it does not work properly
-            // memcpy(demuxed_packet, rohc_buf_data_at(rohc_packet_d, 0), demuxedPacketLength);
-
-            #ifdef DEBUG
-              // dump the ROHC packet on terminal
-              dump_packet (demuxedPacketLength, demuxed_packet);
-            #endif
-
-            // decompress the packet
-            *status = rohc_decompress3( decompressor,
-                                        rohc_packet_d,
-                                        &ip_packet_d,
-                                        &rcvd_feedback,
-                                        &feedback_send);
-
-            // if bidirectional mode has been set, check the feedback
-            if ( context->rohcMode > 1 ) {
-
-              // check if the decompressor has received feedback, and it has to be delivered to the local compressor
-              if ( !rohc_buf_is_empty( rcvd_feedback) ) {
-                #ifdef DEBUG
-                  do_debug_c( 3,
-                              ANSI_COLOR_MAGENTA,
-                              "Feedback received from the remote compressor by the decompressor (");
-                  do_debug_c( 3,
-                              ANSI_COLOR_RESET,
-                              "%i",
-                              rcvd_feedback.len);
-                  do_debug_c( 3,
-                              ANSI_COLOR_MAGENTA,
-                              " bytes), to be delivered to the local compressor\n");
-
-                  // dump the feedback packet on terminal
-                  if (debug>0) {
-                    do_debug_c( 2,
-                                ANSI_COLOR_MAGENTA,
-                                "  RoHC feedback packet received\n");
-
-                    dump_packet (rcvd_feedback.len, rcvd_feedback.data );
-                  }
-                #endif
-
-                // deliver the feedback received to the local compressor
-                //https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/group__rohc__comp.html
-                if ( rohc_comp_deliver_feedback2 ( compressor, rcvd_feedback ) == false ) {
-                  #ifdef DEBUG
-                    do_debug_c( 3,
-                                ANSI_COLOR_RED,
-                                "Error delivering feedback received from the remote compressor to the compressor\n");
-                  #endif
-                }
-                else {
-                  #ifdef DEBUG
-                    do_debug_c( 3,
-                                ANSI_COLOR_MAGENTA,
-                                "Feedback from the remote compressor delivered to the compressor: ");
-                    do_debug_c( 3,
-                                ANSI_COLOR_RESET,
-                                "%i",
-                                rcvd_feedback.len);
-                    do_debug_c( 3,
-                                ANSI_COLOR_MAGENTA,
-                                " bytes\n");
-                  #endif
-                }
-              }
-              else {
-                #ifdef DEBUG
-                  do_debug_c( 3,
-                              ANSI_COLOR_RED,
-                              "No feedback received by the decompressor from the remote compressor\n");
-                #endif
-              }
-
-              // check if the decompressor has generated feedback to be sent by the feedback channel to the other peer
-              if ( !rohc_buf_is_empty( feedback_send ) ) {
-                #ifdef DEBUG
-                  do_debug_c( 3,
-                              ANSI_COLOR_MAGENTA,
-                              "Generated feedback (");
-                  do_debug_c( 3,
-                              ANSI_COLOR_RESET,
-                              "%i",
-                              feedback_send.len);
-                  do_debug_c( 3,
-                              ANSI_COLOR_MAGENTA,
-                              " bytes) to be sent by the feedback channel to the peer\n");
-
-                  // dump the ROHC packet on terminal
-                  if (debug>0) {
-                    do_debug_c( 2,
-                                ANSI_COLOR_MAGENTA,
-                                "  ROHC feedback packet generated\n");
-
-                    dump_packet (feedback_send.len, feedback_send.data );
-                  }
-                #endif
-
-                // send the feedback packet to the peer
-                if (sendto( context->feedback_fd,
-                            feedback_send.data,
-                            feedback_send.len,
-                            0,
-                            (struct sockaddr *)&(context->feedback_remote),
-                            sizeof(context->feedback_remote)) == -1)
-                {
-                  perror("sendto() failed when sending a ROHC packet");
-                }
-                else {
-                  #ifdef DEBUG
-                    do_debug_c( 3,
-                                ANSI_COLOR_MAGENTA,
-                                "Feedback generated by the decompressor (");
-                    do_debug_c( 3,
-                                ANSI_COLOR_RESET,
-                                "%i",
-                                feedback_send.len);
-                    do_debug_c( 3,
-                                ANSI_COLOR_MAGENTA,
-                                " bytes), sent to the compressor\n");
-                  #endif
-                }
-              }
-              else {
-                #ifdef DEBUG
-                  do_debug_c( 3,
-                              ANSI_COLOR_MAGENTA,
-                              "No feedback generated by the decompressor\n");
-                #endif
-              }
-            }
-
-            // check the result of the decompression
-
-            // decompression is successful
-            if ( *status == ROHC_STATUS_OK) {
-
-              if(!rohc_buf_is_empty(ip_packet_d))  {  // decompressed packet is not empty
-          
-                // ip_packet.len bytes of decompressed IP data available in ip_packet
-                demuxedPacketLength = ip_packet_d.len;
-
-                // copy the packet
-                memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), demuxedPacketLength);
-
-                #ifdef DEBUG
-                  //dump the IP packet on the standard output
-                  do_debug_c( 1,
-                              ANSI_COLOR_MAGENTA,
-                              "  IP packet resulting from the ROHC decompression: ",
-                              demuxedPacketLength);
-                  do_debug_c( 1,
-                              ANSI_COLOR_RESET,
-                              "%i",
-                              demuxedPacketLength);
-                  do_debug_c( 1,
-                              ANSI_COLOR_MAGENTA,
-                              " bytes\n");
-
-                  if (debug > 1) {
-                    // dump the decompressed IP packet on terminal
-                    dump_packet (ip_packet_d.len, ip_packet_d.data );
-                  }
-                #endif
-              }
-              else {
-                /* no IP packet was decompressed because of ROHC segmentation or
-                 * feedback-only packet:
-                 *  - the ROHC packet was a non-final segment, so at least another
-                 *    ROHC segment is required to be able to decompress the full
-                 *    ROHC packet
-                 *  - the ROHC packet was a feedback-only packet, it contained only
-                 *    feedback information, so there was nothing to decompress */
-                #ifdef DEBUG
-                  do_debug_c( 1,
-                              ANSI_COLOR_RED,
-                              "  no IP packet decompressed\n");
-                #endif
-
-                #ifdef LOGFILE
-                  // write the log file
-                  if ( context->log_file != NULL ) {
-                    fprintf ( context->log_file,
-                              "%"PRIu64"\trec\tROHC_feedback\t%i\t%"PRIu32"\tfrom\t%s\t%d\n",
-                              GetTimeStamp(),
-                              nread_from_net,
-                              context->net2tun,
-                              inet_ntoa(context->remote.sin_addr),
-                              ntohs(context->remote.sin_port));  // the packet is bad so I add a line
-                    
-                    fflush(context->log_file);
-                  }
-                #endif
-              }
-            }
-
-            else if ( *status == ROHC_STATUS_NO_CONTEXT ) {
-              // failure: decompressor failed to decompress the ROHC packet
-              dropPacket = 1; // this packet has to be dropped
-
-              #ifdef DEBUG
-                do_debug_c( 1,
-                            ANSI_COLOR_RED,
-                            "  decompression of ROHC packet failed. No context\n");
-              #endif
-
-              #ifdef LOGFILE
-                // write the log file
-                if ( context->log_file != NULL ) {
-                  // the packet is bad
-                  fprintf ( context->log_file,
-                            "%"PRIu64"\terror\tdecomp_failed\t%i\t%"PRIu32"\n",
-                            GetTimeStamp(),
-                            nread_from_net, context->net2tun);  
-                  
-                  fflush(context->log_file);
-                }
-              #endif
-            }
-
-            else if ( *status == ROHC_STATUS_OUTPUT_TOO_SMALL ) {  // the output buffer is too small for the compressed packet
-              // failure: decompressor failed to decompress the ROHC packet 
-              dropPacket = 1; // this packet has to be dropped
-
-              #ifdef DEBUG
-                do_debug_c( 1,
-                            ANSI_COLOR_RED,
-                            "  decompression of ROHC packet failed. Output buffer is too small\n");
-              #endif
-
-              #ifdef LOGFILE
-                // write the log file
-                if ( context->log_file != NULL ) {
-                  // the packet is bad
-                  fprintf ( context->log_file,
-                            "%"PRIu64"\terror\tdecomp_failed. Output buffer is too small\t%i\t%"PRIu32"\n",
-                            GetTimeStamp(),
-                            nread_from_net,
-                            context->net2tun);  
-                  
-                  fflush(context->log_file);
-                }
-              #endif
-            }
-
-            else if ( *status == ROHC_STATUS_MALFORMED ) {
-              // the decompression failed because the ROHC packet is malformed 
-              // failure: decompressor failed to decompress the ROHC packet
-              dropPacket = 1; // this packet has to be dropped
-
-              #ifdef DEBUG 
-                do_debug_c( 1,
-                            ANSI_COLOR_RED,
-                            "  decompression of ROHC packet failed. No context\n");
-              #endif
-
-              #ifdef LOGFILE
-                // write the log file
-                if ( context->log_file != NULL ) {
-                  // the packet is bad
-                  fprintf ( context->log_file,
-                            "%"PRIu64"\terror\tdecomp_failed. No context\t%i\t%"PRIu32"\n",
-                            GetTimeStamp(),
-                            nread_from_net,
-                            context->net2tun);  
-                  
-                  fflush(context->log_file);
-                }
-              #endif
-            }
-
-            else if ( *status == ROHC_STATUS_BAD_CRC ) {      // the CRC detected a transmission or decompression problem
-              // failure: decompressor failed to decompress the ROHC packet 
-              dropPacket = 1; // this packet has to be dropped
-
-              #ifdef DEBUG
-                do_debug_c( 1,
-                            ANSI_COLOR_RED,
-                            "  decompression of ROHC packet failed. Bad CRC\n");
-              #endif
-
-              #ifdef LOGFILE
-                // write the log file
-                if ( context->log_file != NULL ) {
-                  // the packet is bad
-                  fprintf ( context->log_file,
-                            "%"PRIu64"\terror\tdecomp_failed. Bad CRC\t%i\t%"PRIu32"\n",
-                            GetTimeStamp(),
-                            nread_from_net,
-                            context->net2tun);  
-                  
-                  fflush(context->log_file);
-                }
-              #endif
-            }
-
-            else if ( *status == ROHC_STATUS_ERROR ) {        // another problem occurred
-              // failure: decompressor failed to decompress the ROHC packet
-              dropPacket = 1; // this packet has to be dropped
-
-              #ifdef DEBUG
-                do_debug_c( 1,
-                            ANSI_COLOR_RED,
-                            "  decompression of ROHC packet failed. Other error\n");
-              #endif
-
-              #ifdef LOGFILE
-                // write the log file
-                if ( context->log_file != NULL ) {
-                  // the packet is bad
-                  fprintf ( context->log_file,
-                            "%"PRIu64"\terror\tdecomp_failed. Other error\t%i\t%"PRIu32"\n",
-                            GetTimeStamp(),
-                            nread_from_net,
-                            context->net2tun);  
-                  
-                  fflush(context->log_file);
-                }
-              #endif
-            }
-          }
+          // the demuxed packet is a RoHC-compressed packet. Decompress it
+          sendPacket = decompressRohcPacket(context,
+                                            demuxed_packet,
+                                            &demuxedPacketLength,
+                                            status,
+                                            nread_from_net);
         }
 
-        if (!dropPacket) {
-          // write the demuxed (and perhaps decompressed) packet to the tun/tap interface
+        if (sendPacket) {
+          // write the demuxed (and perhaps decompressed) packet/frame to the tun/tap interface
           // if compression is used, check that RoHC has decompressed correctly
           if ( ( context->protocol_rec != IPPROTO_ROHC ) || ((context->protocol_rec == IPPROTO_ROHC) && ( *status == ROHC_STATUS_OK))) {
             sendPacketToTun(context, demuxed_packet, demuxedPacketLength);
