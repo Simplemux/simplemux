@@ -9,7 +9,7 @@ Some ideas here: http://wiki.openwrt.org/doc/devel/crosscompile
 
 ## Download the toolchain
 
-In the Debian machine (it must be 64 bits, as the TP-Link), download the Toolchain from OpenWRT.org: go to https://downloads.openwrt.org/snapshots/trunk/ and download the version you need. In “binary releases” you have the latest version.
+In the Debian machine (it must be 64 bits, as the TP-Link), download the Toolchain from OpenWRT.org: go to https://archive.openwrt.org/ and download the version you need. In “binary releases” you have the latest version.
 
 You can also download “historic releases”. For example, this is the Barrier Breaker version:
 https://downloads.openwrt.org/barrier_breaker/14.07/
