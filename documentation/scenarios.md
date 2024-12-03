@@ -617,6 +617,96 @@ Another option to send the traffic (UDP packets with 100-byte payload):
 ip netns exec ns0 iperf -c 192.168.100.2 -u -l 100
 ```
 
+### Compress a number of flows in this scenario
+
+We are going to multiplex a number of flows, and obtain the throughput.
+
+We create a script `scriptNumberFlows.sh` with this content:
+```
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9001 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9002 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9003 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9004 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9005 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9006 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9007 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9008 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9009 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9010
+```
+
+Prepare the Simplemux ingress and egress:
+```
+$ ip netns exec ns0 ./simplemux/simplemux -i tun0 -e veth0 -M network -T tun -c 192.168.1.21 -d 1 -r 2 -P 100000 -f -l logIngress.txt
+$ ip netns exec ns1 ./simplemux/simplemux -i tun1 -e veth1 -M network -T tun -c 192.168.1.20   -d 1 -r 2 -f
+```
+
+And run `$ scriptNumberFlows.sh`
+
+#### Obtain the graph with the input throughput and pps, with a tick of 1 second:
+```
+$ perl ./simplemux/perl/simplemux_throughput_pps.pl logIngress.txt 1000000 rec native all all
+tick_end_time(us)	throughput(bps)	packets_per_second
+1000000	79872	208
+2000000	116736	304
+3000000	61440	160
+4000000	68352	178
+5000000	63360	165
+6000000	65664	171
+7000000	47616	124
+8000000	51840	135
+9000000	56064	146
+10000000	55680	145
+11000000	203904	531
+12000000	12672	33
+```
+
+#### Obtain the graph with the output throughput and pps, with a tick of 1 second:
+```
+$ perl ./simplemux/perl/simplemux_throughput_pps.pl logIngress.txt 1000000 sent muxed all all
+tick_end_time(us)	throughput(bps)	packets_per_second
+1000000	37120	4
+2000000	71448	6
+3000000	35504	3
+4000000	47368	4
+5000000	35680	3
+6000000	47448	4
+7000000	23736	2
+8000000	35616	3
+9000000	35688	3
+10000000	35536	3
+11000000	133896	13
+12000000	8048	5
+```
+
+#### Obtain the multiplexing delay
+
+```
+$ perl ./simplemux/perl/simplemux_multiplexing_delay.pl logIngress.txt output.txt
+total native packets:	2314
+Average multiplexing delay:	127179.163785653 us
+stdev of the multiplexing delay:	104014.990648023 us
+```
+
+See the delay added to each packet:
+```
+$ cat output.txt 
+packet_id	multiplexing_delay(us)
+1	8049
+2	5560
+3	3970
+4	361017
+5	360576
+6	360342
+7	360144
+8	358944
+9	348858
+10	346334
+11	333759
+12	330156
+13	324434
+(...)
+```
 
 ## Scenario 5 - Simplemux between namespaces in a single Linux machine. Tap mode
 
