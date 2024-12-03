@@ -612,6 +612,11 @@ ip netns exec ns1 ./simplemux -i tun1 -e veth1 -M udp -T tun -c 192.168.1.20 -d 
 ip netns exec ns0 ping 192.168.100.2
 ```
 
+Another option to send the traffic (UDP packets with 100-byte payload):
+```
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 100
+```
+
 
 ## Scenario 5 - Simplemux between namespaces in a single Linux machine. Tap mode
 
@@ -821,4 +826,10 @@ ip netns exec ns1 ip addr add 192.168.200.2/24 dev tap1
 ip netns exec ns0 ./simplemux -i tap0 -e veth0 -M udp -T tap -c 192.168.1.21 -d 2
 ip netns exec ns1 ./simplemux -i tap1 -e veth1 -M udp -T tap -c 192.168.1.20 -d 2
 ip netns exec ns0 ping 192.168.200.2
+```
+
+
+Another option to send the traffic (UDP packets with 100-byte payload):
+```
+ip netns exec ns0 iperf -c 192.168.200.2 -u -l 100
 ```
