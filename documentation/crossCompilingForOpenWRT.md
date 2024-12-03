@@ -45,7 +45,7 @@ COLORTERM=gnome-terminal
 
 ## Download RoHC library
 
-In the Debian machine, download ROHC (file `rohc-1.7.0.tar.xz` from the ROHC web site): http://rohc-lib.org/download/rohc-1.7.x/1.7.0/rohc-1.7.0.tar.xz
+In the Debian machine, download ROHC (file `rohc-1.7.0.tar.xz` from the ROHC web site): https://rohc-lib.org/download/rohc-1.7.x/1.7.0/rohc-1.7.0.tar.xz
 
 Extract the file to the toolchain directory
 
