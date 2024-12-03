@@ -637,8 +637,8 @@ ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9010
 
 Prepare the Simplemux ingress and egress:
 ```
-$ ip netns exec ns0 ./simplemux/simplemux -i tun0 -e veth0 -M network -T tun -c 192.168.1.21 -d 1 -r 2 -P 100000 -f -l logIngress.txt
-$ ip netns exec ns1 ./simplemux/simplemux -i tun1 -e veth1 -M network -T tun -c 192.168.1.20   -d 1 -r 2 -f
+$ ip netns exec ns0 ./simplemux/simplemux -i tun0 -e veth0 -M network -T tun -c 192.168.1.21 -d 1 -r 2 -f -P 100000 -l logIngress.txt
+$ ip netns exec ns1 ./simplemux/simplemux -i tun1 -e veth1 -M network -T tun -c 192.168.1.20 -d 1 -r 2 -f
 ```
 
 And run `$ scriptNumberFlows.sh`
@@ -678,6 +678,8 @@ tick_end_time(us)	throughput(bps)	packets_per_second
 11000000	133896	13
 12000000	8048	5
 ```
+As it can be observed, in the first second we pass from 79872 to 37120 bps (46%, i.e. reduction by a factor of 2.15). The number of packets passes from 208 to 4 (reduction by a factor of 52, i.e. each multiplexed packet contains 52 original ones).
+
 
 #### Obtain the multiplexing delay
 
