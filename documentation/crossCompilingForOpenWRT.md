@@ -24,13 +24,13 @@ Extract it in `/home/username`.
 In the Debian machine, modify the environment variable `CC`, in order to make the compiler be the MIPS one:
 
 ```
-# export CC=/home/proyecto/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-gcc
+# export CC=/home/username/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-gcc
 ```
 
 Modify the `STAGING_DIR` variable in order to make the compiler be the MIPS one:
 
 ```
-# export STAGING_DIR=/home/proyecto/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/
+# export STAGING_DIR=/home/username/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/
 ```
 
 Use `#set | more` to confirm that `CC` has this value:
@@ -38,7 +38,7 @@ Use `#set | more` to confirm that `CC` has this value:
 ```
 (…)
 BASH_VERSION='4.2.37(1)-release'
-CC=/home/proyecto/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-gcc
+CC=/home/username/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/mips-openwrt-linux-gcc
 COLORTERM=gnome-terminal
 (…)
 ```
@@ -50,20 +50,20 @@ In the Debian machine, download ROHC (file `rohc-1.7.0.tar.xz` from the ROHC web
 Extract the file to the toolchain directory
 
 ```
-/home/proyecto/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/rohc-1.7.0
+/home/username/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/rohc-1.7.0
 ```
 
 ## In the Debian machine, install the ROHC library in the toolchain
 
 Go to this directory
 ```
-/home/proyecto/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/rohc-1.7.0/
+/home/username/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/rohc-1.7.0/
 ```
 
-Run `configure`:
+Run `configure`, `make` and `make install`:
 
 ```
-#./configure --disable-app-fuzzer --disable-app-performance --disable-app-sniffer --enable-app-tunnel --disable-app-stats --disable-linux-kernel-module --disable-doc --disable-doc-man --host=mips --prefix=/home/proyecto/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/
+#./configure --disable-app-fuzzer --disable-app-performance --disable-app-sniffer --enable-app-tunnel --disable-app-stats --disable-linux-kernel-module --disable-doc --disable-doc-man --host=mips --prefix=/home/username/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/
 #make clean
 #make
 Note: make all may not work properly
@@ -71,12 +71,15 @@ make check does not work properly
 #make install
 ```
 
-After this, you have created in the lib folder of the toolchain the `.a` files required for compiling with static libraries (librohc-common.a librohc-comp.a y librohc-decomp.a)
-Check if these files are in the folder:
-~/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/lib
-In the Debian machine, compile the .c file
+After this, you have created in the `lib` folder of the toolchain, the `.a` files required for compiling with static libraries (`librohc-common.a`, `librohc-comp.a` and `librohc-decomp.a`). Check if these files are in the folder: `~/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/lib`
+
+In the Debian machine, compile the `.c` file. The source file name is `/home/username/simplemux/simplemux.c`.
+
 This is the cross-compiling instruction:
-The source file name is /home/proyecto/simplemux/simplemux.c
-The created executable will be created in /home/proyecto/simplemux-mips
-#/home/proyecto/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/ ./mips-openwrt-linux-gcc -o /home/proyecto/simplemux-mips -g -Wall /home/proyecto/simplemux/simplemux.c -I ./include/ -L ./lib/ -lrohc_comp -lrohc -lrohc_common -lrohc_decomp -static
+```
+#/home/username/OpenWrt-Toolchain-ar71xx-for-mips_34kc-gcc-4.8-linaro_uClibc-0.9.33.2/toolchain-mips_34kc_gcc-4.8-linaro_uClibc-0.9.33.2/bin/ ./mips-openwrt-linux-gcc -o /home/username/simplemux-mips -g -Wall /home/username/simplemux/simplemux.c -I ./include/ -L ./lib/ -lrohc_comp -lrohc -lrohc_common -lrohc_decomp -static
+```
+
+The created executable will be created in `/home/username/simplemux-mips`.
+
 Now you can copy the executable file to the Access Point with MIPS architecture and run it there.
