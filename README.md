@@ -6,7 +6,7 @@
 
 There are some situations in which multiplexing a number of small packets into a bigger one is desirable. For example, a number of small packets can be sent together between a pair of machines if they share a common network path. Thus, the traffic profile can be shifted from small to larger packets, reducing the network overhead and the number of packets per second to be managed by intermediate routers.
 
-<img src="images/simplemux_dumbbell.png" alt="Simplemux scheme" width="400"/>
+<img src="images/simplemux_dumbbell.png" alt="Simplemux scheme" width="600"/>
 
 In other cases it is necessary to send tunneled packets or frames between different network locations.
 
@@ -33,13 +33,13 @@ This is the structure of a packet including three multilplexed packets:
 +-----------------+---------+----------------+---------+----------------+---------+----------------+
 ```
 
-<img src="images/simplemux_packet.png" alt="Scheme of a Simplemux packet" width="400"/>
+<img src="images/simplemux_packet.png" alt="Scheme of a Simplemux packet" width="600"/>
 
 The size of the simplemux separators is kept very low (it may be a single byte when multiplexing small packets) in order to reduce the overhead.
 
 The savings can be significant. The next figure represents the significant bandwidth savings and packet-per-second reductions for small-packet flows (e.g. VoIP, FPS online games):
 
-![Simplemux potential savings VoIP and FPS game](images/simplemux_savings.png)
+<img src="images/simplemux_savings.png" alt="Simplemux potential savings VoIP and FPS game" width="600"/>
 
 ## About this repository
 
@@ -108,15 +108,15 @@ The next images represent different options for the protocol stack.
 
 #### A UDP/IP/Ethernet frame in TAP tunnel mode: IP, UDP and TCP modes
 
-![UDP/IP/Ethernet frame in TAP tunnel mode](images/udp_ip_eth_over_simplemux.png)
+<img src="images/udp_ip_eth_over_simplemux.png" alt="UDP/IP/Ethernet frame in TAP tunnel mode" width="600"/>
 
 #### A UDP/IP packet in TUN tunnel mode: IP, UDP and TCP modes
 
-![UDP/IP packet in TUN tunnel mode](images/udp_ip_over_simplemux.png)
+<img src="images/udp_ip_over_simplemux.png" alt="UDP/IP packet in TUN tunnel mode" width="600"/>
 
 #### A RoHC compressed packet in TUN tunnel mode: IP, UDP and TCP modes
 
-![RoHC compressed packet in TUN tunnel mode](images/rohc_packet_over_simplemux.png)
+<img src="images/rohc_packet_over_simplemux.png" alt="RoHC compressed packet in TUN tunnel mode" width="600"/>
 
 ### Summary
 
