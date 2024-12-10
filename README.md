@@ -30,6 +30,7 @@ This is the structure of a packet including three multilplexed packets:
 |Tunneling header |simplemux| muxed packet 1 |simplemux| muxed packet 2 |simplemux| muxed packet 3 |
 +-----------------+---------+----------------+---------+----------------+---------+----------------+
 ```
+![Scheme of a Simplemux packet](images/simplemux_packet.png)
 
 The size of the simplemux separators is kept very low (it may be a single byte when multiplexing small packets) in order to reduce the overhead.
 
