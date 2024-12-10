@@ -21,6 +21,7 @@
 #include <rohc/rohc.h>          // for using header compression
 #include <rohc/rohc_comp.h>
 #include <rohc/rohc_decomp.h>
+
 //#include <netinet/ip.h>       // for using iphdr type
 #include <ifaddrs.h>            // required for using getifaddrs()
 #include <netdb.h>              // required for using getifaddrs()
@@ -36,5 +37,3 @@
 #include "netToTun.h"
 #include "tunToNet.h"
 #include "commonfunctions.h"
-
-#include "rohc.c"     // FIXME: if I do it with rohc.h, I cannot compile
