@@ -6,7 +6,7 @@
 
 There are some situations in which multiplexing a number of small packets into a bigger one is desirable. For example, a number of small packets can be sent together between a pair of machines if they share a common network path. Thus, the traffic profile can be shifted from small to larger packets, reducing the network overhead and the number of packets per second to be managed by intermediate routers.
 
-![Simplemux scheme](images/simplemux_dumbbell.png)
+<img src="images/simplemux_dumbbell.png" alt="Simplemux scheme" width="400"/>
 
 In other cases it is necessary to send tunneled packets or frames between different network locations.
 
@@ -32,7 +32,8 @@ This is the structure of a packet including three multilplexed packets:
 |Tunneling header |simplemux| muxed packet 1 |simplemux| muxed packet 2 |simplemux| muxed packet 3 |
 +-----------------+---------+----------------+---------+----------------+---------+----------------+
 ```
-![Scheme of a Simplemux packet](images/simplemux_packet.png)
+
+<img src="images/simplemux_packet.png" alt="Scheme of a Simplemux packet" width="400"/>
 
 The size of the simplemux separators is kept very low (it may be a single byte when multiplexing small packets) in order to reduce the overhead.
 
