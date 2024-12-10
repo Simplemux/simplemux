@@ -99,6 +99,22 @@ Different [multiplexing policies](/documentation/multiplexing_policies.md) can b
 - Period: A period is defined. At the end of the period, all the stored packets are sent.
 
 
+### Protocol stack
+
+The next images represent different options for the protocol stack.
+
+#### A UDP/IP/Ethernet frame in TAP tunnel mode: IP, UDP and TCP modes
+
+![UDP/IP/Ethernet frame in TAP tunnel mode](images/udp_ip_eth_over_simplemux.png)
+
+#### A UDP/IP packet in TUN tunnel mode: IP, UDP and TCP modes
+
+![UDP/IP packet in TUN tunnel mode](images/udp_ip_over_simplemux.png)
+
+#### A RoHC compressed packet in TUN tunnel mode: IP, UDP and TCP modes
+
+![RoHC compressed packet in TUN tunnel mode](images/rohc_packet_over_simplemux.png)
+
 ### Summary
 
 Simplemux has 3 _flavors_ (_Normal_, _Fast_ and _Blast_), 2 _tunnel modes_ (_Tun_ and _Tap_), 3 _modes_ (_Network_, _UDP_ and _TCP)_, and it can be used with or without RoHC compression. Therefore, it has 3x2x3x2 (36) options, in addition to the 4 multiplexing policies. However, not all the combinations have been implemented or do make sense.
