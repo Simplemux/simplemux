@@ -36,6 +36,10 @@ This is the structure of a packet including three multilplexed packets:
 
 The size of the simplemux separators is kept very low (it may be a single byte when multiplexing small packets) in order to reduce the overhead.
 
+The savings can be significant. The next figure represents the significant bandwidth savings and packet-per-second reductions for small-packet flows (e.g. VoIP, FPS online games):
+
+![Simplemux potential savings VoIP and FPS game](images/simplemux_savings.png)
+
 ## About this repository
 
 This repository includes a Linux user-space implementation of Simplemux, written in C. It uses Simplemux as the multiplexing protocol, and different options for the multiplexed and tunneling protocols:
