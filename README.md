@@ -10,7 +10,7 @@ There are some situations in which multiplexing a number of small packets into a
 
 In other cases it is necessary to send tunneled packets or frames between different network locations.
 
-Multiplexing can be combined with Tunneling and Header Compression for the optimization of small-packet flows. This is called TCM. Different algorithms for header compression, multiplexing and tunneling can be combined in a similar way to RFC 4170.
+Multiplexing can be combined with Tunneling and Header Compression for the optimization of small-packet flows. This is called TCM. Different algorithms for header compression, multiplexing and tunneling can be combined in a similar way to [RFC 4170](http://tools.ietf.org/html/rfc4170).
 
 Simplemux is a protocol able to encapsulate a number of packets belonging to different protocols into a single packet. It includes the "Protocol" field on each multiplexing header, thus allowing the inclusion of a number of packets belonging to different protocols on a packet of another protocol.
 
