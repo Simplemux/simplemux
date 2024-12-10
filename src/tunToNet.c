@@ -104,7 +104,6 @@ void tunToNetBlastFlavor (contextSimplemux* context)
   #endif
 
 
-
   if (context->tunnelMode == TAP_MODE) {
     thisPacket->header.protocolID = IPPROTO_ETHERNET;
   }
@@ -122,39 +121,31 @@ void tunToNetBlastFlavor (contextSimplemux* context)
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
                 " Sent blast packet from ");
-
     do_debug_c( 1,
                 ANSI_COLOR_RESET,
                 "%s",
                 context->mux_if_name);
-
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
                 ", ");
-
     do_debug_c( 1,
                 ANSI_COLOR_RESET,
                 "%s",
                 inet_ntoa(context->local.sin_addr));
-
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
                 ". ID ");
-
      do_debug_c( 1,
                 ANSI_COLOR_RESET,
                 "%i",
                 ntohs(thisPacket->header.identifier));
-
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
                 ", Length ");
-
     do_debug_c( 1,
                 ANSI_COLOR_RESET,
                 "%i",
                 ntohs(thisPacket->header.packetSize));
-
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
                 " bytes (plus headers)\n");
@@ -199,12 +190,10 @@ void tunToNetBlastFlavor (contextSimplemux* context)
                       ANSI_COLOR_BRIGHT_BLUE,
                       " Frame with ID ");          
         }
-
         do_debug_c( 2,
                     ANSI_COLOR_RESET,
                     "%i",
                     ntohs(thisPacket->header.identifier));
-
         do_debug_c( 2,
                     ANSI_COLOR_BRIGHT_BLUE,
                     " removed from the list\n");
@@ -251,7 +240,6 @@ void tunToNetBlastFlavor (contextSimplemux* context)
                       length(&context->unconfirmedPacketsBlast));          
         }
       }
-
     #endif
   }
   else {

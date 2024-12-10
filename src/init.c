@@ -345,12 +345,12 @@ void initTunTapInterface(contextSimplemux* context)
     // tun tunnel mode (i.e. send IP packets)
     // initialize tun interface for native packets
     if ( (context->tun_fd = tun_alloc(context->tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
-      my_err("Error connecting to tun interface for capturing native packets %s\n", context->tun_if_name);
+      my_err("Error connecting to tun/tap interface for capturing native packets %s\n", context->tun_if_name);
       exit(1);
     }
     #ifdef DEBUG
-      do_debug_c(1, ANSI_COLOR_RESET, "Successfully connected to interface for native packets %s\n", context->tun_if_name);
-    #endif 
+      do_debug_c(1, ANSI_COLOR_RESET, "Successfully connected to tun/tap interface for native packets %s\n", context->tun_if_name);
+    #endif
   }
   else if (context->tunnelMode == TAP_MODE) {
     // tap tunnel mode (i.e. send Ethernet frames)
@@ -363,11 +363,11 @@ void initTunTapInterface(contextSimplemux* context)
 
     // initialize tap interface for native packets
     if ( (context->tun_fd = tun_alloc(context->tun_if_name, IFF_TAP | IFF_NO_PI)) < 0 ) {
-      my_err("Error connecting to tap interface for capturing native Ethernet frames %s\n", context->tun_if_name);
+      my_err("Error connecting to tap interface %s for capturing native Ethernet frames\n", context->tun_if_name);
       exit(1);
     }
     #ifdef DEBUG
-      do_debug_c(1, ANSI_COLOR_RESET, "Successfully connected to interface for Ethernet frames %s\n", context->tun_if_name);
+      do_debug_c(1, ANSI_COLOR_RESET, "Successfully connected to interface %s for Ethernet frames\n", context->tun_if_name);
     #endif   
   }
   else exit(1); // this would be a failure
@@ -506,7 +506,7 @@ void initTriggerParameters(contextSimplemux* context)
     context->limitNumpackets = 1;
 
   #ifdef DEBUG
-    do_debug (1, "Multiplexing policies: size threshold:%i. numpackets:%i. timeout:%"PRIu64"us. period:%"PRIu64"us\n",
+    do_debug (1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %"PRIu64"us. period: %"PRIu64"us\n",
               context->sizeThreshold, context->limitNumpackets, context->timeout, context->period);
   #endif
 }

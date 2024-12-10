@@ -2,7 +2,7 @@
 #ifndef NETTOTUNUTILITIES_H
 #define NETTOTUNUTILITIES_H
 
-#include "commonFunctions.h"
+//#include "commonFunctions.h"
 #include "buildMuxedPacket.h"
 
 

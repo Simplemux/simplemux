@@ -1,5 +1,7 @@
 #include "simplemux.h"
 
+// these 'static' functions are only used in this .c file
+
 static int gen_random_num(const struct rohc_comp *const comp,
                           void *const user_context)
 {
@@ -77,9 +79,10 @@ static bool rtp_detect( const uint8_t *const ip __attribute__((unused)),
   return is_rtp;
 }
 
+
+// initialize RoHC header compression
 int initRohc(contextSimplemux* context)
 {
-
   // present some debug info
   #ifdef DEBUG
     switch(context->rohcMode) {
@@ -95,13 +98,11 @@ int initRohc(contextSimplemux* context)
       /*case 3:
         do_debug (1, "RoHC Bidirectional Reliable Mode\n", debug);  // Bidirectional Reliable mode (not implemented yet)
         break;*/
-  }
+    }
   #endif
 
-
   if ( context->rohcMode > 0 ) {
-
-    /* initialize the random generator */
+    // initialize the random generator
     seed = time(NULL);
     srand(seed);
     
@@ -141,7 +142,7 @@ int initRohc(contextSimplemux* context)
       goto release_compressor;
     }
 
-    /* Enable the RoHC compression profiles */
+    // Enable the RoHC compression profiles
     if(!rohc_comp_enable_profile(compressor, ROHC_PROFILE_UNCOMPRESSED)) {
       fprintf(stderr, "failed to enable the Uncompressed compression profile\n");
       goto release_compressor;
@@ -340,6 +341,8 @@ int initRohc(contextSimplemux* context)
     return -1;
 }
 
+
+// main Simplemux program
 int main(int argc, char *argv[]) {
 
   // almost all the variables are stored in 'context'
@@ -466,7 +469,7 @@ int main(int argc, char *argv[]) {
     /*****************************************/
     while(1) {
     
-      /* Initialize the timeout data structure */
+      // Initialize the timeout data structure
       if(context.flavor == 'B') {
         // blast flavor
         context.timeLastSent = findLastSentTimestamp(context.unconfirmedPacketsBlast);
@@ -654,7 +657,7 @@ int main(int argc, char *argv[]) {
             #ifdef DEBUG
               do_debug_c( 1,
                           ANSI_COLOR_RED,
-                          "NON-SIMPLEMUX PACKET #%"PRIu32": Non-multiplexed packet arrived to the Simplemux port. Writing %i bytes to tun\n",
+                          "NON-SIMPLEMUX PACKET #%"PRIu32": Non-multiplexed packet arrived to the Simplemux port. Writing %i bytes to tun/tap\n",
                           context.net2tun,
                           nread_from_net);
             #endif
@@ -815,13 +818,12 @@ int main(int argc, char *argv[]) {
         /***************** TUN to NET: compress and multiplex *********************************/
         /**************************************************************************************/
   
-        /*** data arrived at tun: read it, and check if the stored packets should be written to the network ***/
+        /*** data arrived at tun/tap: read it, and check if the stored packets should be written to the network ***/
         /*** a local packet has arrived to tun/tap, and it has to be multiplexed and sent to the destination***/
   
         /* FD_ISSET tests if a file descriptor is part of the set */
         //else if(FD_ISSET(context.tun_fd, &rd_set)) {
         else if(fds_poll[0].revents & POLLIN) {
-
 
           if (context.flavor == 'B') {
             tunToNetBlastFlavor(&context);
@@ -844,7 +846,8 @@ int main(int argc, char *argv[]) {
       // The period has expired
       // Check if there is something stored, and send it
       // since there is no new packet, it is not necessary to compress anything here
-      else {  // fd2read == 0
+      else {
+        // fd2read == 0
         #ifdef DEBUG
           do_debug_c( 3,
                       ANSI_COLOR_RESET,
@@ -852,14 +855,15 @@ int main(int argc, char *argv[]) {
         #endif
         
         if(context.flavor == 'B') {
-          // go through the list and send all the packets with now_microsec > sentTimestamp + period
+          // blast flavor
+          // go through the list and send all the packets with 'now_microsec > sentTimestamp + period'
           periodExpiredblastFlavor (&context);
         }
         else {
           // not in blast flavor
           if ( context.numPktsStoredFromTun > 0 ) {
             // There are some packets stored
-            // send them
+            //send them
             periodExpiredNoblastFlavor (&context);
           }
           else {

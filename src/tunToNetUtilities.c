@@ -1325,16 +1325,24 @@ void createSimplemuxSeparatorFast(contextSimplemux* context)
                   ". Protocol: ");    
       do_debug_c( 2,
                   ANSI_COLOR_RESET,
-                  "0x%02x",
+                  "%i",
                   context->protocol[context->numPktsStoredFromTun]);
       do_debug_c( 2,
+                  ANSI_COLOR_RESET,
+                  ", 0x%02x",
+                  context->protocol[context->numPktsStoredFromTun]);
+      do_debug_c( 3,
                   ANSI_COLOR_BRIGHT_BLUE,
                   " (");
 
-      PrintByte(2, 8, bits);
+      PrintByte(3, 8, bits);
+      do_debug_c( 3,
+                  ANSI_COLOR_BRIGHT_BLUE,
+                  ")");
+
       do_debug_c( 2,
                   ANSI_COLOR_BRIGHT_BLUE,
-                  ")\n");
+                  "\n");
     }
   #endif
 }

@@ -201,11 +201,11 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
             if (context->tunnelMode == TUN_MODE)
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " packets to the network: ");
+                          " packet(s) to the network: ");
             else
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " frames to the network: "); 
+                          " frame(s) to the network: "); 
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -236,7 +236,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
                         context->numPktsStoredFromTun);  
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to the network: ");  
+                        " packet(s) to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -267,7 +267,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
                         context->numPktsStoredFromTun);  
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to the network: ");  
+                        " packet(s) to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -298,7 +298,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
                         context->numPktsStoredFromTun);  
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to the network: ");  
+                        " packet(s) to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -369,7 +369,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to the network: ");  
+                        " packet(s) to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -400,7 +400,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to the network: ");  
+                        " packet(s) to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -431,7 +431,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to the network: ");  
+                        " packet(s) to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",
@@ -462,7 +462,7 @@ void periodExpiredNoblastFlavor (contextSimplemux* context)
                         context->numPktsStoredFromTun);
             do_debug_c( 1,
                         ANSI_COLOR_CYAN,
-                        " packets to the network: ");  
+                        " packet(s) to the network: ");  
             do_debug_c( 1,
                         ANSI_COLOR_RESET,
                         "%i",

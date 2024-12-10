@@ -6,30 +6,23 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <stdint.h>  // required for using uint8_t, uint16_t, etc.
-#include <netinet/ip.h>       // for using iphdr type
-#include <unistd.h>           // for using getopt()
-#include <net/if.h>
-#include <linux/if_tun.h>     // for using tun/tap interfaces
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <arpa/inet.h> 
-#include <sys/select.h>
-#include <time.h>
-#include <sys/time.h>
-#include <errno.h>
+#include <stdint.h>         // required for using uint8_t, uint16_t, etc.
 #include <stdarg.h>
-#include <inttypes.h>           // for printing uint_64 numbers
-#include <ifaddrs.h>            // required for using getifaddrs()
-#include <netdb.h>              // required for using getifaddrs()
-#include <poll.h>
+#include <unistd.h>         // for using getopt()
+#include <time.h>
+#include <fcntl.h>
+#include <ifaddrs.h>        // required for using getifaddrs()
+#include <netdb.h>          // required for using getifaddrs()
 
-#include <linux/tcp.h>          // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
+#include <net/if.h>
+#include <netinet/ip.h>     // for using iphdr type
+#include <linux/if_tun.h>   // for using tun/tap interfaces
+#include <linux/tcp.h>      // makes it possible to use TCP_NODELAY (disable Nagle algorithm)
+#include <sys/ioctl.h>
+#include <sys/time.h>
+#include <arpa/inet.h>
 
-#include <rohc/rohc.h>          // for using header compression
+#include <rohc/rohc.h>      // for using header compression
 #include <rohc/rohc_comp.h>
 #include <rohc/rohc_decomp.h>
 
@@ -46,8 +39,7 @@
 #define BUFSIZE 2304
 #define IPv4_HEADER_SIZE 20
 #define UDP_HEADER_SIZE 8
-//#define TCP_HEADER_SIZE 20
-#define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long
+#define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long, instead of 20
 
 #define TIME_UNTIL_SENDING_AGAIN_BLAST 5000000 // milliseconds before sending again a packet with the same ID
                                                 // there are 65536 possible values of the ID

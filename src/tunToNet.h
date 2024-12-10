@@ -3,7 +3,6 @@
 #define TUNTONET_H
 
 #include "tunToNetUtilities.h"
-#include "netToTun.h"
 
 void tunToNetBlastFlavor (contextSimplemux* context);
 void tunToNetNoBlastFlavor (contextSimplemux* context);

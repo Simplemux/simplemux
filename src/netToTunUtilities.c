@@ -132,10 +132,14 @@
                     inet_ntoa(context->remote.sin_addr));
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
-                    ", protocol ");        
+                    ". Protocol ");        
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%d",
+                    context->ipprotocol);
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    ", 0x%02x",
                     context->ipprotocol);
         do_debug_c( 1,
                     ANSI_COLOR_YELLOW,
@@ -1103,7 +1107,11 @@ int demuxPacketNormal(contextSimplemux* context,
                   ". Protocol ");
       do_debug_c( 1,
                   ANSI_COLOR_RESET,
-                  "0x%02x",
+                  "%i",
+                  buffer_from_net[*position]);
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  ", 0x%02x",
                   buffer_from_net[*position]);
 
       if(context->protocol_rec == IPPROTO_IP_ON_IP)
@@ -1132,9 +1140,13 @@ int demuxPacketNormal(contextSimplemux* context,
                       ". Protocol ");
           do_debug_c( 1,
                       ANSI_COLOR_RESET,
-                      "0x%02x",
+                      "%i",
                       buffer_from_net[*position]);
-          
+          do_debug_c( 1,
+                      ANSI_COLOR_RESET,
+                      ", 0x%02x",
+                      buffer_from_net[*position]);
+
           if(context->protocol_rec == IPPROTO_IP_ON_IP)
             do_debug_c(1, ANSI_COLOR_RESET, " (IP)");
           else if(context->protocol_rec == IPPROTO_ROHC)
@@ -1264,10 +1276,13 @@ int demuxPacketFast(contextSimplemux* context,
       do_debug_c( 1,
                   ANSI_COLOR_YELLOW,
                   "Protocol ");
-
       do_debug_c( 1,
                   ANSI_COLOR_RESET,
-                  "0x%02x",
+                  "%i",
+                  context->protocol_rec);
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  ", 0x%02x",
                   context->protocol_rec);
 
       if(context->protocol_rec == IPPROTO_IP_ON_IP)
