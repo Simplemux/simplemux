@@ -6,6 +6,8 @@
 
 There are some situations in which multiplexing a number of small packets into a bigger one is desirable. For example, a number of small packets can be sent together between a pair of machines if they share a common network path. Thus, the traffic profile can be shifted from small to larger packets, reducing the network overhead and the number of packets per second to be managed by intermediate routers.
 
+![Simplemux scheme](images/simplemux_dumbbell.png)
+
 In other cases it is necessary to send tunneled packets or frames between different network locations.
 
 Multiplexing can be combined with Tunneling and Header Compression for the optimization of small-packet flows. This is called TCM. Different algorithms for header compression, multiplexing and tunneling can be combined in a similar way to RFC 4170.
