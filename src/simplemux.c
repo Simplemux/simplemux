@@ -81,7 +81,8 @@ static bool rtp_detect( const uint8_t *const ip __attribute__((unused)),
 
 
 // initialize RoHC header compression
-int initRohc(contextSimplemux* context)
+// declared as 'static' because it is only used by 'main()'
+static int initRohc(contextSimplemux* context)
 {
   // present some debug info
   #ifdef DEBUG

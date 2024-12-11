@@ -290,8 +290,9 @@ int checkCommandLineOptions(int argc, char *progname, contextSimplemux* context)
  *          flags can be IFF_TUN (1) or IFF_TAP (2)                       *
  **************************************************************************/
 // explained here https://www.fatalerrors.org/a/tun-tap-interface-usage-guidance.html
-int tun_alloc(char *dev,    // the name of an interface (or '\0')
-              int flags)
+// declared as 'static' because it is only used by 'initTunTapInterface()'
+static int tun_alloc( char *dev,    // the name of an interface (or '\0')
+                      int flags)
 {
   struct ifreq ifr;
   int fd, err;
@@ -343,13 +344,17 @@ void initTunTapInterface(contextSimplemux* context)
 {
   if (context->tunnelMode == TUN_MODE) {
     // tun tunnel mode (i.e. send IP packets)
+
     // initialize tun interface for native packets
     if ( (context->tun_fd = tun_alloc(context->tun_if_name, IFF_TUN | IFF_NO_PI)) < 0 ) {
       my_err("Error connecting to tun/tap interface for capturing native packets %s\n", context->tun_if_name);
       exit(1);
     }
     #ifdef DEBUG
-      do_debug_c(1, ANSI_COLOR_RESET, "Successfully connected to tun/tap interface for native packets %s\n", context->tun_if_name);
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "Successfully connected to tun/tap interface for native packets %s\n",
+                  context->tun_if_name);
     #endif
   }
   else if (context->tunnelMode == TAP_MODE) {
@@ -367,7 +372,10 @@ void initTunTapInterface(contextSimplemux* context)
       exit(1);
     }
     #ifdef DEBUG
-      do_debug_c(1, ANSI_COLOR_RESET, "Successfully connected to interface %s for Ethernet frames\n", context->tun_if_name);
+      do_debug_c( 1,
+                  ANSI_COLOR_RESET,
+                  "Successfully connected to interface %s for Ethernet frames\n",
+                  context->tun_if_name);
     #endif   
   }
   else exit(1); // this would be a failure

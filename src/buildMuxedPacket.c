@@ -1,5 +1,5 @@
 #include "buildMuxedPacket.h"
-
+/*
 // it takes all the variables where packets are stored, and predicts the
 //size of a multiplexed packet including all of them
 // 'single_prot': if all the packets belong to the same protocol
@@ -48,7 +48,7 @@ uint16_t predictSizeMultiplexedPacket ( contextSimplemux* context,
 
   return length;
 }
-
+*/
 
 
 // it takes all the variables where packets are stored, and builds a multiplexed packet
@@ -78,16 +78,13 @@ uint16_t buildMultiplexedPacket ( contextSimplemux* context,
         do_debug_c( 2,
                     ANSI_COLOR_CYAN,
                     "; ");
-        
       do_debug_c( 2,
                   ANSI_COLOR_RESET,
                   "#%d",
                   k+1);
-
       do_debug_c( 2,
                   ANSI_COLOR_CYAN,
                   ": ");
-
       // add the separator
       do_debug_c( 2,
                   ANSI_COLOR_RESET,
@@ -107,8 +104,7 @@ uint16_t buildMultiplexedPacket ( contextSimplemux* context,
       length ++;
     }
 
-
-    // add the protocol field
+    // add the Protocol field
     if (context->flavor == 'N') { // normal flavor
       // add the 'Protocol' field if necessary
       if ( (k==0) || (single_prot == 0 ) ) {
@@ -137,7 +133,6 @@ uint16_t buildMultiplexedPacket ( contextSimplemux* context,
       #endif
     }
     
-
     // add the bytes of the packet itself
     memcpy( &mux_packet[length],
             context->packetsToMultiplex[k],

@@ -234,6 +234,56 @@ int allSameProtocol(contextSimplemux* context)
 }
 
 
+// it takes all the variables where packets are stored, and predicts the
+//size of a multiplexed packet including all of them
+// 'single_prot': if all the packets belong to the same protocol
+// returns: the length of the multiplexed packet
+// declared as 'static' because it is only used by 'emptyBufferIfNeeded()'
+static uint16_t predictSizeMultiplexedPacket (contextSimplemux* context,
+                                              int single_prot)
+{
+  // only used in normal or fast flavor
+  #ifdef ASSERT
+    assert( (context->flavor == 'N') || (context->flavor == 'F') ) ;
+  #endif
+
+  int length = 0;
+
+  if (context->flavor == 'N') {
+    // normal flavor
+
+    // for each packet, read the protocol field (if present), the separator and the packet itself
+    for (int k = 0; k < context->numPktsStoredFromTun ; k++) {
+
+      // count the 'Protocol' field if necessary
+      if ( ( k == 0 ) || ( single_prot == 0 ) ) {
+        // the Protocol field is always present in the first separator (k=0), and maybe in the rest
+        length = length + 1;  // the protocol field is 1 byte long
+      }
+    
+      // count the separator
+      length = length + context->sizeSeparatorsToMultiplex[k];
+
+      // count the bytes of the packet itself
+      length = length + context->sizePacketsToMultiplex[k];
+    }    
+  }
+  else {
+    // fast flavor
+
+    // the separator is always the same size: 'sizeSeparatorFastMode'
+    length = length + (context->numPktsStoredFromTun * context->sizeSeparatorFastMode);
+
+    // for each packet, add the length of the packet itself
+    for (int k = 0; k < context->numPktsStoredFromTun ; k++) {
+      // count the bytes of the packet itself
+      length = length + context->sizePacketsToMultiplex[k];
+    }       
+  }
+  return length;
+}
+
+
 // if the addition of the present packet will imply a multiplexed packet bigger than the size limit:
 // - I send the previously stored packets
 // - I store the present one
@@ -277,7 +327,6 @@ void emptyBufferIfNeeded(contextSimplemux* context, int single_protocol)
                                context->sizeSeparatorFastMode +
                                context->sizePacketsToMultiplex[context->numPktsStoredFromTun];
   }
-
 
   if (predictedSizeMuxedPacket > context->sizeMax ) {
     // if the present packet is muxed, the max size of the packet will be overriden. So I first empty the buffer
@@ -751,21 +800,17 @@ void emptyBufferIfNeeded(contextSimplemux* context, int single_protocol)
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
                           " Sending from ");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           context->mux_if_name);
-
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
                           ", ");
-
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%s",
                           inet_ntoa(context->local.sin_addr));
-              
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
                           " an IP muxed packet without this Eth frame: ");
@@ -905,7 +950,6 @@ void emptyBufferIfNeeded(contextSimplemux* context, int single_protocol)
           // write in the log file
           if ( context->log_file != NULL ) {
             fprintf ( context->log_file,
-                      //"%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t\t%i\tMTU\n",
                       "%"PRIu64"\tsent\tmuxed\t%i\t%"PRIu32"\tto\t%s\t%d\t%i\tMTU\n",
                       GetTimeStamp(),
                       total_length + IPv4_HEADER_SIZE,

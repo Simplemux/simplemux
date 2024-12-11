@@ -8,11 +8,6 @@
 
 #include "packetsToSend.h"
 
-
-// the length of the multiplexed packet is returned by this function
-uint16_t predictSizeMultiplexedPacket ( contextSimplemux* context,
-                                        int single_prot);
-
 uint16_t buildMultiplexedPacket ( contextSimplemux* context,
                                   int single_prot,
                                   uint8_t mux_packet[BUFSIZE]);
