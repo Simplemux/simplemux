@@ -1,6 +1,6 @@
 #include "init.h"
 
-// set the initial values of some context variables
+// set the initial values of the context variables
 void initContext(contextSimplemux* context)
 {
   context->flavor = 'N';  // by default 'normal flavor' is selected
@@ -47,21 +47,21 @@ void parseCommandLine(int argc, char *argv[], contextSimplemux* context)
 
     switch(option) {
       case 'd':
-        debug = atoi(optarg);    /* 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC) */
+        debug = atoi(optarg);    // 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)
         break;
       case 'r':
-        context->rohcMode = atoi(optarg);  /* 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)*/ 
+        context->rohcMode = atoi(optarg);  // 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)
         break;
-      case 'h':            /* help */
+      case 'h':            // help
         usage(argv[0]);
         break;
-      case 'i':            /* put the name of the tun interface (e.g. "tun0") in "tun_if_name" */
+      case 'i':            // put the name of the tun interface (e.g. "tun0") in 'tun_if_name'
         strncpy(context->tun_if_name, optarg, IFNAMSIZ-1);
         break;
-      case 'M':            /* network (N) or udp (U) or tcpclient (T) or tcpserver (S) mode */
+      case 'M':            // network (N) or udp (U) or tcpclient (T) or tcpserver (S) mode
         strcpy(mode_string, optarg);
 
-        // check the 'mode' string and fill 'mode'
+        // check 'mode_string' string and fill 'mode'
         if (strcmp(mode_string, "network") == 0) {
           #ifdef DEBUG
             do_debug(3, "the mode string is network\n");
@@ -95,10 +95,10 @@ void parseCommandLine(int argc, char *argv[], contextSimplemux* context)
           do_debug(3, "mode_string: %s\n", mode_string);
         #endif
         break;
-      case 'T':            /* TUN (U) or TAP (A) tunnel mode */
+      case 'T':            // TUN (U) or TAP (A) tunnel mode
         strcpy(tunnel_mode_string, optarg);
 
-        // check the 'tunnel_mode' string and fill 'tunnelMode'
+        // check 'tunnel_mode' string and fill 'tunnelMode'
         if (strcmp(tunnel_mode_string, "tun") == 0) {
           #ifdef DEBUG
             do_debug(3, "the tunnel mode string is tun\n");
@@ -121,7 +121,7 @@ void parseCommandLine(int argc, char *argv[], contextSimplemux* context)
         #endif
 
         break;
-      case 'f':            /* fast flavor */
+      case 'f':            // fast flavor
         if(context->flavor == 'B') {
           // both -f and -b options have been selected
           my_err("fast ('-f') and blast (`-b') flavors are not compatible\n");
@@ -130,13 +130,13 @@ void parseCommandLine(int argc, char *argv[], contextSimplemux* context)
         else{
           context->flavor = 'F';
           context->port = PORT_FAST;   // by default, port = PORT. In fast flavor, it is PORT_FAST
-          context->ipprotocol = IPPROTO_SIMPLEMUX_FAST; // by default, the protocol in network mode is 253. In fast flavor, use 254
+          context->ipprotocol = IPPROTO_SIMPLEMUX_FAST; // in 'fast flavor', in 'network mode', use protocol 254
           #ifdef DEBUG
             do_debug_c(1, ANSI_COLOR_RESET, "Fast flavor selected\n");
           #endif        
         }
         break;
-      case 'b':            /* blast flavor */
+      case 'b':            // blast flavor
         if(context->flavor == 'F') {
           // both -f and -b options have been selected
           my_err("fast ('-f') and blast (`-b') flavors are not compatible\n");
@@ -145,43 +145,43 @@ void parseCommandLine(int argc, char *argv[], contextSimplemux* context)
         else{
           context->flavor = 'B';
           context->port = PORT_BLAST;   // by default, port = PORT. In blast flavor, it is PORT_BLAST
-          context->ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // by default, the protocol in network mode is 253. In blast flavor, use 252
+          context->ipprotocol = IPPROTO_SIMPLEMUX_BLAST; // in blast flavor, in network mode, use protocol 252
           #ifdef DEBUG
             do_debug_c(1, ANSI_COLOR_RESET, "Blast flavor selected\n");
           #endif
         }
         break;
-      case 'e':            /* the name of the network interface (e.g. "eth0") in "mux_if_name" */
+      case 'e':            // copy the name of the network interface (e.g. 'eth0') in 'mux_if_name'
         strncpy(context->mux_if_name, optarg, IFNAMSIZ-1);
         break;
-      case 'c':            /* destination address of the machine where the tunnel ends */
+      case 'c':            // copy the destination address of the machine where the tunnel ends in 'remote_ip'
         strncpy(context->remote_ip, optarg, 16);
         break;
-      case 'l':            /* name of the log file */
+      case 'l':            // copy the name of the log file in 'log_file_name'
         strncpy(context->log_file_name, optarg, 100);
         context->file_logging = 1;
         break;
-      case 'L':            /* name of the log file assigned automatically */
+      case 'L':            // the name of the log file is assigned automatically
         date_and_time(context->log_file_name);
         context->file_logging = 1;
         break;
-      case 'p':            /* port number */
-        context->port = atoi(optarg);    /* atoi Parses a string interpreting its content as an int */
+      case 'p':            // port number
+        context->port = atoi(optarg);    // atoi() Parses a string interpreting its content as an 'int'
         context->port_feedback = context->port + 1;
         break;
-      case 'n':            /* limit of the number of packets for triggering a muxed packet */
+      case 'n':            // limit of the number of packets for triggering a muxed packet
         context->limitNumpackets = atoi(optarg);
         break;
-      case 'm':            /* MTU forced by the user */
+      case 'm':            // MTU forced by the user
         context->userMtu = atoi(optarg);
         break;
-      case 'B':            /* size threshold (in bytes) for triggering a muxed packet */
+      case 'B':            // size threshold (in bytes) for triggering a muxed packet
         context->sizeThreshold = atoi(optarg);
         break;
-      case 't':            /* timeout for triggering a muxed packet */
+      case 't':            // timeout for triggering a muxed packet
         context->timeout = atoll(optarg);
         break;
-      case 'P':            /* Period for triggering a muxed packet */
+      case 'P':            // Period for triggering a muxed packet
         context->period = atoll(optarg);
         context->microsecondsLeft = context->period; 
         break;
@@ -255,7 +255,7 @@ int checkCommandLineOptions(int argc, char *progname, contextSimplemux* context)
       return 0;
     }
     if(context->rohcMode!=0) {
-      my_err("blast flavor (-b) is not compatible with ROHC (-r)\n");
+      my_err("blast flavor (-b) is not compatible with RoHC (-r)\n");
       usage(progname);
       return 0;     
     }
@@ -275,7 +275,7 @@ int checkCommandLineOptions(int argc, char *progname, contextSimplemux* context)
       return 0;     
     }
     if(context->period==MAXTIMEOUT) {
-      my_err("In blast flavor (-b) you must specify a Period (-P)\n");
+      my_err("In blast flavor (-b) you must specify a period (-P)\n");
       usage(progname);
       return 0;      
     }
@@ -413,11 +413,16 @@ void initSizeMax(contextSimplemux* context)
     else interface_mtu = context->iface.ifr_mtu;
   }
 
-  /*** check if the user has specified a bad MTU ***/
+  // check if the user has specified a bad MTU
   #ifdef DEBUG
-    do_debug (1, "Local interface MTU: %i\t ", interface_mtu);
+    do_debug (1,
+              "Local interface MTU: %i\t ",
+              interface_mtu);
+
     if ( context->userMtu > 0 ) {
-      do_debug (1, "User-selected MTU: %i\n", context->userMtu);
+      do_debug (1,
+                "User-selected MTU: %i\n",
+                context->userMtu);
     }
     else {
       do_debug (1, "\n");
@@ -443,7 +448,9 @@ void initSizeMax(contextSimplemux* context)
 
   if (context->selectedMtu > BUFSIZE ) {
     #ifdef DEBUG
-      do_debug (1, "Selected MTU: %i\t Size of the buffer for packet storage: %i\n", context->selectedMtu, BUFSIZE);
+      do_debug (1,
+                "Selected MTU: %i\t Size of the buffer for packet storage: %i\n",
+                context->selectedMtu, BUFSIZE);
     #endif
     perror ("Error: The MTU selected is higher than the size of the buffer defined.\nCheck #define BUFSIZE at the beginning of this application\n");
     exit (1);
@@ -479,7 +486,9 @@ void initSizeMax(contextSimplemux* context)
   // the user has specified a too big size threshold
   if (context->sizeThreshold > context->sizeMax ) {
     #ifdef DEBUG
-      do_debug (1, "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n", context->sizeThreshold, context->sizeMax);
+      do_debug (1,
+                "Warning: Size threshold too big: %i. Automatically set to the maximum: %i\n",
+                context->sizeThreshold, context->sizeMax);
     #endif
     context->sizeThreshold = context->sizeMax;
   }
@@ -514,8 +523,12 @@ void initTriggerParameters(contextSimplemux* context)
     context->limitNumpackets = 1;
 
   #ifdef DEBUG
-    do_debug (1, "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %"PRIu64"us. period: %"PRIu64"us\n",
-              context->sizeThreshold, context->limitNumpackets, context->timeout, context->period);
+    do_debug (1,
+              "Multiplexing policies: size threshold: %i. numpackets: %i. timeout: %"PRIu64"us. period: %"PRIu64"us\n",
+              context->sizeThreshold,
+              context->limitNumpackets,
+              context->timeout,
+              context->period);
   #endif
 }
 
