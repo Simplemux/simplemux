@@ -819,8 +819,8 @@ int main(int argc, char *argv[]) {
         /***************** TUN to NET: compress and multiplex *********************************/
         /**************************************************************************************/
   
-        /*** data arrived at tun/tap: read it, and check if the stored packets should be written to the network ***/
-        /*** a local packet has arrived to tun/tap, and it has to be multiplexed and sent to the destination***/
+        // data arrived at tun/tap: read it, store it, and check if the stored
+        //packets should be written to the network
   
         /* FD_ISSET tests if a file descriptor is part of the set */
         //else if(FD_ISSET(context.tun_fd, &rd_set)) {

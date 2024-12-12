@@ -577,7 +577,7 @@ void emptyBufferIfNeeded(contextSimplemux* context, int single_protocol)
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " native packet(s) (not this one) plus separator(s), ");
+                          " native packet(s) (not this one) plus separator(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -615,7 +615,7 @@ void emptyBufferIfNeeded(contextSimplemux* context, int single_protocol)
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " native packet(s) (not this one) plus separator(s), ");
+                          " native packet(s) (not this one) plus separator(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -737,7 +737,7 @@ void emptyBufferIfNeeded(contextSimplemux* context, int single_protocol)
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " native Eth frame(s) (not this one) plus separator(s), ");
+                          " native Eth frame(s) (not this one) plus separator(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -775,7 +775,7 @@ void emptyBufferIfNeeded(contextSimplemux* context, int single_protocol)
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " native Eth frame(s) (not this one) plus separator(s), ");
+                          " native Eth frame(s) (not this one) plus separator(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -1451,13 +1451,27 @@ int addSizeOfProtocolField(contextSimplemux* context)
                     context->limitNumpackets);
         do_debug_c( 1,
                     ANSI_COLOR_CYAN,
-                    " packets\n");
+                    " packets. ");
       }
-      
+      else if (context->numPktsStoredFromTun == MAXPKTS) {
+        // this message will not appear if 'linimtNumpackets == MAXPKTS',
+        //because the previous message will already have appeared
+        do_debug_c( 1,
+                    ANSI_COLOR_CYAN,
+                    "maximum number of packets stored in the buffer reached: ");
+        do_debug_c( 1,
+                    ANSI_COLOR_RESET,
+                    "%i",
+                    MAXPKTS);
+        do_debug_c( 1,
+                    ANSI_COLOR_CYAN,
+                    " packets. ");
+      }
+
       if (context->sizeMuxedPacket > context->sizeThreshold) {
         do_debug_c( 1,
                     ANSI_COLOR_CYAN,
-                    " size threshold reached: ");
+                    "size threshold reached: ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
@@ -1471,13 +1485,13 @@ int addSizeOfProtocolField(contextSimplemux* context)
                     context->sizeThreshold);
         do_debug_c( 1,
                     ANSI_COLOR_CYAN,
-                    " bytes\n");
+                    " bytes. ");
       }
       
       if (time_difference > context->timeout) {
         do_debug_c( 1,
                     ANSI_COLOR_CYAN,
-                    " timeout reached: ");
+                    "timeout reached: ");
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%"PRIu64"",
@@ -1491,8 +1505,11 @@ int addSizeOfProtocolField(contextSimplemux* context)
                     context->timeout);
         do_debug_c( 1,
                     ANSI_COLOR_CYAN,
-                    " us\n");
+                    " us ");
       }
+      do_debug_c( 1,
+                  ANSI_COLOR_CYAN,
+                  "\n");
 
       if (context->flavor == 'N') {
         // normal flavor
@@ -1634,7 +1651,7 @@ int addSizeOfProtocolField(contextSimplemux* context)
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " native one(s) plus separator(s), ");
+                          " native one(s) plus separator(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -1665,14 +1682,14 @@ int addSizeOfProtocolField(contextSimplemux* context)
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " a TCP packet containing: ");
+                          " a TCP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " native one(s) plus separator(s), ");
+                          " native one(s) plus separator(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -1789,14 +1806,14 @@ int addSizeOfProtocolField(contextSimplemux* context)
                           inet_ntoa(context->local.sin_addr));
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " a TCP packet containing: ");
+                          " a TCP packet containing ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " native Eth frame(s) plus separator(s), ");
+                          " native Eth frame(s) plus separator(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -1833,7 +1850,7 @@ int addSizeOfProtocolField(contextSimplemux* context)
                           context->numPktsStoredFromTun);
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,
-                          " native Eth frame(s) plus separator(s), ");
+                          " native Eth frame(s) plus separator(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
                           "%i",
@@ -1874,7 +1891,7 @@ int addSizeOfProtocolField(contextSimplemux* context)
                           " native Eth frame(s): ");
               do_debug_c( 1,
                           ANSI_COLOR_RESET,
-                          " %i",
+                          "%i",
                           context->sizeMuxedPacket + IPv4_HEADER_SIZE);
               do_debug_c( 1,
                           ANSI_COLOR_CYAN,

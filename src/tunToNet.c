@@ -520,7 +520,11 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
 
     // if the packet limit or the size threshold are reached, send all the stored packets to the network
     // do not worry about the MTU. if it is reached, a number of packets will be sent
-    if ((context->numPktsStoredFromTun == context->limitNumpackets) || (context->sizeMuxedPacket > context->sizeThreshold) || (time_difference > context->timeout )) {
+    if ((context->numPktsStoredFromTun == context->limitNumpackets) ||  // I have reached the maximum number
+        (context->numPktsStoredFromTun == MAXPKTS) ||                   // there is no more place in the buffer
+        (context->sizeMuxedPacket > context->sizeThreshold) ||          // size threshold
+        (time_difference > context->timeout ))                          // timeout expired
+    {
 
       // sending triggered: a multiplexed packet has to be sent
       single_protocol = addSizeOfProtocolField(context);
