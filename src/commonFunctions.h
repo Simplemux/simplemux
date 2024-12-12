@@ -74,7 +74,7 @@
 #define TUN_MODE 'U'            // T: tun mode, i.e. IP packets will be tunneled inside Simplemux
 #define TAP_MODE 'A'            // A: tap mode, i.e. Ethernet frames will be tunneled inside Simplemux
 
-#define MAXPKTS 3             // maximum number of packets to store in normal and fast flavor
+#define MAXPKTS 100             // maximum number of packets to store in normal and fast flavor
 
 #define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
 
