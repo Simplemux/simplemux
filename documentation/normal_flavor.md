@@ -39,3 +39,7 @@ If the `SPB` of the _First_ Simplemux header is set to `0`, then each packet may
 These are the fields:
 - _Length Extension_ (`LXT`, one bit) is `0` if the current byte is the last byte where the length of the first packet is included, and `1` in other case.
 - _Length_ (`LEN`, 7, 14, 21, etc. bits). This is the length of the multiplexed packet (in bytes), not including the _Length_ field. If the length of the multiplexed packet is less than 128 bytes (less than or equal to 127 bytes), the first `LXT` is set to `0` and the 7 bits of the length field are the length of the multiplexed packet. If the length of the multiplexed packet is equal or greater than 128 bytes, additional bytes are added. The first bit of each of the added bytes is the `LXT`. If `LXT` is set to `1`, it means that there is an additional byte for expressing the length. This allows to multiplex packets of any length.
+
+This is a Wireshark screenshot showing two multiplexed IP packets (_tun_ tunnel mode), over IP protocol (_network_ mode):
+
+<img src="images/wireshark_2_normal_IP_packets.png" alt="Wireshark screenshot showing two multiplexed IP packets over IP protocol" width="600"/>
