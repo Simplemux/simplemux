@@ -10,6 +10,8 @@
 
 In this example scenario, two Raspberries have been used as the multiplexer and the demultiplexer. Using **tap tunnel mode**, whole Ethernet frames are sent between two distant networks.
 
+<img src="images/scenario_two-raspberries.png" alt="Scenario with two raspberries" width="600"/>
+
 Only the frames tagged as VLAN=`3` will be sent through the Simplemux tunnel.
 
 These are the protocols employed:
