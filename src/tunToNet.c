@@ -25,12 +25,10 @@ void tunToNetBlastFlavor (contextSimplemux* context)
                   "%"PRIu64": NATIVE FRAME arrived from local computer (",
                   now);
     }
-
     do_debug_c( 3,
                 ANSI_COLOR_RESET,
                 "%s",
                 context->tun_if_name);
-
     do_debug_c( 3,
                 ANSI_COLOR_BRIGHT_BLUE,
                 ")\n");
@@ -65,25 +63,20 @@ void tunToNetBlastFlavor (contextSimplemux* context)
                 ANSI_COLOR_RESET,
                 "%s",
                 context->tun_if_name);
-
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
                 ": ID ");
-
     do_debug_c( 1,
                 ANSI_COLOR_RESET,
                 "%i",
                 ntohs(thisPacket->header.identifier));
-
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
                 ", Length ");
-
     do_debug_c( 1,
                 ANSI_COLOR_RESET,
                 "%i",
                 ntohs(thisPacket->header.packetSize));
-
     do_debug_c( 1,
                 ANSI_COLOR_BRIGHT_BLUE,
                 " bytes\n");
@@ -102,7 +95,6 @@ void tunToNetBlastFlavor (contextSimplemux* context)
       fflush(context->log_file);
     }
   #endif
-
 
   if (context->tunnelMode == TAP_MODE) {
     thisPacket->header.protocolID = IPPROTO_ETHERNET;
@@ -298,7 +290,8 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
 {
   // normal or fast flavor
   #ifdef ASSERT
-    assert( (context->flavor == 'N') || (context->flavor == 'F') ) ;
+    assert( (context->flavor == 'N') || (context->flavor == 'F') );
+    assert( context->numPktsStoredFromTun < MAXPKTS ); // there must be space for one packet
   #endif
 
   // read the packet from context->tun_fd, store it in the array, and store its size
@@ -410,7 +403,6 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
     // check if all the packets/frames belong to the same protocol
     int single_protocol = allSameProtocol(context);
 
-
     // Calculate if the size limit will be reached when multiplexing the present packet
     // if the addition of the present packet will imply a multiplexed packet bigger than the size limit:
     // - I send the previously stored packets
@@ -483,10 +475,12 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
                       ANSI_COLOR_BRIGHT_BLUE,
                       "  Frame stopped: accumulated ");
         }
+
         do_debug_c( 1,
                     ANSI_COLOR_RESET,
                     "%i",
                     context->numPktsStoredFromTun);
+        
         if (context->tunnelMode == TUN_MODE) {
           do_debug_c( 1,
                       ANSI_COLOR_BRIGHT_BLUE,
@@ -507,7 +501,6 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
       #endif
     }
     
-
     // check if a multiplexed packet has to be sent
     uint64_t now_microsec = GetTimeStamp();
     uint64_t time_difference = now_microsec - context->timeLastSent;
@@ -525,7 +518,6 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
         (context->sizeMuxedPacket > context->sizeThreshold) ||          // size threshold
         (time_difference > context->timeout ))                          // timeout expired
     {
-
       // sending triggered: a multiplexed packet has to be sent
       single_protocol = addSizeOfProtocolField(context);
 
