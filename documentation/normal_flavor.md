@@ -34,9 +34,8 @@ If the `SPB` (_Single Protocol Bit_) of the _First_ Simplemux header is set to `
 
 If the `SPB` of the _First_ Simplemux header is set to `0`, then each packet may belong to a different protocol, so the _Protocol_ field is also included, as shown in the next figure:
 
-<img src="images//non-first_SPB-0_separator_fields.png" alt="Fields of the Non-first Simplemux header/separator, when the SPB bit of the First header is 0" width="600"/>
+<img src="images/non-first_SPB-0_separator_fields.png" alt="Fields of the Non-first Simplemux header/separator, when the SPB bit of the First header is 0" width="600"/>
 
 These are the fields:
 - _Length Extension_ (`LXT`, one bit) is `0` if the current byte is the last byte where the length of the first packet is included, and `1` in other case.
-- _Length_ (`LEN`, 7, 14, 21, etc. bits). This is the length of the multiplexed packet (in bytes), not including the _Length_ field. If the length of the multiplexed packet is less than 128 bytes (less than or equal to 127 bytes),
-the first `LXT` is set to `0` and the 7 bits of the length field are the length of the multiplexed packet. If the length of the multiplexed packet is equal or greater than 128 bytes, additional bytes are added. The first bit of each of the added bytes is the `LXT`. If `LXT` is set to `1`, it means that there is an additional byte for expressing the length. This allows to multiplex packets of any length.
+- _Length_ (`LEN`, 7, 14, 21, etc. bits). This is the length of the multiplexed packet (in bytes), not including the _Length_ field. If the length of the multiplexed packet is less than 128 bytes (less than or equal to 127 bytes), the first `LXT` is set to `0` and the 7 bits of the length field are the length of the multiplexed packet. If the length of the multiplexed packet is equal or greater than 128 bytes, additional bytes are added. The first bit of each of the added bytes is the `LXT`. If `LXT` is set to `1`, it means that there is an additional byte for expressing the length. This allows to multiplex packets of any length.
