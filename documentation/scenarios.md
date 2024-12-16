@@ -62,6 +62,10 @@ Raspberry 2
 ### Prepare the two devices
 
 With this script, you create the devices in Raspberry 1:
+
+<details close>
+<summary>Script Raspberry 1</summary>
+
 ```
 # raspberry 1
 # add the interface eth0.3, part of VLAN 3
@@ -83,8 +87,13 @@ ip link set eth0.3 master br3
 # set the bridge up
 ip link set br3 up
 ```
+</details>
 
 With this script you can create the devices in Raspberry 2:
+
+<details close>
+<summary>Script Raspberry 1</summary>
+
 ```
 # raspberry 2
 # add the interface eth0.3, part of VLAN 3
@@ -106,6 +115,7 @@ ip link set eth0.3 master br3
 # set the bridge up
 ip link set br3 up
 ```
+</details>
 
 ### Run Simplemux
 
@@ -147,8 +157,7 @@ $ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.171 -d 2
 ./simplemux/simplemux -i tap3 -e eth1 -M tcpserver -T tap -c 192.168.3.171 -d 3 -n 1 -f
 ```
 
-
-You can now ping from Raspberry 1 to 192.168.33.172, and you will see if the tunnel works.
+You can now ping from Raspberry 1 to `192.168.33.172`, and you will see if the tunnel works.
 
 
 ## Scenario 2 - Sending IP packets between VMs
@@ -582,6 +591,10 @@ ip netns exec ns0 ping 192.168.100.2
 
 ### All the commands together
 
+
+<details close>
+<summary>All the commands</summary>
+
 ```
 ip netns add ns0
 ip netns add ns1
@@ -612,6 +625,8 @@ ip netns exec ns0 ./simplemux -i tun0 -e veth0 -M udp -T tun -c 192.168.1.21 -d 
 ip netns exec ns1 ./simplemux -i tun1 -e veth1 -M udp -T tun -c 192.168.1.20 -d 2
 ip netns exec ns0 ping 192.168.100.2
 ```
+</details>
+
 
 Another option to send the traffic (UDP packets with 100-byte payload):
 ```
@@ -889,6 +904,10 @@ ip netns exec ns0 ping 192.168.200.2
 
 ### All the commands together
 
+
+<details close>
+<summary>All the commands</summary>
+
 ```
 ip netns add ns0
 ip netns add ns1
@@ -920,7 +939,7 @@ ip netns exec ns0 ./simplemux -i tap0 -e veth0 -M udp -T tap -c 192.168.1.21 -d 
 ip netns exec ns1 ./simplemux -i tap1 -e veth1 -M udp -T tap -c 192.168.1.20 -d 2
 ip netns exec ns0 ping 192.168.200.2
 ```
-
+</details>
 
 Another option to send the traffic (UDP packets with 100-byte payload):
 ```
