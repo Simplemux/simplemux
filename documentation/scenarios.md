@@ -10,6 +10,8 @@
 
 In this example scenario, two Raspberries have been used as the multiplexer and the demultiplexer. Using **tap tunnel mode**, whole Ethernet frames are sent between two distant networks.
 
+<img src="images/scenario_two-raspberries.png" alt="Scenario with two raspberries" width="600"/>
+
 Only the frames tagged as VLAN=`3` will be sent through the Simplemux tunnel.
 
 These are the protocols employed:
@@ -60,6 +62,10 @@ Raspberry 2
 ### Prepare the two devices
 
 With this script, you create the devices in Raspberry 1:
+
+<details close>
+<summary>Script Raspberry 1</summary>
+
 ```
 # raspberry 1
 # add the interface eth0.3, part of VLAN 3
@@ -81,8 +87,13 @@ ip link set eth0.3 master br3
 # set the bridge up
 ip link set br3 up
 ```
+</details>
 
 With this script you can create the devices in Raspberry 2:
+
+<details close>
+<summary>Script Raspberry 2</summary>
+
 ```
 # raspberry 2
 # add the interface eth0.3, part of VLAN 3
@@ -104,6 +115,7 @@ ip link set eth0.3 master br3
 # set the bridge up
 ip link set br3 up
 ```
+</details>
 
 ### Run Simplemux
 
@@ -145,8 +157,7 @@ $ ./simplemux -i tap3 -e eth1 -M udp -T tap -c 192.168.3.171 -d 2
 ./simplemux/simplemux -i tap3 -e eth1 -M tcpserver -T tap -c 192.168.3.171 -d 3 -n 1 -f
 ```
 
-
-You can now ping from Raspberry 1 to 192.168.33.172, and you will see if the tunnel works.
+You can now ping from Raspberry 1 to `192.168.33.172`, and you will see if the tunnel works.
 
 
 ## Scenario 2 - Sending IP packets between VMs
@@ -160,10 +171,10 @@ This has been tested using three Debian Virtual Machines inside a Windows PC.
 This is the setup:
 
 ```
-                      +------+                               +--------+
-                      |switch|                               | router |
-                      +------+                               +--------+
-                      /      \                               /        \
+                      +------+                               +--------+         +---------+
+                      |switch|                               | router |---------| x.y.z.t |
+                      +------+                               +--------+         +---------+
+                      /      \                               /        \         destination
                      /        \                             /          \
        +-------------+        +-------------+  +-------------+        +-------------+
    +---|192.168.200.6|-+    +-|192.168.200.5|--| 192.168.0.5 |-+    +-|192.168.137.4|---+
@@ -181,12 +192,11 @@ This is the setup:
    +-------------------+    +----------------------------------+    +-------------------+
 ```
 
-Machine 6 is the source. Machine 5 and Machine 4 are the two optimizers. Server x.y.z.t is the destination.
+Machine 6 is the source. Machine 5 and Machine 4 are the two optimizers. The machine `x.y.z.t` is the destination.
 
 ### Create a tun interface in machine 4
 ```
 $ ip tuntap add dev tun0 mode tun user root
-
 $ ip link set tun0 up
 ```
 In other cases, e.g. OpenWRT, you can run `$ ifconfig tun0 up`.
@@ -197,11 +207,11 @@ $ ip addr add 192.168.100.4/24 dev tun0
 ```
 If you do not need an IP address, you can omit the previous command.
 
-For removing the interface use `ip tuntap del dev tun0 mode tun`.
+For removing the interface use `$ ip tuntap del dev tun0 mode tun`.
 
 Note: `$ openvpn --mktun --dev tun0 --user root` will work in OpenWrt and also in other Linux distributions). `Openvpn` is used to create and destroy tun/tap devices. In Debian you can install it this way: `$ apt-get install openvpn`.
 
-In OpenWRT you will not be able to run `$ ip tuntap`, so you should install openvpn with: `$ opkg install openvpn-nossl` (do `opkg update` before).
+In OpenWRT you will not be able to run `$ ip tuntap`, so you should install openvpn with: `$ opkg install openvpn-nossl` (run `$ opkg update` before).
 
 ### Create a tun interface in machine 5
 ```
@@ -214,31 +224,31 @@ $ ip link set tun0 up
 $ ip addr add 192.168.100.5/24 dev tun0
 ```
 
-### Establish the simplemux tunnel between machine 4 and machine 5
+### Establish the simplemux tunnel between Machine 4 and Machine 5
 
-In machine4:
+In Machine4:
 ```
 $ ./simplemux -i tun0 -e eth0 -M udp -T tun -c 192.168.0.5
 ```
 
-In machine5:
+In Machine5:
 ```
 $ ./simplemux -i tun0 -e eth0 –M udp -T tun -c 192.168.137.4
 ```
  
 ### Test the tunnel
 
-Now you can ping from machine 5 or machine 6, to machine 4:
+Now you can ping from Machine 5 or Machine 6, to Machine 4:
 ```
 $ ping 192.168.100.4
 ```
 
-The ping arrives to the `tun0` interface of machine 5, goes to machine 4 through the tunnel and is returned to machine 6 through the tunnel.
+The ping arrives to the `tun0` interface of Machine 5, goes to Machine 4 through the tunnel and is returned to Machine 6 through the tunnel.
 
 
-### Steer traffic from Machine 6 to server x.y.z.t through the tunnel
+### Steer traffic from Machine 6 to server `x.y.z.t` through the tunnel
 
-The idea of simplemux is that it does not run at endpoints, but on some “optimizing” machines in the network. Therefore, you have to define policies to steer the flows of interest, in order to make them go through the TUN interface of the ingress (machine 5). This can be done with `ip rule` and `iptables`.
+The idea of Simplemux is that it does not run at endpoints, but on some “optimizing” machines in the network. Therefore, you have to define policies to steer the flows of interest, in order to make them go through the _tun_ interface of the ingress (Machine 5). This can be done with `ip rule` and `iptables`.
 
 In Machine 5, add a rule that makes the kernel route packets marked with `2` through table `3`:
 ```
@@ -255,7 +265,7 @@ Note: If you have set an IP address in the `tun0` interface, this command should
 $ ip route add default via 192.168.100.5 table 3
 ```
 
-If you show the routes of table 3
+If you show the routes of table `3`, you will see this:
 ```
 $ ip route show table 3
 default via 192.168.100.5 dev tun0
@@ -416,8 +426,8 @@ https://blogs.igalia.com/dpino/2016/04/10/network-namespaces/
 An interface can only be assigned to one namespace at a time. If the root namespace owns `eth0`, which provides access to the external world, only programs within the root namespace could reach the Internet .
 
 The solution is to communicate a namespace with the root namespace via a *veth* pair. A *veth* pair works like a patch cable, connecting two sides. It consists of two virtual interfaces:
-•	one of them is assigned to the root network namespace
-•	the other lives within a network namespace.
+- one of them is assigned to the root network namespace
+- the other lives within a network namespace.
 
 Each namespace has two interfaces, which are connected like a pipe. Virtual Ethernet interfaces always come in pairs, and they are connected like a tube: whatever comes in one veth interface will come out the other peer veth interface. You can then use bridges to connect them.
 
@@ -581,6 +591,9 @@ ip netns exec ns0 ping 192.168.100.2
 
 ### All the commands together
 
+<details close>
+<summary>All the commands</summary>
+
 ```
 ip netns add ns0
 ip netns add ns1
@@ -611,7 +624,106 @@ ip netns exec ns0 ./simplemux -i tun0 -e veth0 -M udp -T tun -c 192.168.1.21 -d 
 ip netns exec ns1 ./simplemux -i tun1 -e veth1 -M udp -T tun -c 192.168.1.20 -d 2
 ip netns exec ns0 ping 192.168.100.2
 ```
+</details>
 
+
+Another option to send the traffic (UDP packets with 100-byte payload):
+```
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 100
+```
+
+### Compress a number of flows in this scenario
+
+We are going to multiplex a number of flows, and obtain the throughput.
+
+We create a script `scriptNumberFlows.sh` with this content:
+```
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9001 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9002 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9003 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9004 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9005 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9006 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9007 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9008 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9009 &
+ip netns exec ns0 iperf -c 192.168.100.2 -u -l 20 -p 9010
+```
+
+Prepare the Simplemux ingress and egress:
+```
+$ ip netns exec ns0 ./simplemux/simplemux -i tun0 -e veth0 -M network -T tun -c 192.168.1.21 -d 1 -r 2 -f -P 100000 -l logIngress.txt
+$ ip netns exec ns1 ./simplemux/simplemux -i tun1 -e veth1 -M network -T tun -c 192.168.1.20 -d 1 -r 2 -f
+```
+
+And run `$ scriptNumberFlows.sh`
+
+#### Obtain the graph with the input throughput and pps, with a tick of 1 second:
+```
+$ perl ./simplemux/perl/simplemux_throughput_pps.pl logIngress.txt 1000000 rec native all all
+tick_end_time(us)	throughput(bps)	packets_per_second
+1000000	79872	208
+2000000	116736	304
+3000000	61440	160
+4000000	68352	178
+5000000	63360	165
+6000000	65664	171
+7000000	47616	124
+8000000	51840	135
+9000000	56064	146
+10000000	55680	145
+11000000	203904	531
+12000000	12672	33
+```
+
+#### Obtain the graph with the output throughput and pps, with a tick of 1 second:
+```
+$ perl ./simplemux/perl/simplemux_throughput_pps.pl logIngress.txt 1000000 sent muxed all all
+tick_end_time(us)	throughput(bps)	packets_per_second
+1000000	37120	4
+2000000	71448	6
+3000000	35504	3
+4000000	47368	4
+5000000	35680	3
+6000000	47448	4
+7000000	23736	2
+8000000	35616	3
+9000000	35688	3
+10000000	35536	3
+11000000	133896	13
+12000000	8048	5
+```
+As it can be observed, in the first second we pass from 79872 to 37120 bps (46%, i.e. reduction by a factor of 2.15). The number of packets passes from 208 to 4 (reduction by a factor of 52, i.e. each multiplexed packet contains 52 original ones).
+
+
+#### Obtain the multiplexing delay
+
+```
+$ perl ./simplemux/perl/simplemux_multiplexing_delay.pl logIngress.txt output.txt
+total native packets:	2314
+Average multiplexing delay:	127179.163785653 us
+stdev of the multiplexing delay:	104014.990648023 us
+```
+
+See the delay added to each packet:
+```
+$ cat output.txt 
+packet_id	multiplexing_delay(us)
+1	8049
+2	5560
+3	3970
+4	361017
+5	360576
+6	360342
+7	360144
+8	358944
+9	348858
+10	346334
+11	333759
+12	330156
+13	324434
+(...)
+```
 
 ## Scenario 5 - Simplemux between namespaces in a single Linux machine. Tap mode
 
@@ -626,8 +738,8 @@ https://blogs.igalia.com/dpino/2016/04/10/network-namespaces/
 An interface can only be assigned to one namespace at a time. If the root namespace owns `eth0`, which provides access to the external world, only programs within the root namespace could reach the Internet .
 
 The solution is to communicate a namespace with the root namespace via a *veth* pair. A *veth* pair works like a patch cable, connecting two sides. It consists of two virtual interfaces:
-•	one of them is assigned to the root network namespace
-•	the other lives within a network namespace.
+- one of them is assigned to the root network namespace
+- the other lives within a network namespace.
 
 Each namespace has two interfaces, which are connected like a pipe. Virtual Ethernet interfaces always come in pairs, and they are connected like a tube: whatever comes in one veth interface will come out the other peer veth interface. You can then use bridges to connect them.
 
@@ -791,6 +903,10 @@ ip netns exec ns0 ping 192.168.200.2
 
 ### All the commands together
 
+
+<details close>
+<summary>All the commands</summary>
+
 ```
 ip netns add ns0
 ip netns add ns1
@@ -821,4 +937,10 @@ ip netns exec ns1 ip addr add 192.168.200.2/24 dev tap1
 ip netns exec ns0 ./simplemux -i tap0 -e veth0 -M udp -T tap -c 192.168.1.21 -d 2
 ip netns exec ns1 ./simplemux -i tap1 -e veth1 -M udp -T tap -c 192.168.1.20 -d 2
 ip netns exec ns0 ping 192.168.200.2
+```
+</details>
+
+Another option to send the traffic (UDP packets with 100-byte payload):
+```
+ip netns exec ns0 iperf -c 192.168.200.2 -u -l 100
 ```
