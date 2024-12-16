@@ -86,7 +86,7 @@ RoHC feedback information (when using RoHC Bidirectional mode) is sent in UDP pa
 
 Simplemux has the next *flavors*:
 
-- **Normal**: it tries to compress the separators as much as possible. For that aim, some single-bit fields are used.
+- [**Normal**](/documentation/normal_flavor.md): it tries to compress the separators as much as possible. For that aim, some single-bit fields are used.
 - [**Fast**](/documentation/fast_flavor.md): it sacrifices some compression on behalf or speed. In this case, all the separators are 3-byte long, and all have the same structure.
 In TCP *mode*, the use of Simplemux *fast* is compulsory.
 - [**Blast**](/documentation/blast_flavor.md): it sends the same packet a number of times. But it only delivers one copy to the end point (the one that arrives first). It does not multiplex a number of packets together. It does NOT work in TCP mode.
