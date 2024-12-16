@@ -17,6 +17,8 @@ Simplemux is symmetric, i.e. both machines may act as ingress and egress simulta
 
 A number of packets have arrived at the multiplexer.
 
+<img src="images/policy_number-of-packets.png" alt="Multiplexing policy based on the number of packets" width="600"/>
+
 ## *size* (`-B`)
 
 Two different options apply:
@@ -25,7 +27,7 @@ Two different options apply:
 
 If you want to specify an MTU different from the one of the local interface, you can use the `-m` option.
 
-You may use other tools for getting the MTU of a network path. For example with the command:
+You may use other tools for getting the MTU of a network path. For example with the [`tracepath`](https://linux.die.net/man/8/tracepath) command:
 ```
 $ tracepath 192.168.137.3 | grep Resume | cut -c 19-22
 ```
@@ -35,11 +37,15 @@ you will obtain the MTU of the path to 192.168.137.3.
 
 A packet arrives, and a timeout since the last sending has expired.
 
+<img src="images/policy_timeout.png" alt="Multiplexing policy based on a timeout" width="600"/>
+
 ## *period* (`-P`)
 
 An active waiting is performed, and a multiplexed packet including all the packets arrived during a period is sent.
 
 Note: in *blast* flavor, the parameter *period* (option `-P`) is used in order to specify the period that wil be employed for sending the copies of a packet.
+
+<img src="images/policy_period.png" alt="Multiplexing policy based on a period" width="600"/>
 
 ## Examples of the different policies
 
@@ -67,7 +73,7 @@ $ ./simplemux -i tun0 -e eth0 –M udp -T tun -c 192.168.0.5 –t 50000 –P 100
 
 It may happen that you have to create more than one tunnel using the same local interface. In that case, you may obtain a message Is already in use.
 
-For example, if you run these two commands in the same machine, you may obtain this error message:
+For example, if you run these two commands in the same machine, you will obtain an error message:
 ```
 ./simplemux -i tun0 -e wlan0 -M network -T tun -c 10.1.10.4
 ./simplemux -i tun1 -e wlan0 -M network -T tun -c 10.1.10.6
