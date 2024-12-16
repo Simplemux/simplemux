@@ -92,7 +92,7 @@ ip link set br3 up
 With this script you can create the devices in Raspberry 2:
 
 <details close>
-<summary>Script Raspberry 1</summary>
+<summary>Script Raspberry 2</summary>
 
 ```
 # raspberry 2
@@ -426,8 +426,8 @@ https://blogs.igalia.com/dpino/2016/04/10/network-namespaces/
 An interface can only be assigned to one namespace at a time. If the root namespace owns `eth0`, which provides access to the external world, only programs within the root namespace could reach the Internet .
 
 The solution is to communicate a namespace with the root namespace via a *veth* pair. A *veth* pair works like a patch cable, connecting two sides. It consists of two virtual interfaces:
-•	one of them is assigned to the root network namespace
-•	the other lives within a network namespace.
+- one of them is assigned to the root network namespace
+- the other lives within a network namespace.
 
 Each namespace has two interfaces, which are connected like a pipe. Virtual Ethernet interfaces always come in pairs, and they are connected like a tube: whatever comes in one veth interface will come out the other peer veth interface. You can then use bridges to connect them.
 
@@ -591,7 +591,6 @@ ip netns exec ns0 ping 192.168.100.2
 
 ### All the commands together
 
-
 <details close>
 <summary>All the commands</summary>
 
@@ -739,8 +738,8 @@ https://blogs.igalia.com/dpino/2016/04/10/network-namespaces/
 An interface can only be assigned to one namespace at a time. If the root namespace owns `eth0`, which provides access to the external world, only programs within the root namespace could reach the Internet .
 
 The solution is to communicate a namespace with the root namespace via a *veth* pair. A *veth* pair works like a patch cable, connecting two sides. It consists of two virtual interfaces:
-•	one of them is assigned to the root network namespace
-•	the other lives within a network namespace.
+- one of them is assigned to the root network namespace
+- the other lives within a network namespace.
 
 Each namespace has two interfaces, which are connected like a pipe. Virtual Ethernet interfaces always come in pairs, and they are connected like a tube: whatever comes in one veth interface will come out the other peer veth interface. You can then use bridges to connect them.
 
