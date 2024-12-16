@@ -162,10 +162,10 @@ This has been tested using three Debian Virtual Machines inside a Windows PC.
 This is the setup:
 
 ```
-                      +------+                               +--------+
-                      |switch|                               | router |
-                      +------+                               +--------+
-                      /      \                               /        \
+                      +------+                               +--------+         +---------+
+                      |switch|                               | router |---------| x.y.z.t |
+                      +------+                               +--------+         +---------+
+                      /      \                               /        \         destination
                      /        \                             /          \
        +-------------+        +-------------+  +-------------+        +-------------+
    +---|192.168.200.6|-+    +-|192.168.200.5|--| 192.168.0.5 |-+    +-|192.168.137.4|---+
@@ -183,12 +183,11 @@ This is the setup:
    +-------------------+    +----------------------------------+    +-------------------+
 ```
 
-Machine 6 is the source. Machine 5 and Machine 4 are the two optimizers. Server x.y.z.t is the destination.
+Machine 6 is the source. Machine 5 and Machine 4 are the two optimizers. The machine `x.y.z.t` is the destination.
 
 ### Create a tun interface in machine 4
 ```
 $ ip tuntap add dev tun0 mode tun user root
-
 $ ip link set tun0 up
 ```
 In other cases, e.g. OpenWRT, you can run `$ ifconfig tun0 up`.
@@ -199,11 +198,11 @@ $ ip addr add 192.168.100.4/24 dev tun0
 ```
 If you do not need an IP address, you can omit the previous command.
 
-For removing the interface use `ip tuntap del dev tun0 mode tun`.
+For removing the interface use `$ ip tuntap del dev tun0 mode tun`.
 
 Note: `$ openvpn --mktun --dev tun0 --user root` will work in OpenWrt and also in other Linux distributions). `Openvpn` is used to create and destroy tun/tap devices. In Debian you can install it this way: `$ apt-get install openvpn`.
 
-In OpenWRT you will not be able to run `$ ip tuntap`, so you should install openvpn with: `$ opkg install openvpn-nossl` (do `opkg update` before).
+In OpenWRT you will not be able to run `$ ip tuntap`, so you should install openvpn with: `$ opkg install openvpn-nossl` (run `$ opkg update` before).
 
 ### Create a tun interface in machine 5
 ```
@@ -216,31 +215,31 @@ $ ip link set tun0 up
 $ ip addr add 192.168.100.5/24 dev tun0
 ```
 
-### Establish the simplemux tunnel between machine 4 and machine 5
+### Establish the simplemux tunnel between Machine 4 and Machine 5
 
-In machine4:
+In Machine4:
 ```
 $ ./simplemux -i tun0 -e eth0 -M udp -T tun -c 192.168.0.5
 ```
 
-In machine5:
+In Machine5:
 ```
 $ ./simplemux -i tun0 -e eth0 –M udp -T tun -c 192.168.137.4
 ```
  
 ### Test the tunnel
 
-Now you can ping from machine 5 or machine 6, to machine 4:
+Now you can ping from Machine 5 or Machine 6, to Machine 4:
 ```
 $ ping 192.168.100.4
 ```
 
-The ping arrives to the `tun0` interface of machine 5, goes to machine 4 through the tunnel and is returned to machine 6 through the tunnel.
+The ping arrives to the `tun0` interface of Machine 5, goes to Machine 4 through the tunnel and is returned to Machine 6 through the tunnel.
 
 
-### Steer traffic from Machine 6 to server x.y.z.t through the tunnel
+### Steer traffic from Machine 6 to server `x.y.z.t` through the tunnel
 
-The idea of simplemux is that it does not run at endpoints, but on some “optimizing” machines in the network. Therefore, you have to define policies to steer the flows of interest, in order to make them go through the TUN interface of the ingress (machine 5). This can be done with `ip rule` and `iptables`.
+The idea of Simplemux is that it does not run at endpoints, but on some “optimizing” machines in the network. Therefore, you have to define policies to steer the flows of interest, in order to make them go through the _tun_ interface of the ingress (Machine 5). This can be done with `ip rule` and `iptables`.
 
 In Machine 5, add a rule that makes the kernel route packets marked with `2` through table `3`:
 ```
@@ -257,7 +256,7 @@ Note: If you have set an IP address in the `tun0` interface, this command should
 $ ip route add default via 192.168.100.5 table 3
 ```
 
-If you show the routes of table 3
+If you show the routes of table `3`, you will see this:
 ```
 $ ip route show table 3
 default via 192.168.100.5 dev tun0
