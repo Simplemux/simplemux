@@ -1,12 +1,12 @@
 # Simplemux fast flavor
 
-In *fast flavor*, all the separators have the same structure:
+In _Fast_ flavor, all the separators have the same structure:
 
-- **Length** (LEN, 16 bits). This is the length of the multiplexed packet (in bytes).
+- _Length_ (`LEN`, 16 bits). This is the length of the multiplexed packet (in bytes).
 
-- **Protocol** (8 bits). It is the Protocol field of the multiplexed packet, according to [IANA "Assigned Internet Protocol Numbers"](https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml).
+- _Protocol_ (8 bits) field of the multiplexed packet, according to [IANA "Assigned Internet Protocol Numbers"](https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml).
 
-This is the structure of the Simplemux separator in *fast flavor* (fixed size of 3 bytes):
+This is the structure of the Simplemux separator in _Fast_ flavor (fixed size of 3 bytes):
 ```
 +-----------------+--------+
 |      Length     |Protocol|
