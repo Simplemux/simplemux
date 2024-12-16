@@ -18,3 +18,11 @@ the added bytes is the `LXT`. If `LXT` is set to `1`, it means that there is an 
 Protocol Numbers"](https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml).
 
 <img src="images/first_separator_fields.png" alt="Fields of the First Simplemux header/separator" width="600"/>
+
+
+
+<img src="images/non-first_SPB-1_separator_fields.png" alt="Fields of the Non-first Simplemux header/separator, when the SPB bit of the First header is 1" width="600"/>
+
+
+
+<img src="images//non-first_SPB-0_separator_fields..png" alt="Fields of the Non-first Simplemux header/separator, when the SPB bit of the First header is 0" width="600"/>
