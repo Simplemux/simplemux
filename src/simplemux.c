@@ -724,10 +724,25 @@ int main(int argc, char *argv[]) {
             #ifdef DEBUG
               do_debug_c( 1,
                           ANSI_COLOR_MAGENTA,
-                          "FEEDBACK PACKET #%lu: Read RoHC feedback packet (%i bytes) from %s:%d\n",
-                          context.feedback_pkts,
-                          nread_from_net,
-                          inet_ntoa(context.feedback_remote.sin_addr),
+                          "FEEDBACK PACKET #%lu: Read RoHC feedback packet (",
+                          context.feedback_pkts);
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
+                          nread_from_net);
+              do_debug_c( 1,
+                          ANSI_COLOR_MAGENTA,
+                          " bytes) from ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context.feedback_remote.sin_addr));
+              do_debug_c( 1,
+                          ANSI_COLOR_MAGENTA,
+                          ":");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%d\n",
                           ntohs(context.feedback_remote.sin_port));
             #endif
   
@@ -764,6 +779,10 @@ int main(int argc, char *argv[]) {
                             " ROHC feedback packet received\n");
 
                 dump_packet ( rohc_packet_d.len, rohc_packet_d.data );
+
+                do_debug_c( 2,
+                            ANSI_COLOR_MAGENTA,
+                            "\n");
               }
 
   
