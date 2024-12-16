@@ -11,5 +11,9 @@ This is the structure of the Simplemux separator in *fast flavor* (fixed size of
 +-----------------+--------+
 |      Length     |Protocol|
 +-----------------+--------+
-        16 bits     8 bits
+      16 bits       8 bits
 ```
+
+This is a Wireshark screenshot showing three multiplexed Ethernet frames (_tap_ tunnel mode), over Simplemux over TCP protocol (_tcp_ mode):
+
+<img src="images/wireshark_3_fast_eth_frames.png" alt="Wireshark screenshot showing three multiplexed Ethernet frames over Simplemux over TCP protocol" width="600"/>
