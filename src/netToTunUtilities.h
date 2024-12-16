@@ -8,8 +8,7 @@
 
 #ifdef DEBUG
   void showDebugInfoFromNet(contextSimplemux* context,
-                            int nread_from_net,
-                            uint8_t* buffer_from_net);
+                            int nread_from_net);
 #endif
 
 #ifdef LOGFILE

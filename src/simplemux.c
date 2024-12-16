@@ -2,8 +2,13 @@
 
 // these 'static' functions are only used in this .c file
 
-static int gen_random_num(const struct rohc_comp *const comp,
-                          void *const user_context)
+
+// The -Wextra option in GCC enables several additional warnings, including those for
+//unused variables. When you pass functions as pointers, you might still get these
+//warnings if the parameters of those functions are not used within the function body.
+// I use __attribute__((unused)) to avoid the warnings
+static int gen_random_num(const struct rohc_comp *const comp __attribute__((unused)),
+                          void *const user_context __attribute__((unused)))
 {
   return rand();
 }
@@ -20,10 +25,10 @@ static int gen_random_num(const struct rohc_comp *const comp,
  *          the trace is related to
  * @param format  The format string of the trace
  */
-static void print_rohc_traces(void *const priv_ctxt,
-                              const rohc_trace_level_t level,
-                              const rohc_trace_entity_t entity,
-                              const int profile,
+static void print_rohc_traces(void *const priv_ctxt __attribute__((unused)),
+                              const rohc_trace_level_t level __attribute__((unused)),
+                              const rohc_trace_entity_t entity __attribute__((unused)),
+                              const int profile __attribute__((unused)),
                               const char *const format,
                               ...)
 {

@@ -476,7 +476,7 @@ int demuxBundleFromNet( contextSimplemux* context,
   (context->net2tun)++;
 
   #ifdef DEBUG
-    showDebugInfoFromNet(context, nread_from_net, buffer_from_net);
+    showDebugInfoFromNet(context, nread_from_net);
   #endif
 
   #ifdef LOGFILE

@@ -4,8 +4,7 @@
   // shows the debug information when a new packet arrives
   //from the network
   void showDebugInfoFromNet(contextSimplemux* context,
-                            int nread_from_net,
-                            uint8_t* buffer_from_net)
+                            int nread_from_net)
   {
     switch (context->mode) {
       case UDP_MODE:
