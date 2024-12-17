@@ -2,8 +2,13 @@
 
 // these 'static' functions are only used in this .c file
 
-static int gen_random_num(const struct rohc_comp *const comp,
-                          void *const user_context)
+
+// The -Wextra option in GCC enables several additional warnings, including those for
+//unused variables. When you pass functions as pointers, you might still get these
+//warnings if the parameters of those functions are not used within the function body.
+// I use __attribute__((unused)) to avoid the warnings
+static int gen_random_num(const struct rohc_comp *const comp __attribute__((unused)),
+                          void *const user_context __attribute__((unused)))
 {
   return rand();
 }
@@ -20,10 +25,10 @@ static int gen_random_num(const struct rohc_comp *const comp,
  *          the trace is related to
  * @param format  The format string of the trace
  */
-static void print_rohc_traces(void *const priv_ctxt,
-                              const rohc_trace_level_t level,
-                              const rohc_trace_entity_t entity,
-                              const int profile,
+static void print_rohc_traces(void *const priv_ctxt __attribute__((unused)),
+                              const rohc_trace_level_t level __attribute__((unused)),
+                              const rohc_trace_entity_t entity __attribute__((unused)),
+                              const int profile __attribute__((unused)),
                               const char *const format,
                               ...)
 {
@@ -719,10 +724,25 @@ int main(int argc, char *argv[]) {
             #ifdef DEBUG
               do_debug_c( 1,
                           ANSI_COLOR_MAGENTA,
-                          "FEEDBACK PACKET #%lu: Read RoHC feedback packet (%i bytes) from %s:%d\n",
-                          context.feedback_pkts,
-                          nread_from_net,
-                          inet_ntoa(context.feedback_remote.sin_addr),
+                          "FEEDBACK PACKET #%lu: Read RoHC feedback packet (",
+                          context.feedback_pkts);
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%i",
+                          nread_from_net);
+              do_debug_c( 1,
+                          ANSI_COLOR_MAGENTA,
+                          " bytes) from ");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%s",
+                          inet_ntoa(context.feedback_remote.sin_addr));
+              do_debug_c( 1,
+                          ANSI_COLOR_MAGENTA,
+                          ":");
+              do_debug_c( 1,
+                          ANSI_COLOR_RESET,
+                          "%d\n",
                           ntohs(context.feedback_remote.sin_port));
             #endif
   
@@ -759,6 +779,10 @@ int main(int argc, char *argv[]) {
                             " ROHC feedback packet received\n");
 
                 dump_packet ( rohc_packet_d.len, rohc_packet_d.data );
+
+                do_debug_c( 2,
+                            ANSI_COLOR_MAGENTA,
+                            "\n");
               }
 
   

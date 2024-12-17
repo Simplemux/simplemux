@@ -515,11 +515,17 @@ void initTriggerParameters(contextSimplemux* context)
   // as soon as one of the conditions is accomplished, all the accumulated packets are sent
 
   // if no limit of the number of packets is set, then it is set to the maximum
-  if (( (context->sizeThreshold < context->sizeMax) || (context->timeout < MAXTIMEOUT) || (context->period < MAXTIMEOUT) ) && (context->limitNumpackets == 0))
+  if (( (context->sizeThreshold < context->sizeMax) ||
+        (context->timeout < MAXTIMEOUT) ||
+        (context->period < MAXTIMEOUT) ) &&
+        (context->limitNumpackets == 0) )
     context->limitNumpackets = MAXPKTS;
 
   // if no option is set by the user, it is assumed that every packet will be sent immediately
-  if (( (context->sizeThreshold == context->sizeMax) && (context->timeout == MAXTIMEOUT) && (context->period == MAXTIMEOUT)) && (context->limitNumpackets == 0))
+  if (( (context->sizeThreshold == context->sizeMax) &&
+        (context->timeout == MAXTIMEOUT) && 
+        (context->period == MAXTIMEOUT)) &&
+        (context->limitNumpackets == 0) )
     context->limitNumpackets = 1;
 
   #ifdef DEBUG

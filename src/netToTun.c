@@ -476,7 +476,7 @@ int demuxBundleFromNet( contextSimplemux* context,
   (context->net2tun)++;
 
   #ifdef DEBUG
-    showDebugInfoFromNet(context, nread_from_net, buffer_from_net);
+    showDebugInfoFromNet(context, nread_from_net);
   #endif
 
   #ifdef LOGFILE
@@ -537,6 +537,11 @@ int demuxBundleFromNet( contextSimplemux* context,
       }
 
       // this part is used by both Normal and Fast flavors
+
+      #ifdef ASSERT
+        // ensure that there is space to copy the packet
+        assert(demuxedPacketLength <= BUFSIZE);
+      #endif
 
       // copy the demultiplexed packet to a new string 'demuxed_packet'
       uint8_t demuxed_packet[BUFSIZE];

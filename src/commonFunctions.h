@@ -252,26 +252,29 @@ extern int debug;     // 0:no debug
                       // 2:medimum debug level
                       // 3:maximum debug level
 
-
-// global variables related to ROHC compression
-extern struct rohc_comp *compressor;         // the ROHC compressor
-extern uint8_t ip_buffer[BUFSIZE];           // the buffer that will contain the IPv4 packet to compress
-extern struct rohc_buf ip_packet;// = rohc_buf_init_empty(ip_buffer, BUFSIZE);  
-extern uint8_t rohc_buffer[BUFSIZE];         // the buffer that will contain the resulting ROHC packet
-extern struct rohc_buf rohc_packet;// = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
+// global variables related to RoHC compression
 extern unsigned int seed;
 extern rohc_status_t status;
-extern struct rohc_decomp *decompressor;     // the ROHC decompressor
-extern uint8_t ip_buffer_d[BUFSIZE];         // the buffer that will contain the resulting IP decompressed packet
-extern struct rohc_buf ip_packet_d;// = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
-extern uint8_t rohc_buffer_d[BUFSIZE];       // the buffer that will contain the ROHC packet to decompress
-extern struct rohc_buf rohc_packet_d;// = rohc_buf_init_empty(rohc_buffer_d, BUFSIZE);
 
-// structures to handle ROHC feedback
-extern uint8_t rcvd_feedback_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet received
-extern struct rohc_buf rcvd_feedback;// = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFSIZE);
+extern struct rohc_comp *compressor;
+extern struct rohc_decomp *decompressor;
 
-extern uint8_t feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet to be sent
-extern struct rohc_buf feedback_send;// = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
+extern uint8_t ip_buffer[BUFSIZE];
+extern struct rohc_buf ip_packet;
+
+extern uint8_t rohc_buffer[BUFSIZE];
+extern struct rohc_buf rohc_packet;
+
+extern uint8_t ip_buffer_d[BUFSIZE];
+extern struct rohc_buf ip_packet_d;
+
+extern uint8_t rohc_buffer_d[BUFSIZE];
+extern struct rohc_buf rohc_packet_d;
+
+extern uint8_t rcvd_feedback_buffer_d[BUFSIZE];
+extern struct rohc_buf rcvd_feedback;
+
+extern uint8_t feedback_send_buffer_d[BUFSIZE];
+extern struct rohc_buf feedback_send;
 
 #endif // COMMONFUNCTIONS_H
