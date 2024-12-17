@@ -1619,6 +1619,11 @@ int decompressRohcPacket( contextSimplemux* context,
         // ip_packet.len bytes of decompressed IP data available in ip_packet
         *demuxedPacketLength = ip_packet_d.len;
 
+        #ifdef ASSERT
+          // ensure that there is space to copy the packet
+          assert(*demuxedPacketLength <= BUFSIZE);
+        #endif
+
         // copy the packet
         memcpy(demuxed_packet, rohc_buf_data_at(ip_packet_d, 0), *demuxedPacketLength);
 

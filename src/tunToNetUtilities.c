@@ -111,8 +111,15 @@ void compressPacket(contextSimplemux* context, uint16_t size)
   // copy the length read from tun to the buffer where the packet to be compressed is stored
   ip_packet.len = size;
 
+  #ifdef ASSERT
+    // ensure that there is space to copy the packet
+    assert(size <= BUFSIZE);
+  #endif
+          
   // copy the packet
-  memcpy(rohc_buf_data_at(ip_packet, 0), context->packetsToMultiplex[context->numPktsStoredFromTun], size);
+  memcpy( rohc_buf_data_at(ip_packet, 0),
+          context->packetsToMultiplex[context->numPktsStoredFromTun],
+          size);
 
   // reset the buffer where the rohc packet is to be stored
   rohc_buf_reset (&rohc_packet);

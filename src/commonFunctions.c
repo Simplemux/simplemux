@@ -15,8 +15,8 @@ struct rohc_decomp *decompressor;     // the ROHC decompressor
 
 // define the buffers that will contain the packets to compress/decompress
 // 'rohc_buf_init_empty' is a macro defined in 'rohc-1.7.0\src\common\rohc\rohc_buf.h'
-// When you declare struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);,
-//the macro rohc_buf_init_empty will be expanded to initialize the ip_packet structure.
+// When you declare 'struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);',
+//the macro 'rohc_buf_init_empty' will be expanded to initialize the ip_packet structure.
 
 // The next code initializes the ip_packet structure with the ip_buffer pointer and BUFSIZE
 //as the maximum length, while setting the other fields to zero
@@ -51,6 +51,7 @@ struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFS
 /**************************************************************************
  * do_debug: prints debugging stuff (doh!)                                *
  **************************************************************************/
+// Variadic Function: The '...' is used to define functions that accept a variable number of arguments
 void do_debug(int level, char *msg, ...) {
 
   va_list argp;
@@ -69,9 +70,11 @@ void do_debug(int level, char *msg, ...) {
   }
 }
 
+
 /**************************************************************************
  * do_debug: prints debugging stuff (doh!)                                *
  **************************************************************************/
+// Variadic Function: The '...' is used to define functions that accept a variable number of arguments
 void do_debug_c(int level, char* color, char *msg, ...) {
 
   va_list argp;
@@ -124,7 +127,8 @@ void BuildIPHeader( struct iphdr *iph,
                     uint16_t len_data,
                     uint8_t ipprotocol,
                     struct sockaddr_in local,
-                    struct sockaddr_in remote ) {
+                    struct sockaddr_in remote )
+{
   static uint16_t counter = 0;
 
   // clean the variable
@@ -150,11 +154,17 @@ void BuildIPHeader( struct iphdr *iph,
 }
 
 
-// Buid a Full IP Packet
+// Buid a Full IP Packet from the header and the data
 void BuildFullIPPacket( struct iphdr iph,
                         uint8_t *data_packet,
                         uint16_t len_data,
-                        uint8_t *full_ip_packet) {
+                        uint8_t *full_ip_packet)
+{
+  #ifdef ASSERT
+    // ensure that there is space in the buffer
+    assert(sizeof(struct iphdr) + len_data <= BUFSIZE);
+  #endif
+
   memset(full_ip_packet, 0, BUFSIZE);
   memcpy((struct iphdr*)full_ip_packet, &iph, sizeof(struct iphdr));
   memcpy((struct iphdr*)(full_ip_packet + sizeof(struct iphdr)), data_packet, len_data);
@@ -163,13 +173,15 @@ void BuildFullIPPacket( struct iphdr iph,
 
 // Get the IP header from an IP packet
 void GetIpHeader( struct iphdr *iph,
-                  uint8_t *ip_packet) {
+                  uint8_t *ip_packet)
+{
   memcpy(iph,(struct iphdr*)ip_packet,sizeof(struct iphdr));
 }
 
 // Set the IP header in an IP Packet
 void SetIpHeader( struct iphdr iph,
-                  uint8_t *ip_packet) {
+                  uint8_t *ip_packet)
+{
   memcpy((struct iphdr*)ip_packet,&iph,sizeof(struct iphdr));
 }
 

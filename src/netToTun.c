@@ -538,6 +538,11 @@ int demuxBundleFromNet( contextSimplemux* context,
 
       // this part is used by both Normal and Fast flavors
 
+      #ifdef ASSERT
+        // ensure that there is space to copy the packet
+        assert(demuxedPacketLength <= BUFSIZE);
+      #endif
+
       // copy the demultiplexed packet to a new string 'demuxed_packet'
       uint8_t demuxed_packet[BUFSIZE];
       memcpy (demuxed_packet, &buffer_from_net[position], demuxedPacketLength);

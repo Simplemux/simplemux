@@ -252,7 +252,7 @@ extern int debug;     // 0:no debug
                       // 2:medimum debug level
                       // 3:maximum debug level
 
-// global variables related to ROHC compression
+// global variables related to RoHC compression
 extern unsigned int seed;
 extern rohc_status_t status;
 
