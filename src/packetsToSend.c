@@ -154,8 +154,8 @@ packet* find(packet** head_ref, uint16_t identifier) {
 }
 
 
-void sendPacketBlastFlavor(  contextSimplemux* context,
-                             packet* packetToSend)
+void sendPacketBlastFlavor( contextSimplemux* context,
+                            packet* packetToSend)
 {
   // send the tunneled packet
   // 'packetToSend' is a pointer to the packet

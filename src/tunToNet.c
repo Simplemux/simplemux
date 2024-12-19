@@ -6,6 +6,7 @@ void tunToNetBlastFlavor (contextSimplemux* context)
   // blast flavor
   #ifdef ASSERT
     assert(context->flavor == 'B');
+    assert((context->tunnelMode == TAP_MODE) || (context->tunnelMode == TUN_MODE));
   #endif
 
   uint64_t now = GetTimeStamp();
@@ -15,14 +16,14 @@ void tunToNetBlastFlavor (contextSimplemux* context)
       // tun mode
       do_debug_c( 3,
                   ANSI_COLOR_BRIGHT_BLUE,
-                  "%"PRIu64": NATIVE PACKET arrived from local computer (",
+                  "%"PRIu64": NATIVE PACKET arrived from local interface ",
                   now);
     }
     else {
       // tap mode
       do_debug_c( 3,
                   ANSI_COLOR_BRIGHT_BLUE,
-                  "%"PRIu64": NATIVE FRAME arrived from local computer (",
+                  "%"PRIu64": NATIVE FRAME arrived from local interface ",
                   now);
     }
     do_debug_c( 3,
@@ -31,9 +32,8 @@ void tunToNetBlastFlavor (contextSimplemux* context)
                 context->tun_if_name);
     do_debug_c( 3,
                 ANSI_COLOR_BRIGHT_BLUE,
-                ")\n");
+                "\n");
   #endif           
-
 
   // add a new empty packet to the list
   struct packet* thisPacket = insertLast(&context->unconfirmedPacketsBlast,0,NULL);
@@ -158,13 +158,13 @@ void tunToNetBlastFlavor (contextSimplemux* context)
           // tun mode
           do_debug_c( 2,
                       ANSI_COLOR_BRIGHT_BLUE,
-                      " The packet had already been removed from the list\n");
+                      " The packet had already been removed from the confirmation-pending list\n");
         }
         else {
           // tap mode
           do_debug_c( 2,
                       ANSI_COLOR_BRIGHT_BLUE,
-                      " The frame had already been removed from the list\n");          
+                      " The frame had already been removed from the confirmation-pending list\n");          
         }
       #endif
     }
@@ -188,7 +188,7 @@ void tunToNetBlastFlavor (contextSimplemux* context)
                     ntohs(thisPacket->header.identifier));
         do_debug_c( 2,
                     ANSI_COLOR_BRIGHT_BLUE,
-                    " removed from the list\n");
+                    " removed from the confirmation-pending list\n");
       #endif
     }              
     #ifdef DEBUG

@@ -41,11 +41,6 @@
 #define UDP_HEADER_SIZE 8
 #define TCP_HEADER_SIZE 32      // in some cases, the TCP header is 32 byte long, instead of 20
 
-#define TIME_UNTIL_SENDING_AGAIN_BLAST 5000000 // milliseconds before sending again a packet with the same ID
-                                                // there are 65536 possible values of the ID
-                                                // if a packet with an ID has been sent 5 seconds ago,
-                                                //it can be sent again
-
 // Protocol IDs, according to IANA
 // see https://www.iana.org/assignments/protocol-numbers/protocol-numbers.xhtml
 #define IPPROTO_IP_ON_IP 4        // IP on IP Protocol ID
@@ -76,10 +71,17 @@
 
 #define MAXPKTS 100             // maximum number of packets to store in normal and fast flavor
 
-#define SIZE_LENGTH_FIELD_FAST_MODE 2   // the length field in fast mode is always two bytes
+// blast flavor: constants that govern the heartbeat sending (in microseconds)
+#define HEARTBEATDEADLINE 5000000 // blast flavor: if a heartbeat from the other side is not received after this time, packets will no longer be sent
+#define HEARTBEATPERIOD 1000000   // blast flavor: a heartbeat will be sent every second
 
-#define HEARTBEATDEADLINE 5000000 // after this time, if a heartbeat is not received, packets will no longer be sent
-#define HEARTBEATPERIOD 1000000   // a heartbeat will be sent every second
+// blast flavor: microseconds before sending again a
+//packet with the same ID.
+// There are 65536 possible values of the ID.
+// If a packet with an ID has been sent more than 5 seconds ago,
+//it can be sent again
+#define TIME_UNTIL_SENDING_AGAIN_BLAST 5000000  
+
 #define MAXTIMEOUT 100000000.0    // maximum value of the timeout (microseconds). (default 100 seconds)
 
 #define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program:

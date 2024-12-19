@@ -29,7 +29,7 @@ void initContext(contextSimplemux* context)
   context->sizeThreshold = 0;
   context->userMtu = 0;
   context->firstHeaderWritten = 0;
-  context->sizeSeparatorFastMode = 1 + SIZE_LENGTH_FIELD_FAST_MODE;
+  context->sizeSeparatorFastMode = sizeof(uint16_t) + sizeof(uint8_t); // the separator has a 2-byte and a 1-byte fields
   context->pendingBytesMuxedPacket = 0;
   context->readTcpBytes = 0;
   context->readTcpSeparatorBytes = 0;

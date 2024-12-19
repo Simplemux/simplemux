@@ -493,7 +493,7 @@ void demuxPacketBlast(contextSimplemux* context,
       else {
 
         if (now - context->blastTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
-          // the packet has been sent recently
+          // a blast packet with this same ID has been sent recently
           // do not send it again
           #ifdef DEBUG
             do_debug_c( 1,

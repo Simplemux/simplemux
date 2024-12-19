@@ -519,7 +519,7 @@ int main(int argc, char *argv[]) {
         }
 
         // in blast flavor, heartbeats have to be sent periodically
-        // if the time to the next heartbeat is smaller than the time to the next blast sent,
+        // if the time to the next heartbeat is smaller than the time to the next sending of a blast packet,
         //then the time has to be reduced
         uint64_t microsecondsToNextHeartBeat = context.lastBlastHeartBeatSent + HEARTBEATPERIOD - now_microsec;
 
