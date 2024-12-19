@@ -23,15 +23,16 @@ This is the structure of the Simplemux separator in *blast flavor* (fixed size o
                    +-----------------+--------+----------------+--------+
                           16 bits      8 bits       16 bits      8 bits
 
-normal packet      length muxed packet  prot    sequence number   0x00
+normal packet      length muxed packet  prot.   sequence number   0x00
+                                        of the
                                         muxed
                                         packet
 
-ACK packet                 0x0000        0x00   sequence number   0x01
+ACK packet                0x0000        0x00    sequence number   0x01
                                                 of acknowledged
                                                 packet
 
-heartbeat packet           0x0000        0x00         0x0000      0x02
+heartbeat packet          0x0000        0x00         0x0000       0x02
 ```
 
 Each packet sent by the multiplexer is stored, and sent periodically until it is acknowledged by the demultiplexer. This increases the traffic, but it guarantees that all the packets arrive to the other side.
