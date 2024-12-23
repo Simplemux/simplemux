@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#ifndef __KERNEL__
+#  include <inttypes.h>     // for using uint64_t and "%"PRIu64"
+#endif
 #include <stdbool.h>
 #include <stdint.h>         // required for using uint8_t, uint16_t, etc.
 #include <stdarg.h>
@@ -22,19 +25,20 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 
-#include <rohc/rohc.h>      // for using header compression
-#include <rohc/rohc_comp.h>
-#include <rohc/rohc_decomp.h>
-
-
 // If you comment the next lines, the program will be a bit faster
 #define DEBUG 1   // if you comment this line, debug info is not allowed
 #define LOGFILE 1 // if you comment this line, logs are not allowed
 #define ASSERT 1  // if you comment this line, assertions are not allowed
-#define USINGROHC 1   // if you comment this line, RoHC will not be used
+//#define USINGROHC 1   // if you comment this line, RoHC will not be used
 
 #ifdef ASSERT
   #include <assert.h>     // for using assert()
+#endif
+
+#ifdef USINGROHC
+  #include <rohc/rohc.h>      // for using header compression
+  #include <rohc/rohc_comp.h>
+  #include <rohc/rohc_decomp.h>
 #endif
 
 #define BUFSIZE 2304
