@@ -101,6 +101,7 @@ bool checkPacketSize (contextSimplemux* context, uint16_t size)
 }
 
 
+#ifdef USINGROHC
 void compressPacket(contextSimplemux* context, uint16_t size)
 {
   // note
@@ -212,6 +213,7 @@ void compressPacket(contextSimplemux* context, uint16_t size)
     //goto release_compressor;
   }
 }
+#endif
 
 
 int allSameProtocol(contextSimplemux* context)
@@ -1536,10 +1538,12 @@ int addSizeOfProtocolField(contextSimplemux* context)
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
                         ", IP)");
+          #ifdef USINGROHC
           else if(context->protocol[0] == IPPROTO_ROHC)
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,
                         ", RoHC)");
+          #endif
           else if(context->protocol[0] == IPPROTO_ETHERNET)
             do_debug_c( 2,
                         ANSI_COLOR_CYAN,

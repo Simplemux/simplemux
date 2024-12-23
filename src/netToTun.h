@@ -9,10 +9,17 @@ int readPacketFromNet(contextSimplemux* context,
                       int* nread_from_net,
                       uint16_t* packet_length );
 
+#ifdef USINGROHC
 int demuxBundleFromNet( contextSimplemux* context,
                         int nread_from_net,
-                        uint16_t packet_length,
+                        uint16_t bundleLength,
                         uint8_t* buffer_from_net,
-                        rohc_status_t* status );
+                        rohc_status_t* status);
+#else
+int demuxBundleFromNet( contextSimplemux* context,
+                        int nread_from_net,
+                        uint16_t bundleLength,
+                        uint8_t* buffer_from_net);
+#endif
 
 #endif  // NETTOTUN_H

@@ -327,11 +327,12 @@ int socketRequest(contextSimplemux* context, const int on)
 }
 
 
+#ifdef USINGROHC
 /*** Request a socket for feedback packets ***/
 int feedbackSocketRequest(contextSimplemux* context)
 {
   // AF_INET (exactly the same as PF_INET)
-  // transport_protocol:   SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
+  // transport_protocol: SOCK_DGRAM creates a UDP socket (SOCK_STREAM would create a TCP socket)  
   // context->feedback_fd is the file descriptor of the socket for managing arrived feedback packets
   if ( ( context->feedback_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP) ) < 0) {
     perror("socket()");
@@ -370,3 +371,4 @@ int feedbackSocketRequest(contextSimplemux* context)
   }
   return 0;
 }
+#endif

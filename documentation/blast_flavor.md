@@ -23,15 +23,16 @@ This is the structure of the Simplemux separator in *blast flavor* (fixed size o
                    +-----------------+--------+----------------+--------+
                           16 bits      8 bits       16 bits      8 bits
 
-normal packet      length muxed packet  prot    sequence number   0x00
+normal packet      length muxed packet  prot.   sequence number   0x00
+                                        of the
                                         muxed
                                         packet
 
-ACK packet                 0x0000        0x00   sequence number   0x01
+ACK packet                0x0000        0x00    sequence number   0x01
                                                 of acknowledged
                                                 packet
 
-heartbeat packet           0x0000        0x00         0x0000      0x02
+heartbeat packet          0x0000        0x00         0x0000       0x02
 ```
 
 Each packet sent by the multiplexer is stored, and sent periodically until it is acknowledged by the demultiplexer. This increases the traffic, but it guarantees that all the packets arrive to the other side.
@@ -50,6 +51,32 @@ As a result:
 - TCP cannot be used in *blast flavor*: as there is already a mechanism for delivery guarantee, the use of TCP does not make sense.
 - RoHC cannot be used: in *blasto flavor*, having a low latency is the priority.
 
+## Parameter to avoid the repetition of the same ID
+
+The ID used in the Simplemux _blast_ header is 2-byte long. So there are 65536 possible values.
+
+If there are too many packets, the ID could be repeated too soon. This parameter avoids this. If forces that this time has passed before the ID can be re-used.
+
+There is a parameter defined this way (5 seconds, defined in microseconds):
+
+```
+#define TIME_UNTIL_SENDING_AGAIN_BLAST 5000000 
+```
+
+## Parameters that govern the blast heartbeat sending
+
+These two parameters are defined (both in microseconds):
+
+Heartbeat deadline: if a heartbeat from the other side has not been received after this time, packets will no longer be sent
+```
+#define HEARTBEATDEADLINE 5000000
+```
+
+
+The period used to send the heartbeats:
+```
+#define HEARTBEATPERIOD 1000000   
+```
 
 ## Examples
 

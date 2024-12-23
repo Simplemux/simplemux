@@ -26,9 +26,11 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 
-#include <rohc/rohc.h>        // for using header compression
-#include <rohc/rohc_comp.h>
-#include <rohc/rohc_decomp.h>
+#ifdef USINGROHC
+  #include <rohc/rohc.h>        // for using header compression
+  #include <rohc/rohc_comp.h>
+  #include <rohc/rohc_decomp.h>
+#endif
 
 #include "init.h"
 #include "help.h"

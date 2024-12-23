@@ -2,9 +2,11 @@
 #ifndef BUILDMUXEDPACKET_H
 #define BUILDMUXEDPACKET_H
 
-#include <rohc/rohc.h>          // for using header compression
-#include <rohc/rohc_comp.h>
-#include <rohc/rohc_decomp.h>
+#ifdef USINGROHC
+  #include <rohc/rohc.h>          // for using header compression
+  #include <rohc/rohc_comp.h>
+  #include <rohc/rohc_decomp.h>
+#endif
 
 #include "packetsToSend.h"
 

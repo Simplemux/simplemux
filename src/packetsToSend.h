@@ -12,7 +12,6 @@
 
 #include "commonFunctions.h"
 
-
 #define MASK 0x03
 #define HEARTBEAT 0x02
 #define THISISANACK 0x01
@@ -24,6 +23,7 @@ typedef struct {
                        // use 'ntohs()' when reading it from the network
   uint8_t protocolID;
 } __attribute__ ((__packed__)) simplemuxFastHeader;
+
 
 // header of the packet to be sent
 typedef struct {
@@ -53,7 +53,7 @@ void insertFirst(packet** head_ref, uint16_t identifier, uint16_t size, uint8_t*
 
 packet* findLast(packet** head_ref);
 
-packet* insertLast(packet** head_ref, /*uint16_t identifier,*/ uint16_t size, uint8_t* payload);
+packet* insertLast(packet** head_ref, uint16_t size, uint8_t* payload);
 
 //delete first item
 packet* deleteFirst(packet** head_ref);

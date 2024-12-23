@@ -4,19 +4,25 @@
 void initContext(contextSimplemux* context)
 {
   context->flavor = 'N';  // by default 'normal flavor' is selected
+  #ifdef USINGROHC
   context->rohcMode = 0;  // by default it is 0: ROHC is not used
+  #endif
   context->numPktsStoredFromTun = 0; 
   context->sizeMuxedPacket = 0;
   context->unconfirmedPacketsBlast = NULL;
   context->tun2net = 0;
-  context->net2tun = 0; 
+  context->net2tun = 0;
+  #ifdef USINGROHC
   context->feedback_pkts = 0;
+  #endif
   context->blastIdentifier = 0;
   context->acceptingTcpConnections = false;
   context->remote_ip[0] = '\0';
   context->local_ip[0] = '\0';
   context->port = PORT;
+  #ifdef USINGROHC
   context->port_feedback = PORT_FEEDBACK;
+  #endif
   context->ipprotocol = IPPROTO_SIMPLEMUX;
   context->tun_if_name[0] = '\0';
   context->mux_if_name[0] = '\0';
@@ -29,7 +35,7 @@ void initContext(contextSimplemux* context)
   context->sizeThreshold = 0;
   context->userMtu = 0;
   context->firstHeaderWritten = 0;
-  context->sizeSeparatorFastMode = 1 + SIZE_LENGTH_FIELD_FAST_MODE;
+  context->sizeSeparatorFastMode = sizeof(uint16_t) + sizeof(uint8_t); // the separator has a 2-byte and a 1-byte fields
   context->pendingBytesMuxedPacket = 0;
   context->readTcpBytes = 0;
   context->readTcpSeparatorBytes = 0;
@@ -43,15 +49,21 @@ void parseCommandLine(int argc, char *argv[], contextSimplemux* context)
   char mode_string[10];
   char tunnel_mode_string[4];
 
+  #ifdef USINGROHC
   while((option = getopt(argc, argv, "i:e:M:T:c:p:n:B:t:P:l:d:r:m:fbhL")) > 0) {
+  #else
+  while((option = getopt(argc, argv, "i:e:M:T:c:p:n:B:t:P:l:d:m:fbhL")) > 0) {
+  #endif
 
     switch(option) {
       case 'd':
-        debug = atoi(optarg);    // 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug (incl. ROHC)
+        debug = atoi(optarg);    // 0:no debug; 1:minimum debug; 2:medium debug; 3:maximum debug
         break;
+      #ifdef USINGROHC
       case 'r':
         context->rohcMode = atoi(optarg);  // 0:no ROHC; 1:Unidirectional; 2: Bidirectional Optimistic; 3: Bidirectional Reliable (not available yet)
         break;
+      #endif
       case 'h':            // help
         usage(argv[0]);
         break;
@@ -167,7 +179,9 @@ void parseCommandLine(int argc, char *argv[], contextSimplemux* context)
         break;
       case 'p':            // port number
         context->port = atoi(optarg);    // atoi() Parses a string interpreting its content as an 'int'
-        context->port_feedback = context->port + 1;
+        #ifdef USINGROHC
+          context->port_feedback = context->port + 1;
+        #endif
         break;
       case 'n':            // limit of the number of packets for triggering a muxed packet
         context->limitNumpackets = atoi(optarg);
@@ -254,11 +268,13 @@ int checkCommandLineOptions(int argc, char *progname, contextSimplemux* context)
       usage(progname);
       return 0;
     }
+    #ifdef USINGROHC
     if(context->rohcMode!=0) {
       my_err("blast flavor (-b) is not compatible with RoHC (-r)\n");
       usage(progname);
       return 0;     
     }
+    #endif
     if(context->sizeThreshold!=0) {
       my_err("blast flavor (-b) is not compatible with size threshold (-B)\n");
       usage(progname);
@@ -360,11 +376,13 @@ void initTunTapInterface(contextSimplemux* context)
   else if (context->tunnelMode == TAP_MODE) {
     // tap tunnel mode (i.e. send Ethernet frames)
     
+    #ifdef USINGROHC
     // ROHC mode cannot be used in tunnel mode TAP, because Ethernet headers cannot be compressed
     if (context->rohcMode != 0) {
       my_err("Error ROHC cannot be used in 'tap' mode (Ethernet headers cannot be compressed)\n");
       exit(1);          
-    }        
+    }
+    #endif  
 
     // initialize tap interface for native packets
     if ( (context->tun_fd = tun_alloc(context->tun_if_name, IFF_TAP | IFF_NO_PI)) < 0 ) {

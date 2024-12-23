@@ -493,7 +493,7 @@ void demuxPacketBlast(contextSimplemux* context,
       else {
 
         if (now - context->blastTimestamps[ntohs(blastHeader->identifier)] < TIME_UNTIL_SENDING_AGAIN_BLAST) {
-          // the packet has been sent recently
+          // a blast packet with this same ID has been sent recently
           // do not send it again
           #ifdef DEBUG
             do_debug_c( 1,
@@ -1409,6 +1409,8 @@ void sendPacketToTun (contextSimplemux* context,
   #endif
 }
 
+
+#ifdef USINGROHC
 // decompress a RoHC packet
 // It returns:
 //  1 if the packet has been decompressed correctly
@@ -1805,3 +1807,5 @@ int decompressRohcPacket( contextSimplemux* context,
   }
   return sendPacket;
 }
+
+#endif
