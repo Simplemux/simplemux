@@ -29,7 +29,7 @@
 #define DEBUG 1   // if you comment this line, debug info is not allowed
 #define LOGFILE 1 // if you comment this line, logs are not allowed
 #define ASSERT 1  // if you comment this line, assertions are not allowed
-//#define USINGROHC 1   // if you comment this line, RoHC will not be used
+#define USINGROHC 1   // if you comment this line, RoHC will not be used
 
 #ifdef ASSERT
   #include <assert.h>     // for using assert()
