@@ -25,7 +25,7 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 
-// If you comment the next lines, the program will be a bit faster
+// Preprocessor directives: If you comment the next lines, the program will be a bit faster
 #define DEBUG 1   // if you comment this line, debug info is not allowed
 #define LOGFILE 1 // if you comment this line, logs are not allowed
 #define ASSERT 1  // if you comment this line, assertions are not allowed
