@@ -7,6 +7,9 @@
 //#include "buildMuxedPacket.h"
 
 int socketRequest(contextSimplemux* context, const int on);
+
+#ifdef USINGROHC
 int feedbackSocketRequest(contextSimplemux* context);
+#endif
 
 #endif  // SOCKETREQUEST_H

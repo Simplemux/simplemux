@@ -1409,6 +1409,8 @@ void sendPacketToTun (contextSimplemux* context,
   #endif
 }
 
+
+#ifdef USINGROHC
 // decompress a RoHC packet
 // It returns:
 //  1 if the packet has been decompressed correctly
@@ -1805,3 +1807,5 @@ int decompressRohcPacket( contextSimplemux* context,
   }
   return sendPacket;
 }
+
+#endif

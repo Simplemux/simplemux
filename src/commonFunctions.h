@@ -31,6 +31,7 @@
 #define DEBUG 1   // if you comment this line, debug info is not allowed
 #define LOGFILE 1 // if you comment this line, logs are not allowed
 #define ASSERT 1  // if you comment this line, assertions are not allowed
+#define USINGROHC 1   // if you comment this line, RoHC will not be used
 
 #ifdef ASSERT
   #include <assert.h>     // for using assert()
@@ -52,9 +53,12 @@
 #define IPPROTO_SIMPLEMUX_BLAST 252
 
 #define PORT 55555              // default port
-#define PORT_FEEDBACK 55556     // port for sending ROHC feedback
 #define PORT_FAST 55557         // port for sending Simplemux fast
 #define PORT_BLAST 55558        // port for sending Simplemux fast
+#ifdef USINGROHC
+  #define PORT_FEEDBACK 55556     // port for sending ROHC feedback
+#endif
+
 
 #define DISABLE_NAGLE 1         // disable TCP Nagle algorithm
 #define QUICKACK 1              // enable TCP quick ACKs (non delayed)
@@ -84,7 +88,8 @@
 
 #define MAXTIMEOUT 100000000.0    // maximum value of the timeout (microseconds). (default 100 seconds)
 
-#define NUMBER_OF_SOCKETS 3     // I am using 3 sockets in the program:
+#ifdef USINGROHC
+  #define NUMBER_OF_SOCKETS 3   // I am using 3 sockets in the program:
                                 // - one for tun/tap: 'context.tun_fd'
                                 // - one for connecting to the network. It may be
                                 //     - context.network_mode_fd
@@ -92,6 +97,15 @@
                                 //     - context.tcp_welcoming_fd and later context.tcp_server_fd
                                 //     - context.tcp_client_fd
                                 // - one for feedback packets: 'context.feedback_fd'. It is always a UDP socket
+#else
+  #define NUMBER_OF_SOCKETS 2   // I am using 2 sockets in the program:
+                                // - one for tun/tap: 'context.tun_fd'
+                                // - one for connecting to the network. It may be
+                                //     - context.network_mode_fd
+                                //     - context.udp_mode_fd
+                                //     - context.tcp_welcoming_fd and later context.tcp_server_fd
+                                //     - context.tcp_client_fd
+#endif
 
 // colors for the debug info
 #define ANSI_COLOR_RESET        "\x1b[0m"
@@ -114,16 +128,20 @@ typedef struct {
   char tunnelMode;  // TUN ('U', default) or TAP ('T')
   char flavor;      // Normal ('N', default), Fast ('F'), Blast ('B')
 
+  #ifdef USINGROHC
   int rohcMode; // 0: ROHC is not used
                 // 1: ROHC Unidirectional mode (headers are to be compressed/decompressed)
                 // 2: ROHC Bidirectional Optimistic mode
                 // 3: ROHC Bidirectional Reliable mode (not implemented yet)
+  #endif
 
   // variables for managing the network interfaces
   int tun_fd;             // file descriptor of the tun interface(no mux packet)
   int udp_mode_fd;        // file descriptor of the socket in UDP mode
   int network_mode_fd;    // file descriptor of the socket in Network mode
-  int feedback_fd;        // file descriptor of the socket of the feedback received from the network interface
+  #ifdef USINGROHC
+    int feedback_fd;      // file descriptor of the socket of the feedback received from the network interface
+  #endif
   int tcp_welcoming_fd;   // file descriptor of the TCP welcoming socket
   int tcp_client_fd;      // file descriptor of the TCP client socket
   int tcp_server_fd;      // file descriptor of the TCP server socket
@@ -131,8 +149,10 @@ typedef struct {
   // structs for storing sockets
   struct sockaddr_in local;
   struct sockaddr_in remote;
-  struct sockaddr_in feedback;
-  struct sockaddr_in feedback_remote;
+  #ifdef USINGROHC
+    struct sockaddr_in feedback;
+    struct sockaddr_in feedback_remote;
+  #endif
   struct sockaddr_in received;
 
   // network interface
@@ -164,13 +184,17 @@ typedef struct {
   // variables for counting the arrived and sent packets
   uint32_t tun2net;           // number of packets read from tun
   uint32_t net2tun;           // number of packets read from net
-  uint32_t feedback_pkts;     // number of ROHC feedback packets
+  #ifdef USINGROHC
+    uint32_t feedback_pkts;     // number of ROHC feedback packets
+  #endif
   uint16_t blastIdentifier;   // Identifier field of the blast header
 
   char remote_ip[16];       // dotted quad IP string with the IP of the remote machine
   char local_ip[16];        // dotted quad IP string with the IP of the local machine
   uint16_t port;            // UDP/TCP port to be used for sending the multiplexed packets
-  uint16_t port_feedback;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
+  #ifdef USINGROHC
+    uint16_t port_feedback;   // UDP port to be used for sending the ROHC feedback packets, when using ROHC bidirectional
+  #endif
   uint8_t ipprotocol;
 
   char tun_if_name[IFNAMSIZ];    // name of the tun interface (e.g. "tun0")
@@ -254,29 +278,31 @@ extern int debug;     // 0:no debug
                       // 2:medimum debug level
                       // 3:maximum debug level
 
-// global variables related to RoHC compression
-extern unsigned int seed;
-extern rohc_status_t status;
+#ifdef USINGROHC
+  // global variables related to RoHC compression
+  extern unsigned int seed;
+  extern rohc_status_t status;
 
-extern struct rohc_comp *compressor;
-extern struct rohc_decomp *decompressor;
+  extern struct rohc_comp *compressor;
+  extern struct rohc_decomp *decompressor;
 
-extern uint8_t ip_buffer[BUFSIZE];
-extern struct rohc_buf ip_packet;
+  extern uint8_t ip_buffer[BUFSIZE];
+  extern struct rohc_buf ip_packet;
 
-extern uint8_t rohc_buffer[BUFSIZE];
-extern struct rohc_buf rohc_packet;
+  extern uint8_t rohc_buffer[BUFSIZE];
+  extern struct rohc_buf rohc_packet;
 
-extern uint8_t ip_buffer_d[BUFSIZE];
-extern struct rohc_buf ip_packet_d;
+  extern uint8_t ip_buffer_d[BUFSIZE];
+  extern struct rohc_buf ip_packet_d;
 
-extern uint8_t rohc_buffer_d[BUFSIZE];
-extern struct rohc_buf rohc_packet_d;
+  extern uint8_t rohc_buffer_d[BUFSIZE];
+  extern struct rohc_buf rohc_packet_d;
 
-extern uint8_t rcvd_feedback_buffer_d[BUFSIZE];
-extern struct rohc_buf rcvd_feedback;
+  extern uint8_t rcvd_feedback_buffer_d[BUFSIZE];
+  extern struct rohc_buf rcvd_feedback;
 
-extern uint8_t feedback_send_buffer_d[BUFSIZE];
-extern struct rohc_buf feedback_send;
+  extern uint8_t feedback_send_buffer_d[BUFSIZE];
+  extern struct rohc_buf feedback_send;
+#endif  // USINGROHC
 
 #endif // COMMONFUNCTIONS_H

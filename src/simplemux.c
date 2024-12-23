@@ -1,7 +1,7 @@
 #include "simplemux.h"
 
+#ifdef USINGROHC
 // these 'static' functions are only used in this .c file
-
 
 // The -Wextra option in GCC enables several additional warnings, including those for
 //unused variables. When you pass functions as pointers, you might still get these
@@ -346,7 +346,7 @@ static int initRohc(contextSimplemux* context)
       fclose (context->log_file);
     return -1;
 }
-
+#endif
 
 // main Simplemux program
 int main(int argc, char *argv[]) {
@@ -395,13 +395,15 @@ int main(int argc, char *argv[]) {
       do_debug (1 , "debug level set to %i\n", debug);
     #endif
 
-    // check ROHC option
-    if ( context.rohcMode < 0 ) {
-      context.rohcMode = 0;
-    }
-    else if ( context.rohcMode > 2 ) { 
-      context.rohcMode = 2;
-    }
+    #ifdef USINGROHC
+      // check ROHC option
+      if ( context.rohcMode < 0 ) {
+        context.rohcMode = 0;
+      }
+      else if ( context.rohcMode > 2 ) { 
+        context.rohcMode = 2;
+      }
+    #endif
 
 
     // initialize the tun/tap interface
@@ -421,13 +423,15 @@ int main(int argc, char *argv[]) {
     // initialize the triggering parameters
     initTriggerParameters(&context);
 
-    // I only need the feedback socket if ROHC is activated
-    //but I create it in case the other extreme sends ROHC packets
-    feedbackSocketRequest(&context);
-    
-    // If ROHC has been selected, it has to be initialized
-    // see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
-    initRohc(&context);
+    #ifdef USINGROHC
+      // I only need the feedback socket if ROHC is activated
+      //but I create it in case the other extreme sends ROHC packets
+      feedbackSocketRequest(&context);
+      
+      // If ROHC has been selected, it has to be initialized
+      // see the API here: https://rohc-lib.org/support/documentation/API/rohc-doc-1.7.0/
+      initRohc(&context);
+    #endif
 
     #ifdef DEBUG
       do_debug_c(1, ANSI_COLOR_RESET, "\n");
@@ -446,21 +450,23 @@ int main(int argc, char *argv[]) {
     memset(fds_poll, 0, NUMBER_OF_SOCKETS * sizeof(struct pollfd));
   
     fds_poll[0].fd = context.tun_fd;
-    fds_poll[1].fd = context.feedback_fd;
-    if ( context.mode== NETWORK_MODE )
-      fds_poll[2].fd = context.network_mode_fd;
-    else if ( context.mode== UDP_MODE )
-      fds_poll[2].fd = context.udp_mode_fd;
-    else if ( context.mode==TCP_SERVER_MODE )
-      fds_poll[2].fd = context.tcp_welcoming_fd;
-    else
-      fds_poll[2].fd = context.tcp_client_fd;
-    
     fds_poll[0].events = POLLIN;
+
+    if ( context.mode== NETWORK_MODE )
+      fds_poll[1].fd = context.network_mode_fd;
+    else if ( context.mode== UDP_MODE )
+      fds_poll[1].fd = context.udp_mode_fd;
+    else if ( context.mode==TCP_SERVER_MODE )
+      fds_poll[1].fd = context.tcp_welcoming_fd;
+    else
+      fds_poll[1].fd = context.tcp_client_fd;
     fds_poll[1].events = POLLIN;
-    fds_poll[2].events = POLLIN;
 
-
+    #ifdef USINGROHC
+      fds_poll[2].fd = context.feedback_fd;
+      fds_poll[2].events = POLLIN;
+    #endif
+    
     // set the current moment as the moment of the last sending
     context.timeLastSent = GetTimeStamp();  
       
@@ -586,7 +592,7 @@ int main(int argc, char *argv[]) {
         /*************** TCP connection request from a client *************/
         /******************************************************************/
         // a connection request has arrived to the welcoming socket
-        if ((fds_poll[2].revents & POLLIN) && (context.mode==TCP_SERVER_MODE) && (context.acceptingTcpConnections == true) ) {
+        if ((fds_poll[1].revents & POLLIN) && (context.mode==TCP_SERVER_MODE) && (context.acceptingTcpConnections == true) ) {
 
           // accept the connection
           struct sockaddr_in TCPpair;
@@ -609,7 +615,7 @@ int main(int argc, char *argv[]) {
   
           // change the descriptor to that of context.tcp_server_fd
           // from now on, context.tcp_server_fd will be used
-          fds_poll[2].fd = context.tcp_server_fd;
+          fds_poll[1].fd = context.tcp_server_fd;
           //if(context.tcp_server_fd > maxfd) maxfd = context.tcp_server_fd;
           
           #ifdef DEBUG
@@ -627,7 +633,7 @@ int main(int argc, char *argv[]) {
         // data arrived at the network interface: read, demux, decompress and forward it.
         // In TCP_SERVER_MODE, I will only enter here if the TCP connection is already started
         // in the rest of modes, I will enter here if a muxed packet has arrived        
-        else if ( (fds_poll[2].revents & POLLIN) && 
+        else if ( (fds_poll[1].revents & POLLIN) && 
                   (((context.mode== TCP_SERVER_MODE) && (context.acceptingTcpConnections == false)) ||
                   (context.mode== NETWORK_MODE) || 
                   (context.mode== UDP_MODE) ||
@@ -650,11 +656,18 @@ int main(int argc, char *argv[]) {
           }
           
           else if (is_multiplexed_packet == 1) {
+            #ifdef USINGROHC
             demuxBundleFromNet( &context,
                                 nread_from_net,
                                 packet_length,
                                 buffer_from_net,
-                                &status );
+                                &status);
+            #else
+            demuxBundleFromNet( &context,
+                                nread_from_net,
+                                packet_length,
+                                buffer_from_net);
+            #endif
           }
   
           else { // is_multiplexed_packet == 0
@@ -692,6 +705,7 @@ int main(int argc, char *argv[]) {
           }
         }
   
+        #ifdef USINGROHC
         /****************************************************************************************************************/    
         /******* ROHC feedback packet from the remote decompressor to be delivered to the local compressor **************/
         /****************************************************************************************************************/
@@ -700,7 +714,7 @@ int main(int argc, char *argv[]) {
   
         // the ROHC mode only affects the decompressor. So if I receive a ROHC feedback packet, I will use it
         // this implies that if the origin is in ROHC Unidirectional mode and the destination in Bidirectional, feedback will still work
-        else if(fds_poll[1].revents & POLLIN) {
+        else if(fds_poll[2].revents & POLLIN) {
         
           int nread_from_net; // number of bytes read from network which will be demultiplexed
           uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
@@ -838,7 +852,8 @@ int main(int argc, char *argv[]) {
             }
           }
         }
-    
+        #endif
+
         /**************************************************************************************/  
         /***************** TUN to NET: compress and multiplex *********************************/
         /**************************************************************************************/

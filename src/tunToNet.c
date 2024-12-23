@@ -371,12 +371,15 @@ void tunToNetNoBlastFlavor (contextSimplemux* context)
   // the length of the packet is adequate
   if ( dropPacket == false ) {
 
+    #ifdef USINGROHC
     // compress the headers if the RoHC option has been set
     if ( context->rohcMode > 0 ) {
       // header compression has been selected by the user
       compressPacket(context, size);
     }
-    else {
+    else
+    #endif
+    {
       // header compression has not been selected by the user
 
       if (context->tunnelMode == TAP_MODE) {

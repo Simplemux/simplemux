@@ -7,7 +7,9 @@
 
 bool checkPacketSize (contextSimplemux* context, uint16_t size);
 
+#ifdef USINGROHC
 void compressPacket(contextSimplemux* context, uint16_t size);
+#endif
 
 int allSameProtocol(contextSimplemux* context);
 

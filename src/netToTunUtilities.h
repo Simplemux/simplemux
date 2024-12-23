@@ -40,10 +40,12 @@ void sendPacketToTun (contextSimplemux* context,
                       uint8_t* demuxed_packet,
                       int demuxedPacketLength);
 
-int decompressRohcPacket( contextSimplemux* context,
-                          uint8_t* demuxed_packet,
-                          int* demuxedPacketLength,
-                          rohc_status_t* status,
-                          int nread_from_net);
+#ifdef USINGROHC
+  int decompressRohcPacket( contextSimplemux* context,
+                            uint8_t* demuxed_packet,
+                            int* demuxedPacketLength,
+                            rohc_status_t* status,
+                            int nread_from_net);
+#endif
 
 #endif

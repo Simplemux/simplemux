@@ -466,11 +466,18 @@ int readPacketFromNet(contextSimplemux* context,
 //packets/frames it contains
 // returns 1 if everything is correct
 //        -1 otherwise
+#ifdef USINGROHC
 int demuxBundleFromNet( contextSimplemux* context,
                         int nread_from_net,
                         uint16_t bundleLength,
                         uint8_t* buffer_from_net,
                         rohc_status_t* status)
+#else
+int demuxBundleFromNet( contextSimplemux* context,
+                        int nread_from_net,
+                        uint16_t bundleLength,
+                        uint8_t* buffer_from_net)
+#endif
 {
   // increase the counter of the number of packets read from the network
   (context->net2tun)++;
@@ -595,28 +602,30 @@ int demuxBundleFromNet( contextSimplemux* context,
         // check if the demuxed packet/frame has to be decompressed
 
         // set to 0 if this demuxed packet/frame has to be dropped
-        int sendPacket;
+        int sendPacket = 1;
 
-        // if the number of the protocol is NOT 142 (RoHC) I do not decompress the packet
-        if ( context->protocol_rec != IPPROTO_ROHC ) {
-          // This packet/frame can be sent
-          sendPacket = 1;
+        #ifdef USINGROHC
+          // if the number of the protocol is NOT 142 (RoHC) I do not decompress the packet
+          if ( context->protocol_rec != IPPROTO_ROHC ) {
+            // This packet/frame can be sent
+            sendPacket = 1;
 
-          // non-compressed packet
-          #ifdef DEBUG
-            // the length and the protocol of this packet have already been shown in the debug info
-            // dump the received packet on terminal
-            dump_packet ( demuxedPacketLength, demuxed_packet );
-          #endif
-        }
-        else {
-          // the demuxed packet is a RoHC-compressed packet. Decompress it
-          sendPacket = decompressRohcPacket(context,
-                                            demuxed_packet,
-                                            &demuxedPacketLength,
-                                            status,
-                                            nread_from_net);
-        }
+            // non-compressed packet
+            #ifdef DEBUG
+              // the length and the protocol of this packet have already been shown in the debug info
+              // dump the received packet on terminal
+              dump_packet ( demuxedPacketLength, demuxed_packet );
+            #endif
+          }
+          else {
+            // the demuxed packet is a RoHC-compressed packet. Decompress it
+            sendPacket = decompressRohcPacket(context,
+                                              demuxed_packet,
+                                              &demuxedPacketLength,
+                                              status,
+                                              nread_from_net);
+          }
+        #endif
 
         if (sendPacket) {
           // write the demuxed (and perhaps decompressed) packet/frame to the tun/tap interface

@@ -327,6 +327,7 @@ int socketRequest(contextSimplemux* context, const int on)
 }
 
 
+#ifdef USINGROHC
 /*** Request a socket for feedback packets ***/
 int feedbackSocketRequest(contextSimplemux* context)
 {
@@ -370,3 +371,4 @@ int feedbackSocketRequest(contextSimplemux* context)
   }
   return 0;
 }
+#endif

@@ -6,45 +6,47 @@ int debug;            // 0:no debug
                       // 2:medimum debug level
                       // 3:maximum debug level
 
-// global variables related to RoHC compression (defined as 'extern' in the .h file)
-unsigned int seed;
-rohc_status_t status;
+#ifdef USINGROHC
+  // global variables related to RoHC compression (defined as 'extern' in the .h file)
+  unsigned int seed;
+  rohc_status_t status;
 
-struct rohc_comp *compressor;         // the ROHC compressor
-struct rohc_decomp *decompressor;     // the ROHC decompressor
+  struct rohc_comp *compressor;         // the ROHC compressor
+  struct rohc_decomp *decompressor;     // the ROHC decompressor
 
-// define the buffers that will contain the packets to compress/decompress
-// 'rohc_buf_init_empty' is a macro defined in 'rohc-1.7.0\src\common\rohc\rohc_buf.h'
-// When you declare 'struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);',
-//the macro 'rohc_buf_init_empty' will be expanded to initialize the ip_packet structure.
+  // define the buffers that will contain the packets to compress/decompress
+  // 'rohc_buf_init_empty' is a macro defined in 'rohc-1.7.0\src\common\rohc\rohc_buf.h'
+  // When you declare 'struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);',
+  //the macro 'rohc_buf_init_empty' will be expanded to initialize the ip_packet structure.
 
-// The next code initializes the ip_packet structure with the ip_buffer pointer and BUFSIZE
-//as the maximum length, while setting the other fields to zero
-// Here's how the code would look after substituting the macro:
-/*struct rohc_buf ip_packet = {
-    .time = { .sec = 0, .nsec = 0 },
-    .data = ip_buffer,
-    .max_len = BUFSIZE,
-    .offset = 0,
-    .len = 0
-};*/
-uint8_t ip_buffer[BUFSIZE];     // the buffer that will contain the IPv4 packet to compress
-struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);
+  // The next code initializes the ip_packet structure with the ip_buffer pointer and BUFSIZE
+  //as the maximum length, while setting the other fields to zero
+  // Here's how the code would look after substituting the macro:
+  /*struct rohc_buf ip_packet = {
+      .time = { .sec = 0, .nsec = 0 },
+      .data = ip_buffer,
+      .max_len = BUFSIZE,
+      .offset = 0,
+      .len = 0
+  };*/
+  uint8_t ip_buffer[BUFSIZE];     // the buffer that will contain the IPv4 packet to compress
+  struct rohc_buf ip_packet = rohc_buf_init_empty(ip_buffer, BUFSIZE);
 
-uint8_t rohc_buffer[BUFSIZE];   // the buffer that will contain the resulting ROHC packet
-struct rohc_buf rohc_packet = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
+  uint8_t rohc_buffer[BUFSIZE];   // the buffer that will contain the resulting ROHC packet
+  struct rohc_buf rohc_packet = rohc_buf_init_empty(rohc_buffer, BUFSIZE);
 
-uint8_t ip_buffer_d[BUFSIZE];   // the buffer that will contain the resulting IP decompressed packet
-struct rohc_buf ip_packet_d = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
+  uint8_t ip_buffer_d[BUFSIZE];   // the buffer that will contain the resulting IP decompressed packet
+  struct rohc_buf ip_packet_d = rohc_buf_init_empty(ip_buffer_d, BUFSIZE);
 
-uint8_t rohc_buffer_d[BUFSIZE]; // the buffer that will contain the ROHC packet to decompress
-struct rohc_buf rohc_packet_d = rohc_buf_init_empty(rohc_buffer_d, BUFSIZE);
+  uint8_t rohc_buffer_d[BUFSIZE]; // the buffer that will contain the ROHC packet to decompress
+  struct rohc_buf rohc_packet_d = rohc_buf_init_empty(rohc_buffer_d, BUFSIZE);
 
-uint8_t rcvd_feedback_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet received
-struct rohc_buf rcvd_feedback = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFSIZE);
+  uint8_t rcvd_feedback_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet received
+  struct rohc_buf rcvd_feedback = rohc_buf_init_empty(rcvd_feedback_buffer_d, BUFSIZE);
 
-uint8_t feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet to be sent
-struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
+  uint8_t feedback_send_buffer_d[BUFSIZE];  // the buffer that will contain the ROHC feedback packet to be sent
+  struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFSIZE);
+#endif
 
 
 #ifdef DEBUG
@@ -178,6 +180,7 @@ void GetIpHeader( struct iphdr *iph,
 {
   memcpy(iph,(struct iphdr*)ip_packet,sizeof(struct iphdr));
 }
+
 
 // Set the IP header in an IP Packet
 void SetIpHeader( struct iphdr iph,
