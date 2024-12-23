@@ -91,7 +91,7 @@
                                 //     - context.udp_mode_fd
                                 //     - context.tcp_welcoming_fd and later context.tcp_server_fd
                                 //     - context.tcp_client_fd
-                                // - one for feedback packets: 'context.feedback_fd'
+                                // - one for feedback packets: 'context.feedback_fd'. It is always a UDP socket
 
 // colors for the debug info
 #define ANSI_COLOR_RESET        "\x1b[0m"

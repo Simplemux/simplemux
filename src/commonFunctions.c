@@ -52,8 +52,8 @@ struct rohc_buf feedback_send = rohc_buf_init_empty(feedback_send_buffer_d, BUFS
  * do_debug: prints debugging stuff (doh!)                                *
  **************************************************************************/
 // Variadic Function: The '...' is used to define functions that accept a variable number of arguments
-void do_debug(int level, char *msg, ...) {
-
+void do_debug(int level, char *msg, ...)
+{
   va_list argp;
 
   if( debug >= level ) {
@@ -75,8 +75,8 @@ void do_debug(int level, char *msg, ...) {
  * do_debug: prints debugging stuff (doh!)                                *
  **************************************************************************/
 // Variadic Function: The '...' is used to define functions that accept a variable number of arguments
-void do_debug_c(int level, char* color, char *msg, ...) {
-
+void do_debug_c(int level, char* color, char *msg, ...)
+{
   va_list argp;
 
   if( debug >= level ) {
@@ -95,7 +95,8 @@ void do_debug_c(int level, char* color, char *msg, ...) {
  **************************************************************************/
 
 // Calculate IPv4 checksum
-unsigned short in_cksum(unsigned short *addr, int len) {
+unsigned short in_cksum(unsigned short *addr, int len)
+{
   register int sum = 0;
   u_short answer = 0;
   register u_short *w = addr;
@@ -190,8 +191,8 @@ void SetIpHeader( struct iphdr iph,
  * cread: read routine that checks for errors and exits if an error is    *
  *        returned.                                                       *
  **************************************************************************/
-int cread(int fd, uint8_t *buf, int n) {
-
+int cread(int fd, uint8_t *buf, int n)
+{
   int nread;
 
   if((nread=read(fd, buf, n)) < 0) {
@@ -206,8 +207,8 @@ int cread(int fd, uint8_t *buf, int n) {
  * cwrite: write routine that checks for errors and exits if an error is  *
  *         returned.                                                      *
  **************************************************************************/
-int cwrite(int fd, uint8_t *buf, int n) {
-
+int cwrite(int fd, uint8_t *buf, int n)
+{
   int nwritten;
 
   if((nwritten = write(fd, buf, n)) < 0){
@@ -222,8 +223,8 @@ int cwrite(int fd, uint8_t *buf, int n) {
  * read_n: ensures we read exactly n bytes, and puts them into "buf".     *
  *         (unless EOF, of course)                                        *
  **************************************************************************/
-int read_n(int fd, uint8_t *buf, int n) {
-
+int read_n(int fd, uint8_t *buf, int n)
+{
   int nread, left = n;
 
   while(left > 0) {
@@ -241,8 +242,8 @@ int read_n(int fd, uint8_t *buf, int n) {
 /**************************************************************************
  * my_err: prints custom error messages on stderr.                        *
  **************************************************************************/
-void my_err(char *msg, ...) {
-
+void my_err(char *msg, ...)
+{
   va_list argp;
 
   va_start(argp, msg);
@@ -254,7 +255,8 @@ void my_err(char *msg, ...) {
 /**************************************************************************
  * GetTimeStamp: Get a timestamp in microseconds from the OS              *
  **************************************************************************/
-uint64_t GetTimeStamp() {
+uint64_t GetTimeStamp()
+{
   struct timeval tv;
   gettimeofday(&tv,NULL);
   return tv.tv_sec*(uint64_t)1000000+tv.tv_usec;
@@ -273,7 +275,8 @@ c = ToByte(bits);
 do_debug_c(1, ANSI_COLOR_RESET, "%c\n",c );
 // as a result it will print an asterisk
 */
-uint8_t ToByte(bool b[8]) {
+uint8_t ToByte(bool b[8])
+{
   int i;
   uint8_t c = 0;
   
@@ -289,7 +292,8 @@ uint8_t ToByte(bool b[8]) {
  **************************************************************************/
 // stores in 'b' the value 'true' or 'false' depending on each bit of the byte 'c'
 // b[0] is the less significant bit
-void FromByte(uint8_t c, bool b[8]) {
+void FromByte(uint8_t c, bool b[8])
+{
   int i;
   for (i=0; i < 8; ++i)
     b[i] = (c & (1<<i)) != 0;
@@ -302,8 +306,8 @@ void FromByte(uint8_t c, bool b[8]) {
  **************************************************************************/
 void PrintByte( int debug_level,
                 int num_bits,
-                bool b[8]) {
-
+                bool b[8])
+{
   // num_bits is the number of bits to print
   // if 'num_bits' is smaller than 7, the function prints an '_' instead of the value
 
@@ -333,7 +337,8 @@ void PrintByte( int debug_level,
 ************ dump a packet ************************************************
 **************************************************************************/
 void dump_packet (int packet_size,
-                  uint8_t packet[BUFSIZE]) {
+                  uint8_t packet[BUFSIZE])
+{
   int j;
 
   do_debug(2,"   ");
@@ -359,7 +364,8 @@ void dump_packet (int packet_size,
 /**************************************************************************
  * return an string with the date and the time in format %Y-%m-%d_%H.%M.%S*
  **************************************************************************/
-int date_and_time(char buffer[25]) {
+int date_and_time(char buffer[25])
+{
   time_t timer;
   struct tm* tm_info;
 
