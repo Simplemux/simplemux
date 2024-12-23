@@ -179,9 +179,9 @@ A research paper using Simplemux *Blast flavor* can be found here:
 A presentation about Simplemux can be found here: http://es.slideshare.net/josemariasaldana/simplemux-traffic-optimization.
 
 
-## How to install and compile
+## How to compile
 
-[How to install RoHC and compile Simplemux](/documentation/how_to_install_and_compile.md).
+[How to compile Simplemux and (maybe) install RoHC](/documentation/how_to_install_and_compile.md).
 
 
 ## Example scenarios
