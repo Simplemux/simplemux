@@ -1,5 +1,19 @@
-How to install ROHC and compile Simplemux
------------------------------------------
+How to compile Simplemux
+------------------------
+
+## Preprocessor directives
+
+Set the value of the preprocessor directives in `commonFunctions.h`. You can comment some of the next values, in order to make Simplemux faster:
+```
+#define DEBUG 1       // if you comment this line, debug info is not allowed
+#define LOGFILE 1     // if you comment this line, logs are not allowed
+#define ASSERT 1      // if you comment this line, assertions are not allowed
+#define USINGROHC 1   // if you comment this line, RoHC will not be used
+```
+
+You can install Simplemux without installing RoHC. Just comment the line with `USINGROHC`.
+
+## RoHC installation
 
 This implementation includes these RoHC modes:
 - RoHC unidirectional.
@@ -24,13 +38,13 @@ sudo apt-get install build-essential
 sudo apt-get install pkgconf
 ```
 
-Download version 1.7.0 from https://rohc-lib.org/support/download/, and unzip the content in a folder. You can do it with these commands:
+If you want to use RoHC, download version 1.7.0 from https://rohc-lib.org/support/download/, and unzip the content in a folder. You can do it with these commands:
 ```
 $ wget https://rohc-lib.org/download/rohc-1.7.x/1.7.0/rohc-1.7.0.tar.xz --no-check-certificate
 $ tar -xvf rohc-1.7.0.tar.xz
 ```
 
-Go go the ROHC folder and make:
+Go go the RoHC folder and do `make`:
 ```
 $ cd rohc-1.7.0/
 $ ./configure --prefix=/usr
@@ -45,12 +59,6 @@ And now, you can clone Simplemux:
 $ git clone https://github.com/Simplemux/simplemux.git
 ```
 
-Set the value of the compiler options in `commonFunctions.h`. You can define the next three values, in order to make Simplemux faster:
-```
-#define DEBUG 1   // if you comment this line, debug info is not allowed
-#define LOGFILE 1 // if you comment this line, logs are not allowed
-#define ASSERT 1  // if you comment this line, assertions are not allowed
-```
 
 And now, you can compile and build Simplemux
 
