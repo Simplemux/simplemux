@@ -33,10 +33,10 @@
 #endif
 
 #include "init.h"
-#include "help.h"
+//#include "help.h"
 #include "socketRequest.h"
-#include "packetsToSend.h"
+//#include "packetsToSend.h"
 #include "periodExpired.h"
 #include "netToTun.h"
 #include "tunToNet.h"
-#include "commonfunctions.h"
+//#include "commonfunctions.h"

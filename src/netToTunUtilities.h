@@ -3,7 +3,9 @@
 #define NETTOTUNUTILITIES_H
 
 //#include "commonFunctions.h"
-#include "buildMuxedPacket.h"
+//#include "buildMuxedPacket.h"
+#include "packetsToSend.h"
+
 
 
 #ifdef DEBUG
