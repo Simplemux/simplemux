@@ -66,7 +66,7 @@ And now, you can compile and build Simplemux
 
 ```
 $ cd simplemux/src
-$ gcc -o simplemux -g -Wall -Wextra $(pkg-config rohc --cflags)  buildMuxedPacket.c packetsToSend.c netToTun.c tunToNet.c periodExpired.c help.c socketRequest.c init.c simplemux.c commonfunctions.c tunToNetUtilities.c netToTunUtilities.c $(pkg-config rohc --libs )
+$ gcc -o simplemux -g -Wall -Wextra $(pkg-config rohc --cflags)  buildMuxedPacket.c blastPackets.c netToTun.c tunToNet.c periodExpired.c help.c socketRequest.c init.c simplemux.c commonfunctions.c tunToNetUtilities.c netToTunUtilities.c $(pkg-config rohc --libs )
 ```
 
 ## Using cmake

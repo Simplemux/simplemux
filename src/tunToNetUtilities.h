@@ -2,7 +2,6 @@
 #ifndef TUNTONETUTILITIES_H
 #define TUNTONETUTILITIES_H
 
-//#include "commonFunctions.h"
 #include "buildMuxedPacket.h"
 
 bool checkPacketSize (contextSimplemux* context, uint16_t size);

@@ -8,7 +8,7 @@
   #include <rohc/rohc_decomp.h>
 #endif
 
-#include "packetsToSend.h"
+#include "blastPackets.h"
 
 uint16_t buildMultiplexedPacket ( contextSimplemux* context,
                                   int single_prot,

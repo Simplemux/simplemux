@@ -1,6 +1,6 @@
 // taken from https://www.tutorialspoint.com/data_structures_algorithms/linked_list_program_in_c.htm
 
-#include "packetsToSend.h"
+#include "blastPackets.h"
 
 //display the list
 void printList(packet** head_ref)

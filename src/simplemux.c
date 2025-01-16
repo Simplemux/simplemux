@@ -592,7 +592,10 @@ int main(int argc, char *argv[]) {
         /*************** TCP connection request from a client *************/
         /******************************************************************/
         // a connection request has arrived to the welcoming socket
-        if ((fds_poll[1].revents & POLLIN) && (context.mode==TCP_SERVER_MODE) && (context.acceptingTcpConnections == true) ) {
+        if ((fds_poll[1].revents & POLLIN) &&
+            (context.mode==TCP_SERVER_MODE) &&
+            (context.acceptingTcpConnections == true) )
+        {
 
           // accept the connection
           struct sockaddr_in TCPpair;
@@ -606,7 +609,6 @@ int main(int argc, char *argv[]) {
           }
 
           // from now on, the TCP welcoming socket will NOT accept any other connection
-          // FIXME: Does this make sense?
           context.acceptingTcpConnections = false;
   
           if(context.tcp_server_fd <= 0) {
@@ -627,17 +629,17 @@ int main(int argc, char *argv[]) {
         }
         
         /*****************************************************************************/
-        /***************** NET to tun. demux and decompress **************************/
+        /***************** NET to tun/tap. demux and decompress **********************/
         /*****************************************************************************/
   
         // data arrived at the network interface: read, demux, decompress and forward it.
         // In TCP_SERVER_MODE, I will only enter here if the TCP connection is already started
         // in the rest of modes, I will enter here if a muxed packet has arrived        
         else if ( (fds_poll[1].revents & POLLIN) && 
-                  (((context.mode== TCP_SERVER_MODE) && (context.acceptingTcpConnections == false)) ||
-                  (context.mode== NETWORK_MODE) || 
-                  (context.mode== UDP_MODE) ||
-                  (context.mode== TCP_CLIENT_MODE) ) )
+                  ( ( (context.mode== TCP_SERVER_MODE) && (context.acceptingTcpConnections == false) ) ||
+                    (context.mode== NETWORK_MODE) || 
+                    (context.mode== UDP_MODE) ||
+                    (context.mode== TCP_CLIENT_MODE) ) )
         {
           int is_multiplexed_packet;
           int nread_from_net;                 // number of bytes read from network which will be demultiplexed
@@ -714,7 +716,8 @@ int main(int argc, char *argv[]) {
   
         // the ROHC mode only affects the decompressor. So if I receive a ROHC feedback packet, I will use it
         // this implies that if the origin is in ROHC Unidirectional mode and the destination in Bidirectional, feedback will still work
-        else if(fds_poll[2].revents & POLLIN) {
+        else if(fds_poll[2].revents & POLLIN)
+        {
         
           int nread_from_net; // number of bytes read from network which will be demultiplexed
           uint8_t buffer_from_net[BUFSIZE];         // stores the packet received from the network, before sending it to tun
@@ -855,15 +858,16 @@ int main(int argc, char *argv[]) {
         #endif
 
         /**************************************************************************************/  
-        /***************** TUN to NET: compress and multiplex *********************************/
+        /***************** tun/tap to NET: compress and multiplex *****************************/
         /**************************************************************************************/
   
         // data arrived at tun/tap: read it, store it, and check if the stored
         //packets should be written to the network
   
-        /* FD_ISSET tests if a file descriptor is part of the set */
+        // FD_ISSET tests if a file descriptor is part of the set
         //else if(FD_ISSET(context.tun_fd, &rd_set)) {
-        else if(fds_poll[0].revents & POLLIN) {
+        else if(fds_poll[0].revents & POLLIN)
+        {
 
           if (context.flavor == 'B') {
             tunToNetBlastFlavor(&context);

@@ -2,9 +2,7 @@
 #ifndef NETTOTUNUTILITIES_H
 #define NETTOTUNUTILITIES_H
 
-//#include "commonFunctions.h"
-#include "buildMuxedPacket.h"
-
+#include "blastPackets.h"
 
 #ifdef DEBUG
   void showDebugInfoFromNet(contextSimplemux* context,

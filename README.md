@@ -154,7 +154,7 @@ The next table details the options that are available:
 
 ## Specifications (IETF drafts)
 
-The specification of Simplemux can be found here: http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/. It was not adopted by the IETF, although some discussion took place. It specifies the *Fast * and the *Normal* flavors (called *Compressed flavor* in the IETF draft).
+The specification of Simplemux can be found here: http://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux/. It was not adopted by the IETF, although some discussion took place. It specifies the *Fast* and the *Normal* flavors (called *Compressed flavor* in the IETF draft).
 
 The specification of Simplemux *Blast flavor* can be found here: https://datatracker.ietf.org/doc/draft-saldana-tsvwg-simplemux-blast/. It has never been discussed nor adopted by the IETF.
 

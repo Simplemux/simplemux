@@ -2,8 +2,6 @@
 #ifndef PERIODEXPIRED_H
 #define PERIODEXPIRED_H
 
-#include "commonFunctions.h"
-#include "packetsToSend.h"
 #include "buildMuxedPacket.h"
 
 void periodExpiredblastFlavor (contextSimplemux* context);
