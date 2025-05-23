@@ -36,7 +36,7 @@ void tunToNetBlastFlavor (contextSimplemux* context)
   #endif           
 
   // add a new empty packet to the list
-  struct packet* thisPacket = insertLast(&context->unconfirmedPacketsBlast,0,NULL);
+  struct storedPacketBlast* thisPacket = insertLast(&context->unconfirmedPacketsBlast,0,NULL);
 
   // read the packet from context->tun_fd and add the data
   // use 'htons()' because these fields will be sent through the network

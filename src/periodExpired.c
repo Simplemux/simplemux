@@ -71,7 +71,7 @@ void periodExpiredblastFlavor (contextSimplemux* context)
   if(now_microsec - (context->lastBlastHeartBeatSent) > HEARTBEATPERIOD) {
     // heartbeat period expired: send a heartbeat to the other side
 
-    struct packet heartBeat;
+    struct storedPacketBlast heartBeat;
     heartBeat.header.packetSize = 0;
     heartBeat.header.protocolID = 0;
     heartBeat.header.identifier = 0;

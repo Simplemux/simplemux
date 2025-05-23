@@ -728,7 +728,7 @@ void demuxPacketBlast(contextSimplemux* context,
       // this packet requires an ACK
       // send the ACK as soon as the packet arrives
       // send an ACK per arrived packet. Do not check if this is the first time it has arrived
-      struct packet ACK;
+      struct storedPacketBlast ACK;
       ACK.header.packetSize = 0; // the length is only that of the payload 
       ACK.header.protocolID = 0; // the ACK does not have a payload, so no protocolID is needed
       ACK.header.identifier = blastHeader->identifier;

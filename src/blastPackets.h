@@ -30,48 +30,48 @@ typedef struct {
 
 
 // include the payload and also other parameters that are not sent through the network
-typedef struct packet {
+typedef struct storedPacketBlast {
   simplemuxBlastHeader header;
   uint8_t tunneledPacket[BUFSIZE];
   uint64_t sentTimestamp; // last moment when this packet was sent
-  struct packet *next;
-} __attribute__ ((__packed__)) packet;
+  struct storedPacketBlast *next;
+} __attribute__ ((__packed__)) storedPacketBlast;
 
 
 //display the list
-void printList(packet** head_ref);
+void printList(storedPacketBlast** head_ref);
 
 //insert link at the first location
-void insertFirst(packet** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload);
+void insertFirst(storedPacketBlast** head_ref, uint16_t identifier, uint16_t size, uint8_t* payload);
 
-packet* findLast(packet** head_ref);
+storedPacketBlast* findLast(storedPacketBlast** head_ref);
 
-packet* insertLast(packet** head_ref, uint16_t size, uint8_t* payload);
+storedPacketBlast* insertLast(storedPacketBlast** head_ref, uint16_t size, uint8_t* payload);
 
 //delete first item
-packet* deleteFirst(packet** head_ref);
+storedPacketBlast* deleteFirst(storedPacketBlast** head_ref);
 
 //is list empty
-bool isEmpty(packet* head_ref);
+bool isEmpty(storedPacketBlast* head_ref);
 
-int length(packet** head_ref);
+int length(storedPacketBlast** head_ref);
 
 //find a link with given identifier
-packet* find(packet** head_ref, uint16_t identifier);
+storedPacketBlast* find(storedPacketBlast** head_ref, uint16_t identifier);
 
 void sendPacketBlastFlavor(contextSimplemux* context,
-                           packet* packetToSend);
+                           storedPacketBlast* packetToSend);
 
 int sendExpiredPackets( contextSimplemux* context,
                         uint64_t now);
 
-uint64_t findLastSentTimestamp(packet* head_ref);
+uint64_t findLastSentTimestamp(storedPacketBlast* head_ref);
 
 //delete a link with given identifier
-bool delete(packet** head_ref, uint16_t identifier);
+bool delete(storedPacketBlast** head_ref, uint16_t identifier);
 
-void reverse(packet** head_ref);
+void reverse(storedPacketBlast** head_ref);
 
-uint64_t findLastSentTimestamp(packet* head_ref);
+uint64_t findLastSentTimestamp(storedPacketBlast* head_ref);
 
 #endif // PACKETSTOSEND_H
