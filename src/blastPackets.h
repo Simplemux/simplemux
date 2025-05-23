@@ -17,13 +17,6 @@
 #define THISISANACK 0x01
 #define ACKNEEDED 0x00
 
-// header of the packet to be sent
-typedef struct {
-  uint16_t packetSize; // use 'htons()' when writing it because this field will be sent through the network
-                       // use 'ntohs()' when reading it from the network
-  uint8_t protocolID;
-} __attribute__ ((__packed__)) simplemuxFastHeader;
-
 
 // header of the packet to be sent
 typedef struct {

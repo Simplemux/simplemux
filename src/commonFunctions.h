@@ -125,6 +125,14 @@
 #define ANSI_COLOR_CYAN         "\x1b[36m"
 
 
+// Simplemux Fast header
+typedef struct {
+  uint16_t packetSize; // use 'htons()' when writing it because this field will be sent through the network
+                       // use 'ntohs()' when reading it from the network
+  uint8_t protocolID;
+} __attribute__ ((__packed__)) simplemuxFastHeader;
+
+
 // this struct includes all the variables used in different places of the code
 // it is passed to the different functions
 typedef struct {
