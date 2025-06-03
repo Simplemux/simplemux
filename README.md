@@ -106,17 +106,18 @@ Different [multiplexing policies](/documentation/multiplexing_policies.md) can b
 
 The next images represent different options for the protocol stack.
 
-#### A UDP/IP/Ethernet frame in TAP tunnel mode: IP, UDP and TCP modes
+#### A UDP/IP/Ethernet frame in TAP tunnel mode: Network, UDP and TCP modes
 
 <img src="images/udp_ip_eth_over_simplemux.png" alt="UDP/IP/Ethernet frame in TAP tunnel mode" width="600"/>
 
-#### A UDP/IP packet in TUN tunnel mode: IP, UDP and TCP modes
+#### A UDP/IP packet in TUN tunnel mode: Network, UDP and TCP modes
 
 <img src="images/udp_ip_over_simplemux.png" alt="UDP/IP packet in TUN tunnel mode" width="600"/>
 
-#### A RoHC compressed packet in TUN tunnel mode: IP, UDP and TCP modes
+#### A RoHC compressed packet in TUN tunnel mode: Network, UDP and TCP modes
 
 <img src="images/rohc_packet_over_simplemux.png" alt="RoHC compressed packet in TUN tunnel mode" width="600"/>
+
 
 ### Summary
 
