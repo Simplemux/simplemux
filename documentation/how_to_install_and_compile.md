@@ -36,6 +36,7 @@ In Debian, you will need these packages:
 sudo apt-get install git
 sudo apt-get install build-essential
 sudo apt-get install pkgconf
+sudo apt-get install cmake      // if you want to use it for compiling
 ```
 
 If you want to use RoHC, download version 1.7.0 from https://rohc-lib.org/support/download/, and unzip the content in a folder. You can do it with these commands:
