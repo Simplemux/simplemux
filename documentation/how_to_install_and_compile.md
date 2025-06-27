@@ -47,6 +47,7 @@ $ tar -xvf rohc-1.7.0.tar.xz
 Go go the RoHC folder and do `make`:
 ```
 $ cd rohc-1.7.0/
+$ chmod +x configure
 $ ./configure --prefix=/usr
 $ make all
 $ make check
