@@ -237,7 +237,7 @@ Some examples of the command to run Simplemux:
 
 ## Acknowledgements
 
-This work was supported by the European Commission Horizon Europe ]ESTELAR (Effective Substation TEchnoLogies for Advanced viRtualization)](https://cordis.europa.eu/project/id/101192574) project, G.A. ID: 101192574.
+This work was supported by the European Commission **Horizon Europe [ESTELAR (Effective Substation TEchnoLogies for Advanced viRtualization)](https://cordis.europa.eu/project/id/101192574)** project, G.A. ID: 101192574.
 
 This work has been partially financed by the **EU H2020 Wi-5 project** (G.A. no: 644262, see https://github.com/Wi5), and the Spanish Ministry of Economy and Competitiveness project TIN2015-64770-R, in cooperation with the European Regional Development Fund.
 
