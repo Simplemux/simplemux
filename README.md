@@ -237,11 +237,13 @@ Some examples of the command to run Simplemux:
 
 ## Acknowledgements
 
-This work has been partially financed by the **EU H2020 Wi-5 project** (G.A. no: 644262, see http://www.wi5.eu/ and https://github.com/Wi5), and the Spanish Ministry of Economy and Competitiveness project TIN2015-64770-R, in cooperation with the European Regional Development Fund.
+This work was supported by the European Commission Horizon Europe ]ESTELAR (Effective Substation TEchnoLogies for Advanced viRtualization)](https://cordis.europa.eu/project/id/101192574) project, G.A. ID: 101192574.
+
+This work has been partially financed by the **EU H2020 Wi-5 project** (G.A. no: 644262, see https://github.com/Wi5), and the Spanish Ministry of Economy and Competitiveness project TIN2015-64770-R, in cooperation with the European Regional Development Fund.
 
 The extensions added to Simplemux (*blast flavor*), as well as the `.lua` Wireshark dissector, have been done as a part of the **[H2020 FARCROSS project](https://cordis.europa.eu/project/id/864274)**, see [farcross.eu/](https://farcross.eu/). This project has received funding from the European Union’s Horizon 2020 research and innovation programme under grant agreement No 864274.
 
-Jose Saldana (working at CIRCE Foundation), improved it in 2021-2022.
+Jose Saldana (working at CIRCE Foundation), improved it betwee 2021 and 2025.
 
 Jose Saldana (working at University of Zaragoza) wrote this program in 2015, published under GNU GENERAL PUBLIC LICENSE, Version 3, 29 June 2007 Copyright (C) 2007 Free Software Foundation, Inc.
 
